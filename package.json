@@ -1,12 +1,12 @@
 {
-  "name": "@adeira/rossum-sa-extension",
+  "name": "mrtnzlml/rossum-sa-extension",
   "description": "Adds additional functionality to Rossum and NetSuite UI for easier onboarding.",
-  "homepage": "https://github.com/adeira/rossum-sa-extension",
-  "bugs": "https://github.com/adeira/universe/issues",
+  "homepage": "https://github.com/mrtnzlml/rossum-sa-extension",
+  "bugs": "https://github.com/mrtnzlml/universe/issues",
   "private": true,
   "repository": {
     "type": "git",
-    "url": "git@github.com:adeira/universe.git",
+    "url": "git@github.com:mrtnzlml/universe.git",
     "directory": "src/rossum-sa-extension"
   },
   "license": "MIT",
