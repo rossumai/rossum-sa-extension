@@ -51,7 +51,7 @@ if (htmlBodyElement == null) {
 }
 
 const observeHtmlBody = (
-  options /*: { +schemaAnnotationsEnabled: boolean, +expandFormulasEnabled: boolean, +expandReasoningFieldsEnabled: boolean } */,
+  options /*: { +schemaAnnotationsEnabled: boolean, +expandFormulasEnabled: boolean, +expandReasoningFieldsEnabled: boolean, +scrollLockEnabled: boolean } */,
 ) => {
   const observer = new MutationObserver((mutations /*: Array<MutationRecord> */) => {
     const checkAddedNode = (addedNode /*: Node */) => {
@@ -79,6 +79,13 @@ const observeHtmlBody = (
         }
       }
 
+      if (options.scrollLockEnabled === true) {
+        const scrollableContainer = document.querySelector('#sidebar-scrollable');
+        if (scrollableContainer != null && !scrollableContainer.__saScrollLockAttached) {
+          initScrollLock(scrollableContainer);
+        }
+      }
+
       for (const child of addedNode.children) {
         checkAddedNode(child);
       }
@@ -97,11 +104,62 @@ const observeHtmlBody = (
   });
 };
 
-chrome.storage.local.get(['schemaAnnotationsEnabled', 'expandFormulasEnabled', 'expandReasoningFieldsEnabled']).then((result) => {
+function initScrollLock(element /*: Element */) {
+  let lastScrollTop = 0;
+  let previousScrollTop = 0;
+  let isRestoring = false;
+
+  element.__saScrollLockAttached = true;
+
+  element.addEventListener(
+    'scroll',
+    () => {
+      if (!isRestoring && element instanceof HTMLElement) {
+        const currentScroll = element.scrollTop;
+        
+        // Only prevent async resets to top (not manual fast scrolling)
+        // Async resets typically jump to 0 or very close to 0
+        if (lastScrollTop > 200 && currentScroll < 20) {
+          isRestoring = true;
+          element.scrollTop = previousScrollTop;
+          setTimeout(() => {
+            isRestoring = false;
+          }, 0);
+        } else {
+          previousScrollTop = lastScrollTop;
+          lastScrollTop = currentScroll;
+        }
+      }
+    },
+    { passive: true }
+  );
+}
+
+function initFocusPatch() {
+  if (!HTMLElement.prototype.__saFocusPatched) {
+    const originalFocus = HTMLElement.prototype.focus;
+    HTMLElement.prototype.focus = function (...args) {
+      try {
+        return originalFocus.call(this, { preventScroll: true });
+      } catch {
+        return originalFocus.apply(this, args);
+      }
+    };
+    HTMLElement.prototype.__saFocusPatched = true;
+  }
+}
+
+chrome.storage.local.get(['schemaAnnotationsEnabled', 'expandFormulasEnabled', 'expandReasoningFieldsEnabled', 'scrollLockEnabled']).then((result) => {
+  
+  if (result.scrollLockEnabled === true) {
+    initFocusPatch();
+  }
+
   observeHtmlBody({
     schemaAnnotationsEnabled: result.schemaAnnotationsEnabled,
     expandFormulasEnabled: result.expandFormulasEnabled,
     expandReasoningFieldsEnabled: result.expandReasoningFieldsEnabled,
+    scrollLockEnabled: result.scrollLockEnabled,
   });
 });
 

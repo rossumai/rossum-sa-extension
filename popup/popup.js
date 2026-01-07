@@ -118,6 +118,18 @@ document.addEventListener('DOMContentLoaded', async function () {
     );
   });
 
+  chrome.storage.local.get(['scrollLockEnabled']).then((result) => {
+    observeCheckbox(
+      'scrollLockEnabled',
+      result.scrollLockEnabled,
+      (reloadCurrentTab, _, currentCheckboxValue) => {
+        chrome.storage.local
+          .set({ scrollLockEnabled: currentCheckboxValue })
+          .then(reloadCurrentTab);
+      },
+    );
+  });
+
   chrome.storage.local.get(['netsuiteFieldNamesEnabled']).then((result) => {
     observeCheckbox(
       'netsuiteFieldNamesEnabled',
