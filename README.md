@@ -11,12 +11,13 @@ Head over to https://chrome.google.com/webstore/detail/bljkbinljmhdbipklfcljongi
 
 All of these options are configurable and can be turned on/off on demand:
 
-- shows datapoint `schema_id` on the annotation screen (headers and line items)
-- expands formula field definitions by default
-- expands reasoning field options by default
-- prevents sidebar from auto-scrolling to top after async loads (scroll lock)
-- adds `devFeatureEnabled` toggle
-- adds `devDebugEnabled` toggle
+- overlays `schema_id` on annotation fields (headers and line items)
+- overlays resource IDs on queues, hooks, extensions, labels, rules, and users (click to copy)
+- auto-expands formula field source code
+- auto-expands reasoning field options
+- prevents annotation sidebar from auto-scrolling to top (scroll lock)
+- toggles `devFeaturesEnabled` flag
+- toggles `devDebugEnabled` flag
 
 ![header fields](./assets/header_fields.png)
 
@@ -24,7 +25,7 @@ All of these options are configurable and can be turned on/off on demand:
 
 ## NetSuite UI improvements
 
-- shows field internal names where available
+- shows internal field names on form labels
 
 ![NetSuite field names](./assets/netsuite_field_names.png)
 
@@ -38,7 +39,7 @@ npm run dev          # rebuild on file changes (JS only)
 
 Load `dist/` as an unpacked extension in `chrome://extensions` (enable Developer mode).
 
-After changing CSS or HTML files, re-run `npm run build` — the watch mode only picks up JS changes.
+After changing HTML files, re-run `npm run build` — the watch mode only picks up JS changes.
 
 ## Release
 
