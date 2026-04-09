@@ -11,6 +11,11 @@
   },
   "license": "MIT",
   "version": "0.17.0",
-  "type": "commonjs",
-  "sideEffects": false
+  "scripts": {
+    "build": "node build.js",
+    "dev": "node build.js --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0"
+  }
 }
