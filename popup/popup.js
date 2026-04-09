@@ -94,6 +94,18 @@ document.addEventListener('DOMContentLoaded', async function () {
     );
   });
 
+  chrome.storage.local.get(['resourceIdsEnabled']).then((result) => {
+    observeCheckbox(
+      'resourceIdsEnabled',
+      result.resourceIdsEnabled,
+      (reloadCurrentTab, _, currentCheckboxValue) => {
+        chrome.storage.local
+          .set({ resourceIdsEnabled: currentCheckboxValue })
+          .then(reloadCurrentTab);
+      },
+    );
+  });
+
   chrome.storage.local.get(['expandFormulasEnabled']).then((result) => {
     observeCheckbox(
       'expandFormulasEnabled',

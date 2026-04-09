@@ -32,11 +32,97 @@ styleSchemaID.textContent = `
 }`;
 document.head?.appendChild(styleSchemaID);
 
+const styleResourceID = document.createElement('style');
+styleResourceID.textContent = `
+[data-cy="sidebar-queue"],
+[data-cy="workspace"],
+[data-cy="queue"],
+[data-cy="extensions-list-name"],
+[data-cy="rule-tile"],
+[data-field="original_file_name"],
+[data-field="name"],
+[data-sentry-component="LabelChip"] {
+  position: relative !important;
+  overflow: visible !important;
+}
+
+.rossum-sa-extension-resource-id {
+  position: absolute;
+  top: 0;
+  right: 0;
+  color: red;
+  font-size: 10px;
+  transition: font-size 0.25s ease-in-out, opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
+  opacity: .7;
+  margin-inline: 3px;
+  z-index: 100;
+  background-color: rgba(255,255,255,0.5);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.rossum-sa-extension-resource-id:hover {
+  font-size: 16px;
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 3px;
+  padding-inline: 3px;
+  z-index: 9999;
+}
+
+.rossum-sa-extension-resource-id--bottom-left {
+  top: auto;
+  right: auto;
+  bottom: 2px;
+  left: 0;
+}
+
+.rossum-sa-extension-resource-id--below {
+  top: 100%;
+  right: auto;
+  left: 0;
+}
+
+.rossum-sa-extension-resource-id--left-offset {
+  right: auto;
+  left: 100%;
+}`;
+document.head?.appendChild(styleResourceID);
+
 function displaySchemaID(node /*: $FlowFixMe */) {
   const span = document.createElement('span');
   span.className = 'rossum-sa-extension-schema-id';
   span.innerHTML = node.getAttribute('data-sa-extension-schema-id');
   node.appendChild(span);
+}
+
+function displayResourceId(node /*: $FlowFixMe */, id /*: string */, variant /*: ?string */) {
+  if (node.querySelector('.rossum-sa-extension-resource-id') != null) return;
+  const span = document.createElement('span');
+  span.className = 'rossum-sa-extension-resource-id' + (variant != null ? ` rossum-sa-extension-resource-id--${variant}` : '');
+  span.textContent = id;
+  span.title = 'Click to copy';
+  span.addEventListener('click', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    navigator.clipboard.writeText(id).then(() => {
+      const original = span.textContent;
+      span.textContent = '✓ copied';
+      setTimeout(() => { span.textContent = original; }, 1000);
+    });
+  });
+  node.appendChild(span);
+}
+
+const apiCache /*: { [string]: Promise<any> } */ = {};
+
+function fetchRossumApi(path /*: string */) /*: Promise<any> */ {
+  if (!apiCache[path]) {
+    const token = window.localStorage.getItem('secureToken');
+    const headers = token ? { Authorization: `Token ${token}` } : {};
+    apiCache[path] = fetch(path, { headers }).then((r) => r.json());
+  }
+  return apiCache[path];
 }
 
 function isElementNode(node /*: any */) /*: node is Element */ {
@@ -51,7 +137,7 @@ if (htmlBodyElement == null) {
 }
 
 const observeHtmlBody = (
-  options /*: { +schemaAnnotationsEnabled: boolean, +expandFormulasEnabled: boolean, +expandReasoningFieldsEnabled: boolean, +scrollLockEnabled: boolean } */,
+  options /*: { +schemaAnnotationsEnabled: boolean, +expandFormulasEnabled: boolean, +expandReasoningFieldsEnabled: boolean, +scrollLockEnabled: boolean, +resourceIdsEnabled: boolean } */,
 ) => {
   const observer = new MutationObserver((mutations /*: Array<MutationRecord> */) => {
     const checkAddedNode = (addedNode /*: Node */) => {
@@ -83,6 +169,80 @@ const observeHtmlBody = (
         const scrollableContainer = document.querySelector('#sidebar-scrollable');
         if (scrollableContainer != null && !scrollableContainer.__saScrollLockAttached) {
           initScrollLock(scrollableContainer);
+        }
+      }
+
+      if (options.resourceIdsEnabled === true) {
+        // Sidebar workspace IDs: name-matched via API
+        if (addedNode.matches('[data-cy="workspace"]')) {
+          const name = addedNode.querySelector('[data-cy="sidebar-heading"] span')?.textContent.trim();
+          if (name) {
+            fetchRossumApi('/api/v1/workspaces?page_size=100').then((data) => {
+              const ws = data.results?.find((w) => w.name === name);
+              if (ws) displayResourceId(addedNode, String(ws.id));
+            });
+          }
+        }
+
+        // Sidebar queue IDs: data-id attribute directly on the element
+        if (addedNode.matches('[data-cy="sidebar-queue"]') && addedNode.dataset.id) {
+          displayResourceId(addedNode, addedNode.dataset.id);
+        }
+
+        // Document list annotation IDs: row has data-id, label goes in the filename cell
+        if (addedNode.matches('[data-field="original_file_name"]')) {
+          const row = addedNode.closest('[data-cy="document-row"]');
+          if (row instanceof HTMLElement && row.dataset.id) {
+            displayResourceId(addedNode, row.dataset.id);
+          }
+        }
+
+        // Automation screen queue IDs: extract from href="/queues/{id}/..."
+        if (addedNode.matches('[data-cy="queue"]')) {
+          const href = addedNode.getAttribute('href') ?? '';
+          const match = href.match(/\/queues\/(\d+)/);
+          if (match) {
+            displayResourceId(addedNode, match[1]);
+          }
+        }
+
+        // Extensions screen hook IDs: label on the name element, ID from parent anchor href
+        if (addedNode.matches('[data-cy="extensions-list-name"]')) {
+          const anchor = addedNode.closest('a[href*="/extensions/my-extensions/"]');
+          if (anchor) {
+            const match = (anchor.getAttribute('href') ?? '').match(/\/extensions\/my-extensions\/(\d+)/);
+            if (match) {
+              displayResourceId(addedNode, match[1], 'left-offset');
+            }
+          }
+        }
+
+        // Settings → Labels screen: name-matched via API
+        if (addedNode.matches('[data-sentry-component="LabelChip"]')) {
+          const nameEl = addedNode.querySelector('.MuiChip-label');
+          const name = nameEl?.textContent.trim();
+          if (name) {
+            fetchRossumApi('/api/v1/labels?page_size=100').then((data) => {
+              const label = data.results?.find((l) => l.name === name);
+              if (label) displayResourceId(addedNode, String(label.id));
+            });
+          }
+        }
+
+        // Rule manager tiles: data-id directly on the tile
+        if (addedNode.matches('[data-cy="rule-tile"]') && addedNode.dataset.id) {
+          displayResourceId(addedNode, addedNode.dataset.id);
+        }
+
+        // Settings → Users screen: label on the name cell, ID from parent anchor href
+        if (addedNode.matches('[data-field="name"]')) {
+          const anchor = addedNode.closest('a[href*="/settings/users/"]');
+          if (anchor) {
+            const match = (anchor.getAttribute('href') ?? '').match(/\/settings\/users\/(\d+)/);
+            if (match) {
+              displayResourceId(addedNode, match[1]);
+            }
+          }
         }
       }
 
@@ -259,8 +419,8 @@ function initFocusPatch() {
   }
 }
 
-chrome.storage.local.get(['schemaAnnotationsEnabled', 'expandFormulasEnabled', 'expandReasoningFieldsEnabled', 'scrollLockEnabled']).then((result) => {
-  
+chrome.storage.local.get(['schemaAnnotationsEnabled', 'expandFormulasEnabled', 'expandReasoningFieldsEnabled', 'scrollLockEnabled', 'resourceIdsEnabled']).then((result) => {
+
   if (result.scrollLockEnabled === true) {
     initFocusPatch();
   }
@@ -270,6 +430,7 @@ chrome.storage.local.get(['schemaAnnotationsEnabled', 'expandFormulasEnabled', '
     expandFormulasEnabled: result.expandFormulasEnabled,
     expandReasoningFieldsEnabled: result.expandReasoningFieldsEnabled,
     scrollLockEnabled: result.scrollLockEnabled,
+    resourceIdsEnabled: result.resourceIdsEnabled,
   });
 });
 
