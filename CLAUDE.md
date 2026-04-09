@@ -30,7 +30,7 @@ Source code lives in `src/` with one file per feature:
   - `dev-flags.js` — message handlers for devFeaturesEnabled/devDebugEnabled toggles
 - **`src/netsuite/index.js`** — NetSuite field name display
 - **`src/popup/`** — popup UI (`popup.js`, `popup.html`, `popup.css`); feature toggle interface using chrome.storage.local
-- **`src/rossum/rossum.css`**, **`src/netsuite/netsuite.css`** — injected via manifest.json `css` arrays
+- Feature modules that need CSS (`schema-ids.js`, `resource-ids.js`, `netsuite/index.js`) inject styles dynamically via `init()` — styles only exist in the DOM when the feature is enabled
 
 ## Key Patterns
 

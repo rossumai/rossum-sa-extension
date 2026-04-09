@@ -1,5 +1,5 @@
-import { handleNode as handleSchemaId } from './features/schema-ids.js';
-import { handleNode as handleResourceId } from './features/resource-ids.js';
+import { init as initSchemaIds, handleNode as handleSchemaId } from './features/schema-ids.js';
+import { init as initResourceIds, handleNode as handleResourceId } from './features/resource-ids.js';
 import { handleNode as handleExpandFormulas } from './features/expand-formulas.js';
 import { handleNode as handleExpandReasoning } from './features/expand-reasoning.js';
 import { initScrollLock, initFocusPatch } from './features/scroll-lock.js';
@@ -22,8 +22,14 @@ chrome.storage.local.get(SETTINGS_KEYS).then((settings) => {
 
   const handlers = [];
 
-  if (settings.schemaAnnotationsEnabled) handlers.push(handleSchemaId);
-  if (settings.resourceIdsEnabled) handlers.push(handleResourceId);
+  if (settings.schemaAnnotationsEnabled) {
+    initSchemaIds();
+    handlers.push(handleSchemaId);
+  }
+  if (settings.resourceIdsEnabled) {
+    initResourceIds();
+    handlers.push(handleResourceId);
+  }
   if (settings.expandFormulasEnabled) handlers.push(handleExpandFormulas);
   if (settings.expandReasoningFieldsEnabled) handlers.push(handleExpandReasoning);
   if (settings.scrollLockEnabled) {

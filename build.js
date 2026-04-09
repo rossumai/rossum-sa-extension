@@ -5,14 +5,12 @@ const isWatch = process.argv.includes('--watch');
 
 rmSync('dist', { recursive: true, force: true });
 
-for (const dir of ['dist/styles', 'dist/popup', 'dist/icons']) {
+for (const dir of ['dist/popup', 'dist/icons']) {
   mkdirSync(dir, { recursive: true });
 }
 
 cpSync('manifest.json', 'dist/manifest.json');
 cpSync('icons', 'dist/icons', { recursive: true });
-cpSync('src/rossum/rossum.css', 'dist/styles/rossum.css');
-cpSync('src/netsuite/netsuite.css', 'dist/styles/netsuite.css');
 cpSync('src/popup/popup.html', 'dist/popup/popup.html');
 cpSync('src/popup/popup.css', 'dist/popup/popup.css');
 

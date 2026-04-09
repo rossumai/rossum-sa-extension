@@ -1,5 +1,64 @@
 import { fetchRossumApi } from '../api.js';
 
+export function init() {
+  const style = document.createElement('style');
+  style.textContent = `
+[data-cy="sidebar-queue"],
+[data-cy="workspace"],
+[data-cy="queue"],
+[data-cy="extensions-list-name"],
+[data-cy="rule-tile"],
+[data-field="original_file_name"],
+[data-field="name"],
+[data-sentry-component="LabelChip"] {
+  position: relative !important;
+  overflow: visible !important;
+}
+
+.rossum-sa-extension-resource-id {
+  position: absolute;
+  top: 0;
+  right: 0;
+  color: red;
+  font-size: 10px;
+  transition: font-size 0.25s ease-in-out, opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
+  opacity: .7;
+  margin-inline: 3px;
+  z-index: 100;
+  background-color: rgba(255,255,255,0.5);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.rossum-sa-extension-resource-id:hover {
+  font-size: 16px;
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 3px;
+  padding-inline: 3px;
+  z-index: 9999;
+}
+
+.rossum-sa-extension-resource-id--bottom-left {
+  top: auto;
+  right: auto;
+  bottom: 2px;
+  left: 0;
+}
+
+.rossum-sa-extension-resource-id--below {
+  top: 100%;
+  right: auto;
+  left: 0;
+}
+
+.rossum-sa-extension-resource-id--left-offset {
+  right: auto;
+  left: 100%;
+}`;
+  document.head?.appendChild(style);
+}
+
 function displayResourceId(node, id, variant) {
   if (node.querySelector('.rossum-sa-extension-resource-id') != null) return;
   const span = document.createElement('span');

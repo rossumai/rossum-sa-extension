@@ -1,3 +1,15 @@
+function injectStyles() {
+  const style = document.createElement('style');
+  style.textContent = `
+.rossum-sa-extension-netsuite-field-name {
+  color: red;
+  font-size: 10px;
+  opacity: .7;
+  text-transform: lowercase;
+}`;
+  document.head?.appendChild(style);
+}
+
 function displayFieldName(node, fieldId) {
   const div = document.createElement('div');
   div.className = 'rossum-sa-extension-netsuite-field-name';
@@ -7,6 +19,8 @@ function displayFieldName(node, fieldId) {
 
 chrome.storage.local.get(['netsuiteFieldNamesEnabled']).then((result) => {
   if (result.netsuiteFieldNamesEnabled !== true) return;
+
+  injectStyles();
 
   const linksWithLabel = document.querySelectorAll("span[id$='_lbl'] a");
   for (const link of linksWithLabel) {
