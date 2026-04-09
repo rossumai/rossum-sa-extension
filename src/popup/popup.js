@@ -22,6 +22,13 @@ const MESSAGE_TOGGLES = [
 document.addEventListener('DOMContentLoaded', async () => {
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
 
+  // Dim sections not relevant to the current page
+  const url = tab.url || '';
+  const isRossum = /localhost:3000|\.rossum\.(ai|app)|\.r8\.lol/.test(url);
+  const isNetsuite = /\.netsuite\.com\/app/.test(url);
+  if (isRossum) document.querySelector('[data-context="netsuite"]')?.classList.add('dimmed');
+  else if (isNetsuite) document.querySelector('[data-context="rossum"]')?.classList.add('dimmed');
+
   // Master Data Hub button
   document.getElementById('masterDataHub')?.addEventListener('click', () => {
     chrome.tabs.create({

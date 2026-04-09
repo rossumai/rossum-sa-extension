@@ -18,69 +18,95 @@
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
   </button>
 
-  <div class="divider"></div>
-
-  <section>
+  <section class="card" data-context="rossum">
     <h3 class="section-title">Rossum</h3>
 
-    <label class="toggle">
-      <input type="checkbox" id="schemaAnnotationsEnabled" />
-      <span class="toggle-track"></span>
-      <span class="toggle-label">Schema IDs</span>
-    </label>
+    <div class="toggle-group">
+      <span class="group-label">Overlays</span>
 
-    <label class="toggle">
-      <input type="checkbox" id="resourceIdsEnabled" />
-      <span class="toggle-track"></span>
-      <span class="toggle-label">Resource IDs</span>
-    </label>
+      <label class="toggle">
+        <input type="checkbox" id="schemaAnnotationsEnabled" />
+        <span class="toggle-track"></span>
+        <span class="toggle-label">
+          Schema IDs
+          <span class="toggle-hint">Overlay schema_id on annotation fields</span>
+        </span>
+      </label>
 
-    <label class="toggle">
-      <input type="checkbox" id="expandFormulasEnabled" />
-      <span class="toggle-track"></span>
-      <span class="toggle-label">Auto-expand formulas</span>
-    </label>
+      <label class="toggle">
+        <input type="checkbox" id="resourceIdsEnabled" />
+        <span class="toggle-track"></span>
+        <span class="toggle-label">
+          Resource IDs
+          <span class="toggle-hint">Overlay IDs on queues, hooks, extensions, users</span>
+        </span>
+      </label>
+    </div>
 
-    <label class="toggle">
-      <input type="checkbox" id="expandReasoningFieldsEnabled" />
-      <span class="toggle-track"></span>
-      <span class="toggle-label">Auto-expand reasoning</span>
-    </label>
+    <div class="toggle-group">
+      <span class="group-label">Behavior</span>
 
-    <label class="toggle">
-      <input type="checkbox" id="scrollLockEnabled" />
-      <span class="toggle-track"></span>
-      <span class="toggle-label">Scroll lock</span>
-    </label>
+      <label class="toggle">
+        <input type="checkbox" id="expandFormulasEnabled" />
+        <span class="toggle-track"></span>
+        <span class="toggle-label">
+          Expand formulas
+          <span class="toggle-hint">Auto-open formula source code</span>
+        </span>
+      </label>
 
-    <label class="toggle">
-      <input type="checkbox" id="devFeaturesEnabled" />
-      <span class="toggle-track"></span>
-      <span class="toggle-label">
-        Dev features
-        <span class="toggle-hint">devFeaturesEnabled</span>
-      </span>
-    </label>
+      <label class="toggle">
+        <input type="checkbox" id="expandReasoningFieldsEnabled" />
+        <span class="toggle-track"></span>
+        <span class="toggle-label">
+          Expand reasoning
+          <span class="toggle-hint">Auto-open reasoning field options</span>
+        </span>
+      </label>
 
-    <label class="toggle">
-      <input type="checkbox" id="devDebugEnabled" />
-      <span class="toggle-track"></span>
-      <span class="toggle-label">
-        Dev debug
-        <span class="toggle-hint">devDebugEnabled</span>
-      </span>
-    </label>
+      <label class="toggle">
+        <input type="checkbox" id="scrollLockEnabled" />
+        <span class="toggle-track"></span>
+        <span class="toggle-label">
+          Sidebar scroll lock
+          <span class="toggle-hint">Keep annotation sidebar scroll position</span>
+        </span>
+      </label>
+    </div>
+
+    <div class="toggle-group">
+      <span class="group-label">Developer</span>
+
+      <label class="toggle">
+        <input type="checkbox" id="devFeaturesEnabled" />
+        <span class="toggle-track"></span>
+        <span class="toggle-label">
+          Dev features
+          <span class="toggle-hint">devFeaturesEnabled</span>
+        </span>
+      </label>
+
+      <label class="toggle">
+        <input type="checkbox" id="devDebugEnabled" />
+        <span class="toggle-track"></span>
+        <span class="toggle-label">
+          Dev debug
+          <span class="toggle-hint">devDebugEnabled</span>
+        </span>
+      </label>
+    </div>
   </section>
 
-  <div class="divider"></div>
-
-  <section>
+  <section class="card" data-context="netsuite">
     <h3 class="section-title">NetSuite</h3>
 
     <label class="toggle">
       <input type="checkbox" id="netsuiteFieldNamesEnabled" />
       <span class="toggle-track"></span>
-      <span class="toggle-label">Field names</span>
+      <span class="toggle-label">
+        Field names
+        <span class="toggle-hint">Show internal IDs on form labels</span>
+      </span>
     </label>
   </section>
 
