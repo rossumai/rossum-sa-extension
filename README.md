@@ -28,8 +28,21 @@ All of these options are configurable and can be turned on/off on demand:
 
 ![NetSuite field names](./assets/netsuite_field_names.png)
 
-## Build and release
+## Development
 
-- bump version in `manifest.json`, `package.json` and `popup/popup.html`
-- ZIP the `rossum-sa-extension` folder
-- https://chrome.google.com/webstore/devconsole
+```bash
+npm install          # install dependencies (esbuild)
+npm run build        # bundle src/ → dist/
+npm run dev          # rebuild on file changes (JS only)
+```
+
+Load `dist/` as an unpacked extension in `chrome://extensions` (enable Developer mode).
+
+After changing CSS or HTML files, re-run `npm run build` — the watch mode only picks up JS changes.
+
+## Release
+
+1. Bump version in `manifest.json`, `package.json`, and `src/popup/popup.html`
+2. `npm run build`
+3. ZIP the `dist/` folder
+4. Upload via https://chrome.google.com/webstore/devconsole
