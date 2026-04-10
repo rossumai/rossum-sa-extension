@@ -25,6 +25,7 @@ const options = {
     'mdh/mdh': 'src/mdh/index.js',
   },
   bundle: true,
+  minify: true,
   outdir: 'dist',
   format: 'iife',
   logLevel: 'info',

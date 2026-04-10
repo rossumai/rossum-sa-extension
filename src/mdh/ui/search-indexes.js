@@ -1,45 +1,88 @@
 import * as api from '../api.js';
 import * as state from '../state.js';
-import { confirmModal } from './modal.js';
+import { createJsonEditor } from './json-editor.js';
+import { showAsyncStatus } from './utils.js';
+import { renderIndexCard } from './index-card.js';
+
+let mappingsEditor = null;
 
 export function initSearchIndexes() {
   const panelEl = document.getElementById('panel-search-indexes');
+  panelEl.innerHTML = '';
 
-  panelEl.innerHTML = `
-    <div class="toolbar">
-      <span style="flex:1;font-weight:500">Search Indexes (Atlas Search)</span>
-      <button id="refreshSearchIndexes" class="icon-btn" title="Refresh">&#x21bb;</button>
-    </div>
-    <div id="searchIndexList" class="index-list"></div>
-    <div id="searchIndexOpStatus" class="hidden" style="padding:8px 16px"></div>
-    <div class="index-create-form" style="flex-direction:column;align-items:stretch;gap:8px">
-      <div style="display:flex;gap:6px;align-items:center">
-        <span class="toolbar-label">Name:</span>
-        <input id="searchIndexName" class="input" style="flex:1" placeholder="my_search_index" />
-      </div>
-      <div>
-        <span class="toolbar-label" style="display:block;margin-bottom:4px">Mappings (JSON):</span>
-        <textarea id="searchIndexMappings" class="input" style="width:100%;min-height:80px">{
-  "dynamic": true
-}</textarea>
-      </div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <span class="toolbar-label">Analyzer:</span>
-        <input id="searchIndexAnalyzer" class="input" style="flex:1" placeholder="(optional)" />
-        <span class="toolbar-label" style="width:auto">Search Analyzer:</span>
-        <input id="searchIndexSearchAnalyzer" class="input" style="flex:1" placeholder="(optional)" />
-      </div>
-      <div>
-        <button id="createSearchIndexBtn" class="btn btn-primary btn-sm">Create Search Index</button>
-      </div>
+  // Toolbar
+  const toolbar = document.createElement('div');
+  toolbar.className = 'toolbar';
+  toolbar.innerHTML = `
+    <span style="flex:1;font-weight:500">Search Indexes (Atlas Search)</span>
+    <button id="refreshSearchIndexes" class="icon-btn" title="Refresh">&#x21bb;</button>
+  `;
+  panelEl.appendChild(toolbar);
+
+  // Index list
+  const listEl = document.createElement('div');
+  listEl.id = 'searchIndexList';
+  listEl.className = 'index-list';
+  panelEl.appendChild(listEl);
+
+  // Op status
+  const statusEl = document.createElement('div');
+  statusEl.id = 'searchIndexOpStatus';
+  statusEl.className = 'hidden';
+  statusEl.style.padding = '8px 16px';
+  panelEl.appendChild(statusEl);
+
+  // Create form
+  const form = document.createElement('div');
+  form.className = 'search-index-create-form';
+
+  form.innerHTML = `
+    <div class="search-index-form-header">Create Search Index</div>
+    <div class="search-index-form-row">
+      <span class="search-index-form-label">Name:</span>
+      <input id="searchIndexName" class="input" style="flex:1" placeholder="my_search_index" />
     </div>
   `;
 
-  panelEl.querySelector('#refreshSearchIndexes').addEventListener('click', loadSearchIndexes);
-  panelEl.querySelector('#createSearchIndexBtn').addEventListener('click', doCreateSearchIndex);
+  const mappingsLabel = document.createElement('div');
+  mappingsLabel.className = 'search-index-form-label';
+  mappingsLabel.style.marginBottom = '4px';
+  mappingsLabel.textContent = 'Mappings:';
+  form.appendChild(mappingsLabel);
+
+  mappingsEditor = createJsonEditor({ value: '{\n  "dynamic": true\n}', minHeight: '80px' });
+  form.appendChild(mappingsEditor.el);
+
+  const optRow = document.createElement('div');
+  optRow.className = 'search-index-form-row';
+  optRow.style.marginTop = '8px';
+  optRow.innerHTML = `
+    <span class="search-index-form-label">Analyzer:</span>
+    <input id="searchIndexAnalyzer" class="input" style="flex:1" placeholder="(optional)" />
+    <span class="search-index-form-label" style="margin-left:8px">Search Analyzer:</span>
+    <input id="searchIndexSearchAnalyzer" class="input" style="flex:1" placeholder="(optional)" />
+  `;
+  form.appendChild(optRow);
+
+  const btnRow = document.createElement('div');
+  btnRow.style.marginTop = '8px';
+  const createBtn = document.createElement('button');
+  createBtn.id = 'createSearchIndexBtn';
+  createBtn.className = 'btn btn-primary btn-sm';
+  createBtn.textContent = 'Create Search Index';
+  btnRow.appendChild(createBtn);
+  form.appendChild(btnRow);
+
+  panelEl.appendChild(form);
+
+  toolbar.querySelector('#refreshSearchIndexes').addEventListener('click', loadSearchIndexes);
+  createBtn.addEventListener('click', doCreateSearchIndex);
 
   state.on('activePanelChanged', (panel) => {
-    if (panel === 'search-indexes') loadSearchIndexes();
+    if (panel === 'search-indexes') {
+      loadSearchIndexes();
+      if (mappingsEditor) requestAnimationFrame(() => mappingsEditor.refresh());
+    }
   });
 
   state.on('selectedCollectionChanged', () => {
@@ -71,46 +114,39 @@ function renderSearchIndexes(indexes) {
   }
 
   for (const idx of indexes) {
-    const name = typeof idx === 'string' ? idx : (idx.name || JSON.stringify(idx));
-    const row = document.createElement('div');
-    row.className = 'index-row';
-    row.innerHTML = `
-      <div><span class="index-name">${escapeHtml(name)}</span></div>
-      <button class="btn btn-sm btn-danger drop-btn">Drop</button>
-    `;
-    row.querySelector('.drop-btn').addEventListener('click', () => {
-      confirmModal(
-        'Drop search index?',
-        `Drop search index "${name}"?`,
-        () => doDropSearchIndex(name),
-      );
-    });
-    listEl.appendChild(row);
+    const isObj = typeof idx === 'object' && idx !== null;
+    const name = isObj ? (idx.name || '(unnamed)') : String(idx);
+
+    const badges = [];
+    if (isObj && idx.status) {
+      const cls = idx.status === 'READY' ? 'index-badge-ready'
+        : (idx.status === 'PENDING' || idx.status === 'BUILDING') ? 'index-badge-pending' : '';
+      badges.push({ text: idx.status.toLowerCase(), cls });
+    }
+    if (isObj && idx.type) badges.push({ text: idx.type });
+
+    listEl.appendChild(renderIndexCard({
+      name,
+      badges,
+      definition: isObj ? idx : null,
+      canDrop: true,
+      onDrop: () => doDropSearchIndex(name),
+    }));
   }
 }
 
 async function doCreateSearchIndex() {
   const nameInput = document.getElementById('searchIndexName');
-  const mappingsInput = document.getElementById('searchIndexMappings');
   const analyzerInput = document.getElementById('searchIndexAnalyzer');
   const searchAnalyzerInput = document.getElementById('searchIndexSearchAnalyzer');
   const statusEl = document.getElementById('searchIndexOpStatus');
 
   const indexName = nameInput.value.trim();
-  if (!indexName) {
-    nameInput.classList.add('input-error');
-    return;
-  }
+  if (!indexName) { nameInput.classList.add('input-error'); return; }
   nameInput.classList.remove('input-error');
 
-  let mappings;
-  try {
-    mappings = JSON.parse(mappingsInput.value);
-    mappingsInput.classList.remove('input-error');
-  } catch {
-    mappingsInput.classList.add('input-error');
-    return;
-  }
+  if (!mappingsEditor.isValid()) return;
+  const mappings = mappingsEditor.getParsed();
 
   const opts = { indexName, mappings };
   const analyzer = analyzerInput.value.trim();
@@ -141,43 +177,4 @@ async function doDropSearchIndex(indexName) {
   } catch (err) {
     state.set({ error: { message: err.message }, loading: false });
   }
-}
-
-function showAsyncStatus(statusEl, message) {
-  const operationId = message ? message.match(/[a-f0-9]{24}/i)?.[0] : null;
-  if (!operationId) {
-    statusEl.classList.add('hidden');
-    return;
-  }
-  statusEl.classList.remove('hidden');
-  statusEl.innerHTML = `
-    <div class="op-status">
-      <span class="op-status-badge running">pending</span>
-      <span>Operation: ${operationId}</span>
-      <button class="btn btn-sm check-btn" style="margin-left:auto">Check Status</button>
-    </div>
-  `;
-  statusEl.querySelector('.check-btn').addEventListener('click', async () => {
-    try {
-      const res = await api.checkOperationStatus(operationId);
-      const op = res.result || {};
-      const badgeClass = op.status === 'FINISHED' ? 'finished' : op.status === 'FAILED' ? 'failed' : 'running';
-      statusEl.innerHTML = `
-        <div class="op-status">
-          <span class="op-status-badge ${badgeClass}">${(op.status || 'unknown').toLowerCase()}</span>
-          <span>Operation: ${operationId}</span>
-          ${op.status !== 'FINISHED' && op.status !== 'FAILED' ? '<button class="btn btn-sm check-btn" style="margin-left:auto">Check Status</button>' : ''}
-          ${op.error_message ? `<span style="color:var(--danger)">${escapeHtml(op.error_message)}</span>` : ''}
-        </div>
-      `;
-      const btn = statusEl.querySelector('.check-btn');
-      if (btn) btn.addEventListener('click', () => showAsyncStatus(statusEl, message));
-    } catch (err) {
-      state.set({ error: { message: err.message } });
-    }
-  });
-}
-
-function escapeHtml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }

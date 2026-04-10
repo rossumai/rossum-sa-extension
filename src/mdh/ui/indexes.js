@@ -1,6 +1,8 @@
 import * as api from '../api.js';
 import * as state from '../state.js';
 import { confirmModal } from './modal.js';
+import { escapeHtml, showAsyncStatus } from './utils.js';
+import { renderIndexCard } from './index-card.js';
 
 export function initIndexes() {
   const panelEl = document.getElementById('panel-indexes');
@@ -51,32 +53,29 @@ function renderIndexes(indexes) {
   const listEl = document.getElementById('indexList');
   listEl.innerHTML = '';
 
+  if (indexes.length === 0) {
+    listEl.innerHTML = '<div style="padding:16px;color:var(--text-secondary);font-size:12px">No indexes</div>';
+    return;
+  }
+
   for (const idx of indexes) {
-    const name = typeof idx === 'string' ? idx : (idx.name || idx.key ? JSON.stringify(idx.key) : String(idx));
-    const keys = typeof idx === 'object' && idx.key ? JSON.stringify(idx.key) : '';
+    const isObj = typeof idx === 'object' && idx !== null;
+    const name = isObj ? (idx.name || '(unnamed)') : String(idx);
     const isDefault = name === '_id_';
 
-    const row = document.createElement('div');
-    row.className = 'index-row';
-    row.innerHTML = `
-      <div>
-        <span class="index-name">${escapeHtml(name)}</span>
-        ${keys ? `<span class="index-keys">${escapeHtml(keys)}</span>` : ''}
-      </div>
-      ${isDefault ? '<span class="index-default">default</span>' : `<button class="btn btn-sm btn-danger drop-index-btn">Drop</button>`}
-    `;
+    const badges = [];
+    if (isDefault) badges.push({ text: 'default', cls: 'index-badge-default' });
+    if (isObj && idx.unique) badges.push({ text: 'unique', cls: 'index-badge-unique' });
+    if (isObj && idx.sparse) badges.push({ text: 'sparse' });
+    if (isObj && idx.expireAfterSeconds != null) badges.push({ text: `TTL: ${idx.expireAfterSeconds}s` });
 
-    if (!isDefault) {
-      row.querySelector('.drop-index-btn').addEventListener('click', () => {
-        confirmModal(
-          'Drop index?',
-          `Drop index "${name}"? This may affect query performance.`,
-          () => doDropIndex(name),
-        );
-      });
-    }
-
-    listEl.appendChild(row);
+    listEl.appendChild(renderIndexCard({
+      name,
+      badges,
+      definition: isObj ? idx : null,
+      canDrop: !isDefault,
+      onDrop: () => doDropIndex(name),
+    }));
   }
 }
 
@@ -86,10 +85,7 @@ async function doCreateIndex() {
   const statusEl = document.getElementById('indexOpStatus');
   const indexName = nameInput.value.trim();
 
-  if (!indexName) {
-    nameInput.classList.add('input-error');
-    return;
-  }
+  if (!indexName) { nameInput.classList.add('input-error'); return; }
   nameInput.classList.remove('input-error');
 
   let keys;
@@ -124,43 +120,4 @@ async function doDropIndex(indexName) {
   } catch (err) {
     state.set({ error: { message: err.message }, loading: false });
   }
-}
-
-function showAsyncStatus(statusEl, message) {
-  const operationId = message ? message.match(/[a-f0-9]{24}/i)?.[0] : null;
-  if (!operationId) {
-    statusEl.classList.add('hidden');
-    return;
-  }
-  statusEl.classList.remove('hidden');
-  statusEl.innerHTML = `
-    <div class="op-status">
-      <span class="op-status-badge running">pending</span>
-      <span>Operation: ${operationId}</span>
-      <button class="btn btn-sm check-status-btn" style="margin-left:auto">Check Status</button>
-    </div>
-  `;
-  statusEl.querySelector('.check-status-btn').addEventListener('click', async () => {
-    try {
-      const res = await api.checkOperationStatus(operationId);
-      const op = res.result || {};
-      const badgeClass = op.status === 'FINISHED' ? 'finished' : op.status === 'FAILED' ? 'failed' : 'running';
-      statusEl.innerHTML = `
-        <div class="op-status">
-          <span class="op-status-badge ${badgeClass}">${(op.status || 'unknown').toLowerCase()}</span>
-          <span>Operation: ${operationId}</span>
-          ${op.status !== 'FINISHED' && op.status !== 'FAILED' ? '<button class="btn btn-sm check-status-btn" style="margin-left:auto">Check Status</button>' : ''}
-          ${op.error_message ? `<span style="color:var(--danger)">${escapeHtml(op.error_message)}</span>` : ''}
-        </div>
-      `;
-      const btn = statusEl.querySelector('.check-status-btn');
-      if (btn) btn.addEventListener('click', () => showAsyncStatus(statusEl, message));
-    } catch (err) {
-      state.set({ error: { message: err.message } });
-    }
-  });
-}
-
-function escapeHtml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }

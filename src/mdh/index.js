@@ -1,11 +1,9 @@
 import * as api from './api.js';
 import * as state from './state.js';
 import { initSidebar } from './ui/sidebar.js';
-import { initRecords } from './ui/records.js';
-import { initAggregate } from './ui/aggregate.js';
+import { initDataPanel } from './ui/records.js';
 import { initIndexes } from './ui/indexes.js';
 import { initSearchIndexes } from './ui/search-indexes.js';
-import { initBulkWrite } from './ui/bulk-write.js';
 
 async function boot() {
   const { mdhToken, mdhDomain } = await chrome.storage.local.get(['mdhToken', 'mdhDomain']);
@@ -41,7 +39,7 @@ async function boot() {
   });
 
   const tabs = document.querySelectorAll('.tab-bar .tab');
-  const panels = ['records', 'aggregate', 'indexes', 'search-indexes', 'bulk-write'];
+  const panels = ['data', 'indexes', 'search-indexes'];
 
   function showPanel(name) {
     for (const p of panels) {
@@ -63,11 +61,41 @@ async function boot() {
   });
 
   initSidebar();
-  initRecords();
-  initAggregate();
+  initDataPanel();
   initIndexes();
   initSearchIndexes();
-  initBulkWrite();
+  initSidebarResize();
+}
+
+function initSidebarResize() {
+  const sidebar = document.getElementById('sidebar');
+  const resizer = document.getElementById('sidebarResizer');
+  let startX, startWidth;
+
+  resizer.addEventListener('mousedown', (e) => {
+    startX = e.clientX;
+    startWidth = sidebar.getBoundingClientRect().width;
+    resizer.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    function onMove(e) {
+      const newWidth = Math.max(160, Math.min(600, startWidth + e.clientX - startX));
+      sidebar.style.width = newWidth + 'px';
+      sidebar.style.minWidth = newWidth + 'px';
+    }
+
+    function onUp() {
+      resizer.classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
 }
 
 boot();

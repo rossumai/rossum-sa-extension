@@ -6,12 +6,9 @@ const state = {
   collections: [],
   selectedCollection: null,
   records: [],
-  filter: '{}',
-  sort: '{}',
-  projection: '',
   skip: 0,
   limit: 30,
-  activePanel: 'records',
+  activePanel: 'data',
   loading: false,
   error: null,
 };

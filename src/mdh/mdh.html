@@ -10,15 +10,15 @@
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
         <span class="sidebar-title">Collections</span>
-        <button id="refreshCollections" class="icon-btn" title="Refresh">&#x21bb;</button>
-      </div>
-      <div class="sidebar-create">
-        <input id="newCollectionName" type="text" class="input" placeholder="New collection..." />
-        <button id="createCollectionBtn" class="btn btn-sm">Create</button>
+        <div class="sidebar-header-actions">
+          <button id="addCollectionBtn" class="icon-btn" title="New collection">+</button>
+          <button id="refreshCollections" class="icon-btn" title="Refresh">&#x21bb;</button>
+        </div>
       </div>
       <div id="collectionList" class="collection-list"></div>
       <div id="sidebarFooter" class="sidebar-footer"></div>
     </aside>
+    <div id="sidebarResizer" class="sidebar-resizer"></div>
 
     <main id="main" class="main">
       <div id="connectionBar" class="connection-bar"></div>
@@ -33,23 +33,17 @@
 
       <div id="mainContent" class="main-content hidden">
         <div class="tab-bar">
-          <button class="tab active" data-panel="records">Records</button>
-          <button class="tab" data-panel="aggregate">Aggregate</button>
+          <button class="tab active" data-panel="data">Data</button>
           <button class="tab" data-panel="indexes">Indexes</button>
           <button class="tab" data-panel="search-indexes">Search Indexes</button>
-          <button class="tab" data-panel="bulk-write">Bulk Write</button>
         </div>
 
-        <div id="panel-records" class="panel"></div>
-        <div id="panel-aggregate" class="panel hidden"></div>
+        <div id="panel-data" class="panel"></div>
         <div id="panel-indexes" class="panel hidden"></div>
         <div id="panel-search-indexes" class="panel hidden"></div>
-        <div id="panel-bulk-write" class="panel hidden"></div>
       </div>
     </main>
   </div>
-
-  <div id="contextMenu" class="context-menu hidden"></div>
 
   <script src="mdh.js"></script>
 </body>

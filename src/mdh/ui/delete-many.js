@@ -1,8 +1,9 @@
 import * as api from '../api.js';
 import * as state from '../state.js';
 import { openModal, closeModal } from './modal.js';
+import { createJsonEditor } from './json-editor.js';
 
-export function openDeleteMany(onSuccess) {
+export function openDeleteMany(onSuccess, fields) {
   const body = document.createElement('div');
   body.className = 'modal-body';
 
@@ -17,11 +18,8 @@ export function openDeleteMany(onSuccess) {
   filterLabel.textContent = 'Filter:';
   body.appendChild(filterLabel);
 
-  const filterInput = document.createElement('textarea');
-  filterInput.className = 'input';
-  filterInput.style.minHeight = '80px';
-  filterInput.value = '{}';
-  body.appendChild(filterInput);
+  const filterEditor = createJsonEditor({ value: '{}', minHeight: '80px', mode: 'query', fields });
+  body.appendChild(filterEditor.el);
 
   const hint = document.createElement('div');
   hint.className = 'input-hint';
@@ -41,17 +39,12 @@ export function openDeleteMany(onSuccess) {
   previewBtn.textContent = 'Preview (5 docs)';
 
   previewBtn.addEventListener('click', async () => {
-    let filter;
-    try {
-      filter = JSON.parse(filterInput.value);
-      filterInput.classList.remove('input-error');
-    } catch {
-      filterInput.classList.add('input-error');
+    if (!filterEditor.isValid()) {
       hint.textContent = 'Invalid JSON';
       return;
     }
     try {
-      const res = await api.find(state.get('selectedCollection'), { query: filter, limit: 5 });
+      const res = await api.find(state.get('selectedCollection'), { query: filterEditor.getParsed(), limit: 5 });
       previewPre.textContent = JSON.stringify(res.result, null, 2);
       previewBox.classList.remove('hidden');
       hint.textContent = '';
@@ -70,19 +63,14 @@ export function openDeleteMany(onSuccess) {
   deleteBtn.textContent = 'Delete Many';
 
   deleteBtn.addEventListener('click', async () => {
-    let filter;
-    try {
-      filter = JSON.parse(filterInput.value);
-      filterInput.classList.remove('input-error');
-    } catch {
-      filterInput.classList.add('input-error');
+    if (!filterEditor.isValid()) {
       hint.textContent = 'Invalid JSON';
       return;
     }
 
     try {
       state.set({ loading: true, error: null });
-      const res = await api.deleteMany(state.get('selectedCollection'), filter);
+      const res = await api.deleteMany(state.get('selectedCollection'), filterEditor.getParsed());
       state.set({ loading: false });
       const count = res.result?.deleted_count ?? 0;
       hint.style.color = 'var(--success)';

@@ -28,15 +28,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   const isRossum = /localhost:3000|\.rossum\.(ai|app)|\.r8\.lol/.test(url);
   const isNetsuite = /\.netsuite\.com\/app/.test(url);
   const isCoupa = /\.coupacloud\.com/.test(url);
+  function dimContext(name) {
+    for (const el of document.querySelectorAll(`[data-context="${name}"]`)) {
+      el.classList.add('dimmed');
+    }
+  }
   if (isRossum) {
-    document.querySelector('[data-context="netsuite"]')?.classList.add('dimmed');
-    document.querySelector('[data-context="coupa"]')?.classList.add('dimmed');
+    dimContext('netsuite');
+    dimContext('coupa');
   } else if (isNetsuite) {
-    document.querySelector('[data-context="rossum"]')?.classList.add('dimmed');
-    document.querySelector('[data-context="coupa"]')?.classList.add('dimmed');
+    dimContext('rossum');
+    dimContext('coupa');
   } else if (isCoupa) {
-    document.querySelector('[data-context="rossum"]')?.classList.add('dimmed');
-    document.querySelector('[data-context="netsuite"]')?.classList.add('dimmed');
+    dimContext('rossum');
+    dimContext('netsuite');
   }
 
   // Master Data Hub button
