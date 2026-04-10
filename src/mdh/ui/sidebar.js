@@ -1,12 +1,16 @@
 import * as api from '../api.js';
 import * as state from '../state.js';
-import { confirmModal } from './modal.js';
+import * as cache from '../cache.js';
+import { confirmModal, promptModal, closeModal } from './modal.js';
 
 export function initSidebar() {
   loadCollections();
 
-  document.getElementById('refreshCollections').addEventListener('click', loadCollections);
-  document.getElementById('addCollectionBtn').addEventListener('click', showCreateInput);
+  document.getElementById('refreshCollections').addEventListener('click', () => {
+    cache.invalidateAll();
+    loadCollections();
+  });
+  document.getElementById('sidebarNewBtn').addEventListener('click', showCreateModal);
 }
 
 async function loadCollections() {
@@ -27,14 +31,14 @@ async function loadCollections() {
 function renderCollections(collections) {
   const listEl = document.getElementById('collectionList');
   const selected = state.get('selectedCollection');
-  listEl.innerHTML = '';
+  listEl.replaceChildren();
 
   for (const name of collections) {
     listEl.appendChild(buildCollectionRow(name, name === selected));
   }
 
-  const footer = document.getElementById('sidebarFooter');
-  footer.textContent = `${collections.length} collection${collections.length !== 1 ? 's' : ''}`;
+  const countEl = document.getElementById('sidebarCount');
+  if (countEl) countEl.textContent = `(${collections.length})`;
 }
 
 function buildCollectionRow(name, isActive) {
@@ -56,7 +60,7 @@ function buildCollectionRow(name, isActive) {
   renameBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>';
   renameBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    startRename(name, item);
+    showRenameModal(name);
   });
 
   const dropBtn = document.createElement('button');
@@ -83,109 +87,49 @@ function selectCollection(name) {
   state.set({ selectedCollection: name, records: [], skip: 0, error: null });
 }
 
-// ── Inline input (shared for create and rename) ──
-
-function showInlineInput({ placeholder, initialValue, onSubmit, insertBefore }) {
-  const listEl = document.getElementById('collectionList');
-
-  const row = document.createElement('div');
-  row.className = 'collection-inline-input';
-
-  const input = document.createElement('input');
-  input.className = 'input';
-  input.placeholder = placeholder;
-  input.value = initialValue || '';
-
-  const confirmBtn = document.createElement('button');
-  confirmBtn.className = 'collection-action-btn collection-action-confirm';
-  confirmBtn.title = 'Confirm';
-  confirmBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
-
-  const cancelBtn = document.createElement('button');
-  cancelBtn.className = 'collection-action-btn';
-  cancelBtn.title = 'Cancel';
-  cancelBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
-
-  function submit() {
-    const val = input.value.trim();
-    if (!val || val === initialValue) {
-      remove();
-      return;
-    }
-    onSubmit(val);
-  }
-
-  function remove() {
-    row.remove();
-  }
-
-  confirmBtn.addEventListener('click', submit);
-  cancelBtn.addEventListener('click', remove);
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') submit();
-    if (e.key === 'Escape') remove();
-  });
-
-  row.appendChild(input);
-  row.appendChild(confirmBtn);
-  row.appendChild(cancelBtn);
-
-  if (insertBefore) {
-    insertBefore.replaceWith(row);
-  } else {
-    listEl.prepend(row);
-  }
-
-  input.focus();
-  if (initialValue) input.select();
-
-  return { row, remove };
-}
-
 // ── Create ──────────────────────────────────────
 
-function showCreateInput() {
-  // Don't show multiple create inputs
-  if (document.querySelector('.collection-inline-input')) return;
-
-  showInlineInput({
+function showCreateModal() {
+  promptModal('New Collection', {
     placeholder: 'Collection name...',
-    onSubmit: async (name) => {
-      try {
-        state.set({ loading: true, error: null });
-        await api.createCollection(name);
-        await loadCollections();
-        selectCollection(name);
-      } catch (err) {
-        state.set({ error: { message: err.message } });
-      } finally {
-        state.set({ loading: false });
-      }
-    },
+    submitLabel: 'Create',
+    submitClass: 'btn-success',
+  }, async (name, hint) => {
+    try {
+      state.set({ loading: true, error: null });
+      await api.createCollection(name);
+      cache.invalidateAll();
+      closeModal();
+      await loadCollections();
+      selectCollection(name);
+    } catch (err) {
+      state.set({ loading: false });
+      hint.textContent = err.message;
+    }
   });
 }
 
 // ── Rename ──────────────────────────────────────
 
-function startRename(oldName, itemEl) {
-  showInlineInput({
+function showRenameModal(oldName) {
+  promptModal('Rename Collection', {
     placeholder: 'New name...',
     initialValue: oldName,
-    insertBefore: itemEl,
-    onSubmit: async (newName) => {
-      try {
-        state.set({ loading: true, error: null });
-        await api.renameCollection(oldName, newName);
-        if (state.get('selectedCollection') === oldName) {
-          state.set({ selectedCollection: newName });
-        }
-        await loadCollections();
-      } catch (err) {
-        state.set({ error: { message: err.message } });
-      } finally {
-        state.set({ loading: false });
+    submitLabel: 'Rename',
+  }, async (newName, hint) => {
+    try {
+      state.set({ loading: true, error: null });
+      await api.renameCollection(oldName, newName);
+      cache.invalidateAll();
+      closeModal();
+      if (state.get('selectedCollection') === oldName) {
+        state.set({ selectedCollection: newName });
       }
-    },
+      await loadCollections();
+    } catch (err) {
+      state.set({ loading: false });
+      hint.textContent = err.message;
+    }
   });
 }
 
@@ -199,6 +143,7 @@ function confirmDrop(name) {
       try {
         state.set({ loading: true, error: null });
         await api.dropCollection(name);
+        cache.invalidateAll();
         if (state.get('selectedCollection') === name) {
           state.set({ selectedCollection: null });
         }

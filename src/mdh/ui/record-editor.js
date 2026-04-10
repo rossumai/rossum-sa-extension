@@ -3,6 +3,36 @@ import * as state from '../state.js';
 import { openModal, closeModal } from './modal.js';
 import { createJsonEditor } from './json-editor.js';
 
+function buildPanelActions(panel, { submitLabel, submitClass = 'btn-primary' }) {
+  const hint = document.createElement('div');
+  hint.className = 'input-hint';
+  panel.appendChild(hint);
+
+  const actions = document.createElement('div');
+  actions.className = 'modal-actions';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'btn btn-secondary';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', closeModal);
+  const submitBtn = document.createElement('button');
+  submitBtn.className = `btn ${submitClass}`;
+  submitBtn.textContent = submitLabel;
+  actions.appendChild(cancelBtn);
+  actions.appendChild(submitBtn);
+  panel.appendChild(actions);
+
+  return { hint, submitBtn };
+}
+
+function showSuccessAndClose(hint, message, onSuccess) {
+  hint.style.color = 'var(--success)';
+  hint.textContent = message;
+  setTimeout(() => {
+    closeModal();
+    if (onSuccess) onSuccess();
+  }, 500);
+}
+
 // Opens modal for a single record (from row Edit/Replace buttons)
 export function openRecordEditor(mode, record, onSuccess, fields) {
   const body = document.createElement('div');
@@ -28,21 +58,9 @@ export function openRecordEditor(mode, record, onSuccess, fields) {
   const editor = createJsonEditor({ value: initialValue, minHeight: '200px', fields });
   body.appendChild(editor.el);
 
-  const hint = document.createElement('div');
-  hint.className = 'input-hint';
-  body.appendChild(hint);
-
-  const actions = document.createElement('div');
-  actions.className = 'modal-actions';
-
-  const cancelBtn = document.createElement('button');
-  cancelBtn.className = 'btn btn-secondary';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.addEventListener('click', closeModal);
-
-  const submitBtn = document.createElement('button');
-  submitBtn.className = 'btn btn-primary';
-  submitBtn.textContent = mode === 'edit' ? 'Update' : 'Replace';
+  const { hint, submitBtn } = buildPanelActions(body, {
+    submitLabel: mode === 'edit' ? 'Update' : 'Replace',
+  });
 
   submitBtn.addEventListener('click', async () => {
     if (!editor.isValid()) { hint.textContent = 'Invalid JSON: ' + editor.getError(); return; }
@@ -63,10 +81,6 @@ export function openRecordEditor(mode, record, onSuccess, fields) {
       hint.textContent = err.message;
     }
   });
-
-  actions.appendChild(cancelBtn);
-  actions.appendChild(submitBtn);
-  body.appendChild(actions);
 
   openModal(mode === 'edit' ? 'Edit Record' : 'Replace Record', body);
 }
@@ -111,22 +125,7 @@ function buildInsertPanel(onSuccess, fields, fileMode) {
     panel.appendChild(editor.el);
   }
 
-  const hint = document.createElement('div');
-  hint.className = 'input-hint';
-  panel.appendChild(hint);
-
-  const actions = document.createElement('div');
-  actions.className = 'modal-actions';
-  const cancelBtn = document.createElement('button');
-  cancelBtn.className = 'btn btn-secondary';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.addEventListener('click', closeModal);
-  const submitBtn = document.createElement('button');
-  submitBtn.className = 'btn btn-success';
-  submitBtn.textContent = 'Insert';
-  actions.appendChild(cancelBtn);
-  actions.appendChild(submitBtn);
-  panel.appendChild(actions);
+  const { hint, submitBtn } = buildPanelActions(panel, { submitLabel: 'Insert', submitClass: 'btn-success' });
 
   submitBtn.addEventListener('click', async () => {
     const collection = state.get('selectedCollection');
@@ -149,9 +148,7 @@ function buildInsertPanel(onSuccess, fields, fileMode) {
       if (docs.length === 1) await api.insertOne(collection, docs[0]);
       else await api.insertMany(collection, docs);
       state.set({ loading: false });
-      hint.style.color = 'var(--success)';
-      hint.textContent = `Inserted ${docs.length} document${docs.length !== 1 ? 's' : ''}`;
-      setTimeout(() => { closeModal(); if (onSuccess) onSuccess(); }, 1000);
+      showSuccessAndClose(hint, `Inserted ${docs.length} document${docs.length !== 1 ? 's' : ''}`, onSuccess);
     } catch (err) {
       state.set({ loading: false });
       hint.style.color = '';
@@ -216,22 +213,7 @@ function buildUpdatePanel(onSuccess, fields, fileMode) {
     panel.appendChild(updateEditor.el);
   }
 
-  const hint = document.createElement('div');
-  hint.className = 'input-hint';
-  panel.appendChild(hint);
-
-  const actions = document.createElement('div');
-  actions.className = 'modal-actions';
-  const cancelBtn = document.createElement('button');
-  cancelBtn.className = 'btn btn-secondary';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.addEventListener('click', closeModal);
-  const submitBtn = document.createElement('button');
-  submitBtn.className = 'btn btn-primary';
-  submitBtn.textContent = 'Update';
-  actions.appendChild(cancelBtn);
-  actions.appendChild(submitBtn);
-  panel.appendChild(actions);
+  const { hint, submitBtn } = buildPanelActions(panel, { submitLabel: 'Update' });
 
   submitBtn.addEventListener('click', async () => {
     const collection = state.get('selectedCollection');
@@ -257,9 +239,7 @@ function buildUpdatePanel(onSuccess, fields, fileMode) {
           hint.textContent = `Updating... ${updated}/${docs.length}`;
         }
         state.set({ loading: false });
-        hint.style.color = 'var(--success)';
-        hint.textContent = `Updated ${updated} document${updated !== 1 ? 's' : ''}`;
-        setTimeout(() => { closeModal(); if (onSuccess) onSuccess(); }, 1000);
+        showSuccessAndClose(hint, `Updated ${updated} document${updated !== 1 ? 's' : ''}`, onSuccess);
       } catch (err) {
         state.set({ loading: false });
         hint.style.color = '';
@@ -274,9 +254,7 @@ function buildUpdatePanel(onSuccess, fields, fileMode) {
         state.set({ loading: false });
         const matched = res.result?.matched_count ?? 0;
         const modified = res.result?.modified_count ?? 0;
-        hint.style.color = 'var(--success)';
-        hint.textContent = `${matched} matched, ${modified} modified`;
-        setTimeout(() => { closeModal(); if (onSuccess) onSuccess(); }, 1000);
+        showSuccessAndClose(hint, `${matched} matched, ${modified} modified`, onSuccess);
       } catch (err) {
         state.set({ loading: false });
         hint.textContent = err.message;
@@ -341,22 +319,7 @@ function buildReplacePanel(onSuccess, fields, fileMode) {
     panel.appendChild(replaceEditor.el);
   }
 
-  const hint = document.createElement('div');
-  hint.className = 'input-hint';
-  panel.appendChild(hint);
-
-  const actions = document.createElement('div');
-  actions.className = 'modal-actions';
-  const cancelBtn = document.createElement('button');
-  cancelBtn.className = 'btn btn-secondary';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.addEventListener('click', closeModal);
-  const submitBtn = document.createElement('button');
-  submitBtn.className = 'btn btn-primary';
-  submitBtn.textContent = 'Replace';
-  actions.appendChild(cancelBtn);
-  actions.appendChild(submitBtn);
-  panel.appendChild(actions);
+  const { hint, submitBtn } = buildPanelActions(panel, { submitLabel: 'Replace' });
 
   submitBtn.addEventListener('click', async () => {
     const collection = state.get('selectedCollection');
@@ -382,9 +345,7 @@ function buildReplacePanel(onSuccess, fields, fileMode) {
           hint.textContent = `Replacing... ${replaced}/${docs.length}`;
         }
         state.set({ loading: false });
-        hint.style.color = 'var(--success)';
-        hint.textContent = `Replaced ${replaced} document${replaced !== 1 ? 's' : ''}`;
-        setTimeout(() => { closeModal(); if (onSuccess) onSuccess(); }, 1000);
+        showSuccessAndClose(hint, `Replaced ${replaced} document${replaced !== 1 ? 's' : ''}`, onSuccess);
       } catch (err) {
         state.set({ loading: false });
         hint.style.color = '';
@@ -397,9 +358,7 @@ function buildReplacePanel(onSuccess, fields, fileMode) {
         state.set({ loading: true, error: null });
         await api.replaceOne(collection, filterEditor.getParsed(), replaceEditor.getParsed());
         state.set({ loading: false });
-        hint.style.color = 'var(--success)';
-        hint.textContent = 'Document replaced';
-        setTimeout(() => { closeModal(); if (onSuccess) onSuccess(); }, 1000);
+        showSuccessAndClose(hint, 'Document replaced', onSuccess);
       } catch (err) {
         state.set({ loading: false });
         hint.textContent = err.message;
@@ -463,7 +422,7 @@ function buildFileInput() {
 }
 
 function renderMatchFields(container, docs) {
-  container.innerHTML = '';
+  container.replaceChildren();
   if (!docs || docs.length === 0) return;
 
   const fields = Object.keys(docs[0]);

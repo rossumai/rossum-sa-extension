@@ -1,7 +1,8 @@
 import * as api from './api.js';
 import * as state from './state.js';
+import * as cache from './cache.js';
 import { initSidebar } from './ui/sidebar.js';
-import { initDataPanel } from './ui/records.js';
+import { initDataPanel, prefetchRecords, prefetchTotalCount } from './ui/records.js';
 import { initIndexes } from './ui/indexes.js';
 import { initSearchIndexes } from './ui/search-indexes.js';
 
@@ -19,10 +20,28 @@ async function boot() {
 
   try {
     await api.healthz();
-    connectionBar.innerHTML = `<span class="connection-dot"></span> Connected to ${mdhDomain}`;
+    connectionBar.innerHTML = `<span class="connection-dot"></span> Connected to ${mdhDomain}<span id="cacheIndicator" class="cache-indicator"></span>`;
   } catch {
     connectionBar.innerHTML = `<span class="connection-dot error"></span> Cannot reach ${mdhDomain}`;
   }
+
+  // Update cache indicator every second
+  setInterval(() => {
+    const el = document.getElementById('cacheIndicator');
+    if (!el) return;
+    const col = state.get('selectedCollection');
+    const s = cache.stats(col);
+    let text;
+    if (s.fieldCount === 0) {
+      text = 'cache: empty';
+    } else if (s.age !== null) {
+      const secs = Math.round(s.age / 1000);
+      text = `cache: ${s.fieldCount} objects \u00b7 ${secs < 2 ? 'fresh' : secs + 's ago'}`;
+    } else {
+      text = `cache: ${s.fieldCount} objects`;
+    }
+    el.textContent = text;
+  }, 1000);
 
   state.on('errorChanged', (error) => {
     const banner = document.getElementById('errorBanner');
@@ -58,6 +77,7 @@ async function boot() {
   state.on('selectedCollectionChanged', (collection) => {
     document.getElementById('emptyState').classList.toggle('hidden', collection !== null);
     document.getElementById('mainContent').classList.toggle('hidden', collection === null);
+    if (collection) startBackgroundPrefetch();
   });
 
   initSidebar();
@@ -65,6 +85,38 @@ async function boot() {
   initIndexes();
   initSearchIndexes();
   initSidebarResize();
+}
+
+let prefetchController = null;
+
+function startBackgroundPrefetch() {
+  if (prefetchController) prefetchController.abort();
+  prefetchController = new AbortController();
+  const signal = prefetchController.signal;
+  const collections = state.get('collections');
+  const selected = state.get('selectedCollection');
+  const others = collections.filter((c) => c !== selected);
+  prefetchBatches(others, signal);
+}
+
+async function prefetchBatches(collections, signal) {
+  const BATCH = 5;
+  const DELAY = 200;
+  for (let i = 0; i < collections.length; i += BATCH) {
+    if (signal.aborted) return;
+    const batch = collections.slice(i, i + BATCH);
+    await Promise.allSettled(
+      batch.map((col) =>
+        Promise.allSettled([
+          prefetchRecords(col),
+          prefetchTotalCount(col),
+        ]),
+      ),
+    );
+    if (i + BATCH < collections.length && !signal.aborted) {
+      await new Promise((r) => setTimeout(r, DELAY));
+    }
+  }
 }
 
 function initSidebarResize() {

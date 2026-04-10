@@ -27,7 +27,7 @@ chrome.storage.local.get(['netsuiteFieldNamesEnabled']).then((result) => {
     const onClick = link.getAttribute('onclick');
     if (onClick == null || !onClick.includes('nlFieldHelp')) continue;
 
-    const resultArray = onClick.match(/"(?<word>[^"]*)"/g) || onClick.match(/'(?<word>[^']*)'/g);
+    const resultArray = onClick.match(/"[^"]*"|'[^']*'/g);
     if (resultArray && resultArray.length > 1) {
       const fieldId = resultArray[1].replace(/['"]/g, '');
       displayFieldName(link, fieldId);

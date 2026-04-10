@@ -1,5 +1,6 @@
 import * as api from '../api.js';
 import * as state from '../state.js';
+import * as cache from '../cache.js';
 import { showAsyncStatus } from './utils.js';
 import { renderIndexCard } from './index-card.js';
 import { createJsonEditor } from './json-editor.js';
@@ -15,7 +16,7 @@ function defaultTemplate() {
 
 export function initIndexes() {
   const panelEl = document.getElementById('panel-indexes');
-  panelEl.innerHTML = '';
+  panelEl.replaceChildren();
 
   const toolbar = document.createElement('div');
   toolbar.className = 'toolbar';
@@ -37,15 +38,19 @@ export function initIndexes() {
   statusEl.style.padding = '8px 16px';
   panelEl.appendChild(statusEl);
 
-  toolbar.querySelector('#refreshIndexes').addEventListener('click', loadIndexes);
+  toolbar.querySelector('#refreshIndexes').addEventListener('click', () => {
+    const col = state.get('selectedCollection');
+    if (col) cache.invalidate(col, 'indexes');
+    loadIndexes();
+  });
   toolbar.querySelector('#createIndexOpenBtn').addEventListener('click', openCreateModal);
 
   state.on('activePanelChanged', (panel) => {
     if (panel === 'indexes') loadIndexes();
   });
 
-  state.on('selectedCollectionChanged', () => {
-    if (state.get('activePanel') === 'indexes') loadIndexes();
+  state.on('selectedCollectionChanged', (collection) => {
+    if (collection) loadIndexes();
   });
 }
 
@@ -94,6 +99,7 @@ function openCreateModal() {
     try {
       state.set({ loading: true, error: null });
       const res = await api.createIndex(state.get('selectedCollection'), indexName, keys, options || {});
+      cache.invalidate(state.get('selectedCollection'), 'indexes');
       state.set({ loading: false });
       closeModal();
       showAsyncStatus(document.getElementById('indexOpStatus'), res.message);
@@ -116,19 +122,28 @@ async function loadIndexes() {
   const collection = state.get('selectedCollection');
   if (!collection) return;
 
+  const cached = cache.get(collection, 'indexes');
+  if (cached !== null) {
+    renderIndexes(cached);
+    return;
+  }
+
+  const isVisible = state.get('activePanel') === 'indexes';
   try {
-    state.set({ loading: true, error: null });
+    if (isVisible) state.set({ loading: true, error: null });
     const res = await api.listIndexes(collection, false);
-    state.set({ loading: false });
-    renderIndexes(res.result || []);
+    const indexes = res.result || [];
+    cache.set(collection, 'indexes', indexes);
+    if (isVisible) state.set({ loading: false });
+    renderIndexes(indexes);
   } catch (err) {
-    state.set({ error: { message: err.message }, loading: false });
+    if (isVisible) state.set({ error: { message: err.message }, loading: false });
   }
 }
 
 function renderIndexes(indexes) {
   const listEl = document.getElementById('indexList');
-  listEl.innerHTML = '';
+  listEl.replaceChildren();
 
   if (indexes.length === 0) {
     listEl.innerHTML = '<div style="padding:16px;color:var(--text-secondary);font-size:12px">No indexes</div>';
@@ -161,6 +176,7 @@ async function doDropIndex(indexName) {
   try {
     state.set({ loading: true, error: null });
     const res = await api.dropIndex(state.get('selectedCollection'), indexName);
+    cache.invalidate(state.get('selectedCollection'), 'indexes');
     state.set({ loading: false });
     showAsyncStatus(statusEl, res.message);
     await loadIndexes();

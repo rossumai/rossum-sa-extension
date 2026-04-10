@@ -97,15 +97,12 @@ export function initScrollLock(element) {
 
   contentObserver.observe(element, { childList: true, subtree: true });
 
-  const monitorElementConnection = () => {
+  const monitorInterval = setInterval(() => {
     if (!element.isConnected) {
       contentObserver.disconnect();
-      return;
+      clearInterval(monitorInterval);
     }
-    requestAnimationFrame(monitorElementConnection);
-  };
-
-  requestAnimationFrame(monitorElementConnection);
+  }, 2000);
 }
 
 export function initFocusPatch() {

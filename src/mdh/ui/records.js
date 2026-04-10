@@ -1,7 +1,9 @@
 import * as api from '../api.js';
 import * as state from '../state.js';
+import * as cache from '../cache.js';
 import { openRecordEditor, openDataOperations } from './record-editor.js';
-import { confirmModal } from './modal.js';
+import { confirmModal, openModal } from './modal.js';
+import { addToHistory, saveQuery, unsaveQuery, isSaved, renderHistoryPanel, renderSavedPanel } from './query-history.js';
 
 import { createJsonEditor, extractFieldNames } from './json-editor.js';
 import JSON5 from 'json5';
@@ -15,15 +17,75 @@ let expandAll = false;
 let lastQueryMs = 0;
 let suppressPipelineSync = false; // prevent loop when updating editor from UI
 let placeholderValues = {};       // { "vendor_name": "Acme" }
+let cacheNextQuery = false;
+let queryId = 0;  // monotonic counter for stale query detection
+let splitMenuDelegationRegistered = false;
 
 function currentFields() {
   return extractFieldNames(state.get('records'));
+}
+
+export function loadPipeline(pipeline, collection, variables) {
+  if (variables) placeholderValues = { ...variables };
+
+  const current = state.get('selectedCollection');
+  if (collection && collection !== current) {
+    state.set({ selectedCollection: collection, records: [], skip: 0, error: null });
+    setTimeout(() => {
+      if (pipelineEditor) {
+        suppressPipelineSync = true;
+        pipelineEditor.setValue(pipeline);
+        setTimeout(() => {
+          suppressPipelineSync = false;
+          renderPlaceholderInputs();
+          runQuery();
+        }, 100);
+      }
+    }, 50);
+  } else if (pipelineEditor) {
+    suppressPipelineSync = true;
+    pipelineEditor.setValue(pipeline);
+    setTimeout(() => {
+      suppressPipelineSync = false;
+      renderPlaceholderInputs();
+      runQuery();
+    }, 100);
+  }
+}
+
+function loadFromPanel(pipeline, collection, variables) {
+  loadPipeline(pipeline, collection, variables);
+}
+
+function openQueryPanel(e, panelEl) {
+  document.querySelector('.query-history-panel')?.remove();
+  const btn = e.currentTarget;
+  const rect = btn.getBoundingClientRect();
+  panelEl.style.position = 'fixed';
+  panelEl.style.top = rect.bottom + 4 + 'px';
+  panelEl.style.left = rect.left + 'px';
+  document.body.appendChild(panelEl);
+  const close = (ev) => {
+    if (!panelEl.contains(ev.target) && ev.target !== btn) {
+      panelEl.remove();
+      document.removeEventListener('click', close);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', close), 0);
 }
 
 export function initDataPanel() {
   render();
   state.on('selectedCollectionChanged', onCollectionChange);
   state.on('recordsChanged', onRecordsChanged);
+  state.on('activePanelChanged', (panel) => {
+    if (panel === 'data') {
+      // Force placeholder re-render when returning to data tab
+      const container = document.getElementById('placeholderInputs');
+      if (container) container.dataset.key = '';
+      renderPlaceholderInputs();
+    }
+  });
 }
 
 let totalCount = null;
@@ -35,17 +97,66 @@ function onCollectionChange(collection) {
     filterState = {};
     expandedSet = new Set([0]);
     expandAll = false;
-    totalCount = null;
-    fetchTotalCount(collection);
-    syncPipelineAndRun();
+
+    const cachedCount = cache.get(collection, 'totalCount');
+    if (cachedCount !== null) {
+      totalCount = cachedCount;
+    } else {
+      totalCount = null;
+      fetchTotalCount(collection);
+    }
+
+    const cachedRecords = cache.get(collection, 'records');
+    if (cachedRecords !== null) {
+      syncPipeline();
+      state.set({ records: cachedRecords });
+      debugPipeline();
+    } else {
+      cacheNextQuery = true;
+      syncPipelineAndRun();
+    }
   }
 }
 
 async function fetchTotalCount(collection) {
   try {
     const res = await api.aggregate(collection, [{ $count: 'total' }]);
-    totalCount = res.result?.[0]?.total ?? 0;
+    const count = res.result?.[0]?.total ?? 0;
+    totalCount = count;
+    cache.set(collection, 'totalCount', count);
+    // Re-render so the "out of N" text appears even if records rendered first
+    if (state.get('selectedCollection') === collection) {
+      renderRecords(state.get('records'));
+    }
   } catch { /* ignore */ }
+}
+
+function invalidateRecordCache() {
+  const col = state.get('selectedCollection');
+  if (col) {
+    cache.invalidate(col, 'records');
+    cache.invalidate(col, 'totalCount');
+  }
+}
+
+export async function prefetchRecords(collection) {
+  if (cache.get(collection, 'records') !== null) return;
+  try {
+    const res = await api.aggregate(collection, [
+      { $match: {} },
+      { $skip: 0 },
+      { $limit: state.get('limit') },
+    ]);
+    cache.set(collection, 'records', res.result || []);
+  } catch { /* silent */ }
+}
+
+export async function prefetchTotalCount(collection) {
+  if (cache.get(collection, 'totalCount') !== null) return;
+  try {
+    const res = await api.aggregate(collection, [{ $count: 'total' }]);
+    cache.set(collection, 'totalCount', res.result?.[0]?.total ?? 0);
+  } catch { /* silent */ }
 }
 
 function onRecordsChanged(records) {
@@ -65,15 +176,18 @@ function buildPipelineFromUI() {
   return pipeline;
 }
 
-// Update editor and run query in one shot (suppresses editor's onValidChange)
+// Update editor value from UI state (suppresses editor's onValidChange)
 let suppressTimer = null;
-function syncPipelineAndRun() {
+function syncPipeline() {
   if (!pipelineEditor) return;
   suppressPipelineSync = true;
   pipelineEditor.setValue(JSON.stringify(buildPipelineFromUI(), null, 2));
-  // Keep suppressed until after the debounced onValidChange would fire (500ms + margin)
   clearTimeout(suppressTimer);
   suppressTimer = setTimeout(() => { suppressPipelineSync = false; }, 600);
+}
+
+function syncPipelineAndRun() {
+  syncPipeline();
   runQuery();
 }
 
@@ -131,6 +245,37 @@ function substitutePlaceholders(text) {
   });
 }
 
+function parseAnnotationId(input) {
+  // Plain number
+  if (/^\d+$/.test(input)) return input;
+  // URL like https://....rossum.ai/.../annotations/12345 or /api/v1/annotations/12345
+  const urlMatch = input.match(/annotations\/(\d+)/);
+  if (urlMatch) return urlMatch[1];
+  return null;
+}
+
+async function fetchAnnotationFields(annotId) {
+  const domain = state.get('domain');
+  const token = state.get('token');
+  const res = await fetch(`${domain}/api/v1/annotations/${annotId}/content`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`API ${res.status}`);
+  const data = await res.json();
+  const fields = {};
+  extractDatapoints(data.results || data.content || [], fields);
+  return fields;
+}
+
+function extractDatapoints(nodes, fields) {
+  for (const node of nodes) {
+    if (node.schema_id && node.content && node.content.value != null && node.content.value !== '') {
+      fields[node.schema_id] = String(node.content.value);
+    }
+    if (node.children) extractDatapoints(node.children, fields);
+  }
+}
+
 function renderPlaceholderInputs() {
   const container = document.getElementById('placeholderInputs');
   if (!container) return;
@@ -140,21 +285,76 @@ function renderPlaceholderInputs() {
 
   if (names.length === 0) {
     container.classList.add('hidden');
-    container.innerHTML = '';
+    container.replaceChildren();
     return;
   }
 
   container.classList.remove('hidden');
 
-  const newKey = names.join(',');
-  if (container.dataset.names === newKey) return;
-  container.dataset.names = newKey;
-  container.innerHTML = '';
+  const valuesKey = names.map((n) => placeholderValues[n] || '').join(',');
+  const newKey = names.join(',') + '::' + valuesKey;
+  if (container.dataset.key === newKey) return;
+  container.dataset.key = newKey;
+  container.replaceChildren();
+
+  const header = document.createElement('div');
+  header.className = 'placeholder-header';
 
   const label = document.createElement('div');
   label.className = 'placeholder-label';
   label.textContent = 'Variables:';
-  container.appendChild(label);
+  header.appendChild(label);
+
+  const annotBtn = document.createElement('button');
+  annotBtn.className = 'placeholder-annotation-btn';
+  annotBtn.textContent = 'Fill from Annotation';
+  annotBtn.title = 'Paste an annotation ID or URL to populate variables from annotation data';
+  annotBtn.addEventListener('click', () => {
+    const existing = container.querySelector('.placeholder-annotation-row');
+    if (existing) { existing.remove(); return; }
+    const row = document.createElement('div');
+    row.className = 'placeholder-annotation-row';
+    const input = document.createElement('input');
+    input.className = 'input';
+    input.placeholder = 'Annotation ID or URL\u2026';
+    input.style.flex = '1';
+    const status = document.createElement('span');
+    status.className = 'placeholder-annotation-status';
+    row.appendChild(input);
+    row.appendChild(status);
+    container.insertBefore(row, header.nextSibling);
+    input.focus();
+
+    async function load() {
+      const val = input.value.trim();
+      if (!val) return;
+      const annotId = parseAnnotationId(val);
+      if (!annotId) { status.textContent = 'Invalid ID'; return; }
+      status.textContent = 'Loading\u2026';
+      try {
+        const fields = await fetchAnnotationFields(annotId);
+        let filled = 0;
+        for (const name of names) {
+          if (name in fields) {
+            placeholderValues[name] = fields[name];
+            filled++;
+          }
+        }
+        status.textContent = filled > 0 ? `${filled} filled` : 'No matches';
+        // Force re-render with new values
+        container.dataset.key = '';
+        renderPlaceholderInputs();
+        if (filled > 0) runQuery();
+      } catch (err) {
+        status.textContent = err.message.length > 30 ? err.message.slice(0, 30) + '\u2026' : err.message;
+      }
+    }
+
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') load(); });
+    input.addEventListener('paste', () => setTimeout(load, 0));
+  });
+  header.appendChild(annotBtn);
+  container.appendChild(header);
 
   for (const name of names) {
     const row = document.createElement('div');
@@ -210,15 +410,226 @@ async function runQuery() {
     return;
   }
 
+  const thisQueryId = ++queryId;
+
   try {
     state.set({ loading: true, error: null });
     const start = performance.now();
     const res = await api.aggregate(collection, pipeline);
+    if (thisQueryId !== queryId) return; // stale — a newer query superseded this one
     const elapsed = Math.round(performance.now() - start);
     lastQueryMs = elapsed;
-    state.set({ records: res.result || [], loading: false });
+    const records = res.result || [];
+    if (cacheNextQuery) {
+      cache.set(collection, 'records', records);
+      cacheNextQuery = false;
+    }
+    state.set({ records, loading: false });
+    addToHistory(collection, rawText, { ...placeholderValues });
+    debugPipeline();
   } catch (err) {
+    if (thisQueryId !== queryId) return;
+    cacheNextQuery = false;
     state.set({ error: { message: err.message }, loading: false });
+  }
+}
+
+// ── Pipeline debug ──────────────────────────────
+
+const DEBUG_PREVIEW_LIMIT = 5;
+
+function attachStageTooltip(row, stage) {
+  let tip = null;
+  let hideTimer = null;
+
+  row.addEventListener('mouseenter', (e) => {
+    clearTimeout(hideTimer);
+    if (tip) return;
+    tip = document.createElement('div');
+    tip.className = 'pipeline-debug-tooltip';
+    const pre = document.createElement('pre');
+    pre.textContent = JSON.stringify(stage, null, 2);
+    tip.appendChild(pre);
+    document.body.appendChild(tip);
+
+    const rect = row.getBoundingClientRect();
+    tip.style.top = rect.top + 'px';
+    tip.style.left = rect.right + 8 + 'px';
+
+    // If tooltip goes off-screen right, flip to left
+    const tipRect = tip.getBoundingClientRect();
+    if (tipRect.right > window.innerWidth - 8) {
+      tip.style.left = '';
+      tip.style.right = (window.innerWidth - rect.left + 8) + 'px';
+    }
+    // If goes off bottom, shift up
+    if (tipRect.bottom > window.innerHeight - 8) {
+      tip.style.top = Math.max(8, window.innerHeight - tipRect.height - 8) + 'px';
+    }
+  });
+
+  row.addEventListener('mouseleave', () => {
+    hideTimer = setTimeout(() => {
+      if (tip) { tip.remove(); tip = null; }
+    }, 150);
+  });
+}
+
+async function debugPipeline() {
+  const collection = state.get('selectedCollection');
+  if (!collection || !pipelineEditor) return;
+
+  const rawText = pipelineEditor.getValue();
+  const resolvedText = substitutePlaceholders(rawText);
+
+  let pipeline;
+  try {
+    pipeline = JSON5.parse(resolvedText);
+    if (!Array.isArray(pipeline) || pipeline.length === 0) return;
+  } catch { return; }
+
+  const container = document.getElementById('pipelineDebug');
+  if (!container) return;
+  container.replaceChildren();
+
+  const title = document.createElement('div');
+  title.className = 'placeholder-label';
+  title.textContent = 'Aggregation Pipeline Debug';
+  container.appendChild(title);
+
+  // Total row showing starting document count
+  const totalRow = document.createElement('div');
+  totalRow.className = 'pipeline-debug-row pipeline-debug-total';
+  const totalLabel = document.createElement('span');
+  totalLabel.className = 'pipeline-debug-stage';
+  totalLabel.textContent = 'collection';
+  const totalArrow = document.createElement('span');
+  totalArrow.className = 'pipeline-debug-arrow';
+  totalArrow.textContent = '\u2192';
+  const totalCountEl = document.createElement('span');
+  totalCountEl.className = 'pipeline-debug-count';
+  totalCountEl.textContent = totalCount !== null ? `${totalCount.toLocaleString()} docs` : '\u2026';
+  totalRow.appendChild(totalLabel);
+  totalRow.appendChild(totalArrow);
+  totalRow.appendChild(totalCountEl);
+  container.appendChild(totalRow);
+
+  // Fetch total if not available
+  if (totalCount === null) {
+    fetchTotalCount(collection).then(() => {
+      if (totalCount !== null) totalCountEl.textContent = `${totalCount.toLocaleString()} docs`;
+    });
+  }
+
+  const rows = [];
+  for (let i = 0; i < pipeline.length; i++) {
+    const stage = pipeline[i];
+    const stageKey = Object.keys(stage)[0] || '?';
+    const stageStr = JSON.stringify(stage);
+    const preview = stageStr.length > 50 ? stageStr.slice(0, 50) + '\u2026' : stageStr;
+
+    const row = document.createElement('div');
+    row.className = 'pipeline-debug-row';
+
+    const num = document.createElement('span');
+    num.className = 'pipeline-debug-num';
+    num.textContent = `${i + 1}.`;
+
+    const stageLabel = document.createElement('span');
+    stageLabel.className = 'pipeline-debug-stage';
+    stageLabel.textContent = stageKey;
+
+    const previewEl = document.createElement('span');
+    previewEl.className = 'pipeline-debug-preview';
+    previewEl.textContent = preview;
+    attachStageTooltip(row, stage);
+
+    const arrow = document.createElement('span');
+    arrow.className = 'pipeline-debug-arrow';
+    arrow.textContent = '\u2192';
+
+    const countEl = document.createElement('span');
+    countEl.className = 'pipeline-debug-count';
+    countEl.textContent = '\u2026';
+
+    row.appendChild(num);
+    row.appendChild(stageLabel);
+    row.appendChild(previewEl);
+    row.appendChild(arrow);
+    row.appendChild(countEl);
+
+    // Click to inspect first N records after this stage
+    const stageIndex = i;
+    row.addEventListener('click', () => inspectStage(collection, pipeline, stageIndex, stageKey));
+
+    container.appendChild(row);
+    rows.push({ index: i, countEl });
+  }
+
+  // Run counts in parallel
+  await Promise.allSettled(rows.map(async ({ index, countEl }) => {
+    const prefix = pipeline.slice(0, index + 1);
+    try {
+      const res = await api.aggregate(collection, [...prefix, { $count: 'n' }]);
+      const n = res.result?.[0]?.n ?? 0;
+      countEl.textContent = `${n.toLocaleString()} docs`;
+      countEl.className = 'pipeline-debug-count' + (n === 0 ? ' pipeline-debug-zero' : '');
+    } catch (err) {
+      countEl.textContent = 'error';
+      countEl.className = 'pipeline-debug-count pipeline-debug-error';
+      countEl.title = err.message;
+    }
+  }));
+}
+
+async function inspectStage(collection, pipeline, stageIndex, stageKey) {
+  const prefix = pipeline.slice(0, stageIndex + 1);
+
+  const body = document.createElement('div');
+  body.className = 'modal-body';
+
+  const info = document.createElement('div');
+  info.className = 'pipeline-inspect-info';
+  info.textContent = `Showing first ${DEBUG_PREVIEW_LIMIT} documents after stage ${stageIndex + 1} (${stageKey})`;
+  body.appendChild(info);
+
+  const content = document.createElement('div');
+  content.className = 'pipeline-inspect-content';
+  content.textContent = 'Loading\u2026';
+  body.appendChild(content);
+
+  openModal(`Stage ${stageIndex + 1}: ${stageKey}`, body);
+
+  try {
+    const res = await api.aggregate(collection, [...prefix, { $limit: DEBUG_PREVIEW_LIMIT }]);
+    const docs = res.result || [];
+    content.replaceChildren();
+
+    if (docs.length === 0) {
+      content.textContent = 'No documents at this stage';
+      content.style.color = 'var(--text-secondary)';
+      return;
+    }
+
+    for (let i = 0; i < docs.length; i++) {
+      const card = document.createElement('div');
+      card.className = 'pipeline-inspect-card';
+
+      const header = document.createElement('div');
+      header.className = 'pipeline-inspect-card-header';
+      header.textContent = `Document ${i + 1}`;
+      card.appendChild(header);
+
+      const pre = document.createElement('pre');
+      pre.className = 'pipeline-inspect-json';
+      pre.textContent = JSON.stringify(docs[i], null, 2);
+      card.appendChild(pre);
+
+      content.appendChild(card);
+    }
+  } catch (err) {
+    content.textContent = 'Error: ' + err.message;
+    content.style.color = 'var(--danger)';
   }
 }
 
@@ -230,6 +641,25 @@ const DOWNLOAD_BATCH = 1000;
 async function downloadCollection() {
   const collection = state.get('selectedCollection');
   if (!collection) return;
+
+  // Warn for large collections
+  if (totalCount !== null && totalCount > 10_000) {
+    const proceed = await new Promise((resolve) => {
+      confirmModal(
+        'Large collection',
+        `This collection has ${totalCount.toLocaleString()} documents. Downloading may take a while and use significant memory. Continue?`,
+        () => resolve(true),
+      );
+      // If modal is closed without confirming, resolve false
+      const checkClosed = setInterval(() => {
+        if (!document.querySelector('.modal-overlay.visible')) {
+          clearInterval(checkClosed);
+          resolve(false);
+        }
+      }, 200);
+    });
+    if (!proceed) return;
+  }
 
   const btn = document.getElementById('recordDownloadBtn');
   btn.classList.add('hidden');
@@ -300,7 +730,7 @@ async function downloadCollection() {
 
 function render() {
   const panel = document.getElementById('panel-data');
-  panel.innerHTML = '';
+  panel.replaceChildren();
   panel.style.display = 'flex';
   panel.style.flexDirection = 'row';
 
@@ -308,10 +738,114 @@ function render() {
   const left = document.createElement('div');
   left.className = 'data-panel-left';
 
-  const editorLabel = document.createElement('div');
+  const pipelineHeader = document.createElement('div');
+  pipelineHeader.className = 'pipeline-header';
+
+  const editorLabel = document.createElement('span');
   editorLabel.className = 'split-pane-label';
-  editorLabel.textContent = 'Aggregate Pipeline:';
-  left.appendChild(editorLabel);
+  editorLabel.textContent = 'Aggregate Pipeline';
+
+  const queryActions = document.createElement('div');
+  queryActions.className = 'pipeline-header-actions';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'pipeline-save-btn';
+  saveBtn.textContent = '\u2606';
+  saveBtn.title = 'Save current query';
+
+  // Check and update star state based on whether current pipeline is saved
+  async function updateSaveBtn() {
+    const col = state.get('selectedCollection');
+    if (!col || !pipelineEditor) return;
+    const saved = await isSaved(col, pipelineEditor.getValue());
+    saveBtn.textContent = saved ? '\u2605' : '\u2606';
+    saveBtn.classList.toggle('pipeline-save-btn-active', saved);
+  }
+
+  saveBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const collection = state.get('selectedCollection');
+    if (!collection || !pipelineEditor) return;
+    // If already saved, unsave it
+    if (saveBtn.classList.contains('pipeline-save-btn-active')) {
+      await unsaveQuery(collection, pipelineEditor.getValue());
+      updateSaveBtn();
+      return;
+    }
+    document.querySelector('.pipeline-save-inline')?.remove();
+    const wrap = document.createElement('div');
+    wrap.className = 'pipeline-save-inline';
+    const input = document.createElement('input');
+    input.className = 'input';
+    input.placeholder = 'Query name\u2026';
+    const ok = document.createElement('button');
+    ok.className = 'btn btn-sm btn-primary';
+    ok.textContent = 'Save';
+    wrap.appendChild(input);
+    wrap.appendChild(ok);
+    const rect = saveBtn.getBoundingClientRect();
+    wrap.style.position = 'fixed';
+    wrap.style.top = rect.bottom + 4 + 'px';
+    wrap.style.left = rect.left + 'px';
+    document.body.appendChild(wrap);
+    input.focus();
+    async function doSave() {
+      const name = input.value.trim();
+      await saveQuery(collection, pipelineEditor.getValue(), name || null, { ...placeholderValues });
+      wrap.remove();
+      updateSaveBtn();
+    }
+    ok.addEventListener('click', doSave);
+    input.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') doSave();
+      if (ev.key === 'Escape') wrap.remove();
+    });
+    const close = (ev) => {
+      if (!wrap.contains(ev.target) && ev.target !== saveBtn) {
+        wrap.remove();
+        document.removeEventListener('click', close);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', close), 0);
+  });
+
+  const historyBtn = document.createElement('button');
+  historyBtn.className = 'pipeline-action-btn';
+  historyBtn.textContent = 'Query History';
+  historyBtn.title = 'Browse and reuse recent queries';
+  historyBtn.addEventListener('click', (e) => openQueryPanel(e, renderHistoryPanel(loadFromPanel)));
+
+  const savedBtn = document.createElement('button');
+  savedBtn.className = 'pipeline-action-btn';
+  savedBtn.textContent = 'Saved Queries';
+  savedBtn.title = 'Browse named saved queries';
+  savedBtn.addEventListener('click', (e) => openQueryPanel(e, renderSavedPanel(loadFromPanel)));
+
+  const beautifyBtn = document.createElement('button');
+  beautifyBtn.className = 'pipeline-action-btn';
+  beautifyBtn.textContent = 'Beautify';
+  beautifyBtn.title = 'Format pipeline JSON';
+  beautifyBtn.addEventListener('click', () => {
+    if (!pipelineEditor) return;
+    try {
+      const parsed = JSON5.parse(pipelineEditor.getValue());
+      suppressPipelineSync = true;
+      pipelineEditor.setValue(JSON.stringify(parsed, null, 2));
+      setTimeout(() => { suppressPipelineSync = false; }, 100);
+    } catch { /* invalid JSON, ignore */ }
+  });
+
+  queryActions.appendChild(saveBtn);
+  queryActions.appendChild(savedBtn);
+  queryActions.appendChild(historyBtn);
+  queryActions.appendChild(beautifyBtn);
+
+  // Update star after query runs or collection changes
+  state.on('recordsChanged', updateSaveBtn);
+  state.on('selectedCollectionChanged', updateSaveBtn);
+  pipelineHeader.appendChild(editorLabel);
+  pipelineHeader.appendChild(queryActions);
+  left.appendChild(pipelineHeader);
 
   const fieldsFn = () => extractFieldNames(state.get('records'));
   pipelineEditor = createJsonEditor({
@@ -338,6 +872,11 @@ function render() {
   placeholderContainer.id = 'placeholderInputs';
   placeholderContainer.className = 'placeholder-container hidden';
   left.appendChild(placeholderContainer);
+
+  const debugContainer = document.createElement('div');
+  debugContainer.id = 'pipelineDebug';
+  debugContainer.className = 'pipeline-debug';
+  left.appendChild(debugContainer);
 
   panel.appendChild(left);
 
@@ -390,7 +929,10 @@ function render() {
   downloadBtn.textContent = 'Download all';
   dataGroup.appendChild(downloadBtn);
 
-  const onSuccessCb = () => runQuery();
+  const onSuccessCb = () => {
+    invalidateRecordCache();
+    runQuery();
+  };
   dataGroup.appendChild(buildSplitButton('Insert', 'btn-success', {
     main: () => openDataOperations('insert', onSuccessCb, currentFields),
     file: () => openDataOperations('insert-file', onSuccessCb, currentFields),
@@ -469,13 +1011,18 @@ function buildSplitButton(label, extraCls, { main, file }) {
 
   dropBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    // Close other menus
     document.querySelectorAll('.split-btn .toolbar-more-menu').forEach((m) => {
       if (m !== menu) m.classList.add('hidden');
     });
     menu.classList.toggle('hidden');
   });
-  document.addEventListener('click', () => menu.classList.add('hidden'));
+  // Use single delegated listener instead of per-button
+  if (!splitMenuDelegationRegistered) {
+    splitMenuDelegationRegistered = true;
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.split-btn .toolbar-more-menu').forEach((m) => m.classList.add('hidden'));
+    });
+  }
 
   wrap.appendChild(mainBtn);
   wrap.appendChild(dropBtn);
@@ -577,7 +1124,7 @@ function recordSummary(record) {
 function renderRecords(records) {
   const listEl = document.getElementById('recordList');
   if (!listEl) return;
-  listEl.innerHTML = '';
+  listEl.replaceChildren();
 
   if (records.length === 0) {
     const empty = document.createElement('div');
@@ -671,7 +1218,7 @@ function renderRecords(records) {
       });
     });
     actions.querySelector('.action-edit').addEventListener('click', () => {
-      openRecordEditor('edit', record, () => runQuery(), currentFields);
+      openRecordEditor('edit', record, () => { invalidateRecordCache(); runQuery(); }, currentFields);
     });
     actions.querySelector('.action-delete').addEventListener('click', () => {
       const deleteId = record._id?.$oid || record._id || '?';
@@ -682,6 +1229,7 @@ function renderRecords(records) {
           try {
             state.set({ loading: true, error: null });
             await api.deleteOne(state.get('selectedCollection'), { _id: record._id });
+            invalidateRecordCache();
             expandedSet.delete(idx);
             await runQuery();
           } catch (err) {
@@ -702,8 +1250,12 @@ function renderRecords(records) {
     ? `Showing ${skip + 1}\u2013${skip + count}`
     : 'No records';
   if (totalCount !== null) countText += ` (out of ${totalCount})`;
-  if (lastQueryMs) countText += ` \u00b7 ${lastQueryMs}ms`;
-  document.getElementById('recordCount').textContent = countText;
+  const countEl = document.getElementById('recordCount');
+  if (lastQueryMs) {
+    countText += ` \u00b7 ${lastQueryMs}ms`;
+  }
+  countEl.textContent = countText;
+  countEl.classList.toggle('record-count-slow', lastQueryMs > 1000);
   document.getElementById('recordPage').textContent = `Page ${Math.floor(skip / limit) + 1}`;
   document.getElementById('recordPrev').disabled = skip === 0;
   document.getElementById('recordNext').disabled = count < limit;

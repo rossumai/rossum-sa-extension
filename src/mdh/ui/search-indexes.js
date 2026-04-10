@@ -1,5 +1,6 @@
 import * as api from '../api.js';
 import * as state from '../state.js';
+import * as cache from '../cache.js';
 import { createJsonEditor } from './json-editor.js';
 import { showAsyncStatus } from './utils.js';
 import { renderIndexCard } from './index-card.js';
@@ -14,7 +15,7 @@ function defaultTemplate() {
 
 export function initSearchIndexes() {
   const panelEl = document.getElementById('panel-search-indexes');
-  panelEl.innerHTML = '';
+  panelEl.replaceChildren();
 
   const toolbar = document.createElement('div');
   toolbar.className = 'toolbar';
@@ -36,15 +37,19 @@ export function initSearchIndexes() {
   statusEl.style.padding = '8px 16px';
   panelEl.appendChild(statusEl);
 
-  toolbar.querySelector('#refreshSearchIndexes').addEventListener('click', loadSearchIndexes);
+  toolbar.querySelector('#refreshSearchIndexes').addEventListener('click', () => {
+    const col = state.get('selectedCollection');
+    if (col) cache.invalidate(col, 'searchIndexes');
+    loadSearchIndexes();
+  });
   toolbar.querySelector('#createSearchIndexOpenBtn').addEventListener('click', openCreateModal);
 
   state.on('activePanelChanged', (panel) => {
     if (panel === 'search-indexes') loadSearchIndexes();
   });
 
-  state.on('selectedCollectionChanged', () => {
-    if (state.get('activePanel') === 'search-indexes') loadSearchIndexes();
+  state.on('selectedCollectionChanged', (collection) => {
+    if (collection) loadSearchIndexes();
   });
 }
 
@@ -99,6 +104,7 @@ function openCreateModal() {
     try {
       state.set({ loading: true, error: null });
       const res = await api.createSearchIndex(state.get('selectedCollection'), opts);
+      cache.invalidate(state.get('selectedCollection'), 'searchIndexes');
       state.set({ loading: false });
       closeModal();
       showAsyncStatus(document.getElementById('searchIndexOpStatus'), res.message);
@@ -121,19 +127,28 @@ async function loadSearchIndexes() {
   const collection = state.get('selectedCollection');
   if (!collection) return;
 
+  const cached = cache.get(collection, 'searchIndexes');
+  if (cached !== null) {
+    renderSearchIndexes(cached);
+    return;
+  }
+
+  const isVisible = state.get('activePanel') === 'search-indexes';
   try {
-    state.set({ loading: true, error: null });
+    if (isVisible) state.set({ loading: true, error: null });
     const res = await api.listSearchIndexes(collection, false);
-    state.set({ loading: false });
-    renderSearchIndexes(res.result || []);
+    const indexes = res.result || [];
+    cache.set(collection, 'searchIndexes', indexes);
+    if (isVisible) state.set({ loading: false });
+    renderSearchIndexes(indexes);
   } catch (err) {
-    state.set({ error: { message: err.message }, loading: false });
+    if (isVisible) state.set({ error: { message: err.message }, loading: false });
   }
 }
 
 function renderSearchIndexes(indexes) {
   const listEl = document.getElementById('searchIndexList');
-  listEl.innerHTML = '';
+  listEl.replaceChildren();
 
   if (indexes.length === 0) {
     listEl.innerHTML = '<div style="padding:16px;color:var(--text-secondary);font-size:12px">No search indexes</div>';
@@ -167,6 +182,7 @@ async function doDropSearchIndex(indexName) {
   try {
     state.set({ loading: true, error: null });
     const res = await api.dropSearchIndex(state.get('selectedCollection'), indexName);
+    cache.invalidate(state.get('selectedCollection'), 'searchIndexes');
     state.set({ loading: false });
     showAsyncStatus(statusEl, res.message);
     await loadSearchIndexes();

@@ -9,14 +9,16 @@
   <div id="app">
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
-        <span class="sidebar-title">Collections</span>
+        <div class="sidebar-title-group">
+          <span class="sidebar-title">Collections</span>
+          <span id="sidebarCount" class="sidebar-count"></span>
+        </div>
         <div class="sidebar-header-actions">
-          <button id="addCollectionBtn" class="icon-btn" title="New collection">+</button>
+          <button id="sidebarNewBtn" class="icon-btn" title="New collection">+</button>
           <button id="refreshCollections" class="icon-btn" title="Refresh">&#x21bb;</button>
         </div>
       </div>
       <div id="collectionList" class="collection-list"></div>
-      <div id="sidebarFooter" class="sidebar-footer"></div>
     </aside>
     <div id="sidebarResizer" class="sidebar-resizer"></div>
 
