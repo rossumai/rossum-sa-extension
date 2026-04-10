@@ -33,6 +33,29 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.hidden { display: none !important; }
+
+.unsupported-site {
+  padding: 20px 14px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.unsupported-site p { font-size: 12px; margin: 0 0 10px; }
+
+.supported-sites {
+  display: flex; gap: 6px; justify-content: center;
+}
+
+.supported-site {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-secondary);
+}
+
 /* ── accent bar ────────────────────────────────── */
 
 .accent-bar {
@@ -71,49 +94,6 @@ body {
   font-weight: 600;
   color: var(--text-primary);
   letter-spacing: -0.3px;
-}
-
-/* ── action button ─────────────────────────────── */
-
-.action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-  padding: 6px 14px;
-  background: var(--accent);
-  border: 1px solid var(--accent-dim);
-  border-radius: 6px;
-  color: #fff;
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
-  box-shadow: 0 1px 3px rgba(66, 112, 219, 0.25);
-  flex-shrink: 0;
-}
-
-.action-btn:hover {
-  background: var(--accent-dim);
-  border-color: var(--accent-dim);
-  box-shadow: 0 2px 6px rgba(66, 112, 219, 0.35);
-}
-
-.action-btn:active {
-  background: #2a51a3;
-  border-color: #2a51a3;
-  box-shadow: 0 1px 2px rgba(66, 112, 219, 0.2);
-}
-
-.action-btn svg {
-  opacity: 0.7;
-  transition: opacity 0.15s, transform 0.15s;
-}
-
-.action-btn:hover svg {
-  opacity: 1;
-  transform: translate(1px, -1px);
 }
 
 /* ── cards ─────────────────────────────────────── */

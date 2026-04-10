@@ -33,6 +33,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       el.classList.add('dimmed');
     }
   }
+  if (!isRossum && !isNetsuite && !isCoupa) {
+    document.getElementById('mainContent').classList.add('hidden');
+    document.getElementById('unsupportedSite').classList.remove('hidden');
+    return;
+  }
+
   if (isRossum) {
     dimContext('netsuite');
     dimContext('coupa');

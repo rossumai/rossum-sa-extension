@@ -11,11 +11,24 @@
   <header class="header">
     <div class="brand-badge">SA</div>
     <span class="brand-name">Rossum SA</span>
-    <button id="masterDataHub" class="action-btn">
-      <span>Master Data Hub</span>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
-    </button>
   </header>
+
+  <div id="unsupportedSite" class="unsupported-site hidden">
+    <p>Navigate to a supported site to use this extension:</p>
+    <div class="supported-sites">
+      <span class="supported-site">Rossum</span>
+      <span class="supported-site">NetSuite</span>
+      <span class="supported-site">Coupa</span>
+    </div>
+  </div>
+
+  <div id="mainContent">
+  <div class="tools-row" data-context="rossum">
+    <button id="masterDataHub" class="tool-btn">
+      <span>Master Data Hub</span>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
+    </button>
+  </div>
 
   <section class="card" data-context="rossum">
     <h3 class="section-title">Rossum</h3>
@@ -130,6 +143,8 @@
       <span class="beta-badge">beta</span>
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
     </button>
+  </div>
+
   </div>
 
   <footer class="footer">
