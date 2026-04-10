@@ -7,10 +7,28 @@ import { keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
 import { json } from '@codemirror/lang-json';
 import { oneDark } from '@codemirror/theme-one-dark';
+import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
+import { tags } from '@lezer/highlight';
 import { autocompletion } from '@codemirror/autocomplete';
 import JSON5 from 'json5';
 
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+const lightHighlight = syntaxHighlighting(HighlightStyle.define([
+  { tag: tags.string, color: '#22883e' },
+  { tag: tags.number, color: '#b45309' },
+  { tag: tags.bool, color: '#4270db' },
+  { tag: tags.null, color: '#7a7a8c' },
+  { tag: tags.propertyName, color: '#1a1a24' },
+]));
+
+const darkHighlight = syntaxHighlighting(HighlightStyle.define([
+  { tag: tags.string, color: '#34d058' },
+  { tag: tags.number, color: '#f59e0b' },
+  { tag: tags.bool, color: '#5b8af0' },
+  { tag: tags.null, color: '#8888a0' },
+  { tag: tags.propertyName, color: '#dddde8' },
+]));
 
 const baseTheme = EditorView.theme({
   '&': { fontSize: '12px', flex: '1' },
@@ -207,7 +225,11 @@ export default function JsonEditor({ value = '', onChange, onValidChange, mode =
     ];
 
     if (readOnly) extensions.push(EditorState.readOnly.of(true));
-    if (darkQuery.matches) extensions.push(oneDark);
+    if (darkQuery.matches) {
+      extensions.push(oneDark, darkHighlight);
+    } else {
+      extensions.push(lightHighlight);
+    }
 
     const state = EditorState.create({ doc: value, extensions });
     const view = new EditorView({ state, parent: containerRef.current });

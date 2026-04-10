@@ -301,11 +301,7 @@ export default function DataPanel() {
           onSetValue={handleSetPlaceholder}
           onRunQuery={runQuery}
         />
-        <PipelineDebug
-          pipeline={parsedPipeline}
-          totalCount={pagination.totalCount.value}
-          onTotalCountNeeded={() => pagination.fetchTotalCount(collection)}
-        />
+        <PipelineDebug pipeline={parsedPipeline} />
       </div>
       <div class="data-panel-resizer" onMouseDown={initPanelResize}></div>
       <div class="data-panel-right">
@@ -319,6 +315,7 @@ export default function DataPanel() {
           pagination={pagination}
           onSort={handleSort}
           onFilter={handleFilter}
+          onPageChange={(dir) => { dir === 'next' ? pagination.goNext() : pagination.goPrev(); syncPipelineAndRun(); }}
           onEdit={(record) => openRecordEditor('edit', record, invalidateAndRun, currentFields)}
           onDelete={(record, idx) => {
             const deleteId = record._id?.$oid || record._id || '?';

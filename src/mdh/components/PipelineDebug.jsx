@@ -47,15 +47,13 @@ function StageTooltip({ stage, children }) {
   );
 }
 
-export default function PipelineDebug({ pipeline, totalCount, onTotalCountNeeded }) {
+export default function PipelineDebug({ pipeline }) {
   const [stageCounts, setStageCounts] = useState({});
   const collection = selectedCollection.value;
 
   useEffect(() => {
     if (!collection || !pipeline || pipeline.length === 0) return;
     setStageCounts({});
-
-    if (totalCount === null && onTotalCountNeeded) onTotalCountNeeded();
 
     pipeline.forEach((_, i) => {
       const prefix = pipeline.slice(0, i + 1);
@@ -80,11 +78,6 @@ export default function PipelineDebug({ pipeline, totalCount, onTotalCountNeeded
   return (
     <div class="pipeline-debug">
       <div class="placeholder-label">Aggregate Pipeline Debug</div>
-      <div class="pipeline-debug-row pipeline-debug-total">
-        <span class="pipeline-debug-stage">collection</span>
-        <span class="pipeline-debug-arrow">{'\u2192'}</span>
-        <span class="pipeline-debug-count">{totalCount !== null ? `${totalCount.toLocaleString()} docs` : '\u2026'}</span>
-      </div>
       {pipeline.map((stage, i) => {
         const stageKey = Object.keys(stage)[0] || '?';
         const stageStr = JSON.stringify(stage);

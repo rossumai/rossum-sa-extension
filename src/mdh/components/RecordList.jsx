@@ -4,7 +4,7 @@ import { skip, limit } from '../store.js';
 import RecordCard from './RecordCard.jsx';
 import JSON5 from 'json5';
 
-export default function RecordList({ records, pipelineText, filterState, sortState, lastQueryMs, totalCount, pagination, onSort, onFilter, onEdit, onDelete, onRefresh, downloadState, onCancelDownload }) {
+export default function RecordList({ records, pipelineText, filterState, sortState, lastQueryMs, totalCount, pagination, onSort, onFilter, onPageChange, onEdit, onDelete, onRefresh, downloadState, onCancelDownload }) {
   const [expandedSet, setExpandedSet] = useState(new Set([0]));
   const [expandAll, setExpandAll] = useState(false);
 
@@ -114,9 +114,9 @@ export default function RecordList({ records, pipelineText, filterState, sortSta
         <span class={'record-count' + (lastQueryMs > 1000 ? ' record-count-slow' : '')}>{countText}</span>
         <span class="pagination-hint">Click key to sort {'\u00b7'} Click value to filter</span>
         <div class="pagination-controls">
-          <button disabled={!pagination.hasPrev()} onClick={pagination.goPrev}>{'\u2190'} Prev</button>
+          <button disabled={!pagination.hasPrev()} onClick={() => onPageChange('prev')}>{'\u2190'} Prev</button>
           <span>Page {pagination.page()}</span>
-          <button disabled={!pagination.hasNext(records.length)} onClick={pagination.goNext}>Next {'\u2192'}</button>
+          <button disabled={!pagination.hasNext(records.length)} onClick={() => onPageChange('next')}>Next {'\u2192'}</button>
         </div>
       </div>
     </div>
