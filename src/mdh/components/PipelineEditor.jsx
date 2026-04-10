@@ -71,8 +71,8 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
           >
             {savedState ? '\u2605' : '\u2606'}
           </button>
-          <button class="pipeline-action-btn" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setPopupPos({ top: r.bottom + 4, left: r.right }); setShowSaved(!showSaved); setShowHistory(false); }}>Saved Queries</button>
-          <button class="pipeline-action-btn" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setPopupPos({ top: r.bottom + 4, left: r.right }); setShowHistory(!showHistory); setShowSaved(false); }}>Query History</button>
+          <button class="pipeline-action-btn" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setPopupPos({ top: r.bottom + 4, left: r.left }); setShowSaved(!showSaved); setShowHistory(false); }}>Saved Queries</button>
+          <button class="pipeline-action-btn" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setPopupPos({ top: r.bottom + 4, left: r.left }); setShowHistory(!showHistory); setShowSaved(false); }}>Query History</button>
           <button class="pipeline-action-btn" onClick={beautify}>Beautify</button>
         </div>
         {showSaveInput && (
@@ -84,7 +84,7 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
       </div>
       {(showHistory || showSaved) && popupPos && (
         <div class="query-panel-backdrop" onClick={() => { setShowHistory(false); setShowSaved(false); }}>
-          <div style={`position:fixed;top:${popupPos.top}px;left:${popupPos.left}px;transform:translateX(-100%);z-index:1000`} onClick={(e) => e.stopPropagation()}>
+          <div style={`position:fixed;top:${popupPos.top}px;left:${popupPos.left}px;z-index:1000`} onClick={(e) => e.stopPropagation()}>
             {showHistory && <HistoryPanel onLoad={loadFromPanel} onDismiss={() => setShowHistory(false)} />}
             {showSaved && <SavedPanel onLoad={loadFromPanel} onDismiss={() => setShowSaved(false)} />}
           </div>
