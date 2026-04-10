@@ -1102,7 +1102,3 @@ body {
 .query-history-item-info {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px;
 }
-
-/* ── Hidden utility ───────────────────────────── */
-
-.hidden { display: none !important; }
