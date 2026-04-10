@@ -29,6 +29,8 @@ const options = {
   outdir: 'dist',
   format: 'iife',
   logLevel: 'info',
+  jsxFactory: 'h',
+  jsxFragment: 'Fragment',
 };
 
 if (isWatch) {
