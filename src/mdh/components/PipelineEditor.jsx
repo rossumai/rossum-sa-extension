@@ -1,0 +1,96 @@
+import { h } from 'preact';
+import { useState, useRef, useEffect } from 'preact/hooks';
+import { selectedCollection, records } from '../store.js';
+import { extractFieldNames } from './JsonEditor.jsx';
+import JsonEditor from './JsonEditor.jsx';
+import { HistoryPanel, SavedPanel, saveQuery, unsaveQuery, isSaved } from './QueryHistory.jsx';
+import JSON5 from 'json5';
+
+export default function PipelineEditor({ editorRef, initialValue, onChange, onValidChange, onLoadPipeline }) {
+  const [savedState, setSavedState] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
+  const [showSaveInput, setShowSaveInput] = useState(false);
+  const saveInputRef = useRef(null);
+
+  const fieldsFn = () => extractFieldNames(records.value);
+
+  async function updateSaveBtn() {
+    const col = selectedCollection.value;
+    if (!col || !editorRef.current) return;
+    const saved = await isSaved(col, editorRef.current.getValue());
+    setSavedState(saved);
+  }
+
+  useEffect(() => { updateSaveBtn(); }, [selectedCollection.value]);
+
+  function beautify() {
+    if (!editorRef.current) return;
+    try {
+      const parsed = JSON5.parse(editorRef.current.getValue());
+      editorRef.current.setValue(JSON.stringify(parsed, null, 2));
+    } catch { /* invalid JSON, ignore */ }
+  }
+
+  async function handleSave() {
+    const collection = selectedCollection.value;
+    if (!collection || !editorRef.current) return;
+    if (savedState) {
+      await unsaveQuery(collection, editorRef.current.getValue());
+      updateSaveBtn();
+      return;
+    }
+    setShowSaveInput(true);
+    setTimeout(() => saveInputRef.current?.focus(), 0);
+  }
+
+  async function doSave() {
+    const name = saveInputRef.current?.value.trim();
+    const collection = selectedCollection.value;
+    await saveQuery(collection, editorRef.current.getValue(), name || null, {});
+    setShowSaveInput(false);
+    updateSaveBtn();
+  }
+
+  function loadFromPanel(pipeline, collection, variables) {
+    setShowHistory(false);
+    setShowSaved(false);
+    onLoadPipeline(pipeline, collection, variables);
+  }
+
+  return (
+    <div>
+      <div class="pipeline-header">
+        <span class="split-pane-label">Aggregate Pipeline</span>
+        <div class="pipeline-header-actions">
+          <button
+            class={'pipeline-save-btn' + (savedState ? ' pipeline-save-btn-active' : '')}
+            title="Save current query"
+            onClick={handleSave}
+          >
+            {savedState ? '\u2605' : '\u2606'}
+          </button>
+          <button class="pipeline-action-btn" onClick={() => { setShowSaved(!showSaved); setShowHistory(false); }}>Saved Queries</button>
+          <button class="pipeline-action-btn" onClick={() => { setShowHistory(!showHistory); setShowSaved(false); }}>Query History</button>
+          <button class="pipeline-action-btn" onClick={beautify}>Beautify</button>
+        </div>
+      </div>
+      {showSaveInput && (
+        <div class="pipeline-save-inline">
+          <input ref={saveInputRef} class="input" placeholder="Query name\u2026" onKeyDown={(e) => { if (e.key === 'Enter') doSave(); if (e.key === 'Escape') setShowSaveInput(false); }} />
+          <button class="btn btn-sm btn-primary" onClick={doSave}>Save</button>
+        </div>
+      )}
+      {showHistory && <HistoryPanel onLoad={loadFromPanel} onDismiss={() => setShowHistory(false)} />}
+      {showSaved && <SavedPanel onLoad={loadFromPanel} onDismiss={() => setShowSaved(false)} />}
+      <JsonEditor
+        value={initialValue}
+        mode="aggregate"
+        fields={fieldsFn}
+        editorRef={editorRef}
+        onChange={onChange}
+        onValidChange={() => { onValidChange(); updateSaveBtn(); }}
+      />
+    </div>
+  );
+}
