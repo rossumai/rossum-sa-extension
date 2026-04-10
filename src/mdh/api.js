@@ -1,7 +1,9 @@
 let serviceBase = '';
+let baseDomain = '';
 let authHeader = '';
 
 export function init(domain, token) {
+  baseDomain = domain;
   serviceBase = `${domain}/svc/data-storage`;
   authHeader = `Bearer ${token}`;
 }
@@ -151,4 +153,31 @@ export function checkOperationStatus(operationId) {
 
 export function healthz() {
   return get('/api/healthz');
+}
+
+export async function listOperations(limit = 1000) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  const url = `${baseDomain}/svc/data-matching/api/v2/operation/?${params}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+  let res;
+  try {
+    res = await fetch(url, {
+      headers: { Authorization: authHeader },
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') throw new Error('Request timed out after 30s');
+    throw err;
+  }
+  clearTimeout(timer);
+  if (res.status === 401) {
+    throw new Error('Session expired. Open a Rossum page and click Data Storage again to reconnect.');
+  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error(data?.message || `API error ${res.status}`);
+  }
+  return data;
 }

@@ -1,5 +1,5 @@
 import { h } from 'preact';
-import { selectedCollection, activePanel } from '../store.js';
+import { selectedCollection, activePanel, activeView } from '../store.js';
 import Sidebar from './Sidebar.jsx';
 import SidebarResizer from './SidebarResizer.jsx';
 import ConnectionBar from './ConnectionBar.jsx';
@@ -11,6 +11,7 @@ import DataPanel from './DataPanel.jsx';
 import IndexPanel from './IndexPanel.jsx';
 import SearchIndexPanel from './SearchIndexPanel.jsx';
 import StatsPanel from './StatsPanel.jsx';
+import UploadsPanel from './UploadsPanel.jsx';
 
 export default function App({ connected }) {
   return (
@@ -22,7 +23,11 @@ export default function App({ connected }) {
         <ErrorBanner />
         <LoadingOverlay />
         <Modal />
-        {selectedCollection.value ? (
+        {activeView.value === 'operations' ? (
+          <div class="main-content">
+            <UploadsPanel />
+          </div>
+        ) : selectedCollection.value ? (
           <div class="main-content">
             <TabBar />
             {activePanel.value === 'data' && <DataPanel />}
