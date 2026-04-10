@@ -4,7 +4,7 @@ import { skip, limit } from '../store.js';
 import RecordCard from './RecordCard.jsx';
 import JSON5 from 'json5';
 
-export default function RecordList({ records, pipelineText, filterState, sortState, lastQueryMs, totalCount, pagination, onSort, onFilter, onEdit, onDelete, onRefresh }) {
+export default function RecordList({ records, pipelineText, filterState, sortState, lastQueryMs, totalCount, pagination, onSort, onFilter, onEdit, onDelete, onRefresh, downloadState, onCancelDownload }) {
   const [expandedSet, setExpandedSet] = useState(new Set([0]));
   const [expandAll, setExpandAll] = useState(false);
 
@@ -68,7 +68,18 @@ export default function RecordList({ records, pipelineText, filterState, sortSta
         </div>
         <div style="flex:1"></div>
         <div class="toolbar-group">
-          <button class="btn btn-sm" title="Download entire collection as JSON" onClick={() => onRefresh('download')}>Download all</button>
+          {downloadState ? (
+            <span class="download-progress">
+              <span class="download-progress-text">
+                {downloadState.cancelled ? 'Cancelled' : downloadState.done ? `\u2713 ${downloadState.count} records` : `Downloading\u2026 ${downloadState.count} records`}
+              </span>
+              {!downloadState.cancelled && !downloadState.done && (
+                <button class="download-cancel-btn" title="Cancel download" onClick={onCancelDownload}>{'\u2715'}</button>
+              )}
+            </span>
+          ) : (
+            <button class="btn btn-sm" title="Download entire collection as JSON" onClick={() => onRefresh('download')}>Download all</button>
+          )}
           <SplitButton label="Insert" cls="btn-success" onMain={() => onRefresh('insert')} onFile={() => onRefresh('insert-file')} />
         </div>
       </div>

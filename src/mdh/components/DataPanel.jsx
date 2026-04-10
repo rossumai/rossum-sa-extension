@@ -24,6 +24,8 @@ export default function DataPanel() {
   const query = useQuery();
   const pagination = usePagination();
   const leftRef = useRef(null);
+  const [downloadState, setDownloadState] = useState(null); // null | { count, cancelled }
+  const downloadCancelRef = useRef(false);
 
   const collection = selectedCollection.value;
 
@@ -164,29 +166,50 @@ export default function DataPanel() {
       if (!proceed) return;
     }
 
+    downloadCancelRef.current = false;
+    setDownloadState({ count: 0 });
+
     const BATCH = 1000;
     const allDocs = [];
     let s = 0;
     try {
       error.value = null;
       while (true) {
+        if (downloadCancelRef.current) break;
         const res = await api.aggregate(collection, [{ $match: {} }, { $skip: s }, { $limit: BATCH }]);
+        if (downloadCancelRef.current) break;
         const batch = res.result || [];
         allDocs.push(...batch);
+        setDownloadState({ count: allDocs.length });
         if (batch.length < BATCH) break;
         s += BATCH;
       }
-      const json = JSON.stringify(allDocs, null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${collection}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+
+      if (downloadCancelRef.current) {
+        setDownloadState({ count: allDocs.length, cancelled: true });
+        setTimeout(() => setDownloadState(null), 1500);
+      } else {
+        const json = JSON.stringify(allDocs, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${collection}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setDownloadState({ count: allDocs.length, done: true });
+        setTimeout(() => setDownloadState(null), 2000);
+      }
     } catch (err) {
-      error.value = { message: `Download failed: ${err.message}` };
+      if (!downloadCancelRef.current) {
+        error.value = { message: `Download failed: ${err.message}` };
+      }
+      setDownloadState(null);
     }
+  }
+
+  function cancelDownload() {
+    downloadCancelRef.current = true;
   }
 
   let parsedPipeline = null;
@@ -281,6 +304,8 @@ export default function DataPanel() {
             });
           }}
           onRefresh={handleToolbarAction}
+          downloadState={downloadState}
+          onCancelDownload={cancelDownload}
         />
       </div>
     </div>
