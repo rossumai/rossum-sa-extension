@@ -1,17 +1,22 @@
-const TTL = 30_000;
-const MAX_ENTRIES = 50;
+const TTL = 60_000;
+const MAX_ENTRIES = 200;
 
 // Map preserves insertion order — last entry is most recently used
 const entries = new Map();
 let hits = 0;
 let misses = 0;
+let pinnedCollection = null;
+
+export function pin(collection) { pinnedCollection = collection; }
+export function unpin() { pinnedCollection = null; }
 
 export function get(collection, field) {
   const entry = entries.get(collection);
   if (!entry) { misses++; return null; }
   const f = entry.fields[field];
   if (!f) { misses++; return null; }
-  if (Date.now() - f.ts > TTL) { misses++; return null; }
+  // Pinned collection never expires from TTL
+  if (collection !== pinnedCollection && Date.now() - f.ts > TTL) { misses++; return null; }
   hits++;
   // Promote to most-recently-used
   entries.delete(collection);
@@ -65,6 +70,15 @@ export function invalidate(collection, field) {
   if (entry) delete entry.fields[field];
 }
 
+export function invalidateData(collection) {
+  const entry = entries.get(collection);
+  if (!entry) return;
+  const keysToRemove = Object.keys(entry.fields).filter(
+    (k) => k !== 'indexes' && k !== 'searchIndexes',
+  );
+  for (const k of keysToRemove) delete entry.fields[k];
+}
+
 export function invalidateAll() {
   entries.clear();
 }
@@ -74,6 +88,7 @@ function evict() {
     let oldestKey = null;
     let oldestAccess = Infinity;
     for (const [key, entry] of entries) {
+      if (key === pinnedCollection) continue;
       if (entry.lastAccess < oldestAccess) {
         oldestAccess = entry.lastAccess;
         oldestKey = key;

@@ -109,8 +109,7 @@ export default function DataPanel() {
   }, [collection]);
 
   function invalidateAndRun() {
-    cache.invalidate(collection, 'records');
-    cache.invalidate(collection, 'totalCount');
+    cache.invalidateData(collection);
     pagination.totalCount.value = null;
     pagination.fetchTotalCount(collection);
     runQuery();

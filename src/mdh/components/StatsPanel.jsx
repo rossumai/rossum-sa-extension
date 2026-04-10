@@ -2,186 +2,13 @@ import { h } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { selectedCollection, activePanel, error } from '../store.js';
 import * as api from '../api.js';
+import * as cache from '../cache.js';
+import {
+  FIELD_DISCOVERY_SIZE, TOP_VALUES, encKey, discoverFields,
+  buildAllPipelines, STATS_CHECKS,
+} from '../statsPipelines.js';
 
-const FIELD_DISCOVERY_SIZE = 200;
-const TOP_VALUES = 5;
 const LARGE_COLLECTION_WARN = 100_000;
-
-// $facet keys cannot contain dots — encode/decode field paths
-function encKey(field) { return field.replace(/\./g, '__DOT__'); }
-function decKey(key) { return key.replace(/__DOT__/g, '.'); }
-
-const MAX_DEPTH = 3;
-const MAX_FIELDS = 50;
-
-function discoverFields(docs) {
-  const fields = new Set();
-
-  function walk(obj, prefix, depth) {
-    if (depth > MAX_DEPTH) return;
-    for (const key of Object.keys(obj)) {
-      if (!prefix && key === '_id') continue;
-      const path = prefix ? `${prefix}.${key}` : key;
-      const val = obj[key];
-      if (val !== null && typeof val === 'object' && !Array.isArray(val) && !(val.$oid || val.$date)) {
-        walk(val, path, depth + 1);
-      } else {
-        fields.add(path);
-      }
-    }
-  }
-
-  for (const doc of docs) walk(doc, '', 0);
-
-  const sorted = [...fields].sort();
-  return sorted.length > MAX_FIELDS ? sorted.slice(0, MAX_FIELDS) : sorted;
-}
-
-// ── Pipeline builders ───────────────────────────
-
-function buildOverviewPipeline() {
-  return [{ $count: 'total' }];
-}
-
-function buildFieldCoveragePipeline(fields) {
-  const group = { _id: null, _total: { $sum: 1 } };
-  for (const f of fields) {
-    const k = encKey(f);
-    group[`f_${k}`] = {
-      $sum: { $cond: [{ $and: [
-        { $ne: [{ $type: `$${f}` }, 'missing'] },
-        { $ne: [`$${f}`, null] },
-      ] }, 1, 0] },
-    };
-  }
-  return [{ $group: group }];
-}
-
-function buildEmptyValuesPipeline(fields) {
-  const group = { _id: null };
-  for (const f of fields) {
-    const k = encKey(f);
-    group[`null_${k}`] = {
-      $sum: { $cond: [{ $eq: [`$${f}`, null] }, 1, 0] },
-    };
-    group[`missing_${k}`] = {
-      $sum: { $cond: [{ $eq: [{ $type: `$${f}` }, 'missing'] }, 1, 0] },
-    };
-    group[`empty_${k}`] = {
-      $sum: { $cond: [{ $eq: [`$${f}`, ''] }, 1, 0] },
-    };
-  }
-  return [{ $group: group }];
-}
-
-function buildTypePipeline(fields) {
-  const facet = {};
-  for (const f of fields) {
-    facet[encKey(f)] = [
-      { $group: { _id: { $type: `$${f}` }, count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-    ];
-  }
-  return [{ $facet: facet }];
-}
-
-function buildValueDistributionPipeline(fields) {
-  const facet = {};
-  for (const f of fields) {
-    facet[encKey(f)] = [
-      { $group: { _id: `$${f}`, count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $limit: TOP_VALUES },
-    ];
-  }
-  return [{ $facet: facet }];
-}
-
-function buildCardinalityPipeline(fields) {
-  const facet = {};
-  for (const f of fields) {
-    facet[encKey(f)] = [
-      { $group: { _id: `$${f}` } },
-      { $count: 'distinct' },
-    ];
-  }
-  return [{ $facet: facet }];
-}
-
-function buildStringAnalysisPipeline(fields) {
-  const facet = {};
-  for (const f of fields) {
-    facet[encKey(f)] = [
-      { $match: { [f]: { $type: 'string' } } },
-      {
-        $project: {
-          len: { $strLenCP: `$${f}` },
-          hasLeading: { $cond: [{ $ne: [`$${f}`, { $ltrim: { input: `$${f}` } }] }, 1, 0] },
-          hasTrailing: { $cond: [{ $ne: [`$${f}`, { $rtrim: { input: `$${f}` } }] }, 1, 0] },
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          count: { $sum: 1 },
-          minLen: { $min: '$len' },
-          maxLen: { $max: '$len' },
-          avgLen: { $avg: '$len' },
-          leading: { $sum: '$hasLeading' },
-          trailing: { $sum: '$hasTrailing' },
-        },
-      },
-    ];
-  }
-  return [{ $facet: facet }];
-}
-
-function buildNumericStatsPipeline(fields) {
-  const facet = {};
-  for (const f of fields) {
-    facet[encKey(f)] = [
-      { $match: { [f]: { $type: 'number' } } },
-      {
-        $group: {
-          _id: null,
-          count: { $sum: 1 },
-          min: { $min: `$${f}` },
-          max: { $max: `$${f}` },
-          avg: { $avg: `$${f}` },
-        },
-      },
-    ];
-  }
-  return [{ $facet: facet }];
-}
-
-function buildDateRangePipeline(fields) {
-  const facet = {};
-  for (const f of fields) {
-    facet[encKey(f)] = [
-      { $match: { [f]: { $type: 'date' } } },
-      {
-        $group: {
-          _id: null,
-          count: { $sum: 1 },
-          earliest: { $min: `$${f}` },
-          latest: { $max: `$${f}` },
-        },
-      },
-    ];
-  }
-  return [{ $facet: facet }];
-}
-
-function buildSchemaConsistencyPipeline() {
-  return [
-    { $project: { _keys: { $objectToArray: '$$ROOT' } } },
-    { $project: { fieldCount: { $subtract: [{ $size: '$_keys' }, 1] } } },
-    { $group: { _id: '$fieldCount', count: { $sum: 1 } } },
-    { $sort: { count: -1 } },
-    { $limit: 20 },
-  ];
-}
 
 function FieldName({ path }) {
   const parts = path.split('.');
@@ -333,6 +160,8 @@ export default function StatsPanel() {
   const [discovering, setDiscovering] = useState(false);
   const runIdRef = useRef(0);
 
+  const SECTION_ORDER = ['overview', 'coverage', 'schema', 'cardinality', 'strings', 'numeric', 'dates', 'distribution'];
+
   function setStatus(key, value) {
     setStatuses((prev) => ({ ...prev, [key]: value }));
   }
@@ -357,15 +186,21 @@ export default function StatsPanel() {
     setDiscovering(true);
 
     (async () => {
-      // Phase 1: discover fields from a sample
+      // Phase 1: discover fields (use cache from preload if available)
       let discoveredFields;
       try {
         error.value = null;
-        const sample = await api.aggregate(collection, [
-          { $sample: { size: FIELD_DISCOVERY_SIZE } },
-        ]);
-        if (runId !== runIdRef.current) return;
-        discoveredFields = discoverFields(sample.result || []);
+        const cached = cache.get(collection, 'statsFields');
+        if (cached) {
+          discoveredFields = cached;
+        } else {
+          const sample = await api.aggregate(collection, [
+            { $sample: { size: FIELD_DISCOVERY_SIZE } },
+          ]);
+          if (runId !== runIdRef.current) return;
+          discoveredFields = discoverFields(sample.result || []);
+          cache.set(collection, 'statsFields', discoveredFields);
+        }
         setFields(discoveredFields);
         setDiscovering(false);
       } catch (err) {
@@ -379,13 +214,19 @@ export default function StatsPanel() {
         return;
       }
 
-      // Phase 1.5: get exact count to decide sampling strategy
+      // Phase 1.5: get exact count (use totalCount cache from prefetch)
       setStatus('overview', 'loading');
       let totalDocs = 0;
       try {
-        const countRes = await api.aggregate(collection, buildOverviewPipeline());
-        if (runId !== runIdRef.current) return;
-        totalDocs = countRes.result?.[0]?.total ?? 0;
+        const cachedCount = cache.get(collection, 'totalCount');
+        if (cachedCount !== null) {
+          totalDocs = cachedCount;
+        } else {
+          const countRes = await api.aggregate(collection, buildOverviewPipeline());
+          if (runId !== runIdRef.current) return;
+          totalDocs = countRes.result?.[0]?.total ?? 0;
+          cache.set(collection, 'totalCount', totalDocs);
+        }
         setOverview({ total: totalDocs, fieldCount: discoveredFields.length });
         setStatus('overview', 'done');
       } catch (err) {
@@ -395,161 +236,80 @@ export default function StatsPanel() {
 
 
       // Phase 2: run all analyses in parallel
-      const checks = [
-        {
-          key: 'coverage',
-          pipeline: buildFieldCoveragePipeline(discoveredFields),
-          onResult: (res) => {
-            const r = res.result?.[0] || {};
-            const total = r._total || 0;
-            setCoverage(
-              discoveredFields.map((f) => {
-                const k = encKey(f);
-                return {
-                  field: f,
-                  present: r[`f_${k}`] || 0,
-                  total,
-                  pct: total > 0 ? Math.floor(((r[`f_${k}`] || 0) / total) * 100) : 0,
-                };
-              }),
-            );
-          },
+      const pipelines = buildAllPipelines(discoveredFields);
+      const resultHandlers = {
+        coverage: (res) => {
+          const r = res.result?.[0] || {};
+          const total = r._total || 0;
+          setCoverage(discoveredFields.map((f) => {
+            const k = encKey(f);
+            return { field: f, present: r[`f_${k}`] || 0, total, pct: total > 0 ? Math.floor(((r[`f_${k}`] || 0) / total) * 100) : 0 };
+          }));
         },
-        {
-          key: 'empties',
-          pipeline: buildEmptyValuesPipeline(discoveredFields),
-          onResult: (res) => {
-            const r = res.result?.[0] || {};
-            setEmpties(
-              discoveredFields
-                .map((f) => {
-                  const k = encKey(f);
-                  return {
-                    field: f,
-                    nullCount: r[`null_${k}`] || 0,
-                    missingCount: r[`missing_${k}`] || 0,
-                    emptyCount: r[`empty_${k}`] || 0,
-                  };
-                })
-                .filter((x) => x.nullCount + x.missingCount + x.emptyCount > 0),
-            );
-          },
+        empties: (res) => {
+          const r = res.result?.[0] || {};
+          setEmpties(discoveredFields.map((f) => {
+            const k = encKey(f);
+            return { field: f, nullCount: r[`null_${k}`] || 0, missingCount: r[`missing_${k}`] || 0, emptyCount: r[`empty_${k}`] || 0 };
+          }).filter((x) => x.nullCount + x.missingCount + x.emptyCount > 0));
         },
-        {
-          key: 'types',
-          pipeline: buildTypePipeline(discoveredFields),
-          onResult: (res) => {
-            const r = res.result?.[0] || {};
-            setTypes(
-              discoveredFields
-                .map((f) => ({
-                  field: f,
-                  types: (r[encKey(f)] || []).filter((e) => e._id !== 'missing'),
-                }))
-                .filter((x) => x.types.length > 1),
-            );
-          },
+        types: (res) => {
+          const r = res.result?.[0] || {};
+          setTypes(discoveredFields.map((f) => ({ field: f, types: (r[encKey(f)] || []).filter((e) => e._id !== 'missing') })).filter((x) => x.types.length > 1));
         },
-        {
-          key: 'distribution',
-          pipeline: buildValueDistributionPipeline(discoveredFields),
-          onResult: (res) => {
-            const r = res.result?.[0] || {};
-            setDistribution(
-              discoveredFields.map((f) => ({
-                field: f,
-                values: (r[encKey(f)] || []).map((v) => ({ value: v._id, count: v.count })),
-              })),
-            );
-          },
+        distribution: (res) => {
+          const r = res.result?.[0] || {};
+          setDistribution(discoveredFields.map((f) => ({ field: f, values: (r[encKey(f)] || []).map((v) => ({ value: v._id, count: v.count })) })));
         },
-        {
-          key: 'cardinality',
-          pipeline: buildCardinalityPipeline(discoveredFields),
-          onResult: (res) => {
-            const r = res.result?.[0] || {};
-            setCardinality(
-              discoveredFields.map((f) => ({
-                field: f,
-                distinct: r[encKey(f)]?.[0]?.distinct ?? 0,
-              })),
-            );
-          },
+        cardinality: (res) => {
+          const r = res.result?.[0] || {};
+          setCardinality(discoveredFields.map((f) => ({ field: f, distinct: r[encKey(f)]?.[0]?.distinct ?? 0 })));
         },
-        {
-          key: 'strings',
-          pipeline: buildStringAnalysisPipeline(discoveredFields),
-          onResult: (res) => {
-            const r = res.result?.[0] || {};
-            setStringAnalysis(
-              discoveredFields
-                .map((f) => {
-                  const s = r[encKey(f)]?.[0];
-                  if (!s) return { field: f, count: 0 };
-                  return {
-                    field: f,
-                    count: s.count,
-                    minLen: s.minLen,
-                    maxLen: s.maxLen,
-                    avgLen: Math.round(s.avgLen),
-                    leading: s.leading,
-                    trailing: s.trailing,
-                  };
-                })
-                .filter((x) => x.count > 0),
-            );
-          },
+        strings: (res) => {
+          const r = res.result?.[0] || {};
+          setStringAnalysis(discoveredFields.map((f) => {
+            const s = r[encKey(f)]?.[0];
+            if (!s) return { field: f, count: 0 };
+            return { field: f, count: s.count, minLen: s.minLen, maxLen: s.maxLen, avgLen: Math.round(s.avgLen), leading: s.leading, trailing: s.trailing };
+          }).filter((x) => x.count > 0));
         },
-        {
-          key: 'numeric',
-          pipeline: buildNumericStatsPipeline(discoveredFields),
-          onResult: (res) => {
-            const r = res.result?.[0] || {};
-            setNumericStats(
-              discoveredFields
-                .map((f) => {
-                  const s = r[encKey(f)]?.[0];
-                  if (!s) return null;
-                  return { field: f, count: s.count, min: s.min, max: s.max, avg: s.avg };
-                })
-                .filter(Boolean),
-            );
-          },
+        numeric: (res) => {
+          const r = res.result?.[0] || {};
+          setNumericStats(discoveredFields.map((f) => {
+            const s = r[encKey(f)]?.[0];
+            if (!s) return null;
+            return { field: f, count: s.count, min: s.min, max: s.max, avg: s.avg };
+          }).filter(Boolean));
         },
-        {
-          key: 'dates',
-          pipeline: buildDateRangePipeline(discoveredFields),
-          onResult: (res) => {
-            const r = res.result?.[0] || {};
-            setDateRanges(
-              discoveredFields
-                .map((f) => {
-                  const s = r[encKey(f)]?.[0];
-                  if (!s) return null;
-                  return { field: f, count: s.count, earliest: s.earliest, latest: s.latest };
-                })
-                .filter(Boolean),
-            );
-          },
+        dates: (res) => {
+          const r = res.result?.[0] || {};
+          setDateRanges(discoveredFields.map((f) => {
+            const s = r[encKey(f)]?.[0];
+            if (!s) return null;
+            return { field: f, count: s.count, earliest: s.earliest, latest: s.latest };
+          }).filter(Boolean));
         },
-        {
-          key: 'schema',
-          pipeline: buildSchemaConsistencyPipeline(),
-          onResult: (res) => {
-            setSchemaShapes(
-              (res.result || []).map((r) => ({ fieldCount: r._id, docCount: r.count })),
-            );
-          },
+        schema: (res) => {
+          setSchemaShapes((res.result || []).map((r) => ({ fieldCount: r._id, docCount: r.count })));
         },
-      ];
+      };
+      const checks = STATS_CHECKS.map((key) => ({ key, pipeline: pipelines[key], onResult: resultHandlers[key] }));
 
       for (const c of checks) setStatus(c.key, 'loading');
 
       await Promise.allSettled(
         checks.map(async (c) => {
           try {
-            const res = await api.aggregate(collection, c.pipeline);
-            if (runId !== runIdRef.current) return;
+            const cacheKey = `stats_${c.key}`;
+            const cached = cache.get(collection, cacheKey);
+            let res;
+            if (cached) {
+              res = cached;
+            } else {
+              res = await api.aggregate(collection, c.pipeline);
+              if (runId !== runIdRef.current) return;
+              cache.set(collection, cacheKey, res);
+            }
             c.onResult(res);
             setStatus(c.key, 'done');
           } catch (err) {
@@ -563,7 +323,6 @@ export default function StatsPanel() {
   }, [selectedCollection.value, activePanel.value]);
 
   // Sections render top-to-bottom: a section only appears once all above it have resolved.
-  const SECTION_ORDER = ['overview', 'coverage', 'schema', 'cardinality', 'strings', 'numeric', 'dates', 'distribution'];
   const resolved = (key) => statuses[key] === 'done' || (statuses[key] && statuses[key].error);
   const canShow = (key) => {
     for (const k of SECTION_ORDER) {
@@ -599,6 +358,7 @@ export default function StatsPanel() {
           class="icon-btn"
           title="Re-run analysis"
           onClick={() => {
+            cache.invalidateData(selectedCollection.value);
             activePanel.value = '';
             setTimeout(() => { activePanel.value = 'stats'; }, 0);
           }}
