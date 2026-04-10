@@ -1215,6 +1215,20 @@ body {
   padding: 4px 0;
 }
 
+.stats-schema-baseline {
+  font-size: 11px; color: var(--text-secondary); font-style: italic;
+}
+.stats-schema-diff {
+  display: flex; flex-direction: column; gap: 2px; font-size: 11px;
+  font-family: var(--font-mono);
+}
+.stats-schema-extra {
+  color: var(--success);
+}
+.stats-schema-missing {
+  color: var(--danger);
+}
+
 .stats-error {
   font-size: 11px; color: #991b1b;
   font-family: var(--font-mono);

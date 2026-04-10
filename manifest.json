@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Rossum SA extension",
   "version": "0.19.1",
-  "description": "Adds additional functionality to Rossum, NetSuite, and Coupa UI for easier onboarding, including Dataset Management.",
+  "description": "Developer tools for Rossum, NetSuite, and Coupa: overlay IDs, expand formulas, manage datasets, show API field names.",
   "icons": {
     "16": "icons/16-blue-crunch.png",
     "48": "icons/48-blue-crunch.png",

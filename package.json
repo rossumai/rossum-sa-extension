@@ -1,6 +1,6 @@
 {
   "name": "mrtnzlml/rossum-sa-extension",
-  "description": "Adds additional functionality to Rossum, NetSuite, and Coupa UI for easier onboarding, including Dataset Management.",
+  "description": "Developer tools for Rossum, NetSuite, and Coupa: overlay schema/resource IDs, expand formulas, manage datasets, and show API field names.",
   "homepage": "https://github.com/mrtnzlml/rossum-sa-extension",
   "bugs": "https://github.com/mrtnzlml/universe/issues",
   "private": true,

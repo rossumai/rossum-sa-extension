@@ -1,53 +1,56 @@
 > [!IMPORTANT]
 > This is a community project supported by enthusiasts and volunteers. For official support, please get in touch with [Rossum Sales](https://rossum.ai/form/contact/).
 
-Chrome extension adds small enhancements to **Rossum UI**, **NetSuite UI**, and **Coupa UI** for easier onboarding (created by the SA team).
+# Rossum SA Extension
+
+A Chrome extension that adds developer tools and productivity enhancements to **Rossum**, **NetSuite**, and **Coupa** web interfaces. Designed for solution architects who configure and integrate these platforms.
 
 ## Install
 
-Head over to https://chrome.google.com/webstore/detail/bljkbinljmhdbipklfcljongikhmnneh and click **Add to Chrome**
+Install from the [Chrome Web Store](https://chrome.google.com/webstore/detail/bljkbinljmhdbipklfcljongikhmnneh).
 
-## Rossum UI improvements
+## Features
 
-All of these options are configurable and can be turned on/off on demand:
+All features are configurable via the extension popup and can be toggled on or off individually.
 
-- overlays `schema_id` on annotation fields (headers and line items)
-- overlays resource IDs on queues, hooks, extensions, labels, rules, and users (click to copy)
-- auto-expands formula field source code
-- auto-expands reasoning field options
-- prevents annotation sidebar from auto-scrolling to top (scroll lock)
-- toggles `devFeaturesEnabled` flag
-- toggles `devDebugEnabled` flag
-- quick link to Master Data Hub management page
-- Dataset Management — browse, query, edit, and delete records in Data Storage collections; manage indexes and Atlas Search indexes (beta)
+### Rossum
 
-![header fields](./assets/header_fields.png)
+- **Schema ID overlays** — displays `schema_id` on annotation fields (headers and line items)
+- **Resource ID overlays** — displays internal IDs on queues, hooks, extensions, labels, rules, and users (click to copy)
+- **Expand formulas** — automatically opens formula field source code
+- **Expand reasoning** — automatically opens reasoning field options
+- **Sidebar scroll lock** — prevents the annotation sidebar from auto-scrolling to the top
+- **Dev features toggle** — enables `devFeaturesEnabled` flag
+- **Dev debug toggle** — enables `devDebugEnabled` flag
+- **Dataset Management** — browse, query, edit, and delete records in Data Storage collections; manage indexes and Atlas Search indexes
 
-![line items](./assets/line_items.png)
+![Schema ID overlays on header fields](./assets/header_fields.png)
 
-## NetSuite UI improvements
+![Schema ID overlays on line items](./assets/line_items.png)
 
-- shows internal field names on form labels
+### NetSuite
 
-![NetSuite field names](./assets/netsuite_field_names.png)
+- **Internal field names** — shows internal field IDs on form labels
 
-## Coupa UI improvements (beta)
+![NetSuite internal field names](./assets/netsuite_field_names.png)
 
-- shows API field names on form labels (invoices, purchase orders, and other pages)
-- on invoice pages, extracts exact API names from page metadata (e.g., `currency_id`, `payment_term_id`, `local_invoice_date`)
-- on PO and other pages, extracts field identifiers from DOM attributes
+### Coupa
+
+- **API field names** — shows API field names on form labels (invoices, purchase orders, and other pages)
+- On invoice pages, extracts exact API names from page metadata (e.g., `currency_id`, `payment_term_id`)
+- On PO and other pages, extracts field identifiers from DOM attributes
 
 ## Development
 
 ```bash
-npm install          # install dependencies (esbuild)
+npm install          # install dependencies
 npm run build        # bundle src/ → dist/
 npm run dev          # rebuild on file changes (JS only)
 ```
 
 Load `dist/` as an unpacked extension in `chrome://extensions` (enable Developer mode).
 
-After changing HTML files, re-run `npm run build` — the watch mode only picks up JS changes.
+After changing HTML or CSS files, re-run `npm run build` — watch mode only picks up JS changes.
 
 ## Release
 

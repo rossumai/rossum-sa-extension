@@ -5,6 +5,12 @@ export const MAX_FIELDS = 50;
 
 export function encKey(field) { return field.replace(/\./g, '__DOT__'); }
 
+function fieldsOnly(fields) {
+  const p = { _id: 0 };
+  for (const f of fields) p[f] = 1;
+  return { $project: p };
+}
+
 export function discoverFields(docs) {
   const fields = new Set();
   function walk(obj, prefix, depth) {
@@ -40,7 +46,7 @@ export function buildFieldCoveragePipeline(fields) {
       ] }, 1, 0] },
     };
   }
-  return [{ $group: group }];
+  return [fieldsOnly(fields), { $group: group }];
 }
 
 export function buildEmptyValuesPipeline(fields) {
@@ -57,7 +63,7 @@ export function buildEmptyValuesPipeline(fields) {
       $sum: { $cond: [{ $eq: [`$${f}`, ''] }, 1, 0] },
     };
   }
-  return [{ $group: group }];
+  return [fieldsOnly(fields), { $group: group }];
 }
 
 export function buildTypePipeline(fields) {
@@ -68,7 +74,7 @@ export function buildTypePipeline(fields) {
       { $sort: { count: -1 } },
     ];
   }
-  return [{ $facet: facet }];
+  return [fieldsOnly(fields), { $facet: facet }];
 }
 
 export function buildValueDistributionPipeline(fields) {
@@ -80,7 +86,7 @@ export function buildValueDistributionPipeline(fields) {
       { $limit: TOP_VALUES },
     ];
   }
-  return [{ $facet: facet }];
+  return [fieldsOnly(fields), { $facet: facet }];
 }
 
 export function buildCardinalityPipeline(fields) {
@@ -91,14 +97,14 @@ export function buildCardinalityPipeline(fields) {
       { $count: 'distinct' },
     ];
   }
-  return [{ $facet: facet }];
+  return [fieldsOnly(fields), { $facet: facet }];
 }
 
 export function buildStringAnalysisPipeline(fields) {
   const facet = {};
   for (const f of fields) {
     facet[encKey(f)] = [
-      { $match: { [f]: { $type: 'string' } } },
+      { $match: { $expr: { $eq: [{ $type: `$${f}` }, 'string'] } } },
       {
         $project: {
           len: { $strLenCP: `$${f}` },
@@ -119,7 +125,7 @@ export function buildStringAnalysisPipeline(fields) {
       },
     ];
   }
-  return [{ $facet: facet }];
+  return [fieldsOnly(fields), { $facet: facet }];
 }
 
 export function buildNumericStatsPipeline(fields) {
@@ -138,7 +144,7 @@ export function buildNumericStatsPipeline(fields) {
       },
     ];
   }
-  return [{ $facet: facet }];
+  return [fieldsOnly(fields), { $facet: facet }];
 }
 
 export function buildDateRangePipeline(fields) {
@@ -156,14 +162,25 @@ export function buildDateRangePipeline(fields) {
       },
     ];
   }
-  return [{ $facet: facet }];
+  return [fieldsOnly(fields), { $facet: facet }];
 }
 
 export function buildSchemaConsistencyPipeline() {
   return [
     { $project: { _keys: { $objectToArray: '$$ROOT' } } },
-    { $project: { fieldCount: { $subtract: [{ $size: '$_keys' }, 1] } } },
-    { $group: { _id: '$fieldCount', count: { $sum: 1 } } },
+    {
+      $project: {
+        fieldCount: { $subtract: [{ $size: '$_keys' }, 1] },
+        fields: { $map: { input: '$_keys', as: 'k', in: '$$k.k' } },
+      },
+    },
+    {
+      $group: {
+        _id: '$fieldCount',
+        count: { $sum: 1 },
+        sampleFields: { $first: '$fields' },
+      },
+    },
     { $sort: { count: -1 } },
     { $limit: 20 },
   ];

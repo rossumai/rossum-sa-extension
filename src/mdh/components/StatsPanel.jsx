@@ -5,7 +5,7 @@ import * as api from '../api.js';
 import * as cache from '../cache.js';
 import {
   FIELD_DISCOVERY_SIZE, TOP_VALUES, encKey, discoverFields,
-  buildAllPipelines, STATS_CHECKS,
+  buildAllPipelines, buildOverviewPipeline, STATS_CHECKS,
 } from '../statsPipelines.js';
 
 const LARGE_COLLECTION_WARN = 100_000;
@@ -231,7 +231,7 @@ export default function StatsPanel() {
         setStatus('overview', 'done');
       } catch (err) {
         if (runId !== runIdRef.current) return;
-        setStatus('overview', 'error');
+        setStatus('overview', { error: err.message });
       }
 
 
@@ -290,7 +290,11 @@ export default function StatsPanel() {
           }).filter(Boolean));
         },
         schema: (res) => {
-          setSchemaShapes((res.result || []).map((r) => ({ fieldCount: r._id, docCount: r.count })));
+          setSchemaShapes((res.result || []).map((r) => ({
+            fieldCount: r._id,
+            docCount: r.count,
+            sampleFields: (r.sampleFields || []).filter((f) => f !== '_id').sort(),
+          })));
         },
       };
       const checks = STATS_CHECKS.map((key) => ({ key, pipeline: pipelines[key], onResult: resultHandlers[key] }));
@@ -474,34 +478,65 @@ export default function StatsPanel() {
         )}
 
         {/* Schema Consistency */}
-        {schemaShapes && canShow('schema') && (
-          <Section title="Schema Consistency" status={statuses.schema}>
-            <div class="stats-note">
-              Distribution of field counts per document. If all documents have the same number of fields, the schema is consistent.
-              Multiple groups indicate documents with different shapes — likely from merged imports or optional fields.
-            </div>
-            {schemaShapes.length <= 1 ? (
-              <div class="stats-ok">All documents have the same structure ({schemaShapes[0]?.fieldCount} fields)</div>
-            ) : (
-              <table class="stats-table">
-                <thead>
-                  <tr>
-                    <th>Fields in doc</th>
-                    <th>Documents</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {schemaShapes.map((s) => (
+        {schemaShapes && canShow('schema') && (() => {
+          const baseline = schemaShapes[0]?.sampleFields || [];
+          const baselineSet = new Set(baseline);
+          return (
+            <Section title="Schema Consistency" status={statuses.schema}>
+              <div class="stats-note">
+                Distribution of field counts per document. If all documents have the same number of fields, the schema is consistent.
+                Multiple groups indicate documents with different shapes — likely from merged imports or optional fields.
+                {schemaShapes.length > 1 && ' Extra/missing fields are compared against the most common shape.'}
+              </div>
+              {schemaShapes.length <= 1 ? (
+                <div class="stats-ok">All documents have the same structure ({schemaShapes[0]?.fieldCount} fields)</div>
+              ) : (
+                <table class="stats-table">
+                  <thead>
                     <tr>
-                      <td class="stats-mono">{s.fieldCount}</td>
-                      <td class="stats-mono">{s.docCount.toLocaleString()}</td>
+                      <th>Fields</th>
+                      <th>Documents</th>
+                      <th>Difference</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </Section>
-        )}
+                  </thead>
+                  <tbody>
+                    {schemaShapes.map((s, i) => {
+                      const fields = s.sampleFields || [];
+                      const fieldsSet = new Set(fields);
+                      const extra = i === 0 ? [] : fields.filter((f) => !baselineSet.has(f));
+                      const missing = i === 0 ? [] : baseline.filter((f) => !fieldsSet.has(f));
+                      return (
+                        <tr>
+                          <td class="stats-mono">{s.fieldCount}</td>
+                          <td class="stats-mono">{s.docCount.toLocaleString()}</td>
+                          <td>
+                            {i === 0 ? (
+                              <span class="stats-schema-baseline">most common</span>
+                            ) : (
+                              <span class="stats-schema-diff">
+                                {extra.length > 0 && (
+                                  <span class="stats-schema-extra">
+                                    {'+\u2009'}{extra.join(', ')}
+                                  </span>
+                                )}
+                                {missing.length > 0 && (
+                                  <span class="stats-schema-missing">
+                                    {'\u2212\u2009'}{missing.join(', ')}
+                                  </span>
+                                )}
+                                {extra.length === 0 && missing.length === 0 && '\u2014'}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </Section>
+          );
+        })()}
 
         {/* ── Field Profiling ────────────────────────── */}
 
