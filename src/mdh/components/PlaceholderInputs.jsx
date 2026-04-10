@@ -54,7 +54,7 @@ export default function PlaceholderInputs({ names, values, onSetValue, onRunQuer
   return (
     <div class="placeholder-container">
       <div class="placeholder-header">
-        <div class="placeholder-label">Variables:</div>
+        <div class="placeholder-label">Variables</div>
         <button class="placeholder-annotation-btn" onClick={() => setAnnotRow(!annotRow)}>Fill from Annotation</button>
       </div>
       {annotRow && (

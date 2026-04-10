@@ -61,7 +61,7 @@ export default function PipelineDebug({ pipeline, totalCount, onTotalCountNeeded
 
   return (
     <div class="pipeline-debug">
-      <div class="placeholder-label">Aggregation Pipeline Debug</div>
+      <div class="placeholder-label">Aggregate Pipeline Debug</div>
       <div class="pipeline-debug-row pipeline-debug-total">
         <span class="pipeline-debug-stage">collection</span>
         <span class="pipeline-debug-arrow">{'\u2192'}</span>

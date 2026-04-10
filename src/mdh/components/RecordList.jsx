@@ -60,7 +60,7 @@ export default function RecordList({ records, pipelineText, filterState, sortSta
   if (lastQueryMs) countText += ` \u00b7 ${lastQueryMs}ms`;
 
   return (
-    <div>
+    <div style="display:flex;flex-direction:column;flex:1;overflow:hidden">
       <div class="toolbar">
         <div class="toolbar-group">
           <button class="btn btn-sm" onClick={() => onRefresh('reset')}>Reset</button>

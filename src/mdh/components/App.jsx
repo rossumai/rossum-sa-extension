@@ -13,7 +13,7 @@ import SearchIndexPanel from './SearchIndexPanel.jsx';
 
 export default function App({ connected }) {
   return (
-    <div id="app">
+    <div class="app-root">
       <Sidebar />
       <SidebarResizer />
       <main class="main">

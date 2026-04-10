@@ -55,6 +55,7 @@ body {
 }
 
 #app { display: flex; height: 100vh; }
+.app-root { display: flex; flex: 1; min-width: 0; }
 
 .sidebar {
   width: 240px; min-width: 240px;
@@ -244,13 +245,12 @@ body {
   flex-direction: column;
   padding: 10px 12px;
   border-right: 1px solid var(--border);
-  overflow: hidden;
+  overflow-y: auto;
 }
 
-.data-panel-left .json-editor { flex: 1; }
+.data-panel-left .json-editor { flex-shrink: 0; }
 
 .placeholder-container {
-  border-top: 1px solid var(--border);
   padding: 8px 0 0;
   margin-top: 8px;
   display: flex;
@@ -321,7 +321,6 @@ body {
 /* ── Pipeline debug ───────────────────────────── */
 
 .pipeline-debug {
-  border-top: 1px solid var(--border);
   padding: 8px 0 0;
   margin-top: 8px;
   flex-shrink: 0;
