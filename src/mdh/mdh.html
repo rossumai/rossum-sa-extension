@@ -6,47 +6,7 @@
   <link href="mdh.css" rel="stylesheet" />
 </head>
 <body>
-  <div id="app">
-    <aside id="sidebar" class="sidebar">
-      <div class="sidebar-header">
-        <div class="sidebar-title-group">
-          <span class="sidebar-title">Collections</span>
-          <span id="sidebarCount" class="sidebar-count"></span>
-        </div>
-        <div class="sidebar-header-actions">
-          <button id="sidebarNewBtn" class="icon-btn" title="New collection">+</button>
-          <button id="refreshCollections" class="icon-btn" title="Refresh">&#x21bb;</button>
-        </div>
-      </div>
-      <div id="collectionList" class="collection-list"></div>
-    </aside>
-    <div id="sidebarResizer" class="sidebar-resizer"></div>
-
-    <main id="main" class="main">
-      <div id="connectionBar" class="connection-bar"></div>
-      <div id="errorBanner" class="error-banner hidden"></div>
-      <div id="loadingOverlay" class="loading-overlay hidden">
-        <div class="spinner"></div>
-      </div>
-
-      <div id="emptyState" class="empty-state">
-        <p>Select a collection to get started</p>
-      </div>
-
-      <div id="mainContent" class="main-content hidden">
-        <div class="tab-bar">
-          <button class="tab active" data-panel="data">Data</button>
-          <button class="tab" data-panel="indexes">Indexes</button>
-          <button class="tab" data-panel="search-indexes">Search Indexes</button>
-        </div>
-
-        <div id="panel-data" class="panel"></div>
-        <div id="panel-indexes" class="panel hidden"></div>
-        <div id="panel-search-indexes" class="panel hidden"></div>
-      </div>
-    </main>
-  </div>
-
+  <div id="app"></div>
   <script src="mdh.js"></script>
 </body>
 </html>
