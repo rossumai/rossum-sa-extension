@@ -1020,11 +1020,14 @@ body {
 /* ── Query history panel ─────────────────────── */
 
 .query-history-panel {
-  position: absolute; top: 100%; right: 0;
   background: var(--bg-card); border: 1px solid var(--border);
   border-radius: var(--radius); box-shadow: var(--shadow), 0 8px 24px rgba(0,0,0,0.12);
-  width: 480px; max-height: 500px; z-index: 100;
+  width: 480px; max-height: 500px;
   display: flex; flex-direction: column; overflow: hidden;
+}
+
+.query-panel-backdrop {
+  position: fixed; inset: 0; z-index: 999;
 }
 
 .query-history-list {
