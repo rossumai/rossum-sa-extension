@@ -5,18 +5,18 @@ const MAX_ENTRIES = 200;
 const entries = new Map();
 let hits = 0;
 let misses = 0;
-let pinnedCollection = null;
-
-export function pin(collection) { pinnedCollection = collection; }
-export function unpin() { pinnedCollection = null; }
 
 export function get(collection, field) {
   const entry = entries.get(collection);
   if (!entry) { misses++; return null; }
   const f = entry.fields[field];
   if (!f) { misses++; return null; }
-  // Pinned collection never expires from TTL
-  if (collection !== pinnedCollection && Date.now() - f.ts > TTL) { misses++; return null; }
+  if (Date.now() - f.ts > TTL) {
+    delete entry.fields[field];
+    if (Object.keys(entry.fields).length === 0) entries.delete(collection);
+    misses++;
+    return null;
+  }
   hits++;
   // Promote to most-recently-used
   entries.delete(collection);
@@ -88,7 +88,6 @@ function evict() {
     let oldestKey = null;
     let oldestAccess = Infinity;
     for (const [key, entry] of entries) {
-      if (key === pinnedCollection) continue;
       if (entry.lastAccess < oldestAccess) {
         oldestAccess = entry.lastAccess;
         oldestKey = key;

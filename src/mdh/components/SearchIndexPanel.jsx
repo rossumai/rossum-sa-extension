@@ -34,6 +34,7 @@ export default function SearchIndexPanel() {
       const result = res.result || [];
       cache.set(collection, 'searchIndexes', result);
       if (isVisible) loading.value = false;
+      if (selectedCollection.value !== collection) return;
       setIndexes(result);
       result.forEach((idx) => { if (typeof idx === 'object' && idx) ai.preload(idx, 'searchIndex'); });
     } catch (err) {

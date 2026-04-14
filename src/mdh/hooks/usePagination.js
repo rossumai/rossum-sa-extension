@@ -1,6 +1,6 @@
 import { useRef } from 'preact/hooks';
 import { signal } from '@preact/signals';
-import { skip, limit } from '../store.js';
+import { selectedCollection, skip, limit } from '../store.js';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
 
@@ -15,6 +15,7 @@ export function usePagination() {
     }
     try {
       const res = await api.aggregate(collection, [{ $count: 'total' }]);
+      if (selectedCollection.value !== collection) return null;
       const count = res.result?.[0]?.total ?? 0;
       totalCount.value = count;
       cache.set(collection, 'totalCount', count);

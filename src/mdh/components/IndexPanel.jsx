@@ -34,6 +34,7 @@ export default function IndexPanel() {
       const result = res.result || [];
       cache.set(collection, 'indexes', result);
       if (isVisible) loading.value = false;
+      if (selectedCollection.value !== collection) return;
       setIndexes(result);
       result.forEach((idx) => { if (typeof idx === 'object' && idx) ai.preload(idx, 'index'); });
     } catch (err) {

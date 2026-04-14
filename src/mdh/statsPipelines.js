@@ -28,7 +28,13 @@ export function discoverFields(docs) {
   }
   for (const doc of docs) walk(doc, '', 0);
   const sorted = [...fields].sort();
-  return sorted.length > MAX_FIELDS ? sorted.slice(0, MAX_FIELDS) : sorted;
+  // Remove parent fields that have child paths (e.g. "line_items" when
+  // "line_items.item_amount" also exists) to avoid $project path collisions.
+  const deduped = sorted.filter((f, i) => {
+    const next = sorted[i + 1];
+    return !next || !next.startsWith(f + '.');
+  });
+  return deduped.length > MAX_FIELDS ? deduped.slice(0, MAX_FIELDS) : deduped;
 }
 
 export function buildOverviewPipeline() {

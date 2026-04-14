@@ -86,15 +86,3 @@ export function prefetchAll(collection) {
   ]);
 }
 
-export async function prefetchBatched(collections, signal) {
-  const BATCH = 5;
-  const DELAY = 200;
-  for (let i = 0; i < collections.length; i += BATCH) {
-    if (signal.aborted) return;
-    const batch = collections.slice(i, i + BATCH);
-    await Promise.allSettled(batch.map((col) => prefetchAll(col)));
-    if (i + BATCH < collections.length && !signal.aborted) {
-      await new Promise((r) => setTimeout(r, DELAY));
-    }
-  }
-}
