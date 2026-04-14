@@ -4,6 +4,7 @@ import { selectedCollection, records } from '../store.js';
 import { extractFieldNames } from './JsonEditor.jsx';
 import JsonEditor from './JsonEditor.jsx';
 import { HistoryPanel, SavedPanel, saveQuery, unsaveQuery, isSaved } from './QueryHistory.jsx';
+import AiInsight from './AiInsight.jsx';
 import JSON5 from 'json5';
 
 export default function PipelineEditor({ editorRef, initialValue, onChange, onValidChange, onLoadPipeline }) {
@@ -12,6 +13,9 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
   const [showSaved, setShowSaved] = useState(false);
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [popupPos, setPopupPos] = useState(null); // { top, left }
+  const [validPipeline, setValidPipeline] = useState(() => {
+    try { JSON5.parse(initialValue); return initialValue.trim(); } catch { return null; }
+  });
   const saveInputRef = useRef(null);
 
   const fieldsFn = () => extractFieldNames(records.value);
@@ -90,14 +94,21 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
           </div>
         </div>
       )}
-      <JsonEditor
-        value={initialValue}
-        mode="aggregate"
-        fields={fieldsFn}
-        editorRef={editorRef}
-        onChange={onChange}
-        onValidChange={() => { onValidChange(); updateSaveBtn(); }}
-      />
+      <div style="position:relative;display:flex;flex:1;min-height:0">
+        <JsonEditor
+          value={initialValue}
+          mode="aggregate"
+          fields={fieldsFn}
+          editorRef={editorRef}
+          onChange={onChange}
+          onValidChange={() => {
+            onValidChange();
+            updateSaveBtn();
+            if (editorRef.current) setValidPipeline(editorRef.current.getValue().trim());
+          }}
+        />
+        <AiInsight input={validPipeline} type="pipeline" mode="overlay" />
+      </div>
     </div>
   );
 }

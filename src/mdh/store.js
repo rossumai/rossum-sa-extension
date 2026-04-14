@@ -13,3 +13,6 @@ export const activeView = signal('collection');
 export const loading = signal(false);
 export const error = signal(null);
 export const modalContent = signal(null);
+export const aiEnabled = signal(false);
+export const aiStatus = signal('idle'); // idle | downloading | ready | unavailable
+export const aiDownloadProgress = signal(0);

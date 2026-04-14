@@ -1,9 +1,10 @@
 import { h } from 'preact';
 import { useEffect } from 'preact/hooks';
-import { collections, selectedCollection, activeView, loading, error } from '../store.js';
+import { collections, selectedCollection, activeView, loading, error, aiEnabled, aiStatus, aiDownloadProgress } from '../store.js';
 import { confirmModal, promptModal, closeModal } from './Modal.jsx';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
+import * as ai from '../ai.js';
 
 async function loadCollections() {
   try {
@@ -100,13 +101,26 @@ function confirmDrop(name) {
   );
 }
 
+function handleAiToggle() {
+  if (aiEnabled.value) {
+    ai.disableAI();
+  } else {
+    ai.enableAI();
+  }
+}
+
 export { loadCollections };
 
 export default function Sidebar() {
   useEffect(() => { loadCollections(); }, []);
+  useEffect(() => { ai.initAvailability(); }, []);
 
   const cols = collections.value;
   const selected = selectedCollection.value;
+  const isAiUnavailable = aiStatus.value === 'unavailable';
+  const isAiEnabled = aiEnabled.value;
+  const isAiDownloading = aiStatus.value === 'downloading';
+  const downloadPct = Math.round(aiDownloadProgress.value * 100);
 
   return (
     <aside id="sidebar" class="sidebar">
@@ -145,6 +159,28 @@ export default function Sidebar() {
         ))}
       </div>
       <div class="sidebar-footer">
+        {!isAiUnavailable && (
+          <div class="sidebar-ai-section">
+            <div
+              class="sidebar-nav-item sidebar-ai-toggle"
+              onClick={handleAiToggle}
+              title={isAiEnabled ? 'Disable AI features' : 'Enable AI features (experimental, ~2 GB model download)'}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2l.5 4 4 .5-4 .5-.5 4-.5-4-4-.5 4-.5z"/><path d="M18 9l.5 3 3 .5-3 .5-.5 3-.5-3-3-.5 3-.5z"/><path d="M11 16l.5 3 3 .5-3 .5-.5 3-.5-3-3-.5 3-.5z"/></svg>
+              <span>AI Features</span>
+              <span class="ai-explain-badge">Experimental</span>
+              <span class={'sidebar-ai-pill' + (isAiEnabled ? ' on' : '')} style="margin-left:auto">{isAiEnabled ? 'ON' : 'OFF'}</span>
+            </div>
+            {isAiDownloading && (
+              <div class="sidebar-ai-download">
+                <div class="ai-download-info">Downloading model... {downloadPct}%</div>
+                <div class="ai-download-bar">
+                  <div class="ai-download-bar-fill" style={{ width: downloadPct + '%' }} />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         <div
           class={'sidebar-nav-item' + (activeView.value === 'operations' ? ' active' : '')}
           onClick={showOperationLogs}

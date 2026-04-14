@@ -5,6 +5,7 @@ import { openModal, closeModal } from './Modal.jsx';
 import JsonEditor from './JsonEditor.jsx';
 import IndexCard from './IndexCard.jsx';
 import * as api from '../api.js';
+import * as ai from '../ai.js';
 import * as cache from '../cache.js';
 
 function defaultTemplate() {
@@ -34,6 +35,7 @@ export default function SearchIndexPanel() {
       cache.set(collection, 'searchIndexes', result);
       if (isVisible) loading.value = false;
       setIndexes(result);
+      result.forEach((idx) => { if (typeof idx === 'object' && idx) ai.preload(idx, 'searchIndex'); });
     } catch (err) {
       if (isVisible) { error.value = { message: err.message }; loading.value = false; }
     }
@@ -142,7 +144,7 @@ export default function SearchIndexPanel() {
             badges.push({ text: idx.status.toLowerCase(), cls });
           }
           if (isObj && idx.type) badges.push({ text: idx.type });
-          return <IndexCard name={name} badges={badges} definition={isObj ? idx : null} canDrop onDrop={() => doDropSearchIndex(name)} />;
+          return <IndexCard name={name} badges={badges} definition={isObj ? idx : null} canDrop onDrop={() => doDropSearchIndex(name)} indexType="searchIndex" />;
         })}
       </div>
       {opStatus && (

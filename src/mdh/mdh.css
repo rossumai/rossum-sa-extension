@@ -189,6 +189,41 @@ body {
 
 .sidebar-nav-item.active:hover { background: var(--accent-hover); }
 
+.sidebar-ai-section {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+  margin-bottom: 2px;
+}
+
+.sidebar-ai-toggle .ai-explain-badge {
+  font-size: 8px;
+  padding: 1px 4px;
+}
+
+.sidebar-ai-pill {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  transition: background 0.15s, color 0.15s;
+}
+
+.sidebar-ai-pill.on {
+  background: var(--success);
+  color: #fff;
+}
+
+.sidebar-ai-download {
+  padding: 4px 16px 6px;
+}
+
+.sidebar-ai-download .ai-download-bar {
+  margin-top: 4px;
+}
+
 .sidebar-resizer {
   width: 4px;
   cursor: col-resize;
@@ -227,6 +262,7 @@ body {
   padding: 8px 16px; background: var(--danger-bg); border-bottom: 1px solid var(--danger-border);
   color: var(--danger-fg); font-size: 12px;
   display: flex; align-items: center; justify-content: space-between;
+  position: relative;
 }
 
 .error-banner .dismiss {
@@ -598,7 +634,7 @@ body {
   transition: border-color 0.15s;
 }
 
-.record-card-expanded { border-color: var(--accent); }
+.record-card-expanded { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
 
 .record-card-header {
   display: flex;
@@ -888,6 +924,158 @@ body {
 
 @media (prefers-color-scheme: dark) {
   .index-badge-unique { background: #6d28d9; }
+}
+
+/* ── AI Shared Styles ─────────────────────────── */
+
+.ai-explain-badge {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+}
+
+.ai-inline-code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--bg-hover);
+  color: var(--text-code);
+}
+
+.ai-download-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--bg-hover);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.ai-download-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.ai-download-info {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.ai-explain-error {
+  font-size: 12px;
+  color: var(--danger);
+}
+
+/* ── AI Insight (shared toggle component) ───── */
+
+.ai-insight-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: middle;
+}
+
+.ai-insight-overlay {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+}
+
+.ai-insight-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.15s, color 0.15s, background 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.ai-insight-btn:hover {
+  opacity: 1;
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.ai-insight-btn.active {
+  opacity: 1;
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.ai-insight-btn.ready {
+  opacity: 0.7;
+}
+
+.ai-insight-popover {
+  width: 280px;
+  padding: 8px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ai-insight-popover { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); }
+}
+
+.ai-insight-content {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.ai-insight-content .ai-download-info {
+  font-style: italic;
+}
+
+.ai-insight-footer {
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.error-banner .ai-insight-overlay {
+  position: relative;
+  top: auto;
+  right: auto;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.error-banner .ai-insight-btn {
+  opacity: 0.7;
+  border-color: var(--danger-border);
+  color: var(--danger-fg);
+}
+
+.error-banner .ai-insight-btn:hover,
+.error-banner .ai-insight-btn.active {
+  opacity: 1;
+  border-color: var(--danger-fg);
+  color: var(--danger-fg);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .record-card-body .json-editor {

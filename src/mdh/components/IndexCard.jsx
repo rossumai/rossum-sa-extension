@@ -3,8 +3,9 @@ import { h } from 'preact';
 import { useState } from 'preact/hooks';
 import { confirmModal } from './Modal.jsx';
 import JsonEditor from './JsonEditor.jsx';
+import AiInsight from './AiInsight.jsx';
 
-export default function IndexCard({ name, badges = [], definition, canDrop, onDrop }) {
+export default function IndexCard({ name, badges = [], definition, canDrop, onDrop, indexType }) {
   const [expanded, setExpanded] = useState(true);
 
   function handleCopy(e) {
@@ -43,8 +44,9 @@ export default function IndexCard({ name, badges = [], definition, canDrop, onDr
         </span>
       </div>
       {expanded && definition && (
-        <div class="record-card-body">
+        <div class="record-card-body" style="position:relative">
           <JsonEditor value={JSON.stringify(definition, null, 2)} compact readOnly minHeight="0" />
+          <AiInsight input={definition} type={indexType} mode="overlay" />
         </div>
       )}
     </div>
