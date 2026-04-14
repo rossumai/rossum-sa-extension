@@ -5,11 +5,10 @@ vi.mock('../src/mdh/api.js');
 import * as api from '../src/mdh/api.js';
 import * as cache from '../src/mdh/cache.js';
 import * as store from '../src/mdh/store.js';
-import { prefetchForPanel, prefetchAll, prefetchBatched } from '../src/mdh/prefetch.js';
+import { prefetchForPanel, prefetchAll } from '../src/mdh/prefetch.js';
 
 beforeEach(() => {
   cache.invalidateAll();
-  cache.unpin();
   store.limit.value = 50;
   vi.clearAllMocks();
 });
@@ -97,43 +96,6 @@ describe('prefetch system', () => {
     expect(cache.get('test_col', 'indexes')).toEqual([]);
     expect(cache.get('test_col', 'searchIndexes')).toEqual([]);
     expect(cache.get('test_col', 'statsFields')).toEqual(['name']);
-  });
-
-  it('prefetchBatched processes collections in batches and respects abort', async () => {
-    vi.useFakeTimers();
-
-    const called = new Set();
-    api.aggregate.mockImplementation((col) => {
-      called.add(col);
-      return Promise.resolve({ result: [] });
-    });
-    api.listIndexes.mockImplementation((col) => {
-      called.add(col);
-      return Promise.resolve({ result: [] });
-    });
-    api.listSearchIndexes.mockImplementation((col) => {
-      called.add(col);
-      return Promise.resolve({ result: [] });
-    });
-
-    const controller = new AbortController();
-    const collections = ['col1', 'col2', 'col3', 'col4', 'col5', 'col6'];
-
-    const promise = prefetchBatched(collections, controller.signal);
-
-    // Let first batch (5 collections) complete
-    await vi.advanceTimersByTimeAsync(0);
-
-    // Abort before second batch delay finishes
-    controller.abort();
-    await vi.advanceTimersByTimeAsync(200);
-
-    await promise;
-
-    // col6 (in batch 2) should not have been prefetched
-    expect(called.has('col6')).toBe(false);
-
-    vi.useRealTimers();
   });
 
   it('prefetch silently handles API errors', async () => {

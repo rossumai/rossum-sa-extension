@@ -3,7 +3,6 @@ import * as cache from '../src/mdh/cache.js';
 
 beforeEach(() => {
   cache.invalidateAll();
-  cache.unpin();
   vi.useRealTimers();
 });
 
@@ -30,13 +29,19 @@ describe('MDH cache', () => {
     expect(cache.get('col1', 'records')).toBeNull();
   });
 
-  it('pinned collection bypasses TTL', () => {
+  it('cleans up expired entries on access', () => {
     vi.useFakeTimers();
-    cache.pin('col1');
-    cache.set('col1', 'records', 'pinned-data');
+    cache.set('col1', 'records', 'data');
+    cache.set('col1', 'indexes', 'idx');
 
-    vi.advanceTimersByTime(120_000);
-    expect(cache.get('col1', 'records')).toBe('pinned-data');
+    vi.advanceTimersByTime(61_000);
+    // Accessing expired field should remove it
+    expect(cache.get('col1', 'records')).toBeNull();
+    // Other field in same collection also expired
+    expect(cache.get('col1', 'indexes')).toBeNull();
+    // Collection entry should be fully cleaned up
+    const s = cache.stats();
+    expect(s.fieldCount).toBe(0);
   });
 
   it('evicts LRU entries beyond 200 collections', () => {
@@ -45,14 +50,6 @@ describe('MDH cache', () => {
     }
     expect(cache.get('col_0', 'data')).toBeNull();
     expect(cache.get('col_200', 'data')).toBe(200);
-  });
-
-  it('does not evict pinned collection', () => {
-    cache.pin('col_0');
-    for (let i = 0; i < 201; i++) {
-      cache.set(`col_${i}`, 'data', i);
-    }
-    expect(cache.get('col_0', 'data')).toBe(0);
   });
 
   it('invalidateData preserves index caches', () => {

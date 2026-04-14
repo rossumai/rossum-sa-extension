@@ -83,11 +83,19 @@ Detects current site (Rossum/NetSuite/Coupa) and dims irrelevant sections. Two t
 - All features gated behind chrome.storage.local toggles controlled via popup
 - Rossum entry point builds handlers array from enabled settings — disabled features add zero overhead
 - NetSuite and Coupa content scripts are self-contained single files (no MutationObserver pattern)
-- No test infrastructure exists
+## Versioning
+
+Fully automated via `build.js` — no manual version bumping. At build time:
+
+- `git rev-parse --short HEAD` → short commit hash (e.g., `2d935b1`)
+- `git rev-list --count HEAD` → total commit count, split into Chrome-compatible `major.minor` (each segment 0–65535)
+- `manifest.json` in `dist/` gets `"version"` (commit-count) and `"version_name"` (git hash) injected
+- Popup reads `chrome.runtime.getManifest().version_name` at runtime to display the hash
+
+Source `manifest.json` has a placeholder `"version": "0.0"` — never edit it manually.
 
 ## Release Process
 
-1. Bump version in three places: `manifest.json`, `package.json`, `src/popup/popup.html`
-2. `npm run build`
-3. ZIP the `dist/` folder
-4. Upload via https://chrome.google.com/webstore/devconsole
+1. `npm run build`
+2. ZIP the `dist/` folder
+3. Upload via https://chrome.google.com/webstore/devconsole

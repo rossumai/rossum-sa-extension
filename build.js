@@ -1,7 +1,15 @@
 const esbuild = require('esbuild');
-const { cpSync, rmSync, mkdirSync } = require('fs');
+const { execSync } = require('child_process');
+const { cpSync, rmSync, mkdirSync, readFileSync, writeFileSync } = require('fs');
 
 const isWatch = process.argv.includes('--watch');
+
+// ── Git-based versioning ───────────────────────────
+const gitHash = execSync('git rev-parse --short HEAD').toString().trim();
+const commitCount = Number(execSync('git rev-list --count HEAD').toString().trim());
+const chromeMajor = Math.floor(commitCount / 65535);
+const chromeMinor = commitCount % 65535;
+const chromeVersion = `${chromeMajor}.${chromeMinor}`;
 
 rmSync('dist', { recursive: true, force: true });
 
@@ -9,7 +17,12 @@ for (const dir of ['dist/popup', 'dist/icons', 'dist/mdh']) {
   mkdirSync(dir, { recursive: true });
 }
 
-cpSync('manifest.json', 'dist/manifest.json');
+// Inject version + version_name into manifest.json
+const manifest = JSON.parse(readFileSync('manifest.json', 'utf8'));
+manifest.version = chromeVersion;
+manifest.version_name = gitHash;
+writeFileSync('dist/manifest.json', JSON.stringify(manifest, null, 2) + '\n');
+
 cpSync('icons', 'dist/icons', { recursive: true });
 cpSync('src/popup/popup.html', 'dist/popup/popup.html');
 cpSync('src/popup/popup.css', 'dist/popup/popup.css');

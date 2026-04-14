@@ -18,13 +18,13 @@ function renderHook(hookFn) {
 }
 
 beforeEach(() => {
+  store.selectedCollection.value = null;
   store.skip.value = 0;
   store.limit.value = 50;
   store.records.value = [];
   store.loading.value = false;
   store.error.value = null;
   cache.invalidateAll();
-  cache.unpin();
   vi.clearAllMocks();
 });
 
@@ -221,6 +221,7 @@ describe('query execution (useQuery)', () => {
 describe('pagination (usePagination)', () => {
   it('fetches and caches total count via aggregation', async () => {
     api.aggregate.mockResolvedValue({ result: [{ total: 150 }] });
+    store.selectedCollection.value = 'col';
     const hook = renderHook(usePagination);
 
     const count = await hook.fetchTotalCount('col');
@@ -285,5 +286,27 @@ describe('pagination (usePagination)', () => {
 
     expect(cache.get('col', 'totalCount')).toBeNull();
     expect(hook.totalCount.value).toBeNull();
+  });
+
+  it('discards stale total count when collection changes during fetch', async () => {
+    let resolveCount;
+    api.aggregate.mockImplementation(() => new Promise((r) => { resolveCount = r; }));
+    const hook = renderHook(usePagination);
+
+    // Start fetching total count for 'old_col'
+    store.selectedCollection.value = 'old_col';
+    const promise = hook.fetchTotalCount('old_col');
+
+    // User switches collection before API responds
+    store.selectedCollection.value = 'new_col';
+
+    // Resolve with old collection's count
+    resolveCount({ result: [{ total: 999 }] });
+    const result = await promise;
+
+    // Stale result should be discarded
+    expect(result).toBeNull();
+    expect(hook.totalCount.value).toBeNull();
+    expect(cache.get('old_col', 'totalCount')).toBeNull();
   });
 });

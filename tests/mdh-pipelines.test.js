@@ -69,6 +69,20 @@ describe('field discovery', () => {
     const docs = [{ a: 1 }, { b: 2 }, { a: 3, c: 4 }];
     expect(discoverFields(docs)).toEqual(['a', 'b', 'c']);
   });
+
+  it('removes parent fields when child paths exist to avoid $project collisions', () => {
+    // Simulates mixed documents: some have line_items as array, others as object
+    const docs = [
+      { line_items: [{ item_amount: 10 }], contract_number: 'C1' },
+      { line_items: { item_amount: 20, item_description: 'Widget' }, contract_number: 'C2' },
+    ];
+    const fields = discoverFields(docs);
+    // "line_items" parent should be removed since child paths exist
+    expect(fields).not.toContain('line_items');
+    expect(fields).toContain('line_items.item_amount');
+    expect(fields).toContain('line_items.item_description');
+    expect(fields).toContain('contract_number');
+  });
 });
 
 describe('encKey', () => {

@@ -33,13 +33,13 @@ function renderAllHooks() {
 }
 
 beforeEach(() => {
+  store.selectedCollection.value = null;
   store.skip.value = 0;
   store.limit.value = 50;
   store.records.value = [];
   store.loading.value = false;
   store.error.value = null;
   cache.invalidateAll();
-  cache.unpin();
   vi.clearAllMocks();
 });
 
@@ -143,6 +143,7 @@ describe('full data exploration flow', () => {
   });
 
   it('pagination uses cached total count on second fetch', async () => {
+    store.selectedCollection.value = 'products';
     const hooks = renderAllHooks();
 
     // First fetch — hits the API

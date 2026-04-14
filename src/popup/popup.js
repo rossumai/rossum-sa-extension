@@ -21,6 +21,10 @@ const MESSAGE_TOGGLES = [
 ];
 
 document.addEventListener('DOMContentLoaded', async () => {
+  const manifest = chrome.runtime.getManifest();
+  const versionEl = document.querySelector('.version');
+  if (versionEl) versionEl.textContent = manifest.version_name || manifest.version;
+
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
 
   // Dim sections not relevant to the current page

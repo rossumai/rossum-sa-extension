@@ -10,7 +10,6 @@
     "directory": "src/rossum-sa-extension"
   },
   "license": "MIT",
-  "version": "0.19.2",
   "scripts": {
     "build": "node build.js",
     "dev": "node build.js --watch",
