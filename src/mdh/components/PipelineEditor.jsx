@@ -148,7 +148,7 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
         </div>
         {showSaveInput && (
           <div class="pipeline-save-inline">
-            <input ref={saveInputRef} class="input" placeholder="Query name\u2026" onKeyDown={(e) => { if (e.key === 'Enter') doSave(); if (e.key === 'Escape') setShowSaveInput(false); }} />
+            <input ref={saveInputRef} class="input" placeholder="Query name…" onKeyDown={(e) => { if (e.key === 'Enter') doSave(); if (e.key === 'Escape') setShowSaveInput(false); }} />
             <button class="btn btn-sm btn-primary" onClick={doSave}>Save</button>
           </div>
         )}
