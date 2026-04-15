@@ -1,4 +1,9 @@
-const TTL = 60_000;
+const TTL_DEFAULT = 60_000;
+// Stats checks (statsFields + stats_*) run 9 facet aggregations per collection
+// and can be slow on large datasets. Cache them for 10 minutes so users who
+// switch between Data and Stats during a session don't pay the cost twice.
+// Manual re-run via the Stats panel's refresh button still invalidates them.
+const TTL_LONG = 600_000;
 const MAX_ENTRIES = 200;
 
 // Map preserves insertion order — last entry is most recently used
@@ -6,12 +11,16 @@ const entries = new Map();
 let hits = 0;
 let misses = 0;
 
+function ttlFor(field) {
+  return field.startsWith('stats') ? TTL_LONG : TTL_DEFAULT;
+}
+
 export function get(collection, field) {
   const entry = entries.get(collection);
   if (!entry) { misses++; return null; }
   const f = entry.fields[field];
   if (!f) { misses++; return null; }
-  if (Date.now() - f.ts > TTL) {
+  if (Date.now() - f.ts > ttlFor(field)) {
     delete entry.fields[field];
     if (Object.keys(entry.fields).length === 0) entries.delete(collection);
     misses++;

@@ -29,6 +29,24 @@ describe('MDH cache', () => {
     expect(cache.get('col1', 'records')).toBeNull();
   });
 
+  it('uses long TTL (600s) for stats keys, default TTL (60s) for others', () => {
+    vi.useFakeTimers();
+    cache.set('col1', 'statsFields', ['name']);
+    cache.set('col1', 'stats_coverage', { result: [] });
+    cache.set('col1', 'totalCount', 42);
+
+    // After 70s: non-stats keys have expired, stats keys still cached.
+    vi.advanceTimersByTime(70_000);
+    expect(cache.get('col1', 'totalCount')).toBeNull();
+    expect(cache.get('col1', 'statsFields')).toEqual(['name']);
+    expect(cache.get('col1', 'stats_coverage')).toEqual({ result: [] });
+
+    // Just past 600s: stats keys also expire.
+    vi.advanceTimersByTime(531_000); // total 601s since set
+    expect(cache.get('col1', 'statsFields')).toBeNull();
+    expect(cache.get('col1', 'stats_coverage')).toBeNull();
+  });
+
   it('cleans up expired entries on access', () => {
     vi.useFakeTimers();
     cache.set('col1', 'records', 'data');
