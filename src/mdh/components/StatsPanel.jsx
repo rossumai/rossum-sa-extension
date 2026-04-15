@@ -1,6 +1,9 @@
 import { h, Fragment } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
-import { selectedCollection, activePanel, error } from '../store.js';
+import { selectedCollection, activePanel, error, statsSummary } from '../store.js';
+import {
+  computeHealthScore, healthLabel, transformStatsResults, updateStatsSummary,
+} from '../statsSummary.js';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
 import {
@@ -48,50 +51,6 @@ function Section({ title, status, children }) {
       )}
     </div>
   );
-}
-
-function computeHealthScore(coverage, empties, types, whitespace, schemaShapes, fields) {
-  if (!coverage || !fields.length) return null;
-
-  // Coverage: average field coverage percentage (0–100)
-  const avgCoverage = coverage.reduce((sum, c) => sum + c.pct, 0) / coverage.length;
-
-  // Emptiness: ratio of fields with no empty/null/missing issues (0–100)
-  const emptyFieldCount = empties ? empties.length : 0;
-  const emptinessScore = ((fields.length - emptyFieldCount) / fields.length) * 100;
-
-  // Type consistency: ratio of fields with a single type (0–100)
-  const inconsistentCount = types ? types.length : 0;
-  const typeScore = ((fields.length - inconsistentCount) / fields.length) * 100;
-
-  // Whitespace cleanliness: ratio of string fields without whitespace issues (0–100)
-  let wsScore = 100;
-  if (whitespace) {
-    const wsFields = whitespace.filter((w) => w.leading > 0 || w.trailing > 0).length;
-    const stringFields = whitespace.filter((w) => w.count > 0).length;
-    wsScore = stringFields > 0 ? ((stringFields - wsFields) / stringFields) * 100 : 100;
-  }
-
-  // Schema consistency: 100 if one shape, degrades with more (0–100)
-  let schemaScore = 100;
-  if (schemaShapes && schemaShapes.length > 1) {
-    schemaScore = Math.max(0, 100 - (schemaShapes.length - 1) * 20);
-  }
-
-  return Math.round(
-    avgCoverage * 0.25 +
-    typeScore * 0.20 +
-    emptinessScore * 0.15 +
-    wsScore * 0.20 +
-    schemaScore * 0.20,
-  );
-}
-
-function healthLabel(score) {
-  if (score >= 90) return 'Excellent';
-  if (score >= 75) return 'Good';
-  if (score >= 50) return 'Fair';
-  return 'Poor';
 }
 
 function healthColor(score) {
@@ -285,43 +244,32 @@ export default function StatsPanel() {
       }
 
 
-      // Phase 2: run all analyses in parallel
+      // Phase 2: run all analyses in parallel.
+      // Each check publishes its slice of the UI as soon as its result lands —
+      // sections render progressively rather than waiting for the slowest check.
+      // The 5 health-score checks route their result through transformStatsResults
+      // (single-key call) so the panel and the tab-bar dot share one transform.
       const pipelines = buildAllPipelines(discoveredFields);
+
       const resultHandlers = {
-        coverage: (res) => {
+        coverage: (res) => setCoverage(transformStatsResults({ coverage: res }, discoveredFields).coverage),
+        empties: (res) => setEmpties(transformStatsResults({ empties: res }, discoveredFields).empties),
+        types: (res) => setTypes(transformStatsResults({ types: res }, discoveredFields).types),
+        strings: (res) => setStringAnalysis(transformStatsResults({ strings: res }, discoveredFields).strings),
+        schema: (res) => setSchemaShapes(transformStatsResults({ schema: res }, discoveredFields).schemaShapes),
+        cardinality: (res) => {
           const r = res.result?.[0] || {};
-          const total = r._total || 0;
-          setCoverage(discoveredFields.map((f) => {
-            const k = encKey(f);
-            return { field: f, present: r[`f_${k}`] || 0, total, pct: total > 0 ? Math.floor(((r[`f_${k}`] || 0) / total) * 100) : 0 };
-          }));
-        },
-        empties: (res) => {
-          const r = res.result?.[0] || {};
-          setEmpties(discoveredFields.map((f) => {
-            const k = encKey(f);
-            return { field: f, nullCount: r[`null_${k}`] || 0, missingCount: r[`missing_${k}`] || 0, emptyCount: r[`empty_${k}`] || 0 };
-          }).filter((x) => x.nullCount + x.missingCount + x.emptyCount > 0));
-        },
-        types: (res) => {
-          const r = res.result?.[0] || {};
-          setTypes(discoveredFields.map((f) => ({ field: f, types: (r[encKey(f)] || []).filter((e) => e._id !== 'missing') })).filter((x) => x.types.length > 1));
+          setCardinality(discoveredFields.map((f) => ({
+            field: f,
+            distinct: r[encKey(f)]?.[0]?.distinct ?? 0,
+          })));
         },
         distribution: (res) => {
           const r = res.result?.[0] || {};
-          setDistribution(discoveredFields.map((f) => ({ field: f, values: (r[encKey(f)] || []).map((v) => ({ value: v._id, count: v.count })) })));
-        },
-        cardinality: (res) => {
-          const r = res.result?.[0] || {};
-          setCardinality(discoveredFields.map((f) => ({ field: f, distinct: r[encKey(f)]?.[0]?.distinct ?? 0 })));
-        },
-        strings: (res) => {
-          const r = res.result?.[0] || {};
-          setStringAnalysis(discoveredFields.map((f) => {
-            const s = r[encKey(f)]?.[0];
-            if (!s) return { field: f, count: 0 };
-            return { field: f, count: s.count, minLen: s.minLen, maxLen: s.maxLen, avgLen: Math.round(s.avgLen), leading: s.leading, trailing: s.trailing };
-          }).filter((x) => x.count > 0));
+          setDistribution(discoveredFields.map((f) => ({
+            field: f,
+            values: (r[encKey(f)] || []).map((v) => ({ value: v._id, count: v.count })),
+          })));
         },
         numeric: (res) => {
           const r = res.result?.[0] || {};
@@ -339,39 +287,35 @@ export default function StatsPanel() {
             return { field: f, count: s.count, earliest: s.earliest, latest: s.latest };
           }).filter(Boolean));
         },
-        schema: (res) => {
-          setSchemaShapes((res.result || []).map((r) => ({
-            fieldCount: r._id,
-            docCount: r.count,
-            sampleFields: (r.sampleFields || []).filter((f) => f !== '_id').sort(),
-          })));
-        },
       };
-      const checks = STATS_CHECKS.map((key) => ({ key, pipeline: pipelines[key], onResult: resultHandlers[key] }));
 
-      for (const c of checks) setStatus(c.key, 'loading');
+      for (const key of STATS_CHECKS) setStatus(key, 'loading');
 
       await Promise.allSettled(
-        checks.map(async (c) => {
+        STATS_CHECKS.map(async (key) => {
+          const cacheKey = `stats_${key}`;
           try {
-            const cacheKey = `stats_${c.key}`;
-            const cached = cache.get(collection, cacheKey);
-            let res;
-            if (cached) {
-              res = cached;
-            } else {
-              res = await api.aggregate(collection, c.pipeline);
+            let res = cache.get(collection, cacheKey);
+            if (!res) {
+              res = await api.aggregate(collection, pipelines[key]);
               if (runId !== runIdRef.current) return;
               cache.set(collection, cacheKey, res);
             }
-            c.onResult(res);
-            setStatus(c.key, 'done');
+            resultHandlers[key](res);
+            setStatus(key, 'done');
           } catch (err) {
             if (runId !== runIdRef.current) return;
-            setStatus(c.key, { error: err.message });
+            setStatus(key, { error: err.message });
           }
         }),
       );
+
+      if (runId !== runIdRef.current) return;
+
+      // Publish the summary signal once all 9 checks have settled.
+      // updateStatsSummary reads the populated cache, so any check that
+      // errored will be missing — it bails to null in that case (no false alarm).
+      updateStatsSummary(collection);
 
     })();
   }, [selectedCollection.value, activePanel.value]);
@@ -413,6 +357,7 @@ export default function StatsPanel() {
           title="Re-run analysis"
           onClick={() => {
             cache.invalidateData(selectedCollection.value);
+            statsSummary.value = null;
             activePanel.value = '';
             setTimeout(() => { activePanel.value = 'stats'; }, 0);
           }}

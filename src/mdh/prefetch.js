@@ -2,6 +2,7 @@ import * as api from './api.js';
 import * as cache from './cache.js';
 import * as store from './store.js';
 import { FIELD_DISCOVERY_SIZE, discoverFields, STATS_CHECKS, buildAllPipelines } from './statsPipelines.js';
+import { updateStatsSummary } from './statsSummary.js';
 
 // ── Individual prefetch functions ───────────────
 
@@ -58,6 +59,7 @@ async function prefetchStats(collection) {
       } catch { /* silent */ }
     }),
   );
+  updateStatsSummary(collection);
 }
 
 // ── Tab-to-prefetch mapping ─────────────────────
