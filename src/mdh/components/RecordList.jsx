@@ -1,12 +1,55 @@
 import { h } from 'preact';
-import { useState } from 'preact/hooks';
-import { skip, limit } from '../store.js';
+import { useState, useEffect, useRef } from 'preact/hooks';
+import { skip, limit, selectedCollection } from '../store.js';
 import RecordCard from './RecordCard.jsx';
 import JSON5 from 'json5';
+import * as api from '../api.js';
+import * as cache from '../cache.js';
+import { RESERVED_PX, CHAR_WIDTH_PX, MIN_CHAR_BUDGET } from '../recordSummary.js';
 
 export default function RecordList({ records, pipelineText, filterState, sortState, lastQueryMs, totalCount, pagination, onSort, onFilter, onPageChange, onEdit, onDelete, onRefresh, downloadState, onCancelDownload }) {
   const [expandedSet, setExpandedSet] = useState(new Set([0]));
   const [expandAll, setExpandAll] = useState(false);
+
+  const listRef = useRef(null);
+  const [listWidth, setListWidth] = useState(0);
+  const [indexes, setIndexes] = useState([]);
+
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) setListWidth(entry.contentRect.width);
+    });
+    ro.observe(el);
+    setListWidth(el.getBoundingClientRect().width);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadIndexes() {
+      const col = selectedCollection.value;
+      if (!col) { setIndexes([]); return; }
+      const cached = cache.get(col, 'indexes');
+      if (cached !== null) { setIndexes(cached); return; }
+      try {
+        const res = await api.listIndexes(col, false);
+        const result = res.result || [];
+        if (cancelled || selectedCollection.value !== col) return;
+        cache.set(col, 'indexes', result);
+        setIndexes(result);
+      } catch {
+        // Non-fatal: preview gracefully falls back to lower tiers.
+      }
+    }
+    loadIndexes();
+    return () => { cancelled = true; };
+  }, [selectedCollection.value]);
+
+  const charBudget = listWidth > 0
+    ? Math.max(MIN_CHAR_BUDGET, Math.floor((listWidth - RESERVED_PX) / CHAR_WIDTH_PX))
+    : MIN_CHAR_BUDGET;
 
   function toggleExpand(idx) {
     const next = new Set(expandedSet);
@@ -90,7 +133,7 @@ export default function RecordList({ records, pipelineText, filterState, sortSta
           <SplitButton label="Insert" cls="btn-success" onMain={() => onRefresh('insert')} onFile={() => onRefresh('insert-file')} />
         </div>
       </div>
-      <div class="record-list">
+      <div class="record-list" ref={listRef}>
         {emptyContent}
         {records.map((record, i) => (
           <RecordCard
@@ -106,6 +149,8 @@ export default function RecordList({ records, pipelineText, filterState, sortSta
             filterState={filterState}
             onSort={onSort}
             onFilter={onFilter}
+            charBudget={charBudget}
+            indexes={indexes}
           />
         ))}
       </div>

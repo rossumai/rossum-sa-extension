@@ -1,16 +1,24 @@
 import { h } from 'preact';
-import JsonTree, { displayValue } from './JsonTree.jsx';
+import JsonTree from './JsonTree.jsx';
 import AiInsight from './AiInsight.jsx';
 import { selectedCollection } from '../store.js';
+import { recordSummary, MIN_CHAR_BUDGET, EMPTY_SENTINEL } from '../recordSummary.js';
 
-function recordSummary(record) {
-  const keys = Object.keys(record);
-  const parts = keys.slice(0, 4).map((k) => `${k}: ${displayValue(record[k])}`);
-  if (keys.length > 4) parts.push(`+${keys.length - 4} more`);
-  return parts.join(' \u00b7 ');
-}
-
-export default function RecordCard({ record, index, expanded, onToggle, onCopy, onEdit, onDelete, sortState, filterState, onSort, onFilter }) {
+export default function RecordCard({
+  record,
+  index,
+  expanded,
+  onToggle,
+  onCopy,
+  onEdit,
+  onDelete,
+  sortState,
+  filterState,
+  onSort,
+  onFilter,
+  charBudget,
+  indexes,
+}) {
   function handleCopy(e) {
     const btn = e.currentTarget;
     navigator.clipboard.writeText(JSON.stringify(record, null, 2)).then(() => {
@@ -19,11 +27,15 @@ export default function RecordCard({ record, index, expanded, onToggle, onCopy, 
     });
   }
 
+  const budget = typeof charBudget === 'number' && charBudget > 0 ? charBudget : MIN_CHAR_BUDGET;
+  const summary = recordSummary(record, budget, { indexes });
+  const isEmpty = summary === EMPTY_SENTINEL;
+
   return (
     <div class={'record-card' + (expanded ? ' record-card-expanded' : '')}>
       <div class="record-card-header" onClick={(e) => { if (!e.target.closest('.record-actions')) onToggle(index); }}>
         <span class="record-chevron">{expanded ? '\u25BC' : '\u25B6'}</span>
-        <span class="record-summary">{recordSummary(record)}</span>
+        <span class={'record-summary' + (isEmpty ? ' record-summary-empty' : '')}>{summary}</span>
         <span class="record-actions">
           <button class="action-copy" title="Copy record as JSON" onClick={handleCopy}>Copy</button>
           <button class="action-edit" title="Edit with update expression" onClick={() => onEdit(record)}>Edit</button>

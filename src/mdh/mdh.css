@@ -667,6 +667,8 @@ body {
   white-space: nowrap;
 }
 
+.record-summary-empty { color: var(--text-secondary); font-style: italic; }
+
 /* ── Shared card actions (records + indexes) ──── */
 
 .record-actions,
