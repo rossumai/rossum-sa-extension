@@ -19,8 +19,10 @@ const PROMPTS = {
     'Explain this database error in 1-2 sentences. Say what went wrong and how to fix it. ' +
     'Use inline code (backticks) for field names or operators mentioned. No bullet points or headings.',
   record:
-    'Summarize this database record in 1-2 sentences. Describe what it represents and its most important fields. ' +
-    'Use inline code (backticks) for field names. No bullet points or headings.',
+    'Explain what this database record is about in 1-2 sentences. The collection name is provided as a hint to the record\'s domain — use it to narrow interpretation, but do not restate it. ' +
+    'Interpret the values to infer what the record represents — e.g., for a product, what kind of product it is; for a vendor, what they do; for a transaction, its nature and purpose. ' +
+    'Focus on meaning, not enumeration. Do not list field names or restate raw values — the user can see the fields on screen. ' +
+    'No bullet points or headings.',
   nlsearch:
     'You are a MongoDB expert. You are given the current aggregation pipeline and the user\'s request. ' +
     'Modify the pipeline according to the request — add, remove, or change stages as needed. ' +
@@ -29,17 +31,19 @@ const PROMPTS = {
     'Always include a $limit stage (default 50).',
 };
 
-// Bump this when system prompts change to invalidate cached explanations
-const PROMPT_VERSION = 4;
-
 // Chrome version changes when the underlying Gemini Nano model updates
 const CHROME_VERSION = /Chrome\/([\d.]+)/.exec(navigator.userAgent)?.[1] || '';
 
 const sessions = new Map();
 let availabilityCache = null;
 
-function hashInput(input, type) {
-  const str = 'v' + PROMPT_VERSION + ':' + CHROME_VERSION + ':' + type + ':' + (typeof input === 'string' ? input : JSON.stringify(input));
+// Hash covers everything that determines the model's output:
+// the system prompt, the formatted user prompt, and the model version.
+// Editing any PROMPTS entry or formatPrompt template auto-invalidates affected cache entries.
+function hashInput(input, type, context) {
+  const systemPrompt = PROMPTS[type] || '';
+  const userPrompt = formatPrompt(input, type, context);
+  const str = CHROME_VERSION + '\u0001' + systemPrompt + '\u0001' + userPrompt;
   let hash = 5381;
   for (let i = 0; i < str.length; i++) {
     hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
@@ -121,19 +125,19 @@ export async function disableAI() {
   await chrome.storage.local.set({ aiFeaturesEnabled: false });
 }
 
-export async function getCached(input, type) {
-  const key = hashInput(input, type);
+export async function getCached(input, type, context) {
+  const key = hashInput(input, type, context);
   const result = await chrome.storage.local.get(key);
   return result[key]?.text || null;
 }
 
-async function cacheResult(input, type, text) {
-  const key = hashInput(input, type);
+async function cacheResult(input, type, context, text) {
+  const key = hashInput(input, type, context);
   await chrome.storage.local.set({ [key]: { text } });
 }
 
-export async function clearCached(input, type) {
-  const key = hashInput(input, type);
+export async function clearCached(input, type, context) {
+  const key = hashInput(input, type, context);
   await chrome.storage.local.remove(key);
 }
 
@@ -161,17 +165,20 @@ async function getOrCreateSession(type, onDownloadProgress) {
   return session;
 }
 
-function formatPrompt(input, type) {
+function formatPrompt(input, type, context) {
   if (type === 'error') return 'Explain this error:\n' + input;
   if (type === 'pipeline') return 'Explain this pipeline:\n' + input;
-  if (type === 'record') return 'Summarize this record:\n' + JSON.stringify(input, null, 2);
+  if (type === 'record') {
+    const header = context ? 'Collection: ' + context + '\n\n' : '';
+    return header + 'What is this record about?\n' + JSON.stringify(input, null, 2);
+  }
   if (type === 'nlsearch') return input; // user query + fields are already formatted by caller
   return 'Explain this index:\n' + JSON.stringify(input, null, 2);
 }
 
-export async function ask(input, type, { signal, skipCache } = {}) {
+export async function ask(input, type, { signal, skipCache, context } = {}) {
   const session = await getOrCreateSession(type);
-  const prompt = formatPrompt(input, type);
+  const prompt = formatPrompt(input, type, context);
   let result;
   try {
     result = await session.prompt(prompt, { signal });
@@ -186,21 +193,21 @@ export async function ask(input, type, { signal, skipCache } = {}) {
     session.destroy();
     sessions.delete(type);
   }
-  if (!skipCache) await cacheResult(input, type, result);
+  if (!skipCache) await cacheResult(input, type, context, result);
   return result;
 }
 
 // Preload AI results in background (serialized to avoid concurrent prompts on same session)
 const preloadQueues = new Map();
 
-export function preload(input, type) {
+export function preload(input, type, context) {
   if (!aiEnabled.value || input == null) return;
   const prev = preloadQueues.get(type) || Promise.resolve();
   const next = prev.then(async () => {
     try {
-      const cached = await getCached(input, type);
+      const cached = await getCached(input, type, context);
       if (cached) return;
-      await ask(input, type);
+      await ask(input, type, { context });
     } catch {
       // Silently ignore — AiInsight will retry when mounted
     }

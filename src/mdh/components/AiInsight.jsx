@@ -22,7 +22,8 @@ export function renderInlineMarkdown(text) {
 }
 
 // mode: 'inline' (horizontal), 'overlay' (absolute positioned in parent's top-right)
-export default function AiInsight({ input, type, mode = 'inline' }) {
+// context: optional string hint passed into the prompt (e.g., collection name for record type)
+export default function AiInsight({ input, type, mode = 'inline', context = null }) {
   const [text, setText] = useState(null);
   const [loading, setLoading] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -33,8 +34,8 @@ export default function AiInsight({ input, type, mode = 'inline' }) {
 
   const enabled = aiEnabled.value && aiStatusSignal.value === 'ready';
   const inputKey = useMemo(
-    () => (input != null ? (typeof input === 'string' ? input : JSON.stringify(input)) : null),
-    [input],
+    () => (input != null ? (typeof input === 'string' ? input : JSON.stringify(input)) + '\u0000' + (context ?? '') : null),
+    [input, context],
   );
 
   // Preload eagerly in background
@@ -43,7 +44,7 @@ export default function AiInsight({ input, type, mode = 'inline' }) {
     let cancelled = false;
 
     (async () => {
-      const cached = await ai.getCached(input, type);
+      const cached = await ai.getCached(input, type, context);
       if (cancelled) return;
       if (cached) { setText(cached); return; }
 
@@ -51,7 +52,7 @@ export default function AiInsight({ input, type, mode = 'inline' }) {
       setLoading(true);
       setErrMsg(null);
       try {
-        const result = await ai.ask(input, type);
+        const result = await ai.ask(input, type, { context });
         if (!cancelled) setText(result);
       } catch (err) {
         if (!cancelled && err.name !== 'AbortError') setErrMsg(err.message);

@@ -1,6 +1,7 @@
 import { h } from 'preact';
 import JsonTree, { displayValue } from './JsonTree.jsx';
 import AiInsight from './AiInsight.jsx';
+import { selectedCollection } from '../store.js';
 
 function recordSummary(record) {
   const keys = Object.keys(record);
@@ -31,7 +32,7 @@ export default function RecordCard({ record, index, expanded, onToggle, onCopy, 
       </div>
       {expanded && (
         <div class="record-card-body" style="position:relative">
-          <AiInsight input={record} type="record" mode="overlay" />
+          <AiInsight input={record} type="record" mode="overlay" context={selectedCollection.value} />
           <JsonTree data={record} sortState={sortState} filterState={filterState} onSort={onSort} onFilter={onFilter} />
         </div>
       )}
