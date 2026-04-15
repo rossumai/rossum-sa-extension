@@ -2,9 +2,12 @@ import { h } from 'preact';
 import { useState } from 'preact/hooks';
 import { domain, token } from '../store.js';
 
-function parseAnnotationId(input) {
+export function parseAnnotationId(input) {
   if (/^\d+$/.test(input)) return input;
-  const urlMatch = input.match(/annotations\/(\d+)/);
+  // Matches both the UI URL (e.g. https://<org>.rossum.app/document/12345)
+  // and the API URL (e.g. https://elis.rossum.com/api/v1/annotations/12345/content).
+  // The two share the annotation ID — only the path segment differs.
+  const urlMatch = input.match(/(?:annotations|document)\/(\d+)/);
   return urlMatch ? urlMatch[1] : null;
 }
 
