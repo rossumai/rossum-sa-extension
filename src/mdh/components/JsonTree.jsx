@@ -4,7 +4,22 @@ import { EJSON_TYPES, getEjsonType, formatEjsonValue, displayValue } from '../di
 
 export { displayValue };
 
-export default function JsonTree({ data, prefix = '', sortState, filterState, onSort, onFilter }) {
+export const AUTO_COLLAPSE_FIELD_THRESHOLD = 50;
+
+// Total count of keys + array items, recursively. EJSON-typed values count as leaves.
+export function countFields(val) {
+  if (val == null || typeof val !== 'object') return 0;
+  if (getEjsonType(val)) return 0;
+  let n = 0;
+  if (Array.isArray(val)) {
+    for (const item of val) n += 1 + countFields(item);
+  } else {
+    for (const key of Object.keys(val)) n += 1 + countFields(val[key]);
+  }
+  return n;
+}
+
+export default function JsonTree({ data, prefix = '', depth = 0, collapseDepth = Infinity, sortState, filterState, onSort, onFilter }) {
   return (
     <div class="json-tree">
       {Object.entries(data).map(([key, value]) => (
@@ -13,6 +28,8 @@ export default function JsonTree({ data, prefix = '', sortState, filterState, on
           fieldKey={key}
           value={value}
           fullPath={prefix ? `${prefix}.${key}` : key}
+          depth={depth}
+          collapseDepth={collapseDepth}
           sortState={sortState}
           filterState={filterState}
           onSort={onSort}
@@ -23,11 +40,11 @@ export default function JsonTree({ data, prefix = '', sortState, filterState, on
   );
 }
 
-function JsonTreeRow({ fieldKey, value, fullPath, sortState, filterState, onSort, onFilter }) {
+function JsonTreeRow({ fieldKey, value, fullPath, depth, collapseDepth, sortState, filterState, onSort, onFilter }) {
   const ejsonType = getEjsonType(value);
   const isObj = value !== null && typeof value === 'object' && !Array.isArray(value) && !ejsonType;
   const isArr = Array.isArray(value);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState((isObj || isArr) && depth >= collapseDepth);
 
   const sortDir = sortState[fullPath];
   const sortInd = sortDir === 1 ? ' \u2191' : sortDir === -1 ? ' \u2193' : '';
@@ -55,18 +72,19 @@ function JsonTreeRow({ fieldKey, value, fullPath, sortState, filterState, onSort
   }
 
   if (isObj) {
+    const fieldCount = Object.keys(value).length;
     return (
       <div>
         <div class="json-tree-row">
           <button class={keyCls} title={keyTitle} onClick={(e) => { e.stopPropagation(); onSort(fullPath); }}>{fieldKey}{sortInd}</button>
           <span class="json-tree-sep">: </span>
           <span class="json-tree-toggle" style="cursor:pointer" onClick={(e) => { e.stopPropagation(); setCollapsed(!collapsed); }}>
-            {collapsed ? '\u25B6 {...}' : '\u25BC'}
+            {collapsed ? `\u25B6 {${fieldCount} field${fieldCount === 1 ? '' : 's'}}` : '\u25BC'}
           </span>
         </div>
         {!collapsed && (
           <div class="json-tree-nested">
-            <JsonTree data={value} prefix={fullPath} sortState={sortState} filterState={filterState} onSort={onSort} onFilter={onFilter} />
+            <JsonTree data={value} prefix={fullPath} depth={depth + 1} collapseDepth={collapseDepth} sortState={sortState} filterState={filterState} onSort={onSort} onFilter={onFilter} />
           </div>
         )}
       </div>
@@ -91,7 +109,7 @@ function JsonTreeRow({ fieldKey, value, fullPath, sortState, filterState, onSort
                 return (
                   <div class="json-tree-array-item">
                     <span class="json-tree-array-index">[{ai}]</span>
-                    <JsonTree data={item} prefix={itemPath} sortState={sortState} filterState={filterState} onSort={onSort} onFilter={onFilter} />
+                    <JsonTree data={item} prefix={itemPath} depth={depth + 1} collapseDepth={collapseDepth} sortState={sortState} filterState={filterState} onSort={onSort} onFilter={onFilter} />
                   </div>
                 );
               }

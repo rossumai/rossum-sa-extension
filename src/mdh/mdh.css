@@ -1362,6 +1362,31 @@ body {
   border-left: 1px solid var(--border);
 }
 
+.uploads-sparkline-wrap {
+  display: inline-flex; align-items: center;
+  padding: 2px 2px 2px 10px;
+  border-left: 1px solid var(--border);
+}
+
+.uploads-sparkline-host { position: relative; line-height: 0; }
+
+.uploads-sparkline { display: block; shape-rendering: crispEdges; }
+
+.uploads-sparkline-tip {
+  position: absolute;
+  top: calc(100% + 6px);
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px; line-height: 1.4; white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22);
+  z-index: 10;
+}
+
 .uploads-dataset-link {
   color: var(--accent); text-decoration: none; font-weight: 500; cursor: pointer;
 }
@@ -1435,18 +1460,6 @@ body {
   background: var(--accent-hover);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
   transform: translateX(-50%) translateY(-1px);
-}
-
-.sidebar-ops-badge {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 18px; height: 16px; padding: 0 5px;
-  font-size: 10px; font-weight: 600;
-  background: var(--accent); color: #fff;
-  border-radius: 8px;
-}
-
-.sidebar-nav-item.active .sidebar-ops-badge {
-  background: #fff; color: var(--accent);
 }
 
 .uploads-table-wrap { flex: 1; overflow-y: auto; padding-bottom: 12px; }

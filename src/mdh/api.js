@@ -10,20 +10,31 @@ export function init(domain, token) {
 
 const REQUEST_TIMEOUT = 30_000;
 
-async function post(path, body) {
+function combinedSignal(externalSignal) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+  const signal = externalSignal
+    ? AbortSignal.any([externalSignal, controller.signal])
+    : controller.signal;
+  return { signal, timer, externalSignal };
+}
+
+async function post(path, body, { signal: externalSignal } = {}) {
+  const { signal, timer } = combinedSignal(externalSignal);
   let res;
   try {
     res = await fetch(`${serviceBase}/api/v1${path}`, {
       method: 'POST',
       headers: { Authorization: authHeader, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-      signal: controller.signal,
+      signal,
     });
   } catch (err) {
     clearTimeout(timer);
-    if (err.name === 'AbortError') throw new Error('Request timed out after 30s');
+    if (err.name === 'AbortError') {
+      if (externalSignal?.aborted) throw err;
+      throw new Error('Request timed out after 30s');
+    }
     throw err;
   }
   clearTimeout(timer);
@@ -37,18 +48,20 @@ async function post(path, body) {
   return data;
 }
 
-async function get(path) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+async function get(path, { signal: externalSignal } = {}) {
+  const { signal, timer } = combinedSignal(externalSignal);
   let res;
   try {
     res = await fetch(`${serviceBase}${path}`, {
       headers: { Authorization: authHeader },
-      signal: controller.signal,
+      signal,
     });
   } catch (err) {
     clearTimeout(timer);
-    if (err.name === 'AbortError') throw new Error('Request timed out after 30s');
+    if (err.name === 'AbortError') {
+      if (externalSignal?.aborted) throw err;
+      throw new Error('Request timed out after 30s');
+    }
     throw err;
   }
   clearTimeout(timer);
@@ -110,16 +123,16 @@ export function replaceOne(collectionName, filter, replacement) {
   return post('/data/replace_one', { collectionName, filter, replacement });
 }
 
-export function aggregate(collectionName, pipeline) {
-  return post('/data/aggregate', { collectionName, pipeline });
+export function aggregate(collectionName, pipeline, { signal } = {}) {
+  return post('/data/aggregate', { collectionName, pipeline }, { signal });
 }
 
 export function bulkWrite(collectionName, operations) {
   return post('/data/bulk_write', { collectionName, operations });
 }
 
-export function listIndexes(collectionName, nameOnly = false) {
-  return post('/indexes/list', { collectionName, nameOnly });
+export function listIndexes(collectionName, nameOnly = false, { signal } = {}) {
+  return post('/indexes/list', { collectionName, nameOnly }, { signal });
 }
 
 export function createIndex(collectionName, indexName, keys, options = {}) {
@@ -130,8 +143,8 @@ export function dropIndex(collectionName, indexName) {
   return post('/indexes/drop', { collectionName, indexName });
 }
 
-export function listSearchIndexes(collectionName, nameOnly = false) {
-  return post('/search_indexes/list', { collectionName, nameOnly });
+export function listSearchIndexes(collectionName, nameOnly = false, { signal } = {}) {
+  return post('/search_indexes/list', { collectionName, nameOnly }, { signal });
 }
 
 export function createSearchIndex(collectionName, { indexName, mappings, analyzer, analyzers, searchAnalyzer, synonyms } = {}) {

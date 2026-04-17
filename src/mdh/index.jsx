@@ -5,20 +5,22 @@ import * as store from './store.js';
 import App from './components/App.jsx';
 import { prefetchForPanel, prefetchAll } from './prefetch.js';
 
-const POLL_DELAY_OPS_VISIBLE = 5_000;
-const POLL_DELAY_VISIBLE = 30_000;
+const POLL_DELAY_VISIBLE = 5_000;
 const POLL_DELAY_HIDDEN = 60_000;
 
 let pollTimer = null;
 let pollInFlight = false;
 
+function shouldPoll() {
+  return store.activeView.value === 'operations';
+}
+
 function currentPollDelay() {
-  if (document.visibilityState === 'hidden') return POLL_DELAY_HIDDEN;
-  if (store.activeView.value === 'operations') return POLL_DELAY_OPS_VISIBLE;
-  return POLL_DELAY_VISIBLE;
+  return document.visibilityState === 'hidden' ? POLL_DELAY_HIDDEN : POLL_DELAY_VISIBLE;
 }
 
 async function pollTick() {
+  if (!shouldPoll()) return;
   pollInFlight = true;
   try { await pollOperations(); } catch {}
   pollInFlight = false;
@@ -30,11 +32,12 @@ function schedulePoll() {
     clearTimeout(pollTimer);
     pollTimer = null;
   }
-  if (pollInFlight) return;
+  if (pollInFlight || !shouldPoll()) return;
   pollTimer = setTimeout(pollTick, currentPollDelay());
 }
 
 function onVisibilityChange() {
+  if (!shouldPoll()) return;
   if (document.visibilityState === 'visible') {
     if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
     if (!pollInFlight) pollTick();
@@ -129,12 +132,15 @@ async function boot() {
   render(<App connected={connected} />, document.getElementById('app'));
 
   if (connected) {
-    pollTick();
     document.addEventListener('visibilitychange', onVisibilityChange);
     effect(() => {
-      // Subscribe to activeView so we re-schedule with the right cadence.
-      const _ = store.activeView.value;
-      schedulePoll();
+      const view = store.activeView.value;
+      if (view === 'operations') {
+        if (!pollInFlight && !pollTimer) pollTick();
+      } else if (pollTimer) {
+        clearTimeout(pollTimer);
+        pollTimer = null;
+      }
     });
   }
 
@@ -162,9 +168,9 @@ async function boot() {
     const panel = store.activePanel.value;
 
     (async () => {
-      await prefetchForPanel(selected, panel);
+      await prefetchForPanel(selected, panel, { signal });
       if (signal.aborted) return;
-      await prefetchAll(selected);
+      await prefetchAll(selected, { signal });
     })();
   });
 }

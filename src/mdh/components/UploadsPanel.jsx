@@ -25,6 +25,8 @@ export async function loadOperations() {
 
 const PAGE_SIZE = 100;
 const GROUP_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const SPARK_WINDOW_HOURS = 24;
+const SPARK_BUCKET_MS = 60 * 60 * 1000;
 
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -102,6 +104,88 @@ function jumpToDataset(name) {
   selectedCollection.value = name;
   activeView.value = 'collection';
   activePanel.value = 'data';
+}
+
+function bucketActivity(ops) {
+  const now = Date.now();
+  const start = now - SPARK_WINDOW_HOURS * SPARK_BUCKET_MS;
+  const out = Array.from({ length: SPARK_WINDOW_HOURS }, (_, i) => ({
+    start: start + i * SPARK_BUCKET_MS,
+    success: 0, failed: 0, running: 0,
+  }));
+  for (const op of ops) {
+    const t = op.created ? Date.parse(op.created) : 0;
+    if (!t || t < start) continue;
+    const idx = Math.min(SPARK_WINDOW_HOURS - 1, Math.floor((t - start) / SPARK_BUCKET_MS));
+    const s = (op.status || '').toUpperCase();
+    if (s === 'FINISHED') out[idx].success++;
+    else if (s === 'FAILED') out[idx].failed++;
+    else out[idx].running++;
+  }
+  return out;
+}
+
+function formatBucketTooltip(b) {
+  const d = new Date(b.start);
+  const hFrom = String(d.getHours()).padStart(2, '0');
+  const hTo = String((d.getHours() + 1) % 24).padStart(2, '0');
+  const parts = [`${hFrom}:00\u2013${hTo}:00`];
+  if (b.success) parts.push(`${b.success} finished`);
+  if (b.failed) parts.push(`${b.failed} failed`);
+  if (b.running) parts.push(`${b.running} running`);
+  if (b.success + b.failed + b.running === 0) parts.push('no activity');
+  return parts.join(' \u00b7 ');
+}
+
+function ActivitySparkline({ buckets }) {
+  const max = Math.max(1, ...buckets.map((b) => b.success + b.failed + b.running));
+  const W = 192, H = 28, GAP = 1;
+  const barW = (W - (buckets.length - 1) * GAP) / buckets.length;
+  const [hover, setHover] = useState(null);
+
+  return (
+    <div class="uploads-sparkline-host" onMouseLeave={() => setHover(null)}>
+      <svg
+        class="uploads-sparkline"
+        width={W}
+        height={H}
+        viewBox={`0 0 ${W} ${H}`}
+        role="img"
+        aria-label={`Activity over the last ${SPARK_WINDOW_HOURS} hours`}
+      >
+        {buckets.map((b, i) => {
+          const total = b.success + b.failed + b.running;
+          const x = i * (barW + GAP);
+          const bars = [];
+          if (total === 0) {
+            bars.push(<rect key="empty" x={x} y={H - 1} width={barW} height={1} fill="var(--border)" />);
+          } else {
+            const sH = (b.success / max) * H;
+            const rH = (b.running / max) * H;
+            const fH = (b.failed  / max) * H;
+            let y = H;
+            if (b.success) { y -= sH; bars.push(<rect key="s" x={x} y={y} width={barW} height={sH} fill="var(--success)" />); }
+            if (b.running) { y -= rH; bars.push(<rect key="r" x={x} y={y} width={barW} height={rH} fill="var(--warning)" />); }
+            if (b.failed)  { y -= fH; bars.push(<rect key="f" x={x} y={y} width={barW} height={fH}  fill="var(--danger)"  />); }
+          }
+          return (
+            <g key={i} onMouseEnter={() => setHover(i)}>
+              {bars}
+              <rect x={x} y={0} width={barW + GAP} height={H} fill="transparent" />
+            </g>
+          );
+        })}
+      </svg>
+      {hover !== null && (
+        <div
+          class="uploads-sparkline-tip"
+          style={`left:${hover * (barW + GAP) + barW / 2}px`}
+        >
+          {formatBucketTooltip(buckets[hover])}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function FlashOnChange({ value }) {
@@ -241,6 +325,8 @@ export default function UploadsPanel() {
     () => allOperations.filter((op) => matchesFilter(op, statusFilter, search)),
     [allOperations, statusFilter, search],
   );
+
+  const buckets = useMemo(() => bucketActivity(allOperations), [allOperations]);
 
   const pendingVisibleCount = useMemo(() => {
     if (!pending?.changedOps?.length) return 0;
@@ -415,6 +501,11 @@ export default function UploadsPanel() {
         >Running <b><FlashOnChange value={stats.running} /></b></button>
         {stats.successRate !== null && (
           <span class="uploads-success-rate"><FlashOnChange value={`${stats.successRate}% success`} /></span>
+        )}
+        {allOperations.length > 0 && (
+          <div class="uploads-sparkline-wrap">
+            <ActivitySparkline buckets={buckets} />
+          </div>
         )}
         <span style="flex:1" />
         <input
