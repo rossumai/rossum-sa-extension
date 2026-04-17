@@ -413,12 +413,11 @@ export default function StatsPanel() {
                       }
                     : { borderColor: 'var(--border)' };
                   return (
-                    <div class="stats-overview-card" style={cardStyle}>
+                    <div class="stats-overview-card" style={cardStyle} title={health !== null ? healthLabel(health) : `calculating${'\u2026'}`}>
                       <div class="stats-metric-value" style={{ color: tone }}>
                         {health !== null ? health : '?'}
                       </div>
                       <div class="stats-metric-label" style={health !== null ? { color: tone, fontWeight: 600 } : null}>Health</div>
-                      <div class="stats-metric-sub">{health !== null ? healthLabel(health) : `calculating${'\u2026'}`}</div>
                     </div>
                   );
                 })()}
@@ -434,14 +433,12 @@ export default function StatsPanel() {
                   <div class="stats-overview-card" title={`Logical: ${formatBytes(storage.size)} \u00b7 Free: ${formatBytes(storage.freeStorageSize)}`}>
                     <div class="stats-metric-value">{formatBytes(storage.storageSize)}</div>
                     <div class="stats-metric-label">On disk</div>
-                    <div class="stats-metric-sub">{formatBytes(storage.size)} logical</div>
                   </div>
                 )}
                 {docSize && (
-                  <div class="stats-overview-card" title={`Total BSON: ${formatBytes(docSize.total)}`}>
+                  <div class="stats-overview-card" title={`Min: ${formatBytes(docSize.min)} \u00b7 Max: ${formatBytes(docSize.max)} \u00b7 Total BSON: ${formatBytes(docSize.total)}`}>
                     <div class="stats-metric-value">{formatBytes(docSize.avg)}</div>
                     <div class="stats-metric-label">Avg doc</div>
-                    <div class="stats-metric-sub">{formatBytes(docSize.min)}{'\u2013'}{formatBytes(docSize.max)}</div>
                   </div>
                 )}
               </div>

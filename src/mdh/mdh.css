@@ -1796,13 +1796,7 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 
 .stats-metric-label {
   font-size: 10px; color: var(--text-secondary);
-  margin-top: 2px;
-}
-
-.stats-metric-sub {
-  font-size: 10px; color: var(--text-secondary);
-  font-family: var(--font-mono);
-  margin-top: 2px; opacity: 0.8;
+  margin-top: 4px;
 }
 
 /* Tables */
