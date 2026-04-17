@@ -17,3 +17,6 @@ export const aiEnabled = signal(false);
 export const aiStatus = signal('idle'); // idle | downloading | ready | unavailable
 export const aiDownloadProgress = signal(0);
 export const statsSummary = signal(null); // { collection, health, label } | null
+export const operations = signal([]);
+export const operationsLoaded = signal(false);
+export const pendingOperations = signal(null); // { ops, changedOps } | null

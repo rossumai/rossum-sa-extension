@@ -155,7 +155,7 @@ export function healthz() {
   return get('/api/healthz');
 }
 
-export async function listOperations(limit = 1000) {
+export async function listOperations(limit = 5000) {
   const params = new URLSearchParams({ limit: String(limit) });
   const url = `${baseDomain}/svc/data-matching/api/v2/operation/?${params}`;
   const controller = new AbortController();
