@@ -17,9 +17,10 @@ beforeEach(() => {
 
 describe('prefetch system', () => {
   it('prefetchForPanel("data") loads records and total count into cache', async () => {
-    api.aggregate
-      .mockResolvedValueOnce({ result: [{ _id: '1', name: 'rec1' }] })
-      .mockResolvedValueOnce({ result: [{ total: 42 }] });
+    api.aggregate.mockImplementation((_col, pipeline) => {
+      if (pipeline[0]?.$collStats) return Promise.resolve({ result: [{ count: 42 }] });
+      return Promise.resolve({ result: [{ _id: '1', name: 'rec1' }] });
+    });
 
     await prefetchForPanel('test_col', 'data');
 
@@ -33,7 +34,7 @@ describe('prefetch system', () => {
     await prefetchForPanel('test_col', 'indexes');
 
     expect(cache.get('test_col', 'indexes')).toEqual([{ name: '_id_', key: { _id: 1 } }]);
-    expect(api.listIndexes).toHaveBeenCalledWith('test_col', false);
+    expect(api.listIndexes).toHaveBeenCalledWith('test_col', false, expect.anything());
   });
 
   it('prefetchForPanel("search-indexes") loads search index list', async () => {
@@ -62,8 +63,8 @@ describe('prefetch system', () => {
     await prefetchForPanel('test_col', 'stats');
 
     expect(cache.get('test_col', 'statsFields')).toEqual(['age', 'name']);
-    // 1 sample query + 9 stat pipelines = 10 aggregate calls
-    expect(api.aggregate).toHaveBeenCalledTimes(10);
+    // 1 sample query + 11 stat pipelines = 12 aggregate calls
+    expect(api.aggregate).toHaveBeenCalledTimes(12);
     // Stat results should be cached
     expect(cache.get('test_col', 'stats_coverage')).toEqual({ result: [] });
     expect(cache.get('test_col', 'stats_types')).toEqual({ result: [] });
@@ -83,8 +84,8 @@ describe('prefetch system', () => {
       if (pipeline[0]?.$sample) {
         return Promise.resolve({ result: [{ name: 'test' }] });
       }
-      if (pipeline[0]?.$count) {
-        return Promise.resolve({ result: [{ total: 5 }] });
+      if (pipeline[0]?.$collStats) {
+        return Promise.resolve({ result: [{ count: 5 }] });
       }
       return Promise.resolve({ result: [] });
     });

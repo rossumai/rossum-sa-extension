@@ -248,7 +248,7 @@ describe('query execution (useQuery)', () => {
 
 describe('pagination (usePagination)', () => {
   it('fetches and caches total count via aggregation', async () => {
-    api.aggregate.mockResolvedValue({ result: [{ total: 150 }] });
+    api.aggregate.mockResolvedValue({ result: [{ count: 150 }] });
     store.selectedCollection.value = 'col';
     const hook = renderHook(usePagination);
 
@@ -256,7 +256,7 @@ describe('pagination (usePagination)', () => {
 
     expect(count).toBe(150);
     expect(hook.totalCount.value).toBe(150);
-    expect(api.aggregate).toHaveBeenCalledWith('col', [{ $count: 'total' }]);
+    expect(api.aggregate).toHaveBeenCalledWith('col', [{ $collStats: { count: {} } }, { $limit: 1 }]);
     expect(cache.get('col', 'totalCount')).toBe(150);
   });
 

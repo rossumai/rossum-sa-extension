@@ -147,7 +147,7 @@ describe('full data exploration flow', () => {
     const hooks = renderAllHooks();
 
     // First fetch — hits the API
-    api.aggregate.mockResolvedValueOnce({ result: [{ total: 250 }] });
+    api.aggregate.mockResolvedValueOnce({ result: [{ count: 250 }] });
     await hooks.pagination.fetchTotalCount('products');
     expect(hooks.pagination.totalCount.value).toBe(250);
     expect(api.aggregate).toHaveBeenCalledTimes(1);
@@ -160,7 +160,7 @@ describe('full data exploration flow', () => {
     hooks.pagination.invalidateTotalCount('products');
     expect(hooks.pagination.totalCount.value).toBeNull();
 
-    api.aggregate.mockResolvedValueOnce({ result: [{ total: 251 }] });
+    api.aggregate.mockResolvedValueOnce({ result: [{ count: 251 }] });
     await hooks.pagination.fetchTotalCount('products');
     expect(hooks.pagination.totalCount.value).toBe(251);
     expect(api.aggregate).toHaveBeenCalledTimes(2);

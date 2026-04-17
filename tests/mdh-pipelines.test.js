@@ -98,8 +98,12 @@ describe('encKey', () => {
 describe('pipeline builders', () => {
   const fields = ['name', 'address.city', 'count'];
 
-  it('buildOverviewPipeline returns $count', () => {
-    expect(buildOverviewPipeline()).toEqual([{ $count: 'total' }]);
+  it('buildOverviewPipeline returns $collStats count', () => {
+    expect(buildOverviewPipeline()).toEqual([
+      { $collStats: { count: {} } },
+      { $project: { host: 0, localTime: 0 } },
+      { $limit: 1 },
+    ]);
   });
 
   it('buildFieldCoveragePipeline produces $project + $group', () => {
@@ -169,11 +173,11 @@ describe('pipeline builders', () => {
     expect(p[p.length - 1]).toEqual({ $limit: 20 });
   });
 
-  it('buildAllPipelines returns all 9 pipeline types', () => {
+  it('buildAllPipelines returns all 11 pipeline types', () => {
     const all = buildAllPipelines(fields);
     expect(Object.keys(all).sort()).toEqual([
-      'cardinality', 'coverage', 'dates', 'distribution',
-      'empties', 'numeric', 'schema', 'strings', 'types',
+      'cardinality', 'coverage', 'dates', 'distribution', 'docSize',
+      'empties', 'numeric', 'schema', 'storage', 'strings', 'types',
     ]);
     for (const pipeline of Object.values(all)) {
       expect(Array.isArray(pipeline)).toBe(true);
