@@ -1475,7 +1475,7 @@ body {
 .uploads-table col.col-type { width: 110px; }
 .uploads-table col.col-size { width: 80px; }
 .uploads-table col.col-records { width: 90px; }
-.uploads-table col.col-created { width: 90px; }
+.uploads-table col.col-created { width: 120px; }
 .uploads-table col.col-duration { width: 95px; }
 
 .uploads-table th {

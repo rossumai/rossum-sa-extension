@@ -36,9 +36,11 @@ function timeAgo(dateStr) {
   const mins = Math.floor(secs / 60);
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
+  const remMins = mins - hrs * 60;
+  if (hrs < 24) return remMins ? `${hrs}h ${remMins}m ago` : `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
-  return `${days}d ago`;
+  const remHrs = hrs - days * 24;
+  return remHrs ? `${days}d ${remHrs}h ago` : `${days}d ago`;
 }
 
 function formatDuration(ms) {
@@ -285,7 +287,10 @@ function computeGroupSummary(ops) {
   const first = ops[0];
   let totalSize = 0;
   let totalRecords = 0;
-  let totalMs = 0;
+  let minStart = Infinity;
+  let maxEnd = -Infinity;
+  let oldestCreated = null;
+  let oldestCreatedMs = Infinity;
   let hasRecords = false;
   let hasDuration = false;
   const now = Date.now();
@@ -299,8 +304,16 @@ function computeGroupSummary(ops) {
       const endMs = isTerminal(op.status)
         ? (op.updated ? new Date(op.updated).getTime() : startMs)
         : now;
-      totalMs += endMs - startMs;
+      if (startMs < minStart) minStart = startMs;
+      if (endMs > maxEnd) maxEnd = endMs;
       hasDuration = true;
+    }
+    if (op.created) {
+      const createdMs = new Date(op.created).getTime();
+      if (createdMs < oldestCreatedMs) {
+        oldestCreatedMs = createdMs;
+        oldestCreated = op.created;
+      }
     }
   }
   return {
@@ -310,8 +323,8 @@ function computeGroupSummary(ops) {
     filename: first.metadata?.file_metadata?.filename,
     totalSize,
     totalRecords: hasRecords ? totalRecords : null,
-    totalMs: hasDuration ? totalMs : null,
-    latestCreated: first.created,
+    totalMs: hasDuration ? Math.max(0, maxEnd - minStart) : null,
+    latestCreated: oldestCreated || first.created,
   };
 }
 
