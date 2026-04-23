@@ -95,21 +95,54 @@ async function pollOperations() {
   }
 }
 
+const AUTH_TTL_MS = 24 * 60 * 60 * 1000;
+
+async function purgeStaleAuthEntries() {
+  const all = await chrome.storage.local.get(null);
+  const now = Date.now();
+  const toRemove = [];
+  for (const [key, value] of Object.entries(all)) {
+    if (!key.startsWith('mdhAuth_')) continue;
+    const createdAt = value?.createdAt;
+    if (typeof createdAt !== 'number' || now - createdAt > AUTH_TTL_MS) {
+      toRemove.push(key);
+    }
+  }
+  if ('mdhToken' in all) toRemove.push('mdhToken');
+  if ('mdhDomain' in all) toRemove.push('mdhDomain');
+  if (toRemove.length > 0) await chrome.storage.local.remove(toRemove);
+}
+
+function resolveAuthId() {
+  const fromUrl = new URLSearchParams(location.search).get('authId');
+  if (fromUrl) {
+    sessionStorage.setItem('mdhAuthId', fromUrl);
+    history.replaceState(null, '', location.pathname);
+    return fromUrl;
+  }
+  return sessionStorage.getItem('mdhAuthId');
+}
+
 async function boot() {
+  const authId = resolveAuthId();
+  const authKey = authId ? `mdhAuth_${authId}` : null;
+
   const stored = await chrome.storage.local.get([
-    'mdhToken', 'mdhDomain',
+    ...(authKey ? [authKey] : []),
     'mdhActiveView', 'mdhSelectedCollection', 'mdhActivePanel',
   ]);
-  const { mdhToken, mdhDomain } = stored;
+  const entry = authKey ? stored[authKey] : null;
 
-  if (!mdhToken || !mdhDomain) {
+  purgeStaleAuthEntries().catch(() => {});
+
+  if (!entry?.token || !entry?.domain) {
     render(<App connected={false} />, document.getElementById('app'));
     return;
   }
 
-  store.domain.value = mdhDomain;
-  store.token.value = mdhToken;
-  api.init(mdhDomain, mdhToken);
+  store.domain.value = entry.domain;
+  store.token.value = entry.token;
+  api.init(entry.domain, entry.token);
 
   if (stored.mdhActiveView === 'operations' || stored.mdhActiveView === 'overview') {
     store.activeView.value = stored.mdhActiveView;

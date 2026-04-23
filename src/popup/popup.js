@@ -67,9 +67,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('dataStorage')?.addEventListener('click', () => {
     chrome.tabs.sendMessage(tab.id, 'get-auth-info', (response) => {
       if (response?.token && response?.domain) {
-        chrome.storage.local.set({ mdhToken: response.token, mdhDomain: response.domain }, () => {
+        const authId = crypto.randomUUID();
+        const key = `mdhAuth_${authId}`;
+        chrome.storage.local.set({
+          [key]: { token: response.token, domain: response.domain, createdAt: Date.now() },
+        }, () => {
           chrome.tabs.create({
-            url: chrome.runtime.getURL('mdh/mdh.html'),
+            url: chrome.runtime.getURL(`mdh/mdh.html?authId=${authId}`),
             index: tab.index + 1,
           });
         });
