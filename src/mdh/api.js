@@ -170,7 +170,7 @@ export function healthz() {
 
 export async function listOperations(limit = 5000) {
   const params = new URLSearchParams({ limit: String(limit) });
-  const url = `${baseDomain}/svc/data-matching/api/v2/operation/?${params}`;
+  const url = `${baseDomain}/svc/master-data-hub/api/v2/operation/?${params}`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
   let res;

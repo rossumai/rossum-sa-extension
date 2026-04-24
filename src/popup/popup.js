@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Master Data Hub button
   document.getElementById('masterDataHub')?.addEventListener('click', () => {
     chrome.tabs.create({
-      url: combineUrlWithCustomPath(tab.url, '/svc/data-matching/web/management'),
+      url: combineUrlWithCustomPath(tab.url, '/svc/master-data-hub/web/management'),
       index: tab.index + 1,
     });
   });
