@@ -153,6 +153,22 @@ describe('AI features', () => {
       expect(chrome.storage.local.set).not.toHaveBeenCalled();
     });
 
+    it('ask injects internal-knowledge hints into the prompt for matching errors', async () => {
+      await ai.ask('Operation was abandoned, please try again', 'error');
+
+      const promptArg = mockSession.prompt.mock.calls[0][0];
+      expect(promptArg).toContain('Operation was abandoned');
+      expect(promptArg).toMatch(/Internal context from Rossum solution architects/i);
+      expect(promptArg).toMatch(/pod/i);
+    });
+
+    it('ask does not append a hint section when nothing in the registry matches', async () => {
+      await ai.ask('totally novel error nobody has ever seen', 'error');
+
+      const promptArg = mockSession.prompt.mock.calls[0][0];
+      expect(promptArg).not.toMatch(/Internal context from Rossum solution architects/i);
+    });
+
     it('ask destroys nlsearch sessions after use', async () => {
       await ai.ask('find all active users', 'nlsearch');
 

@@ -876,8 +876,17 @@ body {
 }
 
 .nl-search-input.loading {
-  background: var(--bg-hover);
+  border: 1.5px solid transparent;
+  padding: 3.5px 7.5px;
+  background:
+    linear-gradient(var(--bg-input), var(--bg-input)) padding-box,
+    conic-gradient(
+      from var(--ai-angle),
+      #8b5cf6, #ec4899, #f97316, #3b82f6, #22d3ee, #8b5cf6
+    ) border-box;
   color: transparent;
+  box-shadow: 0 0 14px -4px rgba(139, 92, 246, 0.45);
+  animation: ai-border-spin 2.4s linear infinite;
 }
 
 .nl-search-input.loading::placeholder {
@@ -897,17 +906,42 @@ body {
   inset: 0;
   display: flex;
   align-items: center;
-  padding: 0 8px;
+  padding: 0 9.5px;
   font-size: 11px;
-  color: var(--text-secondary);
   font-style: italic;
+  font-weight: 500;
   pointer-events: none;
-  animation: nl-pulse 1.5s ease-in-out infinite;
+  background: linear-gradient(
+    90deg,
+    #8b5cf6, #ec4899, #f97316, #3b82f6, #22d3ee, #8b5cf6
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: ai-text-shimmer 3s linear infinite;
 }
 
-@keyframes nl-pulse {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
+@property --ai-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes ai-border-spin {
+  to { --ai-angle: 360deg; }
+}
+
+@keyframes ai-text-shimmer {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nl-search-input.loading,
+  .nl-search-loading,
+  .ai-thinking { animation: none; }
 }
 
 .pipeline-action-btn {
@@ -987,10 +1021,21 @@ body {
   color: var(--text-code);
 }
 
-.ai-download-info {
+.ai-thinking {
+  display: inline-block;
   font-size: 11px;
-  color: var(--text-secondary);
+  font-weight: 500;
   line-height: 1.4;
+  background: linear-gradient(
+    90deg,
+    #8b5cf6, #ec4899, #f97316, #3b82f6, #22d3ee, #8b5cf6
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: ai-text-shimmer 3s linear infinite;
 }
 
 .ai-explain-error {
@@ -1005,6 +1050,7 @@ body {
   align-items: center;
   gap: 4px;
   vertical-align: middle;
+  font-family: var(--font-sans);
 }
 
 .ai-insight-overlay {
@@ -1055,6 +1101,7 @@ body {
   border-radius: var(--radius);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   z-index: 100;
+  font-family: var(--font-sans);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -1067,7 +1114,7 @@ body {
   color: var(--text-secondary);
 }
 
-.ai-insight-content .ai-download-info {
+.ai-insight-content .ai-thinking {
   font-style: italic;
 }
 

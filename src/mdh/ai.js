@@ -1,6 +1,7 @@
 // src/mdh/ai.js
 
 import { aiEnabled, aiStatus, aiDownloadProgress } from './store.js';
+import { findHints } from './aiKnowledge.js';
 
 const PROMPTS = {
   index:
@@ -166,14 +167,27 @@ async function getOrCreateSession(type, onDownloadProgress) {
 }
 
 function formatPrompt(input, type, context) {
-  if (type === 'error') return 'Explain this error:\n' + input;
-  if (type === 'pipeline') return 'Explain this pipeline:\n' + input;
-  if (type === 'record') {
+  if (type === 'nlsearch') return input; // caller pre-formats; no hint injection
+
+  let base;
+  if (type === 'error') base = 'Explain this error:\n' + input;
+  else if (type === 'pipeline') base = 'Explain this pipeline:\n' + input;
+  else if (type === 'record') {
     const header = context ? 'Collection: ' + context + '\n\n' : '';
-    return header + 'What is this record about?\n' + JSON.stringify(input, null, 2);
+    base = header + 'What is this record about?\n' + JSON.stringify(input, null, 2);
+  } else {
+    base = 'Explain this index:\n' + JSON.stringify(input, null, 2);
   }
-  if (type === 'nlsearch') return input; // user query + fields are already formatted by caller
-  return 'Explain this index:\n' + JSON.stringify(input, null, 2);
+
+  const hints = findHints(input, type, context);
+  if (hints.length > 0) {
+    base +=
+      '\n\nInternal context from Rossum solution architects ' +
+      '(treat as expert hypothesis from people familiar with our infrastructure — ' +
+      'present as a likely cause, not absolute fact, and acknowledge other reasons are possible):\n' +
+      hints.map((h) => '- ' + h).join('\n');
+  }
+  return base;
 }
 
 export async function ask(input, type, { signal, skipCache, context } = {}) {

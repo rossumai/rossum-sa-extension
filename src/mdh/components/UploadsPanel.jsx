@@ -462,8 +462,8 @@ export default function UploadsPanel() {
           <tr class={errRowClass}>
             <td colspan="8">
               <div class="uploads-error-inner">
-                <span class="uploads-error-text">{errMsg}</span>
                 <AiInsight input={errMsg} type="error" mode="overlay" />
+                <span class="uploads-error-text">{errMsg}</span>
               </div>
             </td>
           </tr>
@@ -525,8 +525,8 @@ export default function UploadsPanel() {
           <tr class="uploads-row-error">
             <td colspan="8">
               <div class="uploads-error-inner">
-                <span class="uploads-error-text">{errMsg}</span>
                 <AiInsight input={errMsg} type="error" mode="overlay" />
+                <span class="uploads-error-text">{errMsg}</span>
               </div>
             </td>
           </tr>
