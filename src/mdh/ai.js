@@ -166,17 +166,48 @@ async function getOrCreateSession(type, onDownloadProgress) {
   return session;
 }
 
+// Conservative cap on the user-prompt portion. Gemini Nano's context window is
+// implementation-defined and not exposed as a fixed number, but ~2 000 tokens
+// (~8 000 chars) leaves comfortable headroom for the system prompt + hints +
+// the model's response within typical built-in budgets.
+const MAX_PROMPT_CHARS = 8000;
+
+function truncate(text) {
+  if (typeof text !== 'string' || text.length <= MAX_PROMPT_CHARS) return text;
+  const dropped = text.length - MAX_PROMPT_CHARS;
+  return text.slice(0, MAX_PROMPT_CHARS)
+    + `\n\n... [truncated, ${dropped.toLocaleString('en-US')} more characters omitted]`;
+}
+
+const FRIENDLY_TYPE_LABEL = {
+  error: 'error',
+  pipeline: 'pipeline',
+  record: 'record',
+  index: 'index',
+  searchIndex: 'search index',
+  nlsearch: 'request',
+};
+
+function inputTooLargeError(type, requested, available) {
+  const label = FRIENDLY_TYPE_LABEL[type] || 'input';
+  const err = new Error(`This ${label} is too large for the on-device AI to summarise.`);
+  err.code = 'INPUT_TOO_LARGE';
+  if (requested != null) err.requested = requested;
+  if (available != null) err.available = available;
+  return err;
+}
+
 function formatPrompt(input, type, context) {
   if (type === 'nlsearch') return input; // caller pre-formats; no hint injection
 
   let base;
-  if (type === 'error') base = 'Explain this error:\n' + input;
-  else if (type === 'pipeline') base = 'Explain this pipeline:\n' + input;
+  if (type === 'error') base = 'Explain this error:\n' + truncate(String(input));
+  else if (type === 'pipeline') base = 'Explain this pipeline:\n' + truncate(String(input));
   else if (type === 'record') {
     const header = context ? 'Collection: ' + context + '\n\n' : '';
-    base = header + 'What is this record about?\n' + JSON.stringify(input, null, 2);
+    base = header + 'What is this record about?\n' + truncate(JSON.stringify(input, null, 2));
   } else {
-    base = 'Explain this index:\n' + JSON.stringify(input, null, 2);
+    base = 'Explain this index:\n' + truncate(JSON.stringify(input, null, 2));
   }
 
   const hints = findHints(input, type, context);
@@ -193,10 +224,34 @@ function formatPrompt(input, type, context) {
 export async function ask(input, type, { signal, skipCache, context } = {}) {
   const session = await getOrCreateSession(type);
   const prompt = formatPrompt(input, type, context);
+
+  // Pre-flight: refuse early when the prompt provably won't fit. The spec
+  // recently renamed the properties (inputQuota → contextWindow, inputUsage
+  // → contextUsage, measureInputUsage → measureContextUsage). Accept either
+  // form so we work on both old and new Chrome versions.
+  const budget = session.contextWindow ?? session.inputQuota;
+  const used = session.contextUsage ?? session.inputUsage ?? 0;
+  const measure = session.measureContextUsage || session.measureInputUsage;
+  if (typeof budget === 'number' && typeof measure === 'function') {
+    try {
+      const cost = await measure.call(session, prompt);
+      if (typeof cost === 'number' && cost + used > budget) {
+        throw inputTooLargeError(type, cost, budget - used);
+      }
+    } catch (err) {
+      if (err && err.code === 'INPUT_TOO_LARGE') throw err;
+      // measure failed for other reasons — let session.prompt() be the gate
+    }
+  }
+
   let result;
   try {
     result = await session.prompt(prompt, { signal });
   } catch (err) {
+    if (err && err.name === 'QuotaExceededError') {
+      sessions.delete(type);
+      throw inputTooLargeError(type, err.requested, err.contextWindow);
+    }
     if (err.name !== 'AbortError') {
       sessions.delete(type);
     }

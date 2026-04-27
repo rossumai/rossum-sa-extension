@@ -1043,6 +1043,12 @@ body {
   color: var(--danger);
 }
 
+.ai-explain-info {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
 /* ── AI Insight (shared toggle component) ───── */
 
 .ai-insight-inline {

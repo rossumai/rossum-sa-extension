@@ -169,6 +169,74 @@ describe('AI features', () => {
       expect(promptArg).not.toMatch(/Internal context from Rossum solution architects/i);
     });
 
+    it('truncates very large user prompts before sending to the model', async () => {
+      const huge = 'x'.repeat(20000);
+      await ai.ask(huge, 'error');
+
+      const promptArg = mockSession.prompt.mock.calls[0][0];
+      expect(promptArg.length).toBeLessThan(20000);
+      expect(promptArg).toMatch(/truncated, [\d,]+ more characters omitted/);
+    });
+
+    it('preflight refuses with INPUT_TOO_LARGE when measured cost exceeds the remaining budget', async () => {
+      mockSession.contextWindow = 1000;
+      mockSession.contextUsage = 200;
+      mockSession.measureContextUsage = vi.fn().mockResolvedValue(900);
+
+      await expect(ai.ask('huge error blob', 'error')).rejects.toMatchObject({
+        code: 'INPUT_TOO_LARGE',
+        message: expect.stringMatching(/error is too large/i),
+      });
+      expect(mockSession.prompt).not.toHaveBeenCalled();
+
+      delete mockSession.contextWindow;
+      delete mockSession.contextUsage;
+      delete mockSession.measureContextUsage;
+    });
+
+    it('preflight tolerates the legacy inputQuota/inputUsage/measureInputUsage names', async () => {
+      mockSession.inputQuota = 1000;
+      mockSession.inputUsage = 0;
+      mockSession.measureInputUsage = vi.fn().mockResolvedValue(50);
+
+      const result = await ai.ask('small error', 'error');
+      expect(result).toBe('AI response text');
+      expect(mockSession.measureInputUsage).toHaveBeenCalled();
+
+      delete mockSession.inputQuota;
+      delete mockSession.inputUsage;
+      delete mockSession.measureInputUsage;
+    });
+
+    it('maps a QuotaExceededError from session.prompt to a friendly INPUT_TOO_LARGE error', async () => {
+      const quotaErr = new Error('The input is too large.');
+      quotaErr.name = 'QuotaExceededError';
+      quotaErr.requested = 5000;
+      quotaErr.contextWindow = 4096;
+      mockSession.prompt.mockRejectedValueOnce(quotaErr);
+
+      await expect(ai.ask('some pipeline JSON', 'pipeline')).rejects.toMatchObject({
+        code: 'INPUT_TOO_LARGE',
+        message: expect.stringMatching(/pipeline is too large/i),
+        requested: 5000,
+        available: 4096,
+      });
+    });
+
+    it('preflight measure failure does not block — falls through to session.prompt', async () => {
+      mockSession.contextWindow = 4096;
+      mockSession.contextUsage = 0;
+      mockSession.measureContextUsage = vi.fn().mockRejectedValue(new Error('not supported here'));
+
+      const result = await ai.ask('small input', 'error');
+      expect(result).toBe('AI response text');
+      expect(mockSession.prompt).toHaveBeenCalled();
+
+      delete mockSession.contextWindow;
+      delete mockSession.contextUsage;
+      delete mockSession.measureContextUsage;
+    });
+
     it('ask destroys nlsearch sessions after use', async () => {
       await ai.ask('find all active users', 'nlsearch');
 
