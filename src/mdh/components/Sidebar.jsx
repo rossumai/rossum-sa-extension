@@ -5,6 +5,7 @@ import { confirmModal, promptModal, closeModal, openModal } from './Modal.jsx';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
 import * as ai from '../ai.js';
+import { showUndo } from '../undo.js';
 import { FEATURES } from '../featurePreview/registry.js';
 import FeaturePreviewModal from './FeaturePreviewModal.jsx';
 
@@ -88,25 +89,102 @@ function showRenameModal(oldName) {
   });
 }
 
-function confirmDrop(name) {
-  confirmModal(
-    'Drop collection?',
-    `This will permanently delete "${name}" and all its data. This action cannot be undone.`,
-    async () => {
-      try {
-        loading.value = true;
-        error.value = null;
-        await api.dropCollection(name);
-        cache.invalidateAll();
-        if (selectedCollection.value === name) {
-          selectedCollection.value = null;
+// Below this many docs we snapshot the whole collection (docs + indexes) so
+// undo can fully recreate it. Above it, undo would mean keeping potentially
+// many MB in memory and a heavy insertMany rollback — instead we raise the
+// confirmation bar (type-to-confirm) and skip undo.
+const DROP_UNDO_LIMIT = 5000;
+
+async function performDrop(name, snapshot) {
+  loading.value = true;
+  error.value = null;
+  try {
+    await api.dropCollection(name);
+    cache.invalidateAll();
+    if (selectedCollection.value === name) selectedCollection.value = null;
+    await loadCollections();
+    if (snapshot) {
+      showUndo({
+        message: `Dropped "${name}"`,
+        action: async () => {
+          await api.createCollection(name);
+          for (const idx of snapshot.indexes) {
+            // _id_ is created automatically by the server; skip it.
+            if (idx.name === '_id_') continue;
+            try {
+              await api.createIndex(name, idx.name, idx.key, idx.options || {});
+            } catch { /* recreate best-effort; one bad index shouldn't sink the whole undo */ }
+          }
+          if (snapshot.docs.length > 0) {
+            await api.insertMany(name, snapshot.docs, false);
+          }
+          cache.invalidateAll();
+          await loadCollections();
+          selectedCollection.value = name;
+        },
+      });
+    }
+  } catch (err) {
+    error.value = { message: err.message };
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function confirmDrop(name) {
+  // Look up the size first so we can pick a flow. A failed count is treated
+  // the same as "too large" — we'd rather over-confirm than over-snapshot.
+  let count = null;
+  try {
+    const res = await api.aggregate(name, [{ $count: 'n' }]);
+    count = res.result?.[0]?.n ?? 0;
+  } catch { /* keep null */ }
+
+  if (typeof count === 'number' && count <= DROP_UNDO_LIMIT) {
+    const proceed = await confirmModal(
+      'Drop collection?',
+      `Delete "${name}" and its ${count.toLocaleString()} document${count !== 1 ? 's' : ''}? You'll have a few seconds to undo.`,
+    );
+    if (!proceed) return;
+    let snapshot = null;
+    try {
+      loading.value = true;
+      const [docsRes, idxRes] = await Promise.all([
+        count > 0 ? api.aggregate(name, [{ $match: {} }]) : Promise.resolve({ result: [] }),
+        api.listIndexes(name),
+      ]);
+      snapshot = { docs: docsRes.result || [], indexes: idxRes.result || [] };
+    } catch (err) {
+      loading.value = false;
+      error.value = { message: `Snapshot for undo failed: ${err.message}` };
+      return;
+    }
+    await performDrop(name, snapshot);
+    return;
+  }
+
+  // Large or unknown count — type-to-confirm, no undo.
+  const message = typeof count === 'number'
+    ? `${count.toLocaleString()} documents will be permanently deleted. Undo is unavailable above ${DROP_UNDO_LIMIT.toLocaleString()} documents.`
+    : `This will permanently delete "${name}" and all its data.`;
+  await promptModal(
+    `Drop "${name}"?`,
+    {
+      message,
+      placeholder: `Type "${name}" to confirm`,
+      submitLabel: 'Drop',
+      submitClass: 'btn-danger',
+    },
+    (val, hint) => {
+      if (val !== name) {
+        if (hint) {
+          hint.style.color = 'var(--danger)';
+          hint.textContent = `Doesn't match "${name}".`;
         }
-        await loadCollections();
-      } catch (err) {
-        error.value = { message: err.message };
-      } finally {
-        loading.value = false;
+        return;
       }
+      closeModal();
+      performDrop(name, null);
     },
   );
 }

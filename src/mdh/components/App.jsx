@@ -13,6 +13,7 @@ import SearchIndexPanel from './SearchIndexPanel.jsx';
 import StatsPanel from './StatsPanel.jsx';
 import UploadsPanel from './UploadsPanel.jsx';
 import OverviewPanel from './OverviewPanel.jsx';
+import UndoToast from './UndoToast.jsx';
 
 export default function App({ connected }) {
   return (
@@ -44,6 +45,7 @@ export default function App({ connected }) {
           <div class="empty-state"><p>Select a collection to get started</p></div>
         )}
       </main>
+      <UndoToast />
     </div>
   );
 }

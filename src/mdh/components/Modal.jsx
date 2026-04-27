@@ -37,14 +37,26 @@ export function confirmModal(title, message, onConfirm) {
   });
 }
 
-export function promptModal(title, { placeholder, initialValue, submitLabel, submitClass }, onSubmit) {
-  modalContent.value = {
-    title,
-    render: () => <PromptBody placeholder={placeholder} initialValue={initialValue} submitLabel={submitLabel} submitClass={submitClass} onSubmit={onSubmit} />,
-  };
+// Returns a Promise that resolves to the submitted value when the modal
+// closes after a successful submission, or to null on cancel/escape/overlay/X.
+// Existing callback-style callers keep working — the legacy `onSubmit` is
+// invoked first and may keep the modal open for async validation.
+export function promptModal(title, { placeholder, initialValue, submitLabel, submitClass, message }, onSubmit) {
+  return new Promise((resolve) => {
+    let submittedValue = null;
+    const wrappedSubmit = (val, hint) => {
+      submittedValue = val;
+      if (onSubmit) onSubmit(val, hint);
+    };
+    modalContent.value = {
+      title,
+      render: () => <PromptBody message={message} placeholder={placeholder} initialValue={initialValue} submitLabel={submitLabel} submitClass={submitClass} onSubmit={wrappedSubmit} />,
+      onClose: () => resolve(submittedValue),
+    };
+  });
 }
 
-function PromptBody({ placeholder, initialValue, submitLabel, submitClass, onSubmit }) {
+function PromptBody({ message, placeholder, initialValue, submitLabel, submitClass, onSubmit }) {
   const inputRef = useRef(null);
   const hintRef = useRef(null);
 
@@ -71,6 +83,7 @@ function PromptBody({ placeholder, initialValue, submitLabel, submitClass, onSub
 
   return (
     <div class="modal-body">
+      {message && <p class="modal-message">{message}</p>}
       <input
         ref={inputRef}
         class="input"

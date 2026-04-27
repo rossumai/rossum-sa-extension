@@ -13,6 +13,7 @@ import { openRecordEditor } from './RecordEditor.jsx';
 import { openDataOperations } from './DataOperations.jsx';
 import { openDeleteMany } from './DeleteMany.jsx';
 import { confirmModal } from './Modal.jsx';
+import { showUndo } from '../undo.js';
 import { addToHistory } from './QueryHistory.jsx';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
@@ -430,12 +431,21 @@ export default function DataPanel() {
           onEdit={(record) => openRecordEditor('edit', record, invalidateAndRun, currentFields)}
           onDelete={(record, idx) => {
             const deleteId = record._id?.$oid || record._id || '?';
-            confirmModal('Delete record?', `Delete record with _id "${deleteId}"? This cannot be undone.`, async () => {
+            confirmModal('Delete record?', `Delete record with _id "${deleteId}"? You'll have a few seconds to undo.`, async () => {
+              const snapshot = record;
+              const col = collection;
               try {
                 loading.value = true;
                 error.value = null;
-                await api.deleteOne(collection, { _id: record._id });
+                await api.deleteOne(col, { _id: record._id });
                 invalidateAndRun();
+                showUndo({
+                  message: `Deleted record ${deleteId}`,
+                  action: async () => {
+                    await api.insertOne(col, snapshot);
+                    if (selectedCollection.value === col) invalidateAndRun();
+                  },
+                });
               } catch (err) {
                 error.value = { message: err.message };
                 loading.value = false;

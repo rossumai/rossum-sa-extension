@@ -2294,3 +2294,85 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
   0%   { margin-left: -30%; }
   100% { margin-left: 100%; }
 }
+
+/* Undo toast — bottom-center, fixed, above modal-overlay (z=1000-ish);
+   single instance, replaces previous on new operation. */
+.undo-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 2000;
+  min-width: 320px;
+  max-width: 560px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  font-size: 13px;
+  overflow: hidden;
+  animation: undo-toast-in 0.18s ease-out;
+}
+
+@keyframes undo-toast-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.undo-toast-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+}
+
+.undo-toast-message {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.undo-toast-action {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.undo-toast-action:hover { background: var(--bg-hover); }
+
+.undo-toast-countdown {
+  font-weight: 400;
+  color: var(--text-secondary);
+  margin-left: 4px;
+}
+
+.undo-toast-dismiss {
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.undo-toast-dismiss:hover { color: var(--text-primary); }
+
+.undo-toast-progress {
+  height: 2px;
+  background: var(--accent);
+  transform-origin: left center;
+  transition: transform 250ms linear;
+}
+
+.undo-toast-running .undo-toast-message,
+.undo-toast-done .undo-toast-message { color: var(--success); }
+.undo-toast-error { border-color: var(--danger-border); }
+.undo-toast-error .undo-toast-message { color: var(--danger); white-space: normal; }
+

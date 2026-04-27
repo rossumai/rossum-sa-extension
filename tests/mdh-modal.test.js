@@ -262,4 +262,32 @@ describe('promptModal', () => {
     expect(spy).not.toHaveBeenCalled();
     expect(modalContent.value).toBeNull();
   });
+
+  it('renders the optional message above the input', () => {
+    const root = mount();
+    promptModal('T', { message: 'Heads up — read me.' }, () => {});
+    rerender(root);
+    expect(root.querySelector('.modal-message').textContent).toBe('Heads up — read me.');
+  });
+
+  it('Promise resolves to the submitted value when caller closes the modal', async () => {
+    const root = mount();
+    const p = promptModal('T', {}, (val) => {
+      // Caller validates then closes the modal — typical sidebar create flow.
+      if (val === 'ok') closeModal();
+    });
+    rerender(root);
+    const input = root.querySelector('input.input');
+    input.value = 'ok';
+    root.querySelectorAll('.modal-actions button')[1].click();
+    await expect(p).resolves.toBe('ok');
+  });
+
+  it('Promise resolves to null on Cancel', async () => {
+    const root = mount();
+    const p = promptModal('T', {}, () => {});
+    rerender(root);
+    root.querySelectorAll('.modal-actions button')[0].click();
+    await expect(p).resolves.toBeNull();
+  });
 });

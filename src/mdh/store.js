@@ -21,3 +21,4 @@ export const operations = signal([]);
 export const operationsLoaded = signal(false);
 export const pendingOperations = signal(null); // { ops, changedOps } | null
 export const opsSearch = signal('');
+export const undoToast = signal(null); // { id, message, action, ts, ttlMs, status, error } | null
