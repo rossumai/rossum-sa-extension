@@ -62,7 +62,7 @@ Detects current site (Rossum/NetSuite/Coupa) and dims irrelevant sections. Two t
 
 - Feature toggles: `schemaAnnotationsEnabled`, `expandFormulasEnabled`, `expandReasoningFieldsEnabled`, `scrollLockEnabled`, `resourceIdsEnabled`, `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled`
 - MDH auth: `mdhToken`, `mdhDomain`
-- MDH state: `mdhPipelineWidth`
+- MDH state: `mdhPipelineWidth`, `mdhUploadsColumnWidths`
 
 ## CSS Architecture
 

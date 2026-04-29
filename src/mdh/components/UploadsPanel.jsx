@@ -1,5 +1,5 @@
 import { h, Fragment } from 'preact';
-import { useState, useEffect, useMemo } from 'preact/hooks';
+import { useState, useEffect, useMemo, useRef } from 'preact/hooks';
 import {
   loading, error,
   operations, operationsLoaded, pendingOperations, opsSearch,
@@ -8,6 +8,30 @@ import {
 import * as api from '../api.js';
 import AiInsight from './AiInsight.jsx';
 import FlashOnChange from './FlashOnChange.jsx';
+
+const DEFAULT_COL_WIDTHS = {
+  status: 130,
+  type: 110,
+  dataset: 200,
+  file: 220,
+  size: 80,
+  records: 90,
+  created: 120,
+  duration: 95,
+};
+const COL_KEYS = ['status', 'type', 'dataset', 'file', 'size', 'records', 'created', 'duration'];
+const COL_LABELS = {
+  status: 'Status',
+  type: 'Type',
+  dataset: 'Dataset',
+  file: 'File',
+  size: 'Size',
+  records: 'Records',
+  created: 'Created',
+  duration: 'Duration',
+};
+const MIN_COL_WIDTH = 50;
+const COL_WIDTHS_KEY = 'mdhUploadsColumnWidths';
 
 export async function loadOperations() {
   try {
@@ -316,6 +340,58 @@ export default function UploadsPanel() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [expandedGroups, setExpandedGroups] = useState(() => new Set());
   const [page, setPage] = useState(0);
+  const [colWidths, setColWidths] = useState(DEFAULT_COL_WIDTHS);
+  const colWidthsRef = useRef(DEFAULT_COL_WIDTHS);
+
+  useEffect(() => {
+    chrome.storage.local.get([COL_WIDTHS_KEY], (result) => {
+      const saved = result?.[COL_WIDTHS_KEY];
+      if (saved && typeof saved === 'object') {
+        const merged = { ...DEFAULT_COL_WIDTHS };
+        for (const k of COL_KEYS) {
+          const v = Number(saved[k]);
+          if (Number.isFinite(v) && v >= MIN_COL_WIDTH) merged[k] = Math.round(v);
+        }
+        colWidthsRef.current = merged;
+        setColWidths(merged);
+      }
+    });
+  }, []);
+
+  function startColResize(key, e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const target = e.currentTarget;
+    const startX = e.clientX;
+    const startW = colWidthsRef.current[key];
+    target.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    function onMove(ev) {
+      const w = Math.max(MIN_COL_WIDTH, Math.round(startW + ev.clientX - startX));
+      colWidthsRef.current = { ...colWidthsRef.current, [key]: w };
+      setColWidths(colWidthsRef.current);
+    }
+    function onUp() {
+      target.classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      chrome.storage.local.set({ [COL_WIDTHS_KEY]: colWidthsRef.current });
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }
+
+  function resetColWidths(e) {
+    e.preventDefault();
+    if (e.detail !== 2) return;
+    colWidthsRef.current = { ...DEFAULT_COL_WIDTHS };
+    setColWidths(colWidthsRef.current);
+    chrome.storage.local.set({ [COL_WIDTHS_KEY]: colWidthsRef.current });
+  }
 
   const allOperations = operations.value;
   const loaded = operationsLoaded.value;
@@ -591,25 +667,23 @@ export default function UploadsPanel() {
         ) : (
           <table class="uploads-table">
             <colgroup>
-              <col class="col-status" />
-              <col class="col-type" />
-              <col />
-              <col />
-              <col class="col-size" />
-              <col class="col-records" />
-              <col class="col-created" />
-              <col class="col-duration" />
+              {COL_KEYS.map((k) => (
+                <col key={k} style={`width:${colWidths[k]}px`} />
+              ))}
             </colgroup>
             <thead>
               <tr>
-                <th>Status</th>
-                <th>Type</th>
-                <th>Dataset</th>
-                <th>File</th>
-                <th>Size</th>
-                <th>Records</th>
-                <th>Created</th>
-                <th>Duration</th>
+                {COL_KEYS.map((k) => (
+                  <th key={k}>
+                    {COL_LABELS[k]}
+                    <span
+                      class="col-resizer"
+                      title="Drag to resize · double-click to reset"
+                      onMouseDown={(e) => startColResize(k, e)}
+                      onClick={resetColWidths}
+                    />
+                  </th>
+                ))}
               </tr>
             </thead>
             {pageSlice.map((group) => renderGroupTbody(group))}

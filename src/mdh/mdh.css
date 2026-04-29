@@ -1459,13 +1459,6 @@ body {
   table-layout: fixed;
 }
 
-.uploads-table col.col-status { width: 130px; }
-.uploads-table col.col-type { width: 110px; }
-.uploads-table col.col-size { width: 80px; }
-.uploads-table col.col-records { width: 90px; }
-.uploads-table col.col-created { width: 120px; }
-.uploads-table col.col-duration { width: 95px; }
-
 .uploads-table th {
   text-align: left; padding: 6px 10px; font-weight: 600; font-size: 11px;
   color: var(--text-secondary);
@@ -1483,13 +1476,36 @@ body {
 
 .uploads-table tbody:hover tr { background: color-mix(in srgb, var(--bg-hover) 35%, var(--bg-card)); }
 
+.uploads-table .col-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+  z-index: 2;
+  background: transparent;
+  transition: background-color 80ms ease-in-out;
+}
+
+.uploads-table .col-resizer:hover {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.uploads-table .col-resizer.dragging {
+  background: var(--accent);
+}
+
+.uploads-table th:last-child .col-resizer { display: none; }
+
 .uploads-cell-dataset {
-  max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-weight: 500;
 }
 
 .uploads-cell-file {
-  max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-family: var(--font-mono); font-size: 11px;
 }
 
