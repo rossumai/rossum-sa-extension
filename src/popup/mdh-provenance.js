@@ -97,7 +97,12 @@ function extractConfigsFromHook(hook) {
       dataset: dataset || '(no dataset)',
       datasetKey,
       queueIds,
-      queries: queries.map((q) => ({ label: describeQuery(q), raw: q })),
+      queries: queries.map((q) => {
+        const set = new Set();
+        collectPlaceholders(q, set);
+        // Array (not Set) so the structure survives chrome.storage.session JSON serialization.
+        return { label: describeQuery(q), raw: q, placeholders: [...set] };
+      }),
     });
   }
   return out;
@@ -114,12 +119,12 @@ function isMdhHook(hook) {
 
 // ── Placeholder substitution ───────────────────────
 
+const PLACEHOLDER_RE = /\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g;
+
 export function collectPlaceholders(node, set) {
   if (node == null) return;
   if (typeof node === 'string') {
-    const re = /\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g;
-    let m;
-    while ((m = re.exec(node)) !== null) set.add(m[1]);
+    for (const m of node.matchAll(PLACEHOLDER_RE)) set.add(m[1]);
     return;
   }
   if (Array.isArray(node)) {
@@ -134,7 +139,7 @@ export function collectPlaceholders(node, set) {
 export function substitutePlaceholders(node, values) {
   if (node == null) return node;
   if (typeof node === 'string') {
-    return node.replace(/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g, (_, key) => {
+    return node.replace(PLACEHOLDER_RE, (_, key) => {
       const v = values[key];
       return v == null ? '' : String(v);
     });
@@ -192,20 +197,18 @@ export function valuesForRow(headerValues, rowValues, rowIdx) {
 }
 
 export function configUsesLineItems(cfg, rowValues) {
-  const used = new Set();
-  for (const q of cfg.queries) collectPlaceholders(q.raw, used);
-  for (const sid of used) if (sid in rowValues) return true;
+  for (const q of cfg.queries) {
+    for (const sid of q.placeholders) if (sid in rowValues) return true;
+  }
   return false;
 }
 
 // Placeholders whose schema_id wasn't returned by the annotation content fetch.
 // An empty-string value still counts as "present" — let the query run and surface
 // MDH's actual response, since some operators (e.g. exact $match) accept empties.
-function missingPlaceholdersFor(query, values) {
-  const used = new Set();
-  collectPlaceholders(query, used);
+function missingPlaceholders(placeholders, values) {
   const missing = [];
-  for (const key of used) {
+  for (const key of placeholders) {
     if (!(key in values)) missing.push(key);
   }
   return missing;
@@ -280,13 +283,13 @@ export async function replayConfig(domain, token, cfg, values, signal, onStatus)
       record(i, 'skipped', 'an earlier query already matched');
       continue;
     }
-    const rawQuery = cfg.queries[i].raw;
-    const missing = missingPlaceholdersFor(rawQuery, values);
+    const query = cfg.queries[i];
+    const missing = missingPlaceholders(query.placeholders, values);
     if (missing.length > 0) {
       record(i, 'skipped', `missing field${missing.length === 1 ? '' : 's'} in annotation: ${missing.join(', ')}`);
       continue;
     }
-    const pipeline = queryToPipeline(rawQuery, { withLimit: true });
+    const pipeline = queryToPipeline(query.raw, { withLimit: true });
     if (!pipeline) {
       record(i, 'error', 'unknown query type');
       continue;

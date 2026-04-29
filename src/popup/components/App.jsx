@@ -2,6 +2,7 @@ import { h, Fragment } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import Toggle from './Toggle.jsx';
 import MdhProvenancePanel from './MdhProvenancePanel.jsx';
+import { openMdhTab, sendMessage } from '../utils.js';
 
 const STORAGE_TOGGLES = [
   'schemaAnnotationsEnabled',
@@ -31,15 +32,6 @@ function combineUrlWithCustomPath(originalUrl, customPath) {
   if (!match) return originalUrl;
   const normalizedPath = customPath.startsWith('/') ? customPath : `/${customPath}`;
   return match[0] + normalizedPath;
-}
-
-function sendMessage(tabId, message) {
-  return new Promise((resolve) => {
-    chrome.tabs.sendMessage(tabId, message, (resp) => {
-      if (chrome.runtime.lastError) return resolve(null);
-      resolve(resp ?? null);
-    });
-  });
 }
 
 function ExternalIcon() {
@@ -113,17 +105,7 @@ export default function App({ tab }) {
   const onDataStorage = () => {
     chrome.tabs.sendMessage(tab.id, 'get-auth-info', (response) => {
       if (response?.token && response?.domain) {
-        const authId = crypto.randomUUID();
-        const key = `mdhAuth_${authId}`;
-        chrome.storage.local.set(
-          { [key]: { token: response.token, domain: response.domain, createdAt: Date.now() } },
-          () => {
-            chrome.tabs.create({
-              url: chrome.runtime.getURL(`mdh/mdh.html?authId=${authId}`),
-              index: tab.index + 1,
-            });
-          },
-        );
+        openMdhTab(tab, { token: response.token, domain: response.domain });
       }
     });
   };

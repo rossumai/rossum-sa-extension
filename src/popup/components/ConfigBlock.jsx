@@ -1,4 +1,4 @@
-import { h, Fragment } from 'preact';
+import { h } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import {
   configUsesLineItems,
@@ -16,7 +16,6 @@ export default function ConfigBlock({
   ctx,
   cfg,
   cfgKey,
-  hookId,
   headerValues,
   rowValues,
   rowCount,

@@ -5,7 +5,8 @@ const TTL_MS = 5 * 60 * 1000;
 
 // ── Hook entries (per queue) ──
 
-const HOOKS_PREFIX = 'mdhProv:hooks:';
+// v2: cfg.queries entries gained a precomputed `placeholders` array.
+const HOOKS_PREFIX = 'mdhProv:hooks:v2:';
 
 const hooksKey = (domain, queueId) => `${HOOKS_PREFIX}${domain}#${queueId}`;
 

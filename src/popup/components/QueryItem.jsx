@@ -1,4 +1,4 @@
-import { h, Fragment } from 'preact';
+import { h } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { STATUS_GLYPH } from '../mdh-provenance.js';
 

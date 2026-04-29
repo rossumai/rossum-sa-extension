@@ -1,4 +1,4 @@
-import { h, Fragment } from 'preact';
+import { h } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
   buildHookEntries,
@@ -16,38 +16,8 @@ import {
   setCachedAnnotation,
   setCachedHookEntries,
 } from '../cache.js';
+import { openMdhTab, sendMessage } from '../utils.js';
 import ConfigBlock from './ConfigBlock.jsx';
-
-function sendMessage(tabId, message) {
-  return new Promise((resolve) => {
-    chrome.tabs.sendMessage(tabId, message, (resp) => {
-      if (chrome.runtime.lastError) return resolve(null);
-      resolve(resp ?? null);
-    });
-  });
-}
-
-function openInDatasetManagement(tab, ctx, dataset, pipelineText) {
-  const authId = crypto.randomUUID();
-  const key = `mdhAuth_${authId}`;
-  chrome.storage.local.set(
-    {
-      [key]: {
-        token: ctx.token,
-        domain: ctx.domain,
-        createdAt: Date.now(),
-        pendingCollection: dataset,
-        pendingPipeline: pipelineText,
-      },
-    },
-    () => {
-      chrome.tabs.create({
-        url: chrome.runtime.getURL(`mdh/mdh.html?authId=${authId}`),
-        index: tab.index + 1,
-      });
-    },
-  );
-}
 
 function RefreshIcon() {
   return (
@@ -135,7 +105,7 @@ export default function MdhProvenancePanel({ tab }) {
         const placeholders = new Set();
         for (const { cfgs } of hookEntries) {
           for (const cfg of cfgs) {
-            for (const q of cfg.queries) collectPlaceholders(q.raw, placeholders);
+            for (const q of cfg.queries) for (const p of q.placeholders) placeholders.add(p);
             if (cfg.dataset) collectPlaceholders(cfg.dataset, placeholders);
           }
         }
@@ -214,7 +184,8 @@ export default function MdhProvenancePanel({ tab }) {
         setCurrentRow(0);
 
         // Best-effort freshness check: if cached annotation is stale, drop it
-        // and re-render with fresh data.
+        // and re-render with fresh data. Honors `cancelled` so a manual refresh
+        // mid-flight doesn't cause a second nonce bump on top of the user's.
         if (annValuesFromCache && ctx.annotationId) {
           (async () => {
             try {
@@ -222,8 +193,10 @@ export default function MdhProvenancePanel({ tab }) {
                 `${ctx.domain}/api/v1/annotations/${ctx.annotationId}?fields=modified_at`,
                 ctx.token,
               );
+              if (cancelled) return;
               if (ann?.modified_at && ann.modified_at !== annotationModifiedAt) {
                 await dropCachedAnnotation(ctx.domain, ctx.annotationId);
+                if (cancelled) return;
                 setRefreshNonce((n) => n + 1);
               }
             } catch {
@@ -286,7 +259,6 @@ export default function MdhProvenancePanel({ tab }) {
                   ctx={state.ctx}
                   cfg={cfg}
                   cfgKey={`${hook.id}::${cfgIdx}`}
-                  hookId={hook.id}
                   headerValues={state.headerValues}
                   rowValues={state.rowValues}
                   rowCount={state.rowCount}
@@ -295,7 +267,12 @@ export default function MdhProvenancePanel({ tab }) {
                   onRowChange={setCurrentRow}
                   forceRefreshNonce={refreshNonce}
                   onOpenInDm={(dataset, pipelineText) =>
-                    openInDatasetManagement(tab, state.ctx, dataset, pipelineText)
+                    openMdhTab(tab, {
+                      token: state.ctx.token,
+                      domain: state.ctx.domain,
+                      pendingCollection: dataset,
+                      pendingPipeline: pipelineText,
+                    })
                   }
                 />
               ))}
