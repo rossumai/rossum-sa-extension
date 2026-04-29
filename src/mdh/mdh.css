@@ -1344,12 +1344,10 @@ body {
   background: color-mix(in srgb, var(--chip-tone) 22%, transparent);
   border-color: color-mix(in srgb, var(--chip-tone) 60%, transparent);
 }
-
-.uploads-success-rate {
-  margin-left: 2px;
-  padding: 3px 2px 3px 10px;
-  color: var(--text-secondary); font-weight: 500;
-  border-left: 1px solid var(--border);
+.uploads-stat-of {
+  font-weight: 400;
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
 }
 
 .uploads-sparkline-wrap {

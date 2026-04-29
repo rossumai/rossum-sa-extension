@@ -423,19 +423,27 @@ export default function UploadsPanel() {
   }
 
   const stats = useMemo(() => {
-    let finished = 0;
-    let failed = 0;
-    let running = 0;
+    const isSearching = !!search;
+    let gFinished = 0, gFailed = 0, gRunning = 0;
+    let finished = 0, failed = 0, running = 0;
     for (const op of allOperations) {
       const s = (op.status || '').toUpperCase();
-      if (s === 'FINISHED') finished++;
-      else if (s === 'FAILED') failed++;
-      else running++;
+      if (s === 'FINISHED') gFinished++;
+      else if (s === 'FAILED') gFailed++;
+      else gRunning++;
+      if (!isSearching || matchesFilter(op, 'All', search)) {
+        if (s === 'FINISHED') finished++;
+        else if (s === 'FAILED') failed++;
+        else running++;
+      }
     }
-    const decided = finished + failed;
-    const successRate = decided > 0 ? Math.floor((finished / decided) * 100) : null;
-    return { total: allOperations.length, finished, failed, running, successRate };
-  }, [allOperations]);
+    const total = isSearching ? finished + failed + running : allOperations.length;
+    return {
+      total, finished, failed, running,
+      gTotal: allOperations.length, gFinished, gFailed, gRunning,
+      isSearching,
+    };
+  }, [allOperations, search]);
 
   const filtered = useMemo(
     () => allOperations.filter((op) => matchesFilter(op, statusFilter, search)),
@@ -602,22 +610,23 @@ export default function UploadsPanel() {
         <button
           class={'uploads-stat-chip' + (statusFilter === 'All' ? ' active' : '')}
           onClick={() => setStatusFilter('All')}
-        >Total <b><FlashOnChange value={stats.total} /></b></button>
+          title={stats.isSearching ? `${stats.total} matching · ${stats.gTotal} total` : undefined}
+        >{stats.isSearching ? 'Matching' : 'Total'} <b><FlashOnChange value={stats.total} />{stats.isSearching && <span class="uploads-stat-of"> / {stats.gTotal}</span>}</b></button>
         <button
           class={'uploads-stat-chip tone-success' + (statusFilter === 'FINISHED' ? ' active' : '')}
           onClick={() => setStatusFilter('FINISHED')}
-        >Finished <b><FlashOnChange value={stats.finished} /></b></button>
+          title={stats.isSearching ? `${stats.finished} matching · ${stats.gFinished} total` : undefined}
+        >Finished <b><FlashOnChange value={stats.finished} />{stats.isSearching && <span class="uploads-stat-of"> / {stats.gFinished}</span>}</b></button>
         <button
           class={'uploads-stat-chip tone-danger' + (statusFilter === 'FAILED' ? ' active' : '')}
           onClick={() => setStatusFilter('FAILED')}
-        >Failed <b><FlashOnChange value={stats.failed} /></b></button>
+          title={stats.isSearching ? `${stats.failed} matching · ${stats.gFailed} total` : undefined}
+        >Failed <b><FlashOnChange value={stats.failed} />{stats.isSearching && <span class="uploads-stat-of"> / {stats.gFailed}</span>}</b></button>
         <button
           class={'uploads-stat-chip tone-warning' + (statusFilter === 'RUNNING' ? ' active' : '')}
           onClick={() => setStatusFilter('RUNNING')}
-        >Running <b><FlashOnChange value={stats.running} /></b></button>
-        {stats.successRate !== null && (
-          <span class="uploads-success-rate"><FlashOnChange value={`${stats.successRate}% success`} /></span>
-        )}
+          title={stats.isSearching ? `${stats.running} matching · ${stats.gRunning} total` : undefined}
+        >Running <b><FlashOnChange value={stats.running} />{stats.isSearching && <span class="uploads-stat-of"> / {stats.gRunning}</span>}</b></button>
         {allOperations.length > 0 && bucketRange && (
           <div class="uploads-sparkline-wrap">
             <ActivitySparkline buckets={buckets} range={bucketRange} />
