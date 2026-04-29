@@ -60,7 +60,7 @@ Detects current site (Rossum/NetSuite/Coupa) and dims irrelevant sections. Two t
 
 ## Chrome Storage Keys
 
-- Feature toggles: `schemaAnnotationsEnabled`, `expandFormulasEnabled`, `expandReasoningFieldsEnabled`, `scrollLockEnabled`, `resourceIdsEnabled`, `logColumnsEnabled`, `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled`
+- Feature toggles: `schemaAnnotationsEnabled`, `expandFormulasEnabled`, `expandReasoningFieldsEnabled`, `scrollLockEnabled`, `resourceIdsEnabled`, `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled`
 - MDH auth: `mdhToken`, `mdhDomain`
 - MDH state: `mdhPipelineWidth`
 
