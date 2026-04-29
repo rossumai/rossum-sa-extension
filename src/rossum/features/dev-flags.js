@@ -5,6 +5,17 @@ const handlers = {
       domain: window.location.origin,
     });
   },
+  'get-current-context': (sendResponse) => {
+    const path = window.location.pathname;
+    const docMatch = path.match(/\/document\/(\d+)/) || path.match(/\/annotations?\/(\d+)/);
+    const queueMatch = path.match(/\/queues?\/(\d+)/);
+    sendResponse({
+      token: window.localStorage.getItem('secureToken'),
+      domain: window.location.origin,
+      annotationId: docMatch ? docMatch[1] : null,
+      queueId: queueMatch ? queueMatch[1] : null,
+    });
+  },
   'get-dev-features-enabled-value': (sendResponse) => {
     sendResponse(window.localStorage.getItem('devFeaturesEnabled') === 'true');
   },

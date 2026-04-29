@@ -22,3 +22,6 @@ export const operationsLoaded = signal(false);
 export const pendingOperations = signal(null); // { ops, changedOps } | null
 export const opsSearch = signal('');
 export const undoToast = signal(null); // { id, message, action, ts, ttlMs, status, error } | null
+// One-shot pipeline prefill from the popup's "Open in Dataset Management" button.
+// Cleared by DataPanel after the matching collection's effect applies it.
+export const pendingPipelineLoad = signal(null); // { collection, pipelineText } | null

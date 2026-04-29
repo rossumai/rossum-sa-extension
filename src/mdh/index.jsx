@@ -157,6 +157,21 @@ async function boot() {
     store.opsSearch.value = stored.mdhOpsSearch;
   }
 
+  // Pipeline prefill from the popup's "Open in Dataset Management" button.
+  // Set the one-shot signal that DataPanel consumes; override view/panel/collection
+  // so the user lands on the right collection's data panel.
+  if (entry.pendingCollection) {
+    store.activeView.value = 'collection';
+    store.selectedCollection.value = entry.pendingCollection;
+    store.activePanel.value = 'data';
+    if (entry.pendingPipeline) {
+      store.pendingPipelineLoad.value = {
+        collection: entry.pendingCollection,
+        pipelineText: entry.pendingPipeline,
+      };
+    }
+  }
+
   let connected = false;
   try {
     await api.healthz();

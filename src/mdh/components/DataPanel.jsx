@@ -1,6 +1,6 @@
 import { h } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { selectedCollection, records, skip, limit, loading, error } from '../store.js';
+import { selectedCollection, records, skip, limit, loading, error, pendingPipelineLoad } from '../store.js';
 import { usePipeline } from '../hooks/usePipeline.js';
 import { useQuery } from '../hooks/useQuery.js';
 import { usePagination } from '../hooks/usePagination.js';
@@ -123,6 +123,20 @@ export default function DataPanel() {
     const cachedCount = cache.get(collection, 'totalCount');
     if (cachedCount !== null) pagination.totalCount.value = cachedCount;
     else { pagination.totalCount.value = null; pagination.fetchTotalCount(collection); }
+
+    // External prefill (from the popup's "Open in Dataset Management" button).
+    // Takes precedence over any in-memory state so the user always sees their query.
+    const external = pendingPipelineLoad.peek();
+    if (external && external.collection === collection) {
+      pendingPipelineLoad.value = null;
+      setTimeout(() => {
+        if (!editorRef.current) return;
+        pipeline.suppressSync.value = true;
+        editorRef.current.setValue(external.pipelineText);
+        setTimeout(() => { pipeline.suppressSync.value = false; runQuery(); }, 100);
+      }, 50);
+      return () => { saveStateForCleanup(collection); };
+    }
 
     // A cross-collection pipeline load is pending — apply it instead of the default.
     const pending = pendingLoadRef.current;
