@@ -134,6 +134,10 @@ body {
 .collection-item:hover .collection-item-actions { opacity: 1; }
 .collection-item.active .collection-item-actions { opacity: 0.7; }
 .collection-item.active:hover .collection-item-actions { opacity: 1; }
+.collection-item.menu-open .collection-item-actions { opacity: 1; }
+
+.collection-item.menu-open { background: var(--bg-hover); color: var(--text-primary); }
+.collection-item.active.menu-open { background: var(--accent-hover); }
 
 .collection-action-btn {
   background: none; border: none; cursor: pointer;
@@ -152,6 +156,12 @@ body {
 
 @media (prefers-color-scheme: dark) {
   .collection-action-btn:hover { background: rgba(255,255,255,0.08); }
+}
+
+.collection-action-menu {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow), 0 4px 12px rgba(0,0,0,0.1);
+  min-width: 140px; z-index: 50; padding: 4px 0;
 }
 
 .collection-inline-input {

@@ -1,7 +1,7 @@
 import { h } from 'preact';
-import { useEffect } from 'preact/hooks';
+import { useEffect, useState, useRef } from 'preact/hooks';
 import { collections, selectedCollection, activeView, loading, error } from '../store.js';
-import { confirmModal, promptModal, closeModal, openModal } from './Modal.jsx';
+import { promptModal, closeModal, openModal } from './Modal.jsx';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
 import * as ai from '../ai.js';
@@ -91,9 +91,9 @@ function showRenameModal(oldName) {
 
 // Below this many docs we snapshot the whole collection (docs + indexes) so
 // undo can fully recreate it. Above it, undo would mean keeping potentially
-// many MB in memory and a heavy insertMany rollback — instead we raise the
-// confirmation bar (type-to-confirm) and skip undo.
-const DROP_UNDO_LIMIT = 5000;
+// many MB in memory and a heavy insertMany rollback — so we skip undo while
+// keeping the same type-to-confirm gate.
+const DROP_UNDO_LIMIT = 1000;
 
 async function performDrop(name, snapshot) {
   loading.value = true;
@@ -132,41 +132,28 @@ async function performDrop(name, snapshot) {
 }
 
 async function confirmDrop(name) {
-  // Look up the size first so we can pick a flow. A failed count is treated
-  // the same as "too large" — we'd rather over-confirm than over-snapshot.
+  // Look up the size first so we can decide whether undo is feasible. A failed
+  // count is treated the same as "too large" — we'd rather skip undo than
+  // attempt to snapshot a collection of unknown size.
   let count = null;
   try {
     const res = await api.aggregate(name, [{ $count: 'n' }]);
     count = res.result?.[0]?.n ?? 0;
   } catch { /* keep null */ }
 
-  if (typeof count === 'number' && count <= DROP_UNDO_LIMIT) {
-    const proceed = await confirmModal(
-      'Drop collection?',
-      `Delete "${name}" and its ${count.toLocaleString()} document${count !== 1 ? 's' : ''}? You'll have a few seconds to undo.`,
-    );
-    if (!proceed) return;
-    let snapshot = null;
-    try {
-      loading.value = true;
-      const [docsRes, idxRes] = await Promise.all([
-        count > 0 ? api.aggregate(name, [{ $match: {} }]) : Promise.resolve({ result: [] }),
-        api.listIndexes(name),
-      ]);
-      snapshot = { docs: docsRes.result || [], indexes: idxRes.result || [] };
-    } catch (err) {
-      loading.value = false;
-      error.value = { message: `Snapshot for undo failed: ${err.message}` };
-      return;
-    }
-    await performDrop(name, snapshot);
-    return;
+  const canUndo = typeof count === 'number' && count <= DROP_UNDO_LIMIT;
+
+  let message;
+  if (count === 0) {
+    message = `This will permanently delete the empty collection "${name}".`;
+  } else if (canUndo) {
+    message = `${count.toLocaleString()} document${count !== 1 ? 's' : ''} will be deleted. You'll have a few seconds to undo.`;
+  } else if (typeof count === 'number') {
+    message = `${count.toLocaleString()} documents will be permanently deleted. Undo is unavailable above ${DROP_UNDO_LIMIT.toLocaleString()} documents.`;
+  } else {
+    message = `This will permanently delete "${name}" and all its data.`;
   }
 
-  // Large or unknown count — type-to-confirm, no undo.
-  const message = typeof count === 'number'
-    ? `${count.toLocaleString()} documents will be permanently deleted. Undo is unavailable above ${DROP_UNDO_LIMIT.toLocaleString()} documents.`
-    : `This will permanently delete "${name}" and all its data.`;
   await promptModal(
     `Drop "${name}"?`,
     {
@@ -175,7 +162,7 @@ async function confirmDrop(name) {
       submitLabel: 'Drop',
       submitClass: 'btn-danger',
     },
-    (val, hint) => {
+    async (val, hint) => {
       if (val !== name) {
         if (hint) {
           hint.style.color = 'var(--danger)';
@@ -184,7 +171,24 @@ async function confirmDrop(name) {
         return;
       }
       closeModal();
-      performDrop(name, null);
+      if (canUndo) {
+        let snapshot = null;
+        try {
+          loading.value = true;
+          const [docsRes, idxRes] = await Promise.all([
+            count > 0 ? api.aggregate(name, [{ $match: {} }]) : Promise.resolve({ result: [] }),
+            api.listIndexes(name),
+          ]);
+          snapshot = { docs: docsRes.result || [], indexes: idxRes.result || [] };
+        } catch (err) {
+          loading.value = false;
+          error.value = { message: `Snapshot for undo failed: ${err.message}` };
+          return;
+        }
+        performDrop(name, snapshot);
+      } else {
+        performDrop(name, null);
+      }
     },
   );
 }
@@ -220,6 +224,39 @@ function FeaturePreviewEntry() {
 export default function Sidebar() {
   useEffect(() => { loadCollections(); }, []);
 
+  const [menuOpenFor, setMenuOpenFor] = useState(null);
+  const [menuPos, setMenuPos] = useState(null);
+  const menuRef = useRef(null);
+
+  // Close the kebab menu on outside click or any scroll (which would leave
+  // the fixed-positioned menu detached from its trigger).
+  useEffect(() => {
+    if (!menuOpenFor) return;
+    function onMouseDown(e) {
+      if (menuRef.current?.contains(e.target)) return;
+      if (e.target.closest('.collection-action-menu-btn')) return;
+      setMenuOpenFor(null);
+    }
+    function onScroll() { setMenuOpenFor(null); }
+    document.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('scroll', onScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('scroll', onScroll, true);
+    };
+  }, [menuOpenFor]);
+
+  function toggleMenu(name, e) {
+    e.stopPropagation();
+    if (menuOpenFor === name) {
+      setMenuOpenFor(null);
+      return;
+    }
+    const r = e.currentTarget.getBoundingClientRect();
+    setMenuPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+    setMenuOpenFor(name);
+  }
+
   const cols = collections.value;
   const selected = selectedCollection.value;
 
@@ -238,27 +275,39 @@ export default function Sidebar() {
       <div class="collection-list">
         {cols.map((name) => (
           <div
-            class={'collection-item' + (name === selected && activeView.value === 'collection' ? ' active' : '')}
+            class={'collection-item'
+              + (name === selected && activeView.value === 'collection' ? ' active' : '')
+              + (menuOpenFor === name ? ' menu-open' : '')}
             onClick={() => selectCollection(name)}
           >
             <span class="collection-item-name" title={name}>{name}</span>
             <span class="collection-item-actions">
               <button
-                class="collection-action-btn"
-                title="Rename collection"
-                onClick={(e) => { e.stopPropagation(); showRenameModal(name); }}
-                dangerouslySetInnerHTML={{ __html: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>' }}
-              />
-              <button
-                class="collection-action-btn collection-action-danger"
-                title="Drop collection"
-                onClick={(e) => { e.stopPropagation(); confirmDrop(name); }}
-                dangerouslySetInnerHTML={{ __html: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' }}
+                class="collection-action-btn collection-action-menu-btn"
+                title="Collection actions"
+                onClick={(e) => toggleMenu(name, e)}
+                dangerouslySetInnerHTML={{ __html: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>' }}
               />
             </span>
           </div>
         ))}
       </div>
+      {menuOpenFor && menuPos && (
+        <div
+          ref={menuRef}
+          class="collection-action-menu"
+          style={`position:fixed;top:${menuPos.top}px;right:${menuPos.right}px`}
+        >
+          <button
+            class="toolbar-menu-item"
+            onClick={() => { const n = menuOpenFor; setMenuOpenFor(null); showRenameModal(n); }}
+          >Rename</button>
+          <button
+            class="toolbar-menu-item toolbar-menu-danger"
+            onClick={() => { const n = menuOpenFor; setMenuOpenFor(null); confirmDrop(n); }}
+          >Drop</button>
+        </div>
+      )}
       <div class="sidebar-footer">
         <FeaturePreviewEntry />
         <div
