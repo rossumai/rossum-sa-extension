@@ -1403,27 +1403,6 @@ body {
 
 .uploads-row-group { cursor: pointer; }
 
-.uploads-group-chevron {
-  display: inline-block;
-  width: 10px;
-  margin-right: 6px;
-  font-size: 8px;
-  color: var(--text-secondary);
-  text-align: center;
-  vertical-align: middle;
-  transition: color 0.12s;
-}
-.uploads-row-group:hover .uploads-group-chevron { color: var(--text-primary); }
-
-.uploads-row-group.is-expanded td {
-  background: color-mix(in srgb, var(--accent) 7%, var(--bg-card));
-  font-weight: 600;
-}
-.uploads-row-group.is-expanded td:first-child {
-  box-shadow: inset 3px 0 0 var(--accent);
-}
-.uploads-row-group.is-expanded .uploads-group-chevron { color: var(--accent); }
-
 .uploads-group-count {
   display: inline-block;
   padding: 1px 6px; font-size: 10px; font-weight: 700;
@@ -1434,22 +1413,33 @@ body {
 }
 
 .uploads-row-failed .uploads-group-count { background: rgba(239, 68, 68, 0.18); color: var(--danger); }
-.uploads-row-failed .uploads-row-group.is-expanded td {
-  background: color-mix(in srgb, var(--danger) 8%, var(--bg-card));
-}
-.uploads-row-failed .uploads-row-group.is-expanded td:first-child {
-  box-shadow: inset 3px 0 0 var(--danger);
-}
 
-/* Sub-rows: indented children that visibly hang under the expanded header. */
+/* Sub-rows: status badge is indented past a ↳ ("return-then-right") glyph
+   in the gutter, so children visibly hang under their parent group row. */
 .uploads-row-sub td { background: color-mix(in srgb, var(--bg-code) 35%, var(--bg-card)); }
-.uploads-row-sub td:first-child {
-  padding-left: 28px;
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 50%, var(--border));
+/* Selectors qualified with `tr` to outrank `.uploads-table td:first-child`'s
+   `padding-left: 12px` — equal-specificity ties resolve to source order, and
+   the table-wide rule sits later in the file. */
+tr.uploads-row-sub td:first-child {
+  position: relative;
+  padding-left: 32px;
+  box-shadow: inset 2px 0 0 var(--border);
 }
-.uploads-row-failed .uploads-row-sub td { background: rgba(239, 68, 68, 0.03); }
-.uploads-row-failed .uploads-row-sub td:first-child {
-  box-shadow: inset 3px 0 0 rgba(239, 68, 68, 0.5);
+tr.uploads-row-sub:not(.uploads-row-error) td:first-child::before {
+  content: '↳';
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1;
+  pointer-events: none;
+}
+.uploads-row-failed tr.uploads-row-sub td { background: rgba(239, 68, 68, 0.03); }
+.uploads-row-failed tr.uploads-row-sub td:first-child { box-shadow: inset 2px 0 0 rgba(239, 68, 68, 0.35); }
+.uploads-row-failed tr.uploads-row-sub:not(.uploads-row-error) td:first-child::before {
+  color: rgba(239, 68, 68, 0.7);
 }
 
 .uploads-row-error .ai-insight-overlay {

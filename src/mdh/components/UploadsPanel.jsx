@@ -560,14 +560,11 @@ export default function UploadsPanel() {
     return (
       <tbody key={groupId} class={'uploads-group-tbody' + (failed ? ' uploads-row-failed' : '')}>
         <tr
-          class={'uploads-row-group' + (isExpanded ? ' is-expanded' : '') + (errMsg ? ' uploads-row-has-error' : '')}
+          class={'uploads-row-group' + (errMsg ? ' uploads-row-has-error' : '')}
           onClick={() => toggleGroup(groupId)}
           title={isExpanded ? 'Collapse group' : `Expand ${ops.length} similar operations`}
         >
           <td>
-            <span class="uploads-group-chevron" aria-hidden="true">
-              {isExpanded ? '\u25bc' : '\u25b6'}
-            </span>
             <span class={`op-status-badge ${statusClass(summary.status)}`}>
               {(summary.status || 'unknown').toLowerCase()}
             </span>
