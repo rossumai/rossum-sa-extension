@@ -115,7 +115,7 @@ export default function RecordList({ records, pipelineText, filterState, sortSta
   const s = skip.value;
   const l = limit.value;
   let countText = records.length > 0 ? `Showing ${s + 1}\u2013${s + records.length}` : 'No records';
-  if (totalCount !== null) countText += ` (out of ${totalCount})`;
+  if (totalCount !== null) countText += ` of ${totalCount.toLocaleString()} in collection (unfiltered)`;
   if (lastQueryMs) countText += ` \u00b7 ${lastQueryMs}ms`;
 
   return (
@@ -171,7 +171,7 @@ export default function RecordList({ records, pipelineText, filterState, sortSta
         ))}
       </div>
       <div class="pagination">
-        <span class={'record-count' + (lastQueryMs > 1000 ? ' record-count-slow' : '')}>{countText}</span>
+        <span class={'record-count' + (lastQueryMs > 1000 ? ' record-count-slow' : '')} title="Total is the unfiltered collection size — it does not reflect the active pipeline filters">{countText}</span>
         <span class="pagination-hint">Click key to sort {'\u00b7'} Click value to filter</span>
         <div class="pagination-controls">
           <button disabled={!pagination.hasPrev()} onClick={() => onPageChange('prev')}>{'\u2190'} Prev</button>
