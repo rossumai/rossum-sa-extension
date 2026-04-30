@@ -28,8 +28,7 @@ const PROMPTS = {
     'You are a MongoDB expert. You are given the current aggregation pipeline and the user\'s request. ' +
     'Modify the pipeline according to the request — add, remove, or change stages as needed. ' +
     'If the request describes a completely new query, replace the pipeline entirely. ' +
-    'Output ONLY valid JSON — an array of pipeline stages. No explanation, no markdown, no code fences, no trailing text. ' +
-    'Always include a $limit stage (default 50).',
+    'Output ONLY valid JSON — an array of pipeline stages. No explanation, no markdown, no code fences, no trailing text.',
 };
 
 // Chrome version changes when the underlying Gemini Nano model updates
