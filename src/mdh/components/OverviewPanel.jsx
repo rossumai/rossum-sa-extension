@@ -234,14 +234,14 @@ export default function OverviewPanel() {
   const rows = cols.map((name) => ({ name, ...(data[name] || {}) }));
   rows.sort((a, b) => {
     if (sortKey === 'name') {
-      const cmp = a.name.localeCompare(b.name);
+      const cmp = a.name.localeCompare(b.name, undefined, { numeric: true });
       return sortDir === 'desc' ? -cmp : cmp;
     }
     const av = a[sortKey];
     const bv = b[sortKey];
     const an = av == null ? -1 : av;
     const bn = bv == null ? -1 : bv;
-    if (an === bn) return a.name.localeCompare(b.name);
+    if (an === bn) return a.name.localeCompare(b.name, undefined, { numeric: true });
     return sortDir === 'desc' ? bn - an : an - bn;
   });
 

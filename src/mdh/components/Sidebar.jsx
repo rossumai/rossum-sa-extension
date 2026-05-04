@@ -14,7 +14,7 @@ async function loadCollections() {
     loading.value = true;
     error.value = null;
     const res = await api.listCollections(null, true);
-    const sorted = (res.result || []).sort((a, b) => a.localeCompare(b));
+    const sorted = (res.result || []).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     collections.value = sorted;
     loading.value = false;
     if (selectedCollection.value && !sorted.includes(selectedCollection.value)) {
