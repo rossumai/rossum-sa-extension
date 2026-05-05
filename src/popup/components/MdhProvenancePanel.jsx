@@ -16,7 +16,8 @@ import {
   setCachedAnnotation,
   setCachedHookEntries,
 } from '../cache.js';
-import { openMdhTab, sendMessage } from '../utils.js';
+import { openMdhTab, runInTab } from '../utils.js';
+import { readCurrentContext } from '../tab-readers.js';
 import ConfigBlock from './ConfigBlock.jsx';
 
 function RefreshIcon() {
@@ -40,7 +41,7 @@ export default function MdhProvenancePanel({ tab }) {
     const forceRefresh = refreshNonce > 0;
 
     (async () => {
-      const ctx = await sendMessage(tab.id, 'get-current-context');
+      const ctx = await runInTab(tab.id, readCurrentContext);
       if (cancelled) return;
       if (!ctx) {
         setState({ kind: 'message', message: 'Reload the Rossum tab, then reopen this popup.' });

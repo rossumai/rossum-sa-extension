@@ -1,12 +1,16 @@
 // Shared helpers used by the popup root and MDH provenance panel.
 
-export function sendMessage(tabId, message) {
-  return new Promise((resolve) => {
-    chrome.tabs.sendMessage(tabId, message, (resp) => {
-      if (chrome.runtime.lastError) return resolve(null);
-      resolve(resp ?? null);
-    });
-  });
+// Runs `func(...args)` in the target tab's main world via chrome.scripting and
+// resolves to its return value. Always runs in the live extension context, so
+// it survives extension upgrades that orphan content scripts. Returns null on
+// any failure (no host permission, tab closed, function threw).
+export async function runInTab(tabId, func, args = []) {
+  try {
+    const results = await chrome.scripting.executeScript({ target: { tabId }, func, args });
+    return results?.[0]?.result ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // Stages the auth payload under a single-use mdhAuth_<uuid> key, then opens

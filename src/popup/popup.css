@@ -429,6 +429,59 @@ body.popup-wide .mdh-card {
   transform: translate(1px, -1px);
 }
 
+.tool-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 14px 0;
+  padding: 8px 10px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: var(--radius);
+  transition: opacity 0.2s;
+}
+
+.tool-notice.dimmed {
+  opacity: 0.4;
+}
+
+.tool-notice-msg {
+  flex: 1;
+}
+
+.tool-notice-action {
+  flex: none;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.tool-notice-action:hover {
+  background: rgba(146, 64, 14, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  .tool-notice {
+    color: #fcd34d;
+    background: rgba(252, 211, 77, 0.08);
+    border-color: rgba(252, 211, 77, 0.25);
+  }
+  .tool-notice-action:hover {
+    background: rgba(252, 211, 77, 0.12);
+  }
+}
+
 /* ── MDH queries panel ────────────────────────── */
 
 /* ── MDH cascade panel ─────────────────────────── */

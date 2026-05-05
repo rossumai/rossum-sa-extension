@@ -3,10 +3,8 @@ import { init as initResourceIds, handleNode as handleResourceId } from './featu
 import { handleNode as handleExpandFormulas } from './features/expand-formulas.js';
 import { handleNode as handleExpandReasoning } from './features/expand-reasoning.js';
 import { initScrollLock, initFocusPatch } from './features/scroll-lock.js';
-import { initDevFlags } from './features/dev-flags.js';
 import { init as initClosableTooltips, handleNode as handleClosableTooltip } from './features/closable-tooltips.js';
 
-initDevFlags();
 initClosableTooltips();
 
 const SETTINGS_KEYS = [

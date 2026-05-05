@@ -15,9 +15,6 @@ function loadEntry(settings) {
         get: vi.fn().mockResolvedValue(settings),
       },
     },
-    runtime: {
-      onMessage: { addListener: vi.fn() },
-    },
   };
 }
 
@@ -41,8 +38,6 @@ describe('rossum content-script entry', () => {
     const [target, opts] = observeSpy.mock.calls[0];
     expect(target).toBe(document.body);
     expect(opts).toEqual({ subtree: true, childList: true });
-    // initDevFlags always runs.
-    expect(chrome.runtime.onMessage.addListener).toHaveBeenCalledTimes(1);
     // closable-tooltips init injects its stylesheet on load.
     expect(document.getElementById('rossum-sa-extension-closable-tooltips-style')).not.toBeNull();
   });

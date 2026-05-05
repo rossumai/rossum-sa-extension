@@ -2,7 +2,8 @@ import { h, Fragment } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import Toggle from './Toggle.jsx';
 import MdhProvenancePanel from './MdhProvenancePanel.jsx';
-import { openMdhTab, openAuditTab, sendMessage } from '../utils.js';
+import { openMdhTab, openAuditTab, runInTab } from '../utils.js';
+import { readAuthInfo, readPageFlag, togglePageFlag } from '../tab-readers.js';
 
 const STORAGE_TOGGLES = [
   'schemaAnnotationsEnabled',
@@ -15,10 +16,8 @@ const STORAGE_TOGGLES = [
   'coupaFieldNamesEnabled',
 ];
 
-const MESSAGE_TOGGLES = [
-  { id: 'devFeaturesEnabled', getMessage: 'get-dev-features-enabled-value', toggleMessage: 'toggle-dev-features-enabled' },
-  { id: 'devDebugEnabled', getMessage: 'get-dev-debug-enabled-value', toggleMessage: 'toggle-dev-debug-enabled' },
-];
+// Each id is both the React state key and the page-side localStorage key.
+const PAGE_FLAG_TOGGLES = ['devFeaturesEnabled', 'devDebugEnabled'];
 
 function detectSite(url) {
   if (/localhost:3000|\.rossum\.(ai|app)|\.r8\.lol/.test(url)) return 'rossum';
@@ -56,6 +55,7 @@ export default function App({ tab }) {
 
   const [storageValues, setStorageValues] = useState(null);
   const [messageValues, setMessageValues] = useState({ devFeaturesEnabled: false, devDebugEnabled: false });
+  const [authError, setAuthError] = useState(null);
 
   useEffect(() => {
     chrome.storage.local.get(STORAGE_TOGGLES).then((vals) => {
@@ -67,9 +67,9 @@ export default function App({ tab }) {
 
   useEffect(() => {
     if (!site) return;
-    for (const { id, getMessage } of MESSAGE_TOGGLES) {
-      sendMessage(tab.id, getMessage).then((resp) => {
-        setMessageValues((prev) => ({ ...prev, [id]: !!resp }));
+    for (const key of PAGE_FLAG_TOGGLES) {
+      runInTab(tab.id, readPageFlag, [key]).then((val) => {
+        setMessageValues((prev) => ({ ...prev, [key]: !!val }));
       });
     }
   }, [site]);
@@ -86,13 +86,12 @@ export default function App({ tab }) {
     chrome.tabs.reload(tab.id);
   };
 
-  const setMessageToggle = (id, toggleMessage) => {
-    chrome.tabs.sendMessage(tab.id, toggleMessage, (resp) => {
-      if (resp === true) {
-        setMessageValues((prev) => ({ ...prev, [id]: !prev[id] }));
-        chrome.tabs.reload(tab.id);
-      }
-    });
+  const setMessageToggle = async (key) => {
+    const ok = await runInTab(tab.id, togglePageFlag, [key]);
+    if (ok === true) {
+      setMessageValues((prev) => ({ ...prev, [key]: !prev[key] }));
+      chrome.tabs.reload(tab.id);
+    }
   };
 
   const onMasterDataHub = () => {
@@ -102,20 +101,29 @@ export default function App({ tab }) {
     });
   };
 
-  const onDataStorage = () => {
-    chrome.tabs.sendMessage(tab.id, 'get-auth-info', (response) => {
-      if (response?.token && response?.domain) {
-        openMdhTab(tab, { token: response.token, domain: response.domain });
-      }
-    });
+  const fetchAuthAndOpen = async (opener) => {
+    setAuthError(null);
+    // executeScript runs in the popup's (always-live) extension context, so it
+    // survives extension upgrades that orphan content scripts. A null result
+    // means the host permission failed or the tab is gone.
+    const auth = await runInTab(tab.id, readAuthInfo);
+    if (!auth) {
+      setAuthError({ kind: 'reload' });
+      return;
+    }
+    if (!auth.token || !auth.domain) {
+      setAuthError({ kind: 'login' });
+      return;
+    }
+    opener(tab, auth);
   };
 
-  const onAuditLogs = () => {
-    chrome.tabs.sendMessage(tab.id, 'get-auth-info', (response) => {
-      if (response?.token && response?.domain) {
-        openAuditTab(tab, { token: response.token, domain: response.domain });
-      }
-    });
+  const onDataStorage = () => fetchAuthAndOpen(openMdhTab);
+  const onAuditLogs = () => fetchAuthAndOpen(openAuditTab);
+
+  const onReloadTab = () => {
+    chrome.tabs.reload(tab.id);
+    window.close();
   };
 
   const dimClass = (ctx) => (site && site !== ctx ? ' dimmed' : '');
@@ -220,14 +228,14 @@ export default function App({ tab }) {
                     label="Dev features"
                     hint="devFeaturesEnabled"
                     checked={messageValues.devFeaturesEnabled}
-                    onChange={() => setMessageToggle('devFeaturesEnabled', 'toggle-dev-features-enabled')}
+                    onChange={() => setMessageToggle('devFeaturesEnabled')}
                   />
                   <Toggle
                     id="devDebugEnabled"
                     label="Dev debug"
                     hint="devDebugEnabled"
                     checked={messageValues.devDebugEnabled}
-                    onChange={() => setMessageToggle('devDebugEnabled', 'toggle-dev-debug-enabled')}
+                    onChange={() => setMessageToggle('devDebugEnabled')}
                   />
                 </div>
               </section>
@@ -270,6 +278,25 @@ export default function App({ tab }) {
                   <ExternalIconSmall />
                 </button>
               </div>
+
+              {authError ? (
+                <div class={`tool-notice${dimClass('rossum')}`} role="alert">
+                  {authError.kind === 'reload' ? (
+                    <Fragment>
+                      <span class="tool-notice-msg">
+                        Reload the Rossum tab — the extension was updated and lost its connection.
+                      </span>
+                      <button class="tool-notice-action" onClick={onReloadTab}>
+                        Reload tab
+                      </button>
+                    </Fragment>
+                  ) : (
+                    <span class="tool-notice-msg">
+                      Sign in to Rossum in this tab first.
+                    </span>
+                  )}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
