@@ -25,3 +25,19 @@ export const undoToast = signal(null); // { id, message, action, ts, ttlMs, stat
 // One-shot pipeline prefill from the popup's "Open in Dataset Management" button.
 // Cleared by DataPanel after the matching collection's effect applies it.
 export const pendingPipelineLoad = signal(null); // { collection, pipelineText } | null
+
+// Bulk-op selection state. selectionMode toggles whether RecordCard renders
+// checkboxes and whether the RecordList toolbar shows bulk actions instead
+// of the default toolbar. selectedIds is a Map<stringKey, originalId> where
+// the key is the stringified _id (record._id?.$oid || String(record._id)) for
+// fast Set-like lookup, and the value is the original _id (e.g. { $oid: '...' }
+// for ObjectId collections, or a plain string for user-supplied ids). The
+// original wrapper must round-trip to the server unchanged so $in queries match.
+export const selectionMode = signal(false);
+export const selectedIds = signal(new Map());
+// True once the user has edited the pipeline (sort/filter/$match/load) since
+// entering selection mode. Drives the "selection may no longer match the
+// current view" banner. Cleared on enter/exit selection, on collection switch,
+// and after "View selected only" (which makes the pipeline match the selection
+// exactly, so any prior drift is resolved).
+export const selectionPipelineDirty = signal(false);

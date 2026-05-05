@@ -1,13 +1,18 @@
 import { h } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
-import { skip, limit, selectedCollection } from '../store.js';
+import { skip, limit, selectedCollection, selectionMode, selectedIds, selectionPipelineDirty } from '../store.js';
 import RecordCard from './RecordCard.jsx';
 import JSON5 from 'json5';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
 import { RESERVED_PX, CHAR_WIDTH_PX, MIN_CHAR_BUDGET } from '../recordSummary.js';
 
-export default function RecordList({ records, pipelineText, filterState, sortState, lastQueryMs, totalCount, pagination, onSort, onFilter, onPageChange, onEdit, onDelete, onRefresh, downloadState, onCancelDownload }) {
+export default function RecordList({
+  records, pipelineText, filterState, sortState, lastQueryMs, totalCount, pagination,
+  onSort, onFilter, onPageChange, onEdit, onDelete, onRefresh, downloadState, onCancelDownload,
+  onEnterSelectionMode, onExitSelectionMode, onBulkDelete, onBulkUpdate, onSelectPage, onClearSelection,
+  onViewSelected,
+}) {
   const [expandedSet, setExpandedSet] = useState(new Set([0]));
   const [expandAll, setExpandAll] = useState(false);
 
@@ -121,34 +126,35 @@ export default function RecordList({ records, pipelineText, filterState, sortSta
   return (
     <div style="display:flex;flex-direction:column;flex:1;overflow:hidden">
       <div class="toolbar">
-        <div class="toolbar-group">
-          <button class="btn btn-sm" onClick={toggleExpandAll}>{allExpanded ? 'Collapse All' : 'Expand All'}</button>
-        </div>
-        <div style="flex:1"></div>
-        <div class="toolbar-group">
-          {downloadState ? (
-            <span class="download-progress">
-              <span class="download-progress-text">
-                {downloadState.cancelled ? 'Cancelled' : downloadState.done ? `\u2713 ${downloadState.count} records` : `Downloading\u2026 ${downloadState.count}${downloadState.total ? ' / ' + downloadState.total : ''} records`}
-              </span>
-              {!downloadState.cancelled && !downloadState.done && (
-                <span class="download-bar">
-                  {downloadState.total > 0
-                    ? <span class="download-bar-fill" style={`width:${Math.min(100, Math.round((downloadState.count / downloadState.total) * 100))}%`}></span>
-                    : <span class="download-bar-fill download-bar-indeterminate"></span>
-                  }
-                </span>
-              )}
-              {!downloadState.cancelled && !downloadState.done && (
-                <button class="download-cancel-btn" title="Cancel download" onClick={onCancelDownload}>{'\u2715'}</button>
-              )}
-            </span>
-          ) : (
-            <button class="btn btn-sm" title="Download entire collection as JSON" onClick={() => onRefresh('download')}>Download all</button>
-          )}
-          <SplitButton label="Insert" cls="btn-success" onMain={() => onRefresh('insert')} onFile={() => onRefresh('insert-file')} />
-        </div>
+        {selectionMode.value ? (
+          <SelectionToolbar
+            records={records}
+            onExit={onExitSelectionMode}
+            onBulkDelete={onBulkDelete}
+            onBulkUpdate={onBulkUpdate}
+            onSelectPage={onSelectPage}
+            onClearSelection={onClearSelection}
+            onViewSelected={onViewSelected}
+          />
+        ) : (
+          <DefaultToolbar
+            allExpanded={allExpanded}
+            toggleExpandAll={toggleExpandAll}
+            downloadState={downloadState}
+            onRefresh={onRefresh}
+            onCancelDownload={onCancelDownload}
+            onEnterSelectionMode={onEnterSelectionMode}
+            onBulkDelete={onBulkDelete}
+            onBulkUpdate={onBulkUpdate}
+          />
+        )}
       </div>
+      {selectionMode.value && selectedIds.value.size > 0 && selectionPipelineDirty.value && (
+        <div class="selection-mismatch-banner">
+          {selectedIds.value.size} selected record{selectedIds.value.size !== 1 ? 's' : ''} may no longer match the current view.
+          <button class="btn-link" onClick={onViewSelected}>View selected only</button>
+        </div>
+      )}
       <div class="record-list" ref={listRef}>
         {emptyContent}
         {records.map((record, i) => (
@@ -195,6 +201,123 @@ function SplitButton({ label, cls, onMain, onFile }) {
           <button class="toolbar-menu-item" onClick={() => { setOpen(false); onFile(); }}>{label} from JSON file</button>
         </div>
       )}
+    </div>
+  );
+}
+
+function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh, onCancelDownload, onEnterSelectionMode, onBulkDelete, onBulkUpdate }) {
+  return (
+    <div style="display:contents">
+      <div class="toolbar-group">
+        <button class="btn btn-sm" onClick={onEnterSelectionMode}>Select</button>
+        <button class="btn btn-sm" onClick={toggleExpandAll}>{allExpanded ? 'Collapse All' : 'Expand All'}</button>
+      </div>
+      <div style="flex:1"></div>
+      <div class="toolbar-group">
+        {downloadState ? (
+          <span class="download-progress">
+            <span class="download-progress-text">
+              {downloadState.cancelled ? 'Cancelled' : downloadState.done ? `\u2713 ${downloadState.count} records` : `Downloading\u2026 ${downloadState.count}${downloadState.total ? ' / ' + downloadState.total : ''} records`}
+            </span>
+            {!downloadState.cancelled && !downloadState.done && (
+              <span class="download-bar">
+                {downloadState.total > 0
+                  ? <span class="download-bar-fill" style={`width:${Math.min(100, Math.round((downloadState.count / downloadState.total) * 100))}%`}></span>
+                  : <span class="download-bar-fill download-bar-indeterminate"></span>
+                }
+              </span>
+            )}
+            {!downloadState.cancelled && !downloadState.done && (
+              <button class="download-cancel-btn" title="Cancel download" onClick={onCancelDownload}>{'\u2715'}</button>
+            )}
+          </span>
+        ) : (
+          <button class="btn btn-sm" title="Download entire collection as JSON" onClick={() => onRefresh('download')}>Download all</button>
+        )}
+        <BulkSplitButton onUpdate={onBulkUpdate} onDelete={onBulkDelete} />
+        <SplitButton label="Insert" cls="btn-success" onMain={() => onRefresh('insert')} onFile={() => onRefresh('insert-file')} />
+      </div>
+    </div>
+  );
+}
+
+function BulkSplitButton({ onUpdate, onDelete }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div class="dropdown-btn">
+      <button class="btn btn-sm" onClick={(e) => { e.stopPropagation(); setOpen(!open); }}>
+        Bulk {'\u25BE'}
+      </button>
+      {open && (
+        <div class="toolbar-more-menu">
+          <button class="toolbar-menu-item" onClick={() => { setOpen(false); onUpdate(); }}>Update by filter{'\u2026'}</button>
+          <button class="toolbar-menu-item toolbar-menu-danger" onClick={() => { setOpen(false); onDelete(); }}>Delete by filter{'\u2026'}</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SelectionToolbar({ records, onExit, onBulkDelete, onBulkUpdate, onSelectPage, onClearSelection, onViewSelected }) {
+  const ids = selectedIds.value;
+  const total = ids.size;
+  const pageIds = records.map((r) => r._id?.$oid || String(r._id));
+  const allOnPageSelected = pageIds.length > 0 && pageIds.every((id) => ids.has(id));
+  const anyOnPageSelected = pageIds.some((id) => ids.has(id));
+  const headerState = allOnPageSelected ? 'all' : anyOnPageSelected ? 'some' : 'none';
+  const [popoverOpen, setPopoverOpen] = useState(false);
+
+  function removeId(id) {
+    const next = new Map(selectedIds.value);
+    next.delete(id);
+    selectedIds.value = next;
+  }
+
+  return (
+    <div style="display:contents">
+      <div class="toolbar-group">
+        <button class="btn btn-sm" onClick={onExit}>Cancel</button>
+        <button
+          class="btn btn-sm"
+          onClick={() => onSelectPage(headerState !== 'all')}
+          title={headerState === 'all' ? 'Deselect all on page' : 'Select all on page'}
+        >
+          {headerState === 'all' ? 'Deselect page' : `Select page (${pageIds.length})`}
+        </button>
+        <div style="position:relative">
+          <span
+            class="selection-count"
+            onClick={() => setPopoverOpen((v) => !v)}
+            title="Click to review selected ids"
+          >{total} selected</span>
+          {popoverOpen && total > 0 && (
+            <div class="selection-popover">
+              {[...ids.keys()].map((id) => (
+                <div class="selection-popover-row">
+                  <span class="selection-popover-id">{id}</span>
+                  <button
+                    class="selection-popover-remove"
+                    title="Remove from selection"
+                    onClick={() => removeId(id)}
+                  >{'\u00D7'}</button>
+                </div>
+              ))}
+              <div class="selection-popover-actions">
+                <button class="btn-link" onClick={() => { setPopoverOpen(false); onViewSelected(); }}>View selected only</button>
+                <button class="btn-link" onClick={() => { setPopoverOpen(false); onClearSelection(); }}>Clear all</button>
+              </div>
+            </div>
+          )}
+        </div>
+        {total > 0 && (
+          <button class="btn-link" onClick={onClearSelection}>Clear</button>
+        )}
+      </div>
+      <div style="flex:1"></div>
+      <div class="toolbar-group">
+        <button class="btn btn-sm" disabled={total === 0} onClick={onBulkUpdate}>Edit selected</button>
+        <button class="btn btn-sm btn-danger" disabled={total === 0} onClick={onBulkDelete}>Delete selected</button>
+      </div>
     </div>
   );
 }

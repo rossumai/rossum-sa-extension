@@ -11,7 +11,9 @@ import PipelineDebug from './PipelineDebug.jsx';
 import RecordList from './RecordList.jsx';
 import { openRecordEditor } from './RecordEditor.jsx';
 import { openDataOperations } from './DataOperations.jsx';
-import { openDeleteMany } from './DeleteMany.jsx';
+import { openBulkDelete } from './BulkDelete.jsx';
+import { openBulkUpdate } from './BulkUpdate.jsx';
+import { selectionMode, selectedIds, selectionPipelineDirty } from '../store.js';
 import { confirmModal } from './Modal.jsx';
 import { showUndo } from '../undo.js';
 import { addToHistory } from './QueryHistory.jsx';
@@ -87,6 +89,9 @@ export default function DataPanel() {
   useEffect(() => {
     if (!collection) return;
     skip.value = 0;
+    selectionMode.value = false;
+    selectedIds.value = new Map();
+    selectionPipelineDirty.value = false;
     pipeline.reset();
 
     const cachedCount = cache.get(collection, 'totalCount');
@@ -160,15 +165,119 @@ export default function DataPanel() {
     });
   }
 
-  function invalidateAndRun() {
+  async function invalidateAndRun() {
     cache.invalidateData(collection);
     pagination.totalCount.value = null;
     pagination.fetchTotalCount(collection);
-    runQuery();
+    await runQuery();
   }
 
   function currentFields() {
     return extractFieldNames(records.value);
+  }
+
+  function currentPipelineFilter() {
+    // Extract the active $match from the pipeline editor as our default filter.
+    // Falls back to {} when the pipeline has no $match or is unparseable.
+    if (!editorRef.current) return {};
+    try {
+      const text = pipeline.substitutePlaceholders(editorRef.current.getValue());
+      const parsed = JSON5.parse(text);
+      if (Array.isArray(parsed)) {
+        const match = parsed.find((s) => s && typeof s === 'object' && s.$match);
+        if (match && match.$match && typeof match.$match === 'object') return match.$match;
+      }
+    } catch { /* fall through */ }
+    return {};
+  }
+
+  function handleBulkDeleteFromToolbar() {
+    openBulkDelete({
+      collection,
+      mode: 'filter',
+      filter: currentPipelineFilter(),
+      onSuccess: invalidateAndRun,
+      fieldsFn: currentFields,
+    });
+  }
+
+  function handleBulkUpdateFromToolbar() {
+    openBulkUpdate({
+      collection,
+      mode: 'filter',
+      filter: currentPipelineFilter(),
+      onSuccess: invalidateAndRun,
+      fieldsFn: currentFields,
+    });
+  }
+
+  function handleBulkDeleteFromSelection() {
+    openBulkDelete({
+      collection,
+      mode: 'selection',
+      ids: [...selectedIds.value.values()],
+      onSuccess: async () => {
+        selectedIds.value = new Map();
+        selectionMode.value = false;
+        await invalidateAndRun();
+      },
+      fieldsFn: currentFields,
+    });
+  }
+
+  function handleBulkUpdateFromSelection() {
+    openBulkUpdate({
+      collection,
+      mode: 'selection',
+      ids: [...selectedIds.value.values()],
+      onSuccess: async () => {
+        selectedIds.value = new Map();
+        selectionMode.value = false;
+        await invalidateAndRun();
+      },
+      fieldsFn: currentFields,
+    });
+  }
+
+  function handleEnterSelectionMode() {
+    selectionMode.value = true;
+    selectionPipelineDirty.value = false;
+  }
+
+  function handleExitSelectionMode() {
+    selectionMode.value = false;
+    selectedIds.value = new Map();
+    selectionPipelineDirty.value = false;
+  }
+
+  function handleSelectPage(select) {
+    const next = new Map(selectedIds.value);
+    for (const r of records.value) {
+      const id = r._id?.$oid || String(r._id);
+      if (select) next.set(id, r._id);
+      else next.delete(id);
+    }
+    selectedIds.value = next;
+  }
+
+  function handleClearSelection() {
+    selectedIds.value = new Map();
+  }
+
+  function handleViewSelected() {
+    // Inject {_id:{$in:[...ids]}} as a $match override into the pipeline editor.
+    if (!editorRef.current) return;
+    const ids = [...selectedIds.value.values()];
+    if (ids.length === 0) return;
+    const newPipeline = [
+      { $match: { _id: { $in: ids } } },
+      { $limit: limit.value },
+    ];
+    pipeline.suppressSync.value = true;
+    editorRef.current.setValue(JSON.stringify(newPipeline, null, 2));
+    setTimeout(() => { pipeline.suppressSync.value = false; runQuery(); }, 100);
+    // The pipeline now matches the selection exactly — banner no longer applies.
+    selectionPipelineDirty.value = false;
   }
 
   // Mirror the pipeline text into UI state (column sort arrows, filter chips)
@@ -193,6 +302,7 @@ export default function DataPanel() {
 
   function handleValidChange() {
     if (!pipeline.suppressSync.value) {
+      if (selectionMode.value) selectionPipelineDirty.value = true;
       syncUIStateFromPipeline();
       runQuery();
     }
@@ -206,6 +316,7 @@ export default function DataPanel() {
       selectedCollection.value = col;
       return;
     }
+    if (selectionMode.value) selectionPipelineDirty.value = true;
     if (variables) pipeline.placeholderValues.value = { ...variables };
     if (editorRef.current) {
       pipeline.suppressSync.value = true;
@@ -215,6 +326,7 @@ export default function DataPanel() {
   }
 
   function handleSort(field) {
+    if (selectionMode.value) selectionPipelineDirty.value = true;
     pipeline.toggleSort(field);
     mutatePipelineText((p) => {
       applySortToPipeline(p, pipeline.sortState.value);
@@ -224,6 +336,7 @@ export default function DataPanel() {
   }
 
   function handleFilter(field, value) {
+    if (selectionMode.value) selectionPipelineDirty.value = true;
     pipeline.toggleFilter(field, value);
     const active = field in pipeline.filterState.value;
     mutatePipelineText((p) => {
@@ -234,6 +347,7 @@ export default function DataPanel() {
   }
 
   function handleReset() {
+    if (selectionMode.value) selectionPipelineDirty.value = true;
     pipeline.reset();
     syncPipelineAndRun();
   }
@@ -438,6 +552,13 @@ export default function DataPanel() {
           onRefresh={handleToolbarAction}
           downloadState={downloadState}
           onCancelDownload={cancelDownload}
+          onEnterSelectionMode={handleEnterSelectionMode}
+          onExitSelectionMode={handleExitSelectionMode}
+          onBulkDelete={selectionMode.value ? handleBulkDeleteFromSelection : handleBulkDeleteFromToolbar}
+          onBulkUpdate={selectionMode.value ? handleBulkUpdateFromSelection : handleBulkUpdateFromToolbar}
+          onSelectPage={handleSelectPage}
+          onClearSelection={handleClearSelection}
+          onViewSelected={handleViewSelected}
         />
       </div>
     </div>

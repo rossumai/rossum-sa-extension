@@ -12,7 +12,9 @@ import { tags } from '@lezer/highlight';
 import { autocompletion } from '@codemirror/autocomplete';
 import JSON5 from 'json5';
 
-const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+const darkQuery = typeof window !== 'undefined' && window.matchMedia
+  ? window.matchMedia('(prefers-color-scheme: dark)')
+  : { matches: false };
 
 const lightHighlight = syntaxHighlighting(HighlightStyle.define([
   { tag: tags.string, color: '#22883e' },

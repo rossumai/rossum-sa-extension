@@ -6,6 +6,7 @@ import * as api from '../api.js';
 import * as cache from '../cache.js';
 import * as ai from '../ai.js';
 import { showUndo } from '../undo.js';
+import { UNDO_LIMIT } from '../bulkOps.js';
 import { FEATURES } from '../featurePreview/registry.js';
 import FeaturePreviewModal from './FeaturePreviewModal.jsx';
 
@@ -89,12 +90,6 @@ function showRenameModal(oldName) {
   });
 }
 
-// Below this many docs we snapshot the whole collection (docs + indexes) so
-// undo can fully recreate it. Above it, undo would mean keeping potentially
-// many MB in memory and a heavy insertMany rollback — so we skip undo while
-// keeping the same type-to-confirm gate.
-const DROP_UNDO_LIMIT = 1000;
-
 async function performDrop(name, snapshot) {
   loading.value = true;
   error.value = null;
@@ -141,7 +136,7 @@ async function confirmDrop(name) {
     count = res.result?.[0]?.n ?? 0;
   } catch { /* keep null */ }
 
-  const canUndo = typeof count === 'number' && count <= DROP_UNDO_LIMIT;
+  const canUndo = typeof count === 'number' && count <= UNDO_LIMIT;
 
   let message;
   if (count === 0) {
@@ -149,7 +144,7 @@ async function confirmDrop(name) {
   } else if (canUndo) {
     message = `${count.toLocaleString()} document${count !== 1 ? 's' : ''} will be deleted. You'll have a few seconds to undo.`;
   } else if (typeof count === 'number') {
-    message = `${count.toLocaleString()} documents will be permanently deleted. Undo is unavailable above ${DROP_UNDO_LIMIT.toLocaleString()} documents.`;
+    message = `${count.toLocaleString()} documents will be permanently deleted. Undo is unavailable above ${UNDO_LIMIT.toLocaleString()} documents.`;
   } else {
     message = `This will permanently delete "${name}" and all its data.`;
   }

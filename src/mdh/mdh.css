@@ -462,28 +462,86 @@ body {
   font-family: var(--font-mono); margin-bottom: 8px;
 }
 
-.pipeline-inspect-content {
-  display: flex; flex-direction: column; gap: 8px;
-  max-height: 60vh; overflow-y: auto;
+/* Horizontal carousel of full-JSON document samples. Used by BulkDelete,
+   BulkUpdate, and the pipeline-stage inspector. Cards are fixed-width so
+   side-by-side reading is comfortable; the row scrolls horizontally when
+   there are more samples than fit, and each card scrolls vertically when a
+   single document's JSON is taller than the card. */
+.sample-cards {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  overflow-x: auto;
+  align-items: stretch;
+  padding-bottom: 4px;
 }
-
-.pipeline-inspect-card {
-  border: 1px solid var(--border); border-radius: var(--radius);
+.sample-card {
+  flex: 0 0 300px;
+  min-width: 300px;
+  max-width: 300px;
+  max-height: 360px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
   overflow: hidden;
 }
-
-.pipeline-inspect-card-header {
-  padding: 4px 10px; background: var(--bg-hover);
-  font-family: var(--font-mono); font-size: 10px;
-  font-weight: 600; color: var(--text-secondary);
+.sample-card-header {
+  padding: 6px 10px;
+  background: var(--bg-hover);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
+.sample-card-header-meta {
+  display: block;
+  margin-top: 4px;
+  font-weight: normal;
+}
+.sample-card-body {
+  padding: 8px 10px;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-code);
+  background: var(--bg-code);
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  flex: 1;
+}
+.sample-card-danger {
+  border-color: var(--danger-border);
+}
+.sample-card-danger .sample-card-header {
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+}
+.sample-card-diff-line {
+  display: block;
+  font-family: var(--font-mono);
+}
+.sample-card-diff-from { color: var(--danger); }
+.sample-card-diff-to { color: var(--success); }
+.sample-card-diff-opaque { font-style: italic; color: var(--text-secondary); }
 
-.pipeline-inspect-json {
-  padding: 8px 10px; margin: 0;
-  font-family: var(--font-mono); font-size: 11px;
-  line-height: 1.5; color: var(--text-code);
-  background: var(--bg-code); overflow: auto;
-  white-space: pre; max-height: 200px;
+/* Inline diff lines inside a sample-card-body <pre>. The full-width tint
+   sits behind a single JSON line so the eye locks on to changing fields
+   without losing the surrounding doc structure. */
+.sample-card-line-changed {
+  display: block;
+  background: var(--warning-bg);
+  border-radius: 2px;
+}
+.sample-card-line-added {
+  display: block;
+  background: var(--success-bg);
+  border-radius: 2px;
 }
 
 .data-panel-resizer {
@@ -2468,3 +2526,125 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .undo-toast-error { border-color: var(--danger-border); }
 .undo-toast-error .undo-toast-message { color: var(--danger); white-space: normal; }
 
+
+.record-checkbox {
+  margin-right: 8px;
+  cursor: pointer;
+}
+
+.record-card-selected {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+}
+
+.bulk-preview { margin-top: 12px; }
+.bulk-preview-loading { color: var(--text-secondary); font-size: 12px; }
+.bulk-preview-error { color: var(--danger); font-size: 12px; }
+.bulk-preview-count { font-weight: 600; margin-bottom: 4px; }
+.bulk-preview-sample-note {
+  font-size: 11px;
+  color: var(--warning-fg);
+  background: var(--warning-bg);
+  border-left: 3px solid var(--warning);
+  padding: 4px 8px;
+  border-radius: 2px;
+  margin-bottom: 8px;
+}
+.bulk-undo-note { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+.bulk-result { padding: 8px; background: var(--success-bg); color: var(--success-fg); border-radius: 4px; margin: 8px 0; }
+.bulk-filter-readonly { margin-bottom: 12px; }
+.bulk-filter-readonly code { display: block; padding: 8px; background: var(--bg-code); border-radius: 4px; font-size: 12px; }
+.bulk-filter-readonly-pre {
+  margin: 0;
+  padding: 8px;
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-code);
+  max-height: 200px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Single-button dropdown (e.g. the Bulk menu). Mirrors .split-btn's
+   positioning for the menu but without stripping the button's right corners,
+   since there's no second button welded to the right. */
+.dropdown-btn { display: inline-flex; position: relative; }
+.dropdown-btn .toolbar-more-menu { position: absolute; top: 100%; right: 0; margin-top: 4px; }
+
+.bulk-confirm { margin-top: 12px; }
+.bulk-confirm-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.bulk-confirm-label { font-size: 12px; color: var(--text-primary); }
+.bulk-confirm-blocked { color: var(--text-secondary); font-style: italic; }
+
+.selection-count {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 600;
+  margin-left: 4px;
+  cursor: pointer;
+  border-bottom: 1px dotted var(--text-secondary);
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 6px;
+  text-decoration: underline;
+}
+
+.selection-mismatch-banner {
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+  padding: 8px 12px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selection-popover {
+  position: absolute;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 8px;
+  min-width: 240px;
+  max-width: 360px;
+  max-height: 320px;
+  overflow: auto;
+  z-index: 100;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.selection-popover-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px;
+  border-radius: 2px;
+}
+.selection-popover-row:hover { background: var(--bg-hover); }
+.selection-popover-id { color: var(--text-primary); }
+.selection-popover-remove {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0 4px;
+}
+.selection-popover-remove:hover { color: var(--danger); }
+.selection-popover-actions {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+}

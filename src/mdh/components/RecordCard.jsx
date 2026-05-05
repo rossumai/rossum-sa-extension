@@ -2,7 +2,7 @@ import { h } from 'preact';
 import { useState, useMemo, useEffect } from 'preact/hooks';
 import JsonTree, { countFields, AUTO_COLLAPSE_FIELD_THRESHOLD } from './JsonTree.jsx';
 import AiInsight from './AiInsight.jsx';
-import { selectedCollection } from '../store.js';
+import { selectedCollection, selectionMode, selectedIds } from '../store.js';
 import { recordSummary, MIN_CHAR_BUDGET, EMPTY_SENTINEL } from '../recordSummary.js';
 
 export default function RecordCard({
@@ -32,6 +32,18 @@ export default function RecordCard({
     setTreeKey((k) => k + 1);
   }, [record]);
 
+  const idKey = record._id?.$oid || String(record._id);
+  const isSelectionMode = selectionMode.value;
+  const isSelected = isSelectionMode && selectedIds.value.has(idKey);
+
+  function toggleSelected(e) {
+    e.stopPropagation();
+    const next = new Map(selectedIds.value);
+    if (next.has(idKey)) next.delete(idKey);
+    else next.set(idKey, record._id);
+    selectedIds.value = next;
+  }
+
   function handleCopy(e) {
     const btn = e.currentTarget;
     navigator.clipboard.writeText(JSON.stringify(record, null, 2)).then(() => {
@@ -52,8 +64,20 @@ export default function RecordCard({
   const allExpanded = collapseDepth === Infinity;
 
   return (
-    <div class={'record-card' + (expanded ? ' record-card-expanded' : '')}>
+    <div class={'record-card'
+      + (expanded ? ' record-card-expanded' : '')
+      + (isSelected ? ' record-card-selected' : '')}>
       <div class="record-card-header" onClick={(e) => { if (!e.target.closest('.record-actions')) onToggle(index); }}>
+        {isSelectionMode && (
+          <input
+            type="checkbox"
+            class="record-checkbox"
+            checked={isSelected}
+            onClick={toggleSelected}
+            onChange={() => {}}
+            aria-label="Select record"
+          />
+        )}
         <span class="record-chevron">{expanded ? '\u25BC' : '\u25B6'}</span>
         <span class={'record-summary' + (isEmpty ? ' record-summary-empty' : '')}>{summary}</span>
         <span class="record-actions">
@@ -65,8 +89,12 @@ export default function RecordCard({
             >{allExpanded ? 'Collapse' : 'Expand'}</button>
           )}
           <button class="action-copy" title="Copy record as JSON" onClick={handleCopy}>Copy</button>
-          <button class="action-edit" title="Edit with update expression" onClick={() => onEdit(record)}>Edit</button>
-          <button class="action-delete" title="Delete this record" onClick={() => onDelete(record, index)}>Del</button>
+          {!isSelectionMode && (
+            <button class="action-edit" title="Edit with update expression" onClick={() => onEdit(record)}>Edit</button>
+          )}
+          {!isSelectionMode && (
+            <button class="action-delete" title="Delete this record" onClick={() => onDelete(record, index)}>Del</button>
+          )}
         </span>
       </div>
       {expanded && (

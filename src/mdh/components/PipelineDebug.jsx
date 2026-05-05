@@ -136,17 +136,19 @@ function StageInspector({ collection, prefix, stageIndex, stageKey }) {
   return (
     <div class="modal-body">
       <div class="pipeline-inspect-info">Showing first {DEBUG_PREVIEW_LIMIT} documents after stage {stageIndex + 1} ({stageKey})</div>
-      <div class="pipeline-inspect-content">
-        {err && <span style="color:var(--danger)">Error: {err}</span>}
-        {docs && docs.length === 0 && <span style="color:var(--text-secondary)">No documents at this stage</span>}
-        {docs && docs.map((doc, i) => (
-          <div class="pipeline-inspect-card">
-            <div class="pipeline-inspect-card-header">Document {i + 1}</div>
-            <pre class="pipeline-inspect-json">{JSON.stringify(doc, null, 2)}</pre>
-          </div>
-        ))}
-        {!docs && !err && 'Loading\u2026'}
-      </div>
+      {err && <span style="color:var(--danger)">Error: {err}</span>}
+      {docs && docs.length === 0 && <span style="color:var(--text-secondary)">No documents at this stage</span>}
+      {docs && docs.length > 0 && (
+        <div class="sample-cards">
+          {docs.map((doc, i) => (
+            <div class="sample-card">
+              <div class="sample-card-header">Document {i + 1}</div>
+              <pre class="sample-card-body">{JSON.stringify(doc, null, 2)}</pre>
+            </div>
+          ))}
+        </div>
+      )}
+      {!docs && !err && 'Loading\u2026'}
     </div>
   );
 }

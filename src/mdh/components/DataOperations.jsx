@@ -59,14 +59,17 @@ function getSelectedMatchFields(container) {
 }
 
 export function openDataOperations(mode, onSuccess, fieldsFn) {
+  // Bulk update/delete by filter live in BulkUpdate/BulkDelete; this dispatcher
+  // now only handles insert (inline + file) and the file-driven update/replace
+  // reconciliation flows.
   const isFile = mode.endsWith('-file');
   const op = mode.replace('-file', '');
   const title = op.charAt(0).toUpperCase() + op.slice(1) + (isFile ? ' from File' : '');
 
   openModal(title, () => {
     if (op === 'insert') return <InsertPanel isFile={isFile} onSuccess={onSuccess} fieldsFn={fieldsFn} />;
-    if (op === 'update') return <UpdatePanel isFile={isFile} onSuccess={onSuccess} fieldsFn={fieldsFn} />;
-    if (op === 'replace') return <ReplacePanel isFile={isFile} onSuccess={onSuccess} fieldsFn={fieldsFn} />;
+    if (op === 'update' && isFile) return <UpdatePanel onSuccess={onSuccess} fieldsFn={fieldsFn} />;
+    if (op === 'replace' && isFile) return <ReplacePanel onSuccess={onSuccess} fieldsFn={fieldsFn} />;
     return null;
   });
 }
@@ -130,9 +133,7 @@ function InsertPanel({ isFile, onSuccess, fieldsFn }) {
   );
 }
 
-function UpdatePanel({ isFile, onSuccess, fieldsFn }) {
-  const filterRef = useRef(null);
-  const updateRef = useRef(null);
+function UpdatePanel({ onSuccess, fieldsFn }) {
   const hintRef = useRef(null);
   const matchFieldsRef = useRef(null);
   const [fileDocs, setFileDocs] = useState(null);
@@ -141,73 +142,45 @@ function UpdatePanel({ isFile, onSuccess, fieldsFn }) {
     const collection = selectedCollection.value;
     hintRef.current.style.color = '';
 
-    if (isFile) {
-      if (!fileDocs) { hintRef.current.textContent = 'No file selected'; return; }
-      const keys = getSelectedMatchFields(matchFieldsRef.current);
-      if (keys.length === 0) { hintRef.current.textContent = 'Select at least one match field'; return; }
-      try {
-        loading.value = true;
-        error.value = null;
-        let updated = 0;
-        for (const doc of fileDocs) {
-          const filter = {};
-          for (const k of keys) filter[k] = doc[k];
-          const upd = { ...doc };
-          for (const k of keys) delete upd[k];
-          await api.updateOne(collection, filter, { $set: upd });
-          updated++;
-          hintRef.current.textContent = `Updating... ${updated}/${fileDocs.length}`;
-        }
-        loading.value = false;
-        hintRef.current.style.color = 'var(--success)';
-        hintRef.current.textContent = `Updated ${updated} document${updated !== 1 ? 's' : ''}`;
-        setTimeout(() => { closeModal(); if (onSuccess) onSuccess(); }, 500);
-      } catch (err) {
-        loading.value = false;
-        hintRef.current.textContent = err.message;
+    if (!fileDocs) { hintRef.current.textContent = 'No file selected'; return; }
+    const keys = getSelectedMatchFields(matchFieldsRef.current);
+    if (keys.length === 0) { hintRef.current.textContent = 'Select at least one match field'; return; }
+    try {
+      loading.value = true;
+      error.value = null;
+      let updated = 0;
+      for (const doc of fileDocs) {
+        const filter = {};
+        for (const k of keys) filter[k] = doc[k];
+        const upd = { ...doc };
+        for (const k of keys) delete upd[k];
+        await api.updateOne(collection, filter, { $set: upd });
+        updated++;
+        hintRef.current.textContent = `Updating... ${updated}/${fileDocs.length}`;
       }
-    } else {
-      if (!filterRef.current?.isValid()) { hintRef.current.textContent = 'Invalid filter'; return; }
-      if (!updateRef.current?.isValid()) { hintRef.current.textContent = 'Invalid update expression'; return; }
-      try {
-        loading.value = true;
-        error.value = null;
-        const res = await api.updateMany(collection, filterRef.current.getParsed(), updateRef.current.getParsed());
-        loading.value = false;
-        const matched = res.result?.matched_count ?? 0;
-        const modified = res.result?.modified_count ?? 0;
-        hintRef.current.style.color = 'var(--success)';
-        hintRef.current.textContent = `${matched} matched, ${modified} modified`;
-        setTimeout(() => { closeModal(); if (onSuccess) onSuccess(); }, 500);
-      } catch (err) {
-        loading.value = false;
-        hintRef.current.textContent = err.message;
-      }
+      loading.value = false;
+      hintRef.current.style.color = 'var(--success)';
+      hintRef.current.textContent = `Updated ${updated} document${updated !== 1 ? 's' : ''}`;
+      setTimeout(() => { closeModal(); if (onSuccess) onSuccess(); }, 500);
+    } catch (err) {
+      loading.value = false;
+      hintRef.current.textContent = err.message;
     }
   }
 
   return (
     <div class="modal-body">
-      {isFile ? (
-        <div>
-          <div class="modal-field-label">1. Select a JSON file with documents:</div>
-          <FileInput onParsed={setFileDocs} />
-          {fileDocs && (
-            <div>
-              <div class="modal-field-label" style="margin-top:10px">2. Select field(s) to match existing documents:</div>
-              <div class="modal-message" style="font-size:11px">Each record will be matched by these fields. Remaining fields will be updated with $set.</div>
-              <MatchFields docs={fileDocs} matchFieldsRef={matchFieldsRef} />
-            </div>
-          )}
-        </div>
-      ) : (
-        <div>
-          <div class="modal-field-label">Filter:</div>
-          <JsonEditor value="{}" minHeight="80px" mode="query" fields={fieldsFn} editorRef={filterRef} />
-          <div class="modal-field-label" style="margin-top:8px">Update expression:</div>
-          <JsonEditor value={'{\n  "$set": {\n    \n  }\n}'} minHeight="120px" mode="update" fields={fieldsFn} editorRef={updateRef} />
-        </div>
-      )}
+      <div>
+        <div class="modal-field-label">1. Select a JSON file with documents:</div>
+        <FileInput onParsed={setFileDocs} />
+        {fileDocs && (
+          <div>
+            <div class="modal-field-label" style="margin-top:10px">2. Select field(s) to match existing documents:</div>
+            <div class="modal-message" style="font-size:11px">Each record will be matched by these fields. Remaining fields will be updated with $set.</div>
+            <MatchFields docs={fileDocs} matchFieldsRef={matchFieldsRef} />
+          </div>
+        )}
+      </div>
       <div ref={hintRef} class="input-hint"></div>
       <div class="modal-actions">
         <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>
@@ -217,9 +190,7 @@ function UpdatePanel({ isFile, onSuccess, fieldsFn }) {
   );
 }
 
-function ReplacePanel({ isFile, onSuccess, fieldsFn }) {
-  const filterRef = useRef(null);
-  const replaceRef = useRef(null);
+function ReplacePanel({ onSuccess, fieldsFn }) {
   const hintRef = useRef(null);
   const matchFieldsRef = useRef(null);
   const [fileDocs, setFileDocs] = useState(null);
@@ -228,71 +199,45 @@ function ReplacePanel({ isFile, onSuccess, fieldsFn }) {
     const collection = selectedCollection.value;
     hintRef.current.style.color = '';
 
-    if (isFile) {
-      if (!fileDocs) { hintRef.current.textContent = 'No file selected'; return; }
-      const keys = getSelectedMatchFields(matchFieldsRef.current);
-      if (keys.length === 0) { hintRef.current.textContent = 'Select at least one match field'; return; }
-      try {
-        loading.value = true;
-        error.value = null;
-        let replaced = 0;
-        for (const doc of fileDocs) {
-          const filter = {};
-          for (const k of keys) filter[k] = doc[k];
-          const replacement = { ...doc };
-          delete replacement._id;
-          await api.replaceOne(collection, filter, replacement);
-          replaced++;
-          hintRef.current.textContent = `Replacing... ${replaced}/${fileDocs.length}`;
-        }
-        loading.value = false;
-        hintRef.current.style.color = 'var(--success)';
-        hintRef.current.textContent = `Replaced ${replaced} document${replaced !== 1 ? 's' : ''}`;
-        setTimeout(() => { closeModal(); if (onSuccess) onSuccess(); }, 500);
-      } catch (err) {
-        loading.value = false;
-        hintRef.current.textContent = err.message;
+    if (!fileDocs) { hintRef.current.textContent = 'No file selected'; return; }
+    const keys = getSelectedMatchFields(matchFieldsRef.current);
+    if (keys.length === 0) { hintRef.current.textContent = 'Select at least one match field'; return; }
+    try {
+      loading.value = true;
+      error.value = null;
+      let replaced = 0;
+      for (const doc of fileDocs) {
+        const filter = {};
+        for (const k of keys) filter[k] = doc[k];
+        const replacement = { ...doc };
+        delete replacement._id;
+        await api.replaceOne(collection, filter, replacement);
+        replaced++;
+        hintRef.current.textContent = `Replacing... ${replaced}/${fileDocs.length}`;
       }
-    } else {
-      if (!filterRef.current?.isValid()) { hintRef.current.textContent = 'Invalid filter'; return; }
-      if (!replaceRef.current?.isValid()) { hintRef.current.textContent = 'Invalid replacement document'; return; }
-      try {
-        loading.value = true;
-        error.value = null;
-        await api.replaceOne(collection, filterRef.current.getParsed(), replaceRef.current.getParsed());
-        loading.value = false;
-        hintRef.current.style.color = 'var(--success)';
-        hintRef.current.textContent = 'Document replaced';
-        setTimeout(() => { closeModal(); if (onSuccess) onSuccess(); }, 500);
-      } catch (err) {
-        loading.value = false;
-        hintRef.current.textContent = err.message;
-      }
+      loading.value = false;
+      hintRef.current.style.color = 'var(--success)';
+      hintRef.current.textContent = `Replaced ${replaced} document${replaced !== 1 ? 's' : ''}`;
+      setTimeout(() => { closeModal(); if (onSuccess) onSuccess(); }, 500);
+    } catch (err) {
+      loading.value = false;
+      hintRef.current.textContent = err.message;
     }
   }
 
   return (
     <div class="modal-body">
-      {isFile ? (
-        <div>
-          <div class="modal-field-label">1. Select a JSON file with documents:</div>
-          <FileInput onParsed={setFileDocs} />
-          {fileDocs && (
-            <div>
-              <div class="modal-field-label" style="margin-top:10px">2. Select field(s) to match existing documents:</div>
-              <div class="modal-message" style="font-size:11px">Each record will be matched by these fields and the entire document will be replaced.</div>
-              <MatchFields docs={fileDocs} matchFieldsRef={matchFieldsRef} />
-            </div>
-          )}
-        </div>
-      ) : (
-        <div>
-          <div class="modal-field-label">Filter (match one document):</div>
-          <JsonEditor value="{}" minHeight="80px" mode="query" fields={fieldsFn} editorRef={filterRef} />
-          <div class="modal-field-label" style="margin-top:8px">Replacement document:</div>
-          <JsonEditor value={'{\n  \n}'} minHeight="140px" fields={fieldsFn} editorRef={replaceRef} />
-        </div>
-      )}
+      <div>
+        <div class="modal-field-label">1. Select a JSON file with documents:</div>
+        <FileInput onParsed={setFileDocs} />
+        {fileDocs && (
+          <div>
+            <div class="modal-field-label" style="margin-top:10px">2. Select field(s) to match existing documents:</div>
+            <div class="modal-message" style="font-size:11px">Each record will be matched by these fields and the entire document will be replaced.</div>
+            <MatchFields docs={fileDocs} matchFieldsRef={matchFieldsRef} />
+          </div>
+        )}
+      </div>
       <div ref={hintRef} class="input-hint"></div>
       <div class="modal-actions">
         <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>
