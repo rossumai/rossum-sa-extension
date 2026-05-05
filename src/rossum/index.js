@@ -4,8 +4,10 @@ import { handleNode as handleExpandFormulas } from './features/expand-formulas.j
 import { handleNode as handleExpandReasoning } from './features/expand-reasoning.js';
 import { initScrollLock, initFocusPatch } from './features/scroll-lock.js';
 import { initDevFlags } from './features/dev-flags.js';
+import { init as initClosableTooltips, handleNode as handleClosableTooltip } from './features/closable-tooltips.js';
 
 initDevFlags();
+initClosableTooltips();
 
 const SETTINGS_KEYS = [
   'schemaAnnotationsEnabled',
@@ -20,7 +22,7 @@ chrome.storage.local.get(SETTINGS_KEYS).then((settings) => {
     initFocusPatch();
   }
 
-  const handlers = [];
+  const handlers = [handleClosableTooltip];
 
   if (settings.schemaAnnotationsEnabled) {
     initSchemaIds();
@@ -39,8 +41,6 @@ chrome.storage.local.get(SETTINGS_KEYS).then((settings) => {
       }
     });
   }
-
-  if (handlers.length === 0) return;
 
   const body = document.querySelector('body');
   if (!body) return;

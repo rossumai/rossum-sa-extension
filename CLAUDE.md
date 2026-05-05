@@ -80,7 +80,7 @@ Detects current site (Rossum/NetSuite/Coupa) and dims irrelevant sections. Two t
 
 ## Key Patterns
 
-- All features gated behind chrome.storage.local toggles controlled via popup
+- Most features are gated behind chrome.storage.local toggles controlled via popup. The `closable-tooltips` feature is always on (no toggle, no storage key) and is not advertised in the popup UI.
 - Rossum entry point builds handlers array from enabled settings — disabled features add zero overhead
 - NetSuite and Coupa content scripts are self-contained single files (no MutationObserver pattern)
 
