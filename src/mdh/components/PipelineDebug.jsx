@@ -55,32 +55,32 @@ export default function PipelineDebug({ pipeline }) {
     if (!collection || !pipeline || pipeline.length === 0) return;
     setStageCounts({});
 
-    // One $facet aggregation runs the per-stage $count branches server-side.
-    // Replaces N separate round trips and removes the prior race where stale
-    // results from a previous pipeline could overwrite the new state.
+    // Each prefix runs as its own aggregation, not a $facet branch. Atlas
+    // requires $search to be the FIRST stage of the whole pipeline — wrapping
+    // it in a $facet sub-pipeline (as we used to) makes Atlas reject the
+    // request with "$search is not allowed to be used within a $facet stage".
+    // The chattier fan-out is the price of being able to debug $search-based
+    // pipelines at all.
     const controller = new AbortController();
-    const facets = {};
     pipeline.forEach((_, i) => {
-      facets[`s${i}`] = [...pipeline.slice(0, i + 1), { $count: 'n' }];
-    });
-    api.aggregate(collection, [{ $facet: facets }], { signal: controller.signal })
-      .then((res) => {
-        if (controller.signal.aborted) return;
-        const facetResult = res.result?.[0] || {};
-        const next = {};
-        pipeline.forEach((_, i) => {
-          const branch = facetResult[`s${i}`];
-          const n = branch?.[0]?.n ?? 0;
-          next[i] = { count: n };
+      const prefix = pipeline.slice(0, i + 1);
+      const t0 = performance.now();
+      api.aggregate(collection, [...prefix, { $count: 'n' }], { signal: controller.signal })
+        .then((res) => {
+          if (controller.signal.aborted) return;
+          const n = res?.result?.[0]?.n ?? 0;
+          const ms = Math.round(performance.now() - t0);
+          setStageCounts((prev) => ({ ...prev, [i]: { count: n, ms } }));
+        })
+        .catch((err) => {
+          if (err?.name === 'AbortError' || controller.signal.aborted) return;
+          const ms = Math.round(performance.now() - t0);
+          setStageCounts((prev) => ({
+            ...prev,
+            [i]: { error: { message: err?.message || String(err), status: err?.status }, ms },
+          }));
         });
-        setStageCounts(next);
-      })
-      .catch((err) => {
-        if (err?.name === 'AbortError' || controller.signal.aborted) return;
-        const next = {};
-        pipeline.forEach((_, i) => { next[i] = { error: err.message }; });
-        setStageCounts(next);
-      });
+    });
 
     return () => controller.abort();
   }, [collection, JSON.stringify(pipeline)]);
@@ -92,31 +92,53 @@ export default function PipelineDebug({ pipeline }) {
     openModal(`Stage ${stageIndex + 1}: ${stageKey}`, () => <StageInspector collection={collection} prefix={prefix} stageIndex={stageIndex} stageKey={stageKey} />);
   }
 
+  const timingTitle = 'End-to-end latency for the prefix up to this stage (network + server + contention with parallel debug requests). Cumulative — not per-stage MongoDB executor time. Data Storage does not expose explain output.';
+
   return (
     <div class="pipeline-debug">
       <div class="placeholder-label">Aggregate Pipeline Debug</div>
       {pipeline.map((stage, i) => {
         const stageKey = Object.keys(stage)[0] || '?';
         const stageStr = JSON.stringify(stage);
-        const preview = stageStr.length > 50 ? stageStr.slice(0, 50) + '\u2026' : stageStr;
+        const preview = stageStr.length > 50 ? stageStr.slice(0, 50) + '…' : stageStr;
         const info = stageCounts[i];
-        let countText = '\u2026';
+        let countText = '…';
         let countCls = 'pipeline-debug-count';
         if (info) {
-          if (info.error) { countText = 'error'; countCls += ' pipeline-debug-error'; }
-          else { countText = `${info.count.toLocaleString()} docs`; if (info.count === 0) countCls += ' pipeline-debug-zero'; }
+          if (info.error) {
+            countText = info.error.status ? `HTTP ${info.error.status}` : 'error';
+            countCls += ' pipeline-debug-error';
+          } else {
+            countText = `${info.count.toLocaleString()} docs`;
+            if (info.count === 0) countCls += ' pipeline-debug-zero';
+          }
         }
 
         return (
-          <StageTooltip stage={stage}>
-            <div class="pipeline-debug-row" onClick={() => inspectStage(i, stageKey)}>
-              <span class="pipeline-debug-num">{i + 1}.</span>
-              <span class="pipeline-debug-stage">{stageKey}</span>
-              <span class="pipeline-debug-preview">{preview}</span>
-              <span class="pipeline-debug-arrow">{'\u2192'}</span>
-              <span class={countCls} title={info?.error || ''}>{countText}</span>
-            </div>
-          </StageTooltip>
+          <div class="pipeline-debug-stage-wrap">
+            <StageTooltip stage={stage}>
+              <div class="pipeline-debug-row" onClick={() => inspectStage(i, stageKey)}>
+                <span class="pipeline-debug-num">{i + 1}.</span>
+                <span class="pipeline-debug-stage">{stageKey}</span>
+                <span class="pipeline-debug-preview">{preview}</span>
+                <span class="pipeline-debug-arrow">{'→'}</span>
+                <span class={countCls}>{countText}</span>
+                {info?.ms != null && (
+                  <span class="pipeline-debug-time" title={timingTitle}>
+                    {info.ms}ms
+                  </span>
+                )}
+              </div>
+            </StageTooltip>
+            {info?.error && (
+              <div class="pipeline-debug-error-detail" onClick={(e) => e.stopPropagation()}>
+                <div class="pipeline-debug-error-msg">{info.error.message}</div>
+                <div class="pipeline-debug-error-hint">
+                  Edit this stage in the pipeline editor above. Errors only show here when a stage fails — they are not the same as a stage that legitimately matches zero documents.
+                </div>
+              </div>
+            )}
+          </div>
         );
       })}
     </div>
@@ -130,13 +152,17 @@ function StageInspector({ collection, prefix, stageIndex, stageKey }) {
   useEffect(() => {
     api.aggregate(collection, [...prefix, { $limit: DEBUG_PREVIEW_LIMIT }])
       .then((res) => setDocs(res.result || []))
-      .catch((e) => setErr(e.message));
+      .catch((e) => setErr({ message: e?.message || String(e), status: e?.status }));
   }, []);
 
   return (
     <div class="modal-body">
       <div class="pipeline-inspect-info">Showing first {DEBUG_PREVIEW_LIMIT} documents after stage {stageIndex + 1} ({stageKey})</div>
-      {err && <span style="color:var(--danger)">Error: {err}</span>}
+      {err && (
+        <span style="color:var(--danger)">
+          {err.status ? `HTTP ${err.status}: ` : 'Error: '}{err.message}
+        </span>
+      )}
       {docs && docs.length === 0 && <span style="color:var(--text-secondary)">No documents at this stage</span>}
       {docs && docs.length > 0 && (
         <div class="sample-cards">
@@ -148,7 +174,7 @@ function StageInspector({ collection, prefix, stageIndex, stageKey }) {
           ))}
         </div>
       )}
-      {!docs && !err && 'Loading\u2026'}
+      {!docs && !err && 'Loading…'}
     </div>
   );
 }

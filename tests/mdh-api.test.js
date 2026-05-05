@@ -77,6 +77,24 @@ describe('MDH API client', () => {
     await expect(api.find('col')).rejects.toThrow('API error 500');
   });
 
+  it('attaches HTTP status to thrown errors so callers can render it', async () => {
+    fetchMock.mockResolvedValue(err(400, { message: '$search is not allowed within $facet' }));
+    let caught;
+    try {
+      await api.aggregate('col', [{ $facet: {} }]);
+    } catch (e) { caught = e; }
+    expect(caught).toBeInstanceOf(Error);
+    expect(caught.status).toBe(400);
+    expect(caught.message).toBe('$search is not allowed within $facet');
+
+    fetchMock.mockResolvedValue(err(401));
+    let caught401;
+    try {
+      await api.listCollections();
+    } catch (e) { caught401 = e; }
+    expect(caught401.status).toBe(401);
+  });
+
   it('CRUD operations hit correct endpoints', async () => {
     const cases = [
       [() => api.insertOne('col', { a: 1 }), '/data/insert_one'],

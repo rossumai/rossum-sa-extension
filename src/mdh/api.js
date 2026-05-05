@@ -49,11 +49,11 @@ async function post(path, body, { signal: externalSignal } = {}) {
   }
   clearTimeout(timer);
   if (res.status === 401) {
-    throw new Error('Session expired. Open a Rossum page and click Data Storage again to reconnect.');
+    throw apiError('Session expired. Open a Rossum page and click Data Storage again to reconnect.', 401);
   }
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    throw new Error(data?.message || `API error ${res.status}`);
+    throw apiError(data?.message || `API error ${res.status}`, res.status);
   }
   return data;
 }
@@ -76,13 +76,19 @@ async function get(path, { signal: externalSignal } = {}) {
   }
   clearTimeout(timer);
   if (res.status === 401) {
-    throw new Error('Session expired. Open a Rossum page and click Data Storage again to reconnect.');
+    throw apiError('Session expired. Open a Rossum page and click Data Storage again to reconnect.', 401);
   }
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    throw new Error(data?.message || `API error ${res.status}`);
+    throw apiError(data?.message || `API error ${res.status}`, res.status);
   }
   return data;
+}
+
+function apiError(message, status) {
+  const e = new Error(message);
+  e.status = status;
+  return e;
 }
 
 export function listCollections(filter = null, nameOnly = true) {

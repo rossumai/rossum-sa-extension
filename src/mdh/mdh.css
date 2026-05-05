@@ -431,6 +431,12 @@ body {
   min-width: 50px; text-align: right; font-size: 10px;
 }
 
+.pipeline-debug-time {
+  flex-shrink: 0; color: var(--text-secondary); opacity: 0.7;
+  font-size: 10px; min-width: 44px; text-align: right;
+  cursor: help;
+}
+
 .pipeline-debug-total {
   opacity: 0.6; cursor: default;
   padding-left: 22px;
@@ -439,7 +445,31 @@ body {
 .pipeline-debug-total:hover { background: none; }
 
 .pipeline-debug-zero { color: var(--danger); }
-.pipeline-debug-error { color: var(--danger); font-weight: 400; font-style: italic; }
+.pipeline-debug-error { color: var(--danger); font-weight: 600; font-style: normal; }
+
+.pipeline-debug-stage-wrap { display: block; }
+
+.pipeline-debug-error-detail {
+  margin: 2px 4px 6px 22px;
+  padding: 6px 8px;
+  border-left: 2px solid var(--danger);
+  background: var(--danger-bg, rgba(220, 38, 38, 0.08));
+  border-radius: 0 3px 3px 0;
+  font-family: var(--font-mono); font-size: 11px;
+  cursor: default;
+}
+
+.pipeline-debug-error-msg {
+  color: var(--danger);
+  white-space: pre-wrap; word-break: break-word;
+  margin-bottom: 4px;
+}
+
+.pipeline-debug-error-hint {
+  color: var(--text-secondary);
+  font-family: inherit; font-size: 10px;
+  font-style: italic;
+}
 
 .pipeline-debug-tooltip {
   position: fixed; z-index: 300;
