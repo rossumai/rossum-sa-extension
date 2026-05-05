@@ -28,7 +28,7 @@ describe('rossum content-script entry', () => {
     // The entry observes document.body — make sure one exists.
   });
 
-  it('does not observe when all features are disabled (dev-flags still init)', async () => {
+  it('always observes for closable-tooltips even when all toggles are off', async () => {
     loadEntry({});
     const observeSpy = vi.fn();
     globalThis.MutationObserver = vi.fn(function () { this.observe = observeSpy; });
@@ -36,9 +36,15 @@ describe('rossum content-script entry', () => {
     await import('../src/rossum/index.js');
     await new Promise((r) => setTimeout(r, 0));
 
-    expect(observeSpy).not.toHaveBeenCalled();
+    // closable-tooltips is unconditional, so the observer is always attached.
+    expect(observeSpy).toHaveBeenCalledTimes(1);
+    const [target, opts] = observeSpy.mock.calls[0];
+    expect(target).toBe(document.body);
+    expect(opts).toEqual({ subtree: true, childList: true });
     // initDevFlags always runs.
     expect(chrome.runtime.onMessage.addListener).toHaveBeenCalledTimes(1);
+    // closable-tooltips init injects its stylesheet on load.
+    expect(document.getElementById('rossum-sa-extension-closable-tooltips-style')).not.toBeNull();
   });
 
   it('observes document.body once any feature is enabled', async () => {
