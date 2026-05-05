@@ -13,7 +13,7 @@ const chromeVersion = `${chromeMajor}.${chromeMinor}`;
 
 rmSync('dist', { recursive: true, force: true });
 
-for (const dir of ['dist/popup', 'dist/icons', 'dist/mdh']) {
+for (const dir of ['dist/popup', 'dist/icons', 'dist/mdh', 'dist/audit']) {
   mkdirSync(dir, { recursive: true });
 }
 
@@ -28,6 +28,8 @@ cpSync('src/popup/popup.html', 'dist/popup/popup.html');
 cpSync('src/popup/popup.css', 'dist/popup/popup.css');
 cpSync('src/mdh/mdh.html', 'dist/mdh/mdh.html');
 cpSync('src/mdh/mdh.css', 'dist/mdh/mdh.css');
+cpSync('src/audit/audit.html', 'dist/audit/audit.html');
+cpSync('src/audit/audit.css', 'dist/audit/audit.css');
 
 const options = {
   entryPoints: {
@@ -36,6 +38,7 @@ const options = {
     'scripts/coupa': 'src/coupa/index.js',
     'popup/popup': 'src/popup/popup.jsx',
     'mdh/mdh': 'src/mdh/index.jsx',
+    'audit/audit': 'src/audit/index.jsx',
   },
   bundle: true,
   minify: true,

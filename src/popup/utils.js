@@ -25,3 +25,18 @@ export function openMdhTab(tab, authData) {
     },
   );
 }
+
+// Same staging pattern for the Audit Logs SPA. The audit page reads
+// auditAuth_<uuid> on boot and purges stale entries on subsequent loads.
+export function openAuditTab(tab, authData) {
+  const authId = crypto.randomUUID();
+  chrome.storage.local.set(
+    { [`auditAuth_${authId}`]: { ...authData, createdAt: Date.now() } },
+    () => {
+      chrome.tabs.create({
+        url: chrome.runtime.getURL(`audit/audit.html?authId=${authId}`),
+        index: tab.index + 1,
+      });
+    },
+  );
+}

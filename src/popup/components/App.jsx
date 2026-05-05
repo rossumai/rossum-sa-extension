@@ -2,7 +2,7 @@ import { h, Fragment } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import Toggle from './Toggle.jsx';
 import MdhProvenancePanel from './MdhProvenancePanel.jsx';
-import { openMdhTab, sendMessage } from '../utils.js';
+import { openMdhTab, openAuditTab, sendMessage } from '../utils.js';
 
 const STORAGE_TOGGLES = [
   'schemaAnnotationsEnabled',
@@ -106,6 +106,14 @@ export default function App({ tab }) {
     chrome.tabs.sendMessage(tab.id, 'get-auth-info', (response) => {
       if (response?.token && response?.domain) {
         openMdhTab(tab, { token: response.token, domain: response.domain });
+      }
+    });
+  };
+
+  const onAuditLogs = () => {
+    chrome.tabs.sendMessage(tab.id, 'get-auth-info', (response) => {
+      if (response?.token && response?.domain) {
+        openAuditTab(tab, { token: response.token, domain: response.domain });
       }
     });
   };
@@ -253,6 +261,11 @@ export default function App({ tab }) {
               <div class={`tools-row${dimClass('rossum')}`} data-context="rossum">
                 <button class="tool-btn" onClick={onDataStorage}>
                   <span>Dataset Management</span>
+                  <span class="beta-badge">beta</span>
+                  <ExternalIconSmall />
+                </button>
+                <button class="tool-btn" onClick={onAuditLogs}>
+                  <span>Audit Logs</span>
                   <span class="beta-badge">beta</span>
                   <ExternalIconSmall />
                 </button>
