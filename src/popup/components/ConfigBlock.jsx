@@ -19,6 +19,7 @@ export default function ConfigBlock({
   headerValues,
   rowValues,
   rowCount,
+  types,
   annotationModifiedAt,
   currentRow,
   onRowChange,
@@ -74,6 +75,7 @@ export default function ConfigBlock({
             return next;
           });
         },
+        types,
       );
       if (signal.aborted || !finalStatuses) return;
       setCachedReplay(
@@ -95,14 +97,14 @@ export default function ConfigBlock({
   const copyQuery = async (i) => {
     const pipeline = queryToPipeline(cfg.queries[i].raw);
     if (!pipeline) return;
-    const substituted = substitutePlaceholders(pipeline, valuesForCurrentRow());
+    const substituted = substitutePlaceholders(pipeline, valuesForCurrentRow(), types);
     await navigator.clipboard.writeText(JSON.stringify(substituted, null, 2));
   };
 
   const openQuery = (i) => {
     const pipeline = queryToPipeline(cfg.queries[i].raw);
     if (!pipeline) return;
-    const substituted = substitutePlaceholders(pipeline, valuesForCurrentRow());
+    const substituted = substitutePlaceholders(pipeline, valuesForCurrentRow(), types);
     onOpenInDm(cfg.dataset, JSON.stringify(substituted, null, 2));
   };
 

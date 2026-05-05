@@ -32,7 +32,10 @@ export async function setCachedHookEntries(domain, queueId, entries) {
 
 // ── Annotation values (skips metadata + content fetches on warm reopen) ──
 
-const ANN_PREFIX = 'mdhProv:ann:';
+// v3: types are now derived from `content.normalized_value` (Rossum's
+// content endpoint doesn't return a per-datapoint `type` field, so the
+// v2 cache always stored an empty `types` map).
+const ANN_PREFIX = 'mdhProv:ann:v3:';
 
 const annKey = (domain, annotationId) => `${ANN_PREFIX}${domain}#${annotationId}`;
 

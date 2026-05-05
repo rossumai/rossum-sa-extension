@@ -113,6 +113,7 @@ export default function MdhProvenancePanel({ tab }) {
         let headerValues = {};
         let rowValues = {};
         let rowCount = 0;
+        let types = {};
         let annValuesFromCache = false;
         if (annCache) {
           const cachedPlaceholders = new Set((annCache.placeholders || '').split(',').filter(Boolean));
@@ -121,6 +122,7 @@ export default function MdhProvenancePanel({ tab }) {
             headerValues = annCache.headerValues || {};
             rowValues = annCache.rowValues || {};
             rowCount = annCache.rowCount || 0;
+            types = annCache.types || {};
             annValuesFromCache = true;
           }
         }
@@ -131,6 +133,7 @@ export default function MdhProvenancePanel({ tab }) {
             headerValues = flat.headerValues;
             rowValues = flat.rowValues;
             rowCount = flat.rowCount;
+            types = flat.types || {};
           } catch {
             // leave defaults
           }
@@ -142,6 +145,7 @@ export default function MdhProvenancePanel({ tab }) {
             headerValues,
             rowValues,
             rowCount,
+            types,
             placeholders: [...placeholders].sort().join(','),
           }).catch(() => {});
         }
@@ -179,6 +183,7 @@ export default function MdhProvenancePanel({ tab }) {
           headerValues,
           rowValues,
           rowCount,
+          types,
           sub: subPieces.join(' · '),
         });
         setCurrentRow(0);
@@ -262,6 +267,7 @@ export default function MdhProvenancePanel({ tab }) {
                   headerValues={state.headerValues}
                   rowValues={state.rowValues}
                   rowCount={state.rowCount}
+                  types={state.types}
                   annotationModifiedAt={state.annotationModifiedAt}
                   currentRow={currentRow}
                   onRowChange={setCurrentRow}

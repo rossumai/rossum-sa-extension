@@ -379,6 +379,9 @@ body.popup-wide .mdh-card {
 /* ── tools row ────────────────────────────────── */
 
 .tools-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   padding: 10px 14px 2px;
   transition: opacity 0.2s;
 }

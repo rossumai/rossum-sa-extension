@@ -51,9 +51,15 @@ export function extractIdFromUrl(url) {
 
 // ── Hook config parsing ────────────────────────────
 
-function describeQuery(q) {
-  const comment = q?.['//'];
-  if (typeof comment === 'string' && comment.trim()) return comment.trim();
+// Honor MDH's non-standard naming conventions in priority order:
+// `name` (used by some hook authors at the query level), `comment` (the
+// docs convention, e.g. "Stage 1: Exact VAT match …"), `//` (JSON-as-comment
+// idiom). Fall through to a synthesized stage list otherwise.
+export function describeQuery(q) {
+  for (const key of ['name', 'comment', '//']) {
+    const v = q?.[key];
+    if (typeof v === 'string' && v.trim()) return v.trim();
+  }
   if (q?.find && typeof q.find === 'object') {
     const keys = Object.keys(q.find);
     return keys.length === 0 ? 'find: (empty)' : `find: ${keys.join(', ')}`;
@@ -119,7 +125,34 @@ function isMdhHook(hook) {
 
 // ── Placeholder substitution ───────────────────────
 
-const PLACEHOLDER_RE = /\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g;
+// Matches `{name}`, `{name | modifier}`, or `{name | modifier(arg)}`.
+// Whitespace around the name, pipe, and parens is tolerated. Names are
+// simple identifiers — `{secrets.foo}` is not matched (the popup can't
+// resolve secrets, so leaving them literal mirrors current behavior).
+const PLACEHOLDER_RE = /\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\|\s*([a-zA-Z_]+)(?:\s*\(\s*([^)]*?)\s*\))?\s*)?\}/g;
+const PLACEHOLDER_EXACT_RE = /^\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\|\s*([a-zA-Z_]+)(?:\s*\(\s*([^)]*?)\s*\))?\s*)?\}$/;
+
+const REGEX_SPECIALS_RE = /[.*+?^${}()|[\]\\]/g;
+
+function unquoteArg(raw) {
+  if (raw == null) return '';
+  const t = raw.trim();
+  if (t.length >= 2 && ((t.startsWith("'") && t.endsWith("'")) || (t.startsWith('"') && t.endsWith('"')))) {
+    return t.slice(1, -1);
+  }
+  return t;
+}
+
+// Returns the modifier-applied value. The result type is dictated by the
+// modifier: `split` → array of strings, `re` → string, no modifier →
+// pass-through string. Unknown modifiers fall back to the raw value.
+function applyModifier(value, modifier, arg) {
+  if (modifier == null) return value;
+  const s = value == null ? '' : String(value);
+  if (modifier === 'split') return s.split(unquoteArg(arg));
+  if (modifier === 're') return s.replace(REGEX_SPECIALS_RE, '\\$&');
+  return value;
+}
 
 export function collectPlaceholders(node, set) {
   if (node == null) return;
@@ -136,28 +169,69 @@ export function collectPlaceholders(node, set) {
   }
 }
 
-export function substitutePlaceholders(node, values) {
+// MDH's server-side substitution is type-aware: when the JSON string is
+// *exactly* `"{name}"` and the source field is type=number, MDH drops the
+// quotes and substitutes the JSON number. The `split` modifier replaces
+// the whole string with a JSON array. Mixed substitutions (placeholders
+// embedded in larger text) always produce strings.
+export function substitutePlaceholders(node, values, types) {
   if (node == null) return node;
+  const v = values || {};
+  const t = types || {};
   if (typeof node === 'string') {
-    return node.replace(PLACEHOLDER_RE, (_, key) => {
-      const v = values[key];
-      return v == null ? '' : String(v);
+    const exact = node.match(PLACEHOLDER_EXACT_RE);
+    if (exact) {
+      const [, name, modifier, arg] = exact;
+      if (!(name in v)) return '';
+      const raw = v[name];
+      if (modifier) return applyModifier(raw, modifier, arg);
+      if (t[name] === 'number') {
+        if (raw == null || raw === '') return '';
+        const n = typeof raw === 'number' ? raw : Number(raw);
+        return Number.isFinite(n) ? n : String(raw);
+      }
+      return raw == null ? '' : String(raw);
+    }
+    return node.replace(PLACEHOLDER_RE, (_, name, modifier, arg) => {
+      if (!(name in v)) return '';
+      const out = applyModifier(v[name], modifier || null, arg || null);
+      if (out == null) return '';
+      return typeof out === 'string' ? out : JSON.stringify(out);
     });
   }
-  if (Array.isArray(node)) return node.map((v) => substitutePlaceholders(v, values));
+  if (Array.isArray(node)) return node.map((c) => substitutePlaceholders(c, values, types));
   if (typeof node === 'object') {
     const out = {};
-    for (const [k, v] of Object.entries(node)) {
-      out[substitutePlaceholders(k, values)] = substitutePlaceholders(v, values);
+    for (const [k, val] of Object.entries(node)) {
+      const newK = substitutePlaceholders(k, values, types);
+      out[typeof newK === 'string' ? newK : JSON.stringify(newK)] = substitutePlaceholders(val, values, types);
     }
     return out;
   }
   return node;
 }
 
-function flattenContent(content) {
+// Rossum's annotation-content endpoint does NOT include the schema-defined
+// `type` per datapoint, but it does populate `normalized_value` for typed
+// fields. type=number canonicalizes to a numeric string ("5552.14");
+// type=date canonicalizes to ISO "2026-05-01" (Number() → NaN, so it
+// won't match); type=string/enum leaves it null. So a finite-number
+// `normalized_value` reliably proxies type=number without an extra
+// schema fetch.
+function isNumberContent(content) {
+  const nv = content?.normalized_value;
+  if (typeof nv !== 'string' || nv.trim() === '') return false;
+  return Number.isFinite(Number(nv));
+}
+
+// Flattens the annotation content tree into placeholder-friendly maps.
+// For type=number datapoints the canonical `normalized_value` is used
+// (so "5,552.14" becomes "5552.14"), and the schema_id is recorded in
+// `types` so callers can mirror MDH's type-aware substitution.
+export function flattenContent(content) {
   const headerValues = {};
   const rowValues = {};
+  const types = {};
   let rowCount = 0;
   const walk = (node, rowIdx) => {
     if (!node || typeof node !== 'object') return;
@@ -172,7 +246,9 @@ function flattenContent(content) {
       return;
     }
     const sid = node.schema_id;
-    const val = node?.content?.value;
+    const c = node?.content;
+    const isNumber = isNumberContent(c);
+    const val = isNumber ? c.normalized_value : c?.value;
     if (sid && (typeof val === 'string' || typeof val === 'number')) {
       if (rowIdx == null) {
         if (!(sid in headerValues)) headerValues[sid] = val;
@@ -181,11 +257,12 @@ function flattenContent(content) {
         while (rowValues[sid].length <= rowIdx) rowValues[sid].push('');
         rowValues[sid][rowIdx] = val;
       }
+      if (isNumber && !(sid in types)) types[sid] = 'number';
     }
     if (Array.isArray(node.children)) for (const c of node.children) walk(c, rowIdx);
   };
   walk(content?.content || content, null);
-  return { headerValues, rowValues, rowCount };
+  return { headerValues, rowValues, rowCount, types };
 }
 
 export function valuesForRow(headerValues, rowValues, rowIdx) {
@@ -240,7 +317,7 @@ export function buildHookEntries(mdhHooks, queueId) {
 
 export async function loadAnnotationValues(domain, token, annotationId, placeholders) {
   if (!annotationId || placeholders.size === 0) {
-    return { headerValues: {}, rowValues: {}, rowCount: 0 };
+    return { headerValues: {}, rowValues: {}, rowCount: 0, types: {} };
   }
   const url = `${domain}/api/v1/annotations/${annotationId}/content?schema_id=${[...placeholders].join(',')}`;
   const cdata = await fetchJson(url, token);
@@ -263,7 +340,7 @@ export const STATUS_GLYPH = {
 // one matches. Subsequent queries get marked "skipped". Returns the full
 // statuses array (suitable for caching). `onStatus(i, {status, hint})` fires
 // as each query resolves, so callers can update UI incrementally.
-export async function replayConfig(domain, token, cfg, values, signal, onStatus) {
+export async function replayConfig(domain, token, cfg, values, signal, onStatus, types) {
   const statuses = new Array(cfg.queries.length).fill(null);
   const record = (i, status, hint) => {
     statuses[i] = hint == null ? { status } : { status, hint };
@@ -287,7 +364,7 @@ export async function replayConfig(domain, token, cfg, values, signal, onStatus)
       record(i, 'error', 'unknown query type');
       continue;
     }
-    const substituted = substitutePlaceholders(pipeline, values);
+    const substituted = substitutePlaceholders(pipeline, values, types);
     try {
       const data = await runAggregate(domain, token, cfg.dataset, substituted, signal);
       if (signal?.aborted) return null;
