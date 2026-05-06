@@ -8,7 +8,7 @@
     "48": "icons/48-blue-crunch.png",
     "128": "icons/128-blue-crunch.png"
   },
-  "permissions": ["storage", "tabs", "scripting"],
+  "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [
     "http://localhost:3000/*",
     "https://*.rossum.ai/*",
@@ -35,6 +35,12 @@
     }
   ],
   "action": {
-    "default_popup": "popup/popup.html"
+    "default_popup": "popup/popup.html",
+    "default_title": "Rossum SA extension",
+    "default_icon": {
+      "16": "icons/16-blue-crunch.png",
+      "48": "icons/48-blue-crunch.png",
+      "128": "icons/128-blue-crunch.png"
+    }
   }
 }
