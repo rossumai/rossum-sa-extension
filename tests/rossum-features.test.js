@@ -71,6 +71,17 @@ describe('expand-formulas', () => {
 
     expect(spy).not.toHaveBeenCalled();
   });
+
+  it('clicks each button only once even when handleNode runs again', () => {
+    const button = document.createElement('button');
+    button.setAttribute('aria-label', 'Show source code');
+    const spy = vi.spyOn(button, 'click');
+
+    handleExpandFormulas(button);
+    handleExpandFormulas(button);
+
+    expect(spy).toHaveBeenCalledOnce();
+  });
 });
 
 describe('expand-reasoning', () => {
@@ -96,6 +107,18 @@ describe('expand-reasoning', () => {
     handleExpandReasoning(button);
 
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('clicks each reasoning button only once even when handleNode runs again', () => {
+    const button = document.createElement('button');
+    button.setAttribute('data-sentry-source-file', 'ReasoningTiles.tsx');
+    button.textContent = 'Show options';
+    const spy = vi.spyOn(button, 'click');
+
+    handleExpandReasoning(button);
+    handleExpandReasoning(button);
+
+    expect(spy).toHaveBeenCalledOnce();
   });
 });
 

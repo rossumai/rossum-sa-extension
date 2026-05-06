@@ -1,61 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { initScrollLock, initFocusPatch } from '../src/rossum/features/scroll-lock.js';
-
-describe('initFocusPatch', () => {
-  beforeEach(() => {
-    // Reset: create a fresh prototype-level focus so the patch re-applies.
-    delete HTMLElement.prototype.__saFocusPatched;
-  });
-
-  it('wraps focus() to default preventScroll:true when called with no args', () => {
-    const el = document.createElement('input');
-    document.body.appendChild(el);
-
-    const calls = [];
-    const origFocus = HTMLElement.prototype.focus;
-    HTMLElement.prototype.focus = function (opts) { calls.push(opts); };
-
-    initFocusPatch();
-    el.focus();
-    expect(calls[0]).toEqual({ preventScroll: true });
-
-    HTMLElement.prototype.focus = origFocus;
-  });
-
-  it('adds preventScroll:true when the caller passes an options object without it', () => {
-    const calls = [];
-    const origFocus = HTMLElement.prototype.focus;
-    HTMLElement.prototype.focus = function (opts) { calls.push(opts); };
-
-    initFocusPatch();
-    const el = document.createElement('input');
-    el.focus({ foo: 1 });
-    expect(calls[0]).toEqual({ foo: 1, preventScroll: true });
-
-    HTMLElement.prototype.focus = origFocus;
-  });
-
-  it('respects an explicit preventScroll:false option from the caller', () => {
-    const calls = [];
-    const origFocus = HTMLElement.prototype.focus;
-    HTMLElement.prototype.focus = function (opts) { calls.push(opts); };
-
-    initFocusPatch();
-    const el = document.createElement('input');
-    el.focus({ preventScroll: false });
-    expect(calls[0]).toEqual({ preventScroll: false });
-
-    HTMLElement.prototype.focus = origFocus;
-  });
-
-  it('is idempotent — second call does not double-wrap', () => {
-    initFocusPatch();
-    const afterFirst = HTMLElement.prototype.focus;
-    initFocusPatch();
-    expect(HTMLElement.prototype.focus).toBe(afterFirst);
-  });
-});
+import { initScrollLock } from '../src/rossum/features/scroll-lock.js';
 
 describe('initScrollLock', () => {
   beforeEach(() => {

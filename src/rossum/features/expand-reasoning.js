@@ -4,8 +4,10 @@ export function handleNode(node) {
     ? [node]
     : Array.from(node.querySelectorAll(selector));
   for (const button of buttons) {
-    if (button.textContent.trim() === 'Show options') {
-      button.click();
-    }
+    if (button.textContent.trim() !== 'Show options') continue;
+    // Click once per element — see expand-formulas.js for the same rationale.
+    if (button.dataset.saExpanded) continue;
+    button.dataset.saExpanded = '1';
+    button.click();
   }
 }

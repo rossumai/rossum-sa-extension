@@ -2,7 +2,7 @@ import { init as initSchemaIds, handleNode as handleSchemaId } from './features/
 import { init as initResourceIds, handleNode as handleResourceId } from './features/resource-ids.js';
 import { handleNode as handleExpandFormulas } from './features/expand-formulas.js';
 import { handleNode as handleExpandReasoning } from './features/expand-reasoning.js';
-import { initScrollLock, initFocusPatch } from './features/scroll-lock.js';
+import { initScrollLock } from './features/scroll-lock.js';
 import { init as initClosableTooltips, handleNode as handleClosableTooltip } from './features/closable-tooltips.js';
 
 initClosableTooltips();
@@ -16,10 +16,6 @@ const SETTINGS_KEYS = [
 ];
 
 chrome.storage.local.get(SETTINGS_KEYS).then((settings) => {
-  if (settings.scrollLockEnabled) {
-    initFocusPatch();
-  }
-
   const handlers = [handleClosableTooltip];
 
   if (settings.schemaAnnotationsEnabled) {

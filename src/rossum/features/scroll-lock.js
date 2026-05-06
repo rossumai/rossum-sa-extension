@@ -1,3 +1,11 @@
+// Restores #sidebar-scrollable's scroll position when Rossum re-renders the
+// sidebar after user clicks (which would otherwise reset scrollTop to 0).
+//
+// Note: this runs in the content-script isolated world. We CANNOT intercept
+// Rossum's main-world `element.scrollTop = 0` writes (Object.defineProperty
+// from our world doesn't affect their wrapper). What we *can* do is detect
+// when their write has happened (via the scroll event) and re-apply the
+// saved value within a short lock window.
 export function initScrollLock(element) {
   if (!(element instanceof HTMLElement)) return;
 
@@ -15,7 +23,6 @@ export function initScrollLock(element) {
   let userScrollUntil = 0;
 
   element.__saScrollLockAttached = true;
-  console.log('[SA Extension] Scroll lock initialized for #sidebar-scrollable, pathname:', currentPathname);
 
   requestAnimationFrame(() => {
     if (element instanceof HTMLElement) element.scrollTop = 0;
@@ -47,35 +54,14 @@ export function initScrollLock(element) {
         if (Math.abs(cur - savedScrollTop) > SCROLL_TOLERANCE_PX) {
           isRestoring = true;
           element.scrollTop = savedScrollTop;
-          setTimeout(() => {
+          queueMicrotask(() => {
             isRestoring = false;
-          }, 0);
+          });
         }
       }
     },
     { passive: true },
   );
-
-  const proto = Object.getPrototypeOf(element);
-  const desc = Object.getOwnPropertyDescriptor(proto, 'scrollTop');
-  if (desc && typeof desc.set === 'function' && typeof desc.get === 'function') {
-    Object.defineProperty(element, 'scrollTop', {
-      configurable: true,
-      enumerable: true,
-      get() { return desc.get.call(this); },
-      set(v) {
-        const now = Date.now();
-        const desired = Number(v) || 0;
-
-        if (now > userScrollUntil && now < lockUntil && savedScrollTop > MIN_SCROLL_POSITION_FOR_LOCK) {
-          if (Math.abs(desired - savedScrollTop) > SCROLL_TOLERANCE_PX) {
-            return desc.set.call(this, savedScrollTop);
-          }
-        }
-        return desc.set.call(this, v);
-      },
-    });
-  }
 
   const armLockWindow = (ms) => {
     if (savedScrollTop <= MIN_SCROLL_POSITION_FOR_LOCK) return;
@@ -103,33 +89,4 @@ export function initScrollLock(element) {
       clearInterval(monitorInterval);
     }
   }, 2000);
-}
-
-export function initFocusPatch() {
-  if (!HTMLElement.prototype.__saFocusPatched) {
-    const originalFocus = HTMLElement.prototype.focus;
-    HTMLElement.prototype.focus = function (...args) {
-      try {
-        if (args.length === 0) {
-          return originalFocus.call(this, { preventScroll: true });
-        }
-
-        const firstArg = args[0];
-
-        if (firstArg !== null && typeof firstArg === 'object') {
-          const hasPreventScroll = Object.prototype.hasOwnProperty.call(firstArg, 'preventScroll');
-          const options = hasPreventScroll
-            ? firstArg
-            : { ...firstArg, preventScroll: true };
-
-          return originalFocus.call(this, options);
-        }
-
-        return originalFocus.apply(this, args);
-      } catch {
-        return originalFocus.apply(this, args);
-      }
-    };
-    HTMLElement.prototype.__saFocusPatched = true;
-  }
 }
