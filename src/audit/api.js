@@ -49,12 +49,13 @@ async function get(path, { signal: externalSignal } = {}) {
     const message = formatApiError(data, res.status);
     const err = apiError(message, res.status);
     err.fieldErrors = extractFieldErrors(data);
-    // 403/404 on the audit-log endpoint typically means the feature is
-    // unavailable for this tenant — either the caller lacks the required
-    // role or the feature isn't included in the organization's subscription.
-    // We surface this as a dedicated "unavailable" state instead of a
-    // transient error banner.
-    if (res.status === 403 || res.status === 404) {
+    // 403 on the audit-log endpoint means the feature is unavailable for
+    // this tenant — either the caller lacks the required role or the feature
+    // isn't included in the organization's subscription. We surface this as
+    // a dedicated "unavailable" state instead of a transient error banner.
+    // (404 used to map here too, but that swallowed legitimate "bad query
+    // param" 404s into the same dead end.)
+    if (res.status === 403) {
       err.featureUnavailable = true;
     }
     throw err;

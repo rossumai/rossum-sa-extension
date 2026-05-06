@@ -35,10 +35,14 @@ export default function ResultsTable() {
         </thead>
         <tbody>
           {filtered.map((rec) => {
+            // expandedRow is a position-on-page key, deliberately not a record
+            // identity — the API doesn't expose a stable id and request_id is
+            // not unique. fetchPage clears expandedRow on every page swap so a
+            // positional key won't survive across pages.
             const key = String(rec._idx);
             const isExpanded = expandedRow.value === key;
             return (
-              <Row record={rec} rowKey={key} isExpanded={isExpanded} />
+              <Row key={key} record={rec} rowKey={key} isExpanded={isExpanded} />
             );
           })}
         </tbody>

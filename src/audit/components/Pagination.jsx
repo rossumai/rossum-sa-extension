@@ -6,7 +6,10 @@ export default function Pagination() {
   const cur = page.value;
   const ps = pageSize.value;
   const tot = total.value;
-  const hasNext = tot != null ? cur * ps < tot : results.value.length === ps;
+  // Rely on the server-side total only. A `results.length === ps` heuristic
+  // mis-fires on the last full page (legitimate pageSize-sized result that
+  // happens to be the final one) and lands the user on an empty next page.
+  const hasNext = tot != null && cur * ps < tot;
   const hasPrev = cur > 1;
   const totalPages = tot != null ? Math.max(1, Math.ceil(tot / ps)) : null;
 

@@ -41,6 +41,10 @@ export async function fetchPage({ signal } = {}) {
   const myId = ++queryId;
   store.loading.value = true;
   store.error.value = null;
+  // Always collapse the expanded row before issuing a new fetch — the
+  // positional `_idx` key would otherwise re-expand a different record on
+  // pagination, filter change, or page-size change.
+  store.expandedRow.value = null;
   const sentObjectType = store.filters.value.object_type;
   try {
     const res = await api.listAuditLogs({
@@ -57,7 +61,6 @@ export async function fetchPage({ signal } = {}) {
       ...rec,
       _idx: i,
     }));
-    store.expandedRow.value = null;
     store.results.value = items;
     store.availability.value = 'available';
     store.availabilityMessage.value = null;
