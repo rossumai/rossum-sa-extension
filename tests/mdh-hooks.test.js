@@ -163,7 +163,7 @@ describe('query execution (useQuery)', () => {
 
     const res = await hook.runQuery('test_col', '[{"$match": {}}]');
 
-    expect(api.aggregate).toHaveBeenCalledWith('test_col', [{ $match: {} }]);
+    expect(api.aggregate).toHaveBeenCalledWith('test_col', [{ $match: {} }], { signal: expect.any(AbortSignal) });
     expect(store.records.value).toEqual([{ _id: '1', name: 'Alice' }]);
     expect(res.elapsed).toBeTypeOf('number');
     expect(store.loading.value).toBe(false);
@@ -240,7 +240,51 @@ describe('query execution (useQuery)', () => {
 
     await hook.runQuery('col', '[{$match: {},}]');
 
-    expect(api.aggregate).toHaveBeenCalledWith('col', [{ $match: {} }]);
+    expect(api.aggregate).toHaveBeenCalledWith('col', [{ $match: {} }], { signal: expect.any(AbortSignal) });
+  });
+
+  it('aborts the prior in-flight aggregate when superseded by a new runQuery', async () => {
+    const signals = [];
+    api.aggregate.mockImplementation((_col, _pipeline, { signal }) => {
+      signals.push(signal);
+      return new Promise(() => {}); // never resolves
+    });
+    const hook = renderHook(useQuery);
+
+    hook.runQuery('col', '[{"$match": {}}]');
+    hook.runQuery('col', '[{"$match": {"x": 1}}]');
+
+    expect(signals).toHaveLength(2);
+    expect(signals[0].aborted).toBe(true);
+    expect(signals[1].aborted).toBe(false);
+  });
+
+  it('clears cacheNextQuery flag when superseded so it cannot bleed into the next query', async () => {
+    let resolveFirst;
+    let aggregateCallIndex = 0;
+    api.aggregate.mockImplementation((col) => {
+      const idx = aggregateCallIndex++;
+      if (idx === 0) {
+        return new Promise((_, reject) => {
+          resolveFirst = () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+        });
+      }
+      return Promise.resolve({ result: [{ _id: 'second', col }] });
+    });
+    const hook = renderHook(useQuery);
+
+    hook.setCacheNextQuery(true);
+    const firstPromise = hook.runQuery('collection_a', '[{"$match": {}}]');
+
+    // Supersede with a second query against a *different* collection without
+    // re-asserting the cache flag.
+    const secondPromise = hook.runQuery('collection_b', '[{"$match": {}}]');
+
+    resolveFirst();
+    await Promise.all([firstPromise, secondPromise]);
+
+    // collection_b should NOT have inherited collection_a's cacheNextQuery flag.
+    expect(cache.get('collection_b', 'records')).toBeNull();
   });
 });
 

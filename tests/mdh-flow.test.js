@@ -67,7 +67,7 @@ describe('full data exploration flow', () => {
     await hooks.query.runQuery('products', '[{"$match": {}}]');
 
     expect(store.records.value).toEqual(page1);
-    expect(api.aggregate).toHaveBeenCalledWith('products', [{ $match: {} }]);
+    expect(api.aggregate).toHaveBeenCalledWith('products', [{ $match: {} }], { signal: expect.any(AbortSignal) });
 
     // ── Step 2: sort by price descending (two toggles: asc → desc) ──
     hooks.pipeline.toggleSort('price');
