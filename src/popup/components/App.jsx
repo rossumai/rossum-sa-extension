@@ -2,7 +2,7 @@ import { h, Fragment } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import Toggle from './Toggle.jsx';
 import MdhProvenancePanel from './MdhProvenancePanel.jsx';
-import { openMdhTab, openAuditTab, runInTab } from '../utils.js';
+import { openMdhTab, openAuditTab, runInTab, detectSite, findRossumTabs, activateTab } from '../utils.js';
 import { readAuthInfo, readPageFlag, togglePageFlag } from '../tab-readers.js';
 
 const STORAGE_TOGGLES = [
@@ -18,13 +18,6 @@ const STORAGE_TOGGLES = [
 
 // Each id is both the React state key and the page-side localStorage key.
 const PAGE_FLAG_TOGGLES = ['devFeaturesEnabled', 'devDebugEnabled'];
-
-function detectSite(url) {
-  if (/localhost:3000|\.rossum\.(ai|app)|\.r8\.lol/.test(url)) return 'rossum';
-  if (/\.netsuite\.com\/app/.test(url)) return 'netsuite';
-  if (/\.coupa(cloud|host)\.com/.test(url)) return 'coupa';
-  return null;
-}
 
 function combineUrlWithCustomPath(originalUrl, customPath) {
   const match = originalUrl.match(/^https?:\/\/[^/?#]+/);
@@ -49,6 +42,57 @@ function ExternalIconSmall() {
   );
 }
 
+function hostFromUrl(url) {
+  try { return new URL(url).host; } catch { return ''; }
+}
+
+function UnsupportedSite({ tabs }) {
+  // tabs === null means we haven't queried yet — render the static fallback
+  // immediately rather than showing a loading flicker; the list will reveal
+  // when the query resolves.
+  const hasTabs = Array.isArray(tabs) && tabs.length > 0;
+
+  if (hasTabs) {
+    return (
+      <div class="unsupported-site">
+        <p class="unsupported-lede">This tab isn't supported by the extension.</p>
+        <p class="unsupported-heading">Switch to one of your open Rossum tabs:</p>
+        <ul class="rossum-tab-list">
+          {tabs.map((t) => (
+            <li>
+              <button class="rossum-tab-row" onClick={() => activateTab(t)} title={t.url}>
+                {t.favIconUrl ? (
+                  <img class="rossum-tab-favicon" src={t.favIconUrl} alt="" />
+                ) : (
+                  <span class="rossum-tab-favicon rossum-tab-favicon-placeholder" aria-hidden="true" />
+                )}
+                <span class="rossum-tab-text">
+                  <span class="rossum-tab-title">{t.title || hostFromUrl(t.url)}</span>
+                  <span class="rossum-tab-host">{hostFromUrl(t.url)}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+        <p class="unsupported-footnote">Also works on NetSuite and Coupa.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div class="unsupported-site">
+      <p class="unsupported-lede">This tab isn't supported by the extension.</p>
+      <p>It works on:</p>
+      <div class="supported-sites">
+        <span class="supported-site">Rossum</span>
+        <span class="supported-site">NetSuite</span>
+        <span class="supported-site">Coupa</span>
+      </div>
+      <p class="unsupported-footnote">Open one of these sites to get started.</p>
+    </div>
+  );
+}
+
 export default function App({ tab }) {
   const site = detectSite(tab?.url || '');
   const version = chrome.runtime.getManifest().version_name || chrome.runtime.getManifest().version;
@@ -56,6 +100,12 @@ export default function App({ tab }) {
   const [storageValues, setStorageValues] = useState(null);
   const [messageValues, setMessageValues] = useState({ devFeaturesEnabled: false, devDebugEnabled: false });
   const [authError, setAuthError] = useState(null);
+  const [rossumTabs, setRossumTabs] = useState(null);
+
+  useEffect(() => {
+    if (site) return;
+    findRossumTabs().then(setRossumTabs);
+  }, [site]);
 
   useEffect(() => {
     chrome.storage.local.get(STORAGE_TOGGLES).then((vals) => {
@@ -149,14 +199,7 @@ export default function App({ tab }) {
       </header>
 
       {!site ? (
-        <div class="unsupported-site">
-          <p>Navigate to a supported site to use this extension:</p>
-          <div class="supported-sites">
-            <span class="supported-site">Rossum</span>
-            <span class="supported-site">NetSuite</span>
-            <span class="supported-site">Coupa</span>
-          </div>
-        </div>
+        <UnsupportedSite tabs={rossumTabs} />
       ) : (
         <div id="mainContent">
           <div class="content-row">

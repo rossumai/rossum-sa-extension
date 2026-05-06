@@ -1,19 +1,28 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { runInTab, openMdhTab, openAuditTab } from '../src/popup/utils.js';
+import { runInTab, openMdhTab, openAuditTab, detectSite, findRossumTabs, activateTab } from '../src/popup/utils.js';
 
 let executeScriptMock;
 let storageSetMock;
 let tabsCreateMock;
+let tabsQueryMock;
+let tabsUpdateMock;
+let windowsUpdateMock;
+let windowCloseSpy;
 
 beforeEach(() => {
   executeScriptMock = vi.fn();
   storageSetMock = vi.fn((_obj, cb) => { cb && cb(); });
   tabsCreateMock = vi.fn();
+  tabsQueryMock = vi.fn();
+  tabsUpdateMock = vi.fn().mockResolvedValue();
+  windowsUpdateMock = vi.fn().mockResolvedValue();
+  windowCloseSpy = vi.spyOn(window, 'close').mockImplementation(() => {});
   globalThis.chrome = {
     scripting: { executeScript: executeScriptMock },
     storage: { local: { set: storageSetMock } },
-    tabs: { create: tabsCreateMock },
+    tabs: { create: tabsCreateMock, query: tabsQueryMock, update: tabsUpdateMock },
+    windows: { update: windowsUpdateMock },
     runtime: { getURL: (path) => `chrome-extension://abc/${path}` },
   };
   // Stable UUIDs so we can assert keys.
@@ -107,5 +116,84 @@ describe('openAuditTab', () => {
       url: 'chrome-extension://abc/audit/audit.html?authId=uuid-1',
       index: 3,
     });
+  });
+});
+
+describe('detectSite', () => {
+  it('detects Rossum URLs (rossum.ai, rossum.app, r8.lol, localhost:3000)', () => {
+    expect(detectSite('https://elis.rossum.ai/queues')).toBe('rossum');
+    expect(detectSite('https://test.rossum.app/extensions')).toBe('rossum');
+    expect(detectSite('https://foo.r8.lol/x')).toBe('rossum');
+    expect(detectSite('http://localhost:3000/queues')).toBe('rossum');
+  });
+
+  it('detects NetSuite app URLs', () => {
+    expect(detectSite('https://1234.app.netsuite.com/app/center')).toBe('netsuite');
+    expect(detectSite('https://1234.app.netsuite.com/login')).toBeNull(); // not /app
+  });
+
+  it('detects Coupa cloud and host URLs', () => {
+    expect(detectSite('https://acme.coupacloud.com/orders')).toBe('coupa');
+    expect(detectSite('https://acme.coupahost.com/invoices')).toBe('coupa');
+  });
+
+  it('returns null for unsupported, empty, or malformed input', () => {
+    expect(detectSite('https://github.com/')).toBeNull();
+    expect(detectSite('https://rossum.ai.evil.com/')).toBeNull();
+    expect(detectSite('')).toBeNull();
+    expect(detectSite(undefined)).toBeNull();
+    expect(detectSite('chrome://newtab/')).toBeNull();
+  });
+});
+
+describe('findRossumTabs', () => {
+  it('returns Rossum tabs only, sorted by lastAccessed descending', async () => {
+    tabsQueryMock.mockResolvedValue([
+      { id: 1, url: 'https://github.com/', lastAccessed: 100 },
+      { id: 2, url: 'https://elis.rossum.ai/queues', lastAccessed: 50 },
+      { id: 3, url: 'https://test.rossum.app/x', lastAccessed: 200 },
+      { id: 4, url: 'https://acme.coupacloud.com/x', lastAccessed: 999 },
+      { id: 5, url: undefined, lastAccessed: 300 }, // redacted, no host perm
+    ]);
+
+    const out = await findRossumTabs();
+    expect(out.map((t) => t.id)).toEqual([3, 2]);
+    expect(tabsQueryMock).toHaveBeenCalledWith({});
+  });
+
+  it('returns [] when chrome.tabs.query rejects', async () => {
+    tabsQueryMock.mockRejectedValue(new Error('boom'));
+    expect(await findRossumTabs()).toEqual([]);
+  });
+
+  it('handles tabs without lastAccessed (treats as 0)', async () => {
+    tabsQueryMock.mockResolvedValue([
+      { id: 1, url: 'https://elis.rossum.ai/' },
+      { id: 2, url: 'https://test.rossum.app/', lastAccessed: 5 },
+    ]);
+    const out = await findRossumTabs();
+    expect(out.map((t) => t.id)).toEqual([2, 1]);
+  });
+});
+
+describe('activateTab', () => {
+  it('activates the tab, focuses its window, and closes the popup', async () => {
+    await activateTab({ id: 7, windowId: 3 });
+    expect(tabsUpdateMock).toHaveBeenCalledWith(7, { active: true });
+    expect(windowsUpdateMock).toHaveBeenCalledWith(3, { focused: true });
+    expect(windowCloseSpy).toHaveBeenCalled();
+  });
+
+  it('skips windows.update when windowId is missing', async () => {
+    await activateTab({ id: 9 });
+    expect(tabsUpdateMock).toHaveBeenCalledWith(9, { active: true });
+    expect(windowsUpdateMock).not.toHaveBeenCalled();
+    expect(windowCloseSpy).toHaveBeenCalled();
+  });
+
+  it('still closes the popup if tabs.update throws', async () => {
+    tabsUpdateMock.mockRejectedValueOnce(new Error('tab gone'));
+    await activateTab({ id: 1, windowId: 1 });
+    expect(windowCloseSpy).toHaveBeenCalled();
   });
 });
