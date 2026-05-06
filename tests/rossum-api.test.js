@@ -24,9 +24,10 @@ describe('fetchRossumApi', () => {
     const data = await fetchRossumApi('/api/v1/workspaces');
 
     expect(data).toEqual({ results: [{ id: 1 }] });
-    expect(fetchSpy).toHaveBeenCalledWith('/api/v1/workspaces', {
-      headers: { Authorization: 'Token secret-abc' },
-    });
+    expect(fetchSpy).toHaveBeenCalledWith(
+      `${window.location.origin}/api/v1/workspaces`,
+      { headers: { Authorization: 'Token secret-abc' } },
+    );
   });
 
   it('omits the Authorization header when no token is set', async () => {
@@ -38,7 +39,22 @@ describe('fetchRossumApi', () => {
 
     await fetchRossumApi('/api/v1/queues');
 
-    expect(fetchSpy).toHaveBeenCalledWith('/api/v1/queues', { headers: {} });
+    expect(fetchSpy).toHaveBeenCalledWith(
+      `${window.location.origin}/api/v1/queues`,
+      { headers: {} },
+    );
+  });
+
+  it('rejects paths outside /api/v1/ without calling fetch', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(fetchRossumApi('https://evil.example/api/v1/x')).rejects.toThrow(/Invalid API path/);
+    await expect(fetchRossumApi('//evil.example/x')).rejects.toThrow(/Invalid API path/);
+    await expect(fetchRossumApi('/api/v1/../../etc/passwd')).rejects.toThrow(/Invalid API path/);
+    await expect(fetchRossumApi('/other/path')).rejects.toThrow(/Invalid API path/);
+
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('caches responses per path — second call does not hit the network', async () => {
