@@ -13,21 +13,22 @@ Uses **esbuild** to bundle ES modules from `src/` into `dist/`. No other build t
 - `npm run build` — clean build into `dist/`
 - `npm run dev` — watch mode (JS only; re-run build for CSS/HTML changes)
 - `dist/` is the loadable Chrome extension (gitignored)
-- `build.js` orchestrates bundling + static asset copying (manifest.json, icons/, popup HTML/CSS, mdh HTML/CSS)
+- `build.js` orchestrates bundling + static asset copying (manifest.json, icons/, popup HTML/CSS, mdh HTML/CSS, audit HTML/CSS)
 
 esbuild config: `format: 'iife'`, `minify: true`, `jsxFactory: 'h'`, `jsxFragment: 'Fragment'` (Preact JSX).
 
 ## Architecture
 
-Five esbuild entry points:
+Six esbuild entry points:
 
 1. **`src/rossum/index.js`** → content script for Rossum pages
 2. **`src/netsuite/index.js`** → content script for NetSuite pages
 3. **`src/coupa/index.js`** → content script for Coupa pages
-4. **`src/popup/popup.js`** → extension popup UI
+4. **`src/popup/popup.jsx`** → extension popup UI (Preact)
 5. **`src/mdh/index.jsx`** → Dataset Management standalone page (opened via `chrome.tabs.create`)
+6. **`src/audit/index.jsx`** → Audit Logs standalone page (opened via `chrome.tabs.create`)
 
-No background/service worker — purely content scripts + popup.
+No background/service worker — purely content scripts + popup + opened extension pages.
 
 ### Rossum content script
 
@@ -48,7 +49,11 @@ A Preact SPA (`src/mdh/`) for managing Rossum Data Storage collections:
 - **`hooks/`** — `usePipeline` (sort/filter state → MongoDB aggregation pipeline, placeholder substitution), `useQuery` (executes aggregations with stale-result cancellation via queryId counter), `usePagination` (skip/limit page tracking with cached total count)
 - **`components/`** — 25 JSX components. Modal system: `openModal(title, renderFn)`, `confirmModal(title, msg, onConfirm)`, `promptModal(title, opts, onSubmit)`.
 
-Auth flow: popup sends `'get-auth-info'` message to Rossum tab → content script returns `{token, domain}` from localStorage → popup stores in chrome.storage.local → opens mdh.html → MDH reads from storage on boot.
+Auth flow: popup uses `chrome.scripting.executeScript` to run `readAuthInfo` in the Rossum tab's main world → reads `{token, domain}` from `localStorage.secureToken` + `location.origin` → popup stages it under a single-use `mdhAuth_<uuid>` key in `chrome.storage.local` and opens `mdh.html?authId=<uuid>`. On boot, MDH reads + immediately removes the staging entry, hands the credentials off to `sessionStorage` so subsequent reloads of the same tab still work without leaving the token at rest in `chrome.storage.local`. A 24-hour TTL purge sweeps any stale staging entries that were never consumed (e.g., user closed the tab before boot finished). The Audit Logs SPA uses the same staging pattern with `auditAuth_<uuid>`.
+
+### Audit Logs (`src/audit/`)
+
+Smaller Preact SPA over the Rossum `/api/v1/audit_logs` endpoint. Mirrors MDH conventions (signals + staging-auth flow, JSON-tree rendering of payloads, dark-mode-aware theming). 403 responses are surfaced as a dedicated "feature unavailable" panel since the endpoint is gated by role/subscription.
 
 ### Coupa content script
 
@@ -56,13 +61,15 @@ Two strategies: JSON metadata extraction from `#initial_full_react_data` script 
 
 ### Popup
 
-Detects current site (Rossum/NetSuite/Coupa) and dims irrelevant sections. Two toggle types: storage-backed (persist in chrome.storage.local, reload tab on change) and message-backed (devFeatures/devDebug, communicated via chrome.tabs.sendMessage without reload).
+Preact JSX. Detects current site (Rossum/NetSuite/Coupa) and dims irrelevant sections. Two toggle types: storage-backed (persist in chrome.storage.local, reload tab on change) and page-flag-backed (devFeatures/devDebug, written into the page's localStorage via `chrome.scripting.executeScript` without reload). All tab IO uses `chrome.scripting.executeScript` rather than `chrome.tabs.sendMessage` so popup operations survive content-script orphaning across extension upgrades.
 
 ## Chrome Storage Keys
 
 - Feature toggles: `schemaAnnotationsEnabled`, `expandFormulasEnabled`, `expandReasoningFieldsEnabled`, `scrollLockEnabled`, `resourceIdsEnabled`, `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled`
-- MDH auth: `mdhToken`, `mdhDomain`
-- MDH state: `mdhPipelineWidth`, `mdhUploadsColumnWidths`
+- MDH staging auth: `mdhAuth_<uuid>` (single-use, 24h TTL, removed on first read)
+- MDH state: `mdhPipelineWidth`, `mdhUploadsColumnWidths`, `mdhActiveView`, `mdhSelectedCollection`, `mdhActivePanel`, `mdhOpsSearch`
+- Audit staging auth: `auditAuth_<uuid>` (same pattern as MDH)
+- Audit state: `auditFilters`, `auditPageSize`
 
 ## CSS Architecture
 
