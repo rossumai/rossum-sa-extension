@@ -108,6 +108,41 @@ describe('Modal component', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
     expect(modalContent.value).not.toBeNull();
   });
+
+  it('marks the card as a labelled modal dialog', () => {
+    const root = mount();
+    openModal('My Modal', () => h('div', null));
+    rerender(root);
+
+    const card = root.querySelector('.modal-card');
+    expect(card.getAttribute('role')).toBe('dialog');
+    expect(card.getAttribute('aria-modal')).toBe('true');
+    expect(card.getAttribute('aria-labelledby')).toBe('modal-title');
+    expect(root.querySelector('#modal-title').textContent).toBe('My Modal');
+  });
+
+  it('close button has an accessible name', () => {
+    const root = mount();
+    openModal('X', () => h('div', null));
+    rerender(root);
+    expect(root.querySelector('.modal-close').getAttribute('aria-label')).toBe('Close');
+  });
+
+  it('restores focus to the previously-focused element on close', () => {
+    const trigger = document.createElement('button');
+    document.body.appendChild(trigger);
+    trigger.focus();
+    expect(document.activeElement).toBe(trigger);
+
+    const root = mount();
+    openModal('Focus', () => h('div', null));
+    rerender(root);
+
+    closeModal();
+    rerender(root);
+
+    expect(document.activeElement).toBe(trigger);
+  });
 });
 
 describe('confirmModal', () => {
