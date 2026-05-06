@@ -43,14 +43,31 @@ async function boot() {
 
   purgeStaleAuthEntries().catch(() => {});
 
-  if (!entry?.token || !entry?.domain) {
+  // Resolve token+domain from the auth-staging entry (initial open from the
+  // popup) or from sessionStorage (reload in the same tab). The staging entry
+  // is single-use: consume it on first read and hand the credentials off to
+  // sessionStorage so the token doesn't linger in chrome.storage.local for the
+  // 24-hour TTL.
+  let token, domain;
+  if (entry?.token && entry?.domain) {
+    token = entry.token;
+    domain = entry.domain;
+    chrome.storage.local.remove(authKey);
+    sessionStorage.setItem('auditToken', token);
+    sessionStorage.setItem('auditDomain', domain);
+  } else {
+    token = sessionStorage.getItem('auditToken');
+    domain = sessionStorage.getItem('auditDomain');
+  }
+
+  if (!token || !domain) {
     render(<App connected={false} />, document.getElementById('app'));
     return;
   }
 
-  store.domain.value = entry.domain;
-  store.token.value = entry.token;
-  api.init(entry.domain, entry.token);
+  store.domain.value = domain;
+  store.token.value = token;
+  api.init(domain, token);
 
   if (stored.auditFilters && typeof stored.auditFilters === 'object') {
     // Only restore the documented filter fields; ignore any leftovers from

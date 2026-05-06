@@ -135,14 +135,33 @@ async function boot() {
 
   purgeStaleAuthEntries().catch(() => {});
 
-  if (!entry?.token || !entry?.domain) {
+  // Resolve token+domain from the auth-staging entry (initial open from the
+  // popup) or from sessionStorage (reload in the same tab). The staging entry
+  // is single-use: consume it on first read and hand the credentials off to
+  // sessionStorage so the token doesn't linger in chrome.storage.local for the
+  // 24-hour TTL.
+  let token, domain, pendingCollection, pendingPipeline;
+  if (entry?.token && entry?.domain) {
+    token = entry.token;
+    domain = entry.domain;
+    pendingCollection = entry.pendingCollection;
+    pendingPipeline = entry.pendingPipeline;
+    chrome.storage.local.remove(authKey);
+    sessionStorage.setItem('mdhToken', token);
+    sessionStorage.setItem('mdhDomain', domain);
+  } else {
+    token = sessionStorage.getItem('mdhToken');
+    domain = sessionStorage.getItem('mdhDomain');
+  }
+
+  if (!token || !domain) {
     render(<App connected={false} />, document.getElementById('app'));
     return;
   }
 
-  store.domain.value = entry.domain;
-  store.token.value = entry.token;
-  api.init(entry.domain, entry.token);
+  store.domain.value = domain;
+  store.token.value = token;
+  api.init(domain, token);
 
   if (stored.mdhActiveView === 'operations' || stored.mdhActiveView === 'overview') {
     store.activeView.value = stored.mdhActiveView;
@@ -160,14 +179,14 @@ async function boot() {
   // Pipeline prefill from the popup's "Open in Dataset Management" button.
   // Set the one-shot signal that DataPanel consumes; override view/panel/collection
   // so the user lands on the right collection's data panel.
-  if (entry.pendingCollection) {
+  if (pendingCollection) {
     store.activeView.value = 'collection';
-    store.selectedCollection.value = entry.pendingCollection;
+    store.selectedCollection.value = pendingCollection;
     store.activePanel.value = 'data';
-    if (entry.pendingPipeline) {
+    if (pendingPipeline) {
       store.pendingPipelineLoad.value = {
-        collection: entry.pendingCollection,
-        pipelineText: entry.pendingPipeline,
+        collection: pendingCollection,
+        pipelineText: pendingPipeline,
       };
     }
   }
