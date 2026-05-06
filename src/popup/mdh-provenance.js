@@ -315,6 +315,22 @@ export function buildHookEntries(mdhHooks, queueId) {
     .filter((e) => e.cfgs.length > 0);
 }
 
+// Case-insensitive substring filter on `cfg.target`. Empty/whitespace query
+// returns the input array reference unchanged (cheap "no-op" identity check).
+// Hooks left with zero matching cfgs are dropped.
+export function filterHookEntries(entries, query) {
+  const q = (query == null ? '' : String(query)).trim().toLowerCase();
+  if (!q) return entries;
+  const out = [];
+  for (const { hook, cfgs } of entries) {
+    const filtered = cfgs.filter((cfg) =>
+      String(cfg?.target || '').toLowerCase().includes(q),
+    );
+    if (filtered.length > 0) out.push({ hook, cfgs: filtered });
+  }
+  return out;
+}
+
 export async function loadAnnotationValues(domain, token, annotationId, placeholders) {
   if (!annotationId || placeholders.size === 0) {
     return { headerValues: {}, rowValues: {}, rowCount: 0, types: {} };

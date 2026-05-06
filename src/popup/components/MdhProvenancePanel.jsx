@@ -5,6 +5,7 @@ import {
   collectPlaceholders,
   extractIdFromUrl,
   fetchJson,
+  filterHookEntries,
   loadAnnotationValues,
   loadMdhHooksForQueue,
   substitutePlaceholders,
@@ -35,6 +36,20 @@ export default function MdhProvenancePanel({ tab }) {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [state, setState] = useState({ kind: 'loading' });
   const [currentRow, setCurrentRow] = useState(0);
+  const [filter, setFilter] = useState('');
+
+  useEffect(() => {
+    chrome.storage.local.get('mdhProvenanceFilter').then((vals) => {
+      const saved = vals?.mdhProvenanceFilter;
+      if (typeof saved === 'string' && saved !== '') setFilter(saved);
+    });
+  }, []);
+
+  const onFilterChange = (e) => {
+    const val = e.currentTarget.value;
+    setFilter(val);
+    chrome.storage.local.set({ mdhProvenanceFilter: val });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -82,22 +97,20 @@ export default function MdhProvenancePanel({ tab }) {
         }
 
         let hookEntries = null;
-        let fromHooksCache = false;
         if (!forceRefresh) {
           hookEntries = await getCachedHookEntries(ctx.domain, queueId);
-          if (hookEntries) fromHooksCache = true;
         }
         if (cancelled) return;
         if (!hookEntries) {
           const mdhHooks = await loadMdhHooksForQueue(ctx.domain, ctx.token, queueId);
           if (cancelled) return;
           if (mdhHooks.length === 0) {
-            setState({ kind: 'message', sub: `queue ${queueId}`, message: 'No MDH matching hooks on this queue.' });
+            setState({ kind: 'message', message: 'No MDH matching hooks on this queue.' });
             return;
           }
           hookEntries = buildHookEntries(mdhHooks, queueId);
           if (hookEntries.length === 0) {
-            setState({ kind: 'message', sub: `queue ${queueId}`, message: 'No MDH configurations apply to this queue.' });
+            setState({ kind: 'message', message: 'No MDH configurations apply to this queue.' });
             return;
           }
           setCachedHookEntries(ctx.domain, queueId, hookEntries).catch(() => {});
@@ -164,17 +177,6 @@ export default function MdhProvenancePanel({ tab }) {
           }),
         }));
 
-        let totalQueries = 0;
-        for (const { cfgs } of resolvedEntries) {
-          for (const cfg of cfgs) totalQueries += cfg.queries.length;
-        }
-        const subPieces = [
-          `queue ${queueId}`,
-          `${resolvedEntries.length} active ${resolvedEntries.length === 1 ? 'hook' : 'hooks'}`,
-          `${totalQueries} ${totalQueries === 1 ? 'query' : 'queries'}`,
-        ];
-        if (fromHooksCache || annValuesFromCache) subPieces.push('cached');
-
         setState({
           kind: 'loaded',
           ctx,
@@ -185,7 +187,6 @@ export default function MdhProvenancePanel({ tab }) {
           rowValues,
           rowCount,
           types,
-          sub: subPieces.join(' · '),
         });
         setCurrentRow(0);
 
@@ -229,6 +230,11 @@ export default function MdhProvenancePanel({ tab }) {
     setRefreshNonce((n) => n + 1);
   };
 
+  const visibleEntries = state.kind === 'loaded'
+    ? filterHookEntries(state.hookEntries, filter)
+    : [];
+  const trimmedFilter = filter.trim();
+
   return (
     <section class="card mdh-card" data-context="rossum">
       <h3 class="section-title">
@@ -242,14 +248,24 @@ export default function MdhProvenancePanel({ tab }) {
           <RefreshIcon />
         </button>
       </h3>
-      <div class="mdh-card-sub">{state.sub || ''}</div>
+      {state.kind === 'loaded' ? (
+        <input
+          type="search"
+          class="mdh-filter"
+          placeholder="Filter by target schema ID"
+          value={filter}
+          onInput={onFilterChange}
+        />
+      ) : null}
       <div>
         {state.kind === 'loading' ? (
           <p class="mdh-empty">Loading…</p>
         ) : state.kind === 'message' ? (
           <p class={`mdh-empty${state.isError ? ' mdh-error' : ''}`}>{state.message}</p>
+        ) : visibleEntries.length === 0 ? (
+          <p class="mdh-empty">No configurations match {'“'}{trimmedFilter}{'”'}.</p>
         ) : (
-          state.hookEntries.map(({ hook, cfgs }) => (
+          visibleEntries.map(({ hook, cfgs }) => (
             <div class="mdh-hook" key={hook.id}>
               <a
                 class="mdh-hook-name"

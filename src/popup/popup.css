@@ -518,16 +518,28 @@ body.popup-wide .mdh-card {
   outline-offset: 1px;
 }
 
-.mdh-card-sub {
+.mdh-filter {
   display: block;
-  margin: -2px 0 6px;
+  width: 100%;
+  margin: 2px 0 6px;
+  padding: 3px 6px;
   font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.4px;
+  font-size: 11px;
+  color: var(--text-primary);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.mdh-filter::placeholder {
   color: var(--text-hint);
 }
-.mdh-card-sub:empty { display: none; }
+.mdh-filter:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+  border-color: transparent;
+}
 
 .mdh-empty {
   font-size: 11px;

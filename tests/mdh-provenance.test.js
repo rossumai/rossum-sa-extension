@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   collectPlaceholders,
   describeQuery,
+  filterHookEntries,
   flattenContent,
   substitutePlaceholders,
 } from '../src/popup/mdh-provenance.js';
@@ -348,5 +349,73 @@ describe('flattenContent', () => {
     const flat = flattenContent(content);
     expect(flat.rowValues.item_amount).toEqual(['0.65']);
     expect(flat.types).toEqual({ item_amount: 'number' });
+  });
+});
+
+// ── filterHookEntries ─────────────────────────────────
+
+describe('filterHookEntries', () => {
+  const sample = () => [
+    {
+      hook: { id: 1, name: 'A' },
+      cfgs: [
+        { target: 'vendor_name', dataset: 'd', queries: [] },
+        { target: 'vendor_id', dataset: 'd', queries: [] },
+      ],
+    },
+    {
+      hook: { id: 2, name: 'B' },
+      cfgs: [
+        { target: 'tax_id', dataset: 'd', queries: [] },
+      ],
+    },
+  ];
+
+  it('returns the original entries when the query is empty or whitespace', () => {
+    const entries = sample();
+    expect(filterHookEntries(entries, '')).toBe(entries);
+    expect(filterHookEntries(entries, '   ')).toBe(entries);
+  });
+
+  it('treats null / undefined query as empty', () => {
+    const entries = sample();
+    expect(filterHookEntries(entries, null)).toBe(entries);
+    expect(filterHookEntries(entries, undefined)).toBe(entries);
+  });
+
+  it('filters cfgs by case-insensitive substring against target', () => {
+    const r = filterHookEntries(sample(), 'VENDOR');
+    expect(r).toHaveLength(1);
+    expect(r[0].hook.id).toBe(1);
+    expect(r[0].cfgs.map((c) => c.target)).toEqual(['vendor_name', 'vendor_id']);
+  });
+
+  it('matches anywhere inside the target id', () => {
+    const r = filterHookEntries(sample(), '_id');
+    expect(r).toHaveLength(2);
+    expect(r[0].cfgs.map((c) => c.target)).toEqual(['vendor_id']);
+    expect(r[1].cfgs.map((c) => c.target)).toEqual(['tax_id']);
+  });
+
+  it('drops hooks whose cfgs all filtered out', () => {
+    const r = filterHookEntries(sample(), 'tax');
+    expect(r).toHaveLength(1);
+    expect(r[0].hook.id).toBe(2);
+  });
+
+  it('returns an empty array when nothing matches', () => {
+    expect(filterHookEntries(sample(), 'zzz')).toEqual([]);
+  });
+
+  it('does not mutate the input entries', () => {
+    const entries = sample();
+    const before = JSON.stringify(entries);
+    filterHookEntries(entries, 'vendor');
+    expect(JSON.stringify(entries)).toBe(before);
+  });
+
+  it('handles cfgs with missing target gracefully (treated as no-match)', () => {
+    const e = [{ hook: { id: 1 }, cfgs: [{ dataset: 'd', queries: [] }] }];
+    expect(filterHookEntries(e, 'foo')).toEqual([]);
   });
 });
