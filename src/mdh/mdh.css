@@ -949,9 +949,9 @@ body {
   display: inline-flex !important;
   align-items: center;
   opacity: 1 !important;
-  background: var(--success-bg, var(--bg-hover)) !important;
-  border-color: var(--success) !important;
-  color: var(--success) !important;
+  background: var(--bg-hover) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Brief outline flash for Alt+click on a key or value — gives feedback
@@ -962,8 +962,8 @@ body {
 }
 
 @keyframes jsonTreeCopyFlash {
-  0% { box-shadow: 0 0 0 2px var(--success); }
-  60% { box-shadow: 0 0 0 2px var(--success); }
+  0% { box-shadow: 0 0 0 2px var(--text-secondary); }
+  60% { box-shadow: 0 0 0 2px var(--text-secondary); }
   100% { box-shadow: 0 0 0 2px transparent; }
 }
 
