@@ -8,8 +8,6 @@ import * as cache from '../cache.js';
 import { RESERVED_PX, CHAR_WIDTH_PX, MIN_CHAR_BUDGET } from '../recordSummary.js';
 import { ALT_KEY } from '../platform.js';
 
-const COPY_HINT_STORAGE_KEY = 'mdhCopyHintDismissed';
-
 export default function RecordList({
   records, pipelineText, filterState, sortState, lastQueryMs, totalCount, pagination,
   onSort, onFilter, onPageChange, onEdit, onDelete, onRefresh, downloadState, onCancelDownload,
@@ -18,25 +16,10 @@ export default function RecordList({
 }) {
   const [expandedSet, setExpandedSet] = useState(new Set([0]));
   const [expandAll, setExpandAll] = useState(false);
-  const [showCopyHint, setShowCopyHint] = useState(false);
 
   const listRef = useRef(null);
   const [listWidth, setListWidth] = useState(0);
   const [indexes, setIndexes] = useState([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    chrome.storage.local.get([COPY_HINT_STORAGE_KEY], (data) => {
-      if (cancelled) return;
-      if (!data[COPY_HINT_STORAGE_KEY]) setShowCopyHint(true);
-    });
-    return () => { cancelled = true; };
-  }, []);
-
-  function dismissCopyHint() {
-    setShowCopyHint(false);
-    chrome.storage.local.set({ [COPY_HINT_STORAGE_KEY]: true });
-  }
 
   useEffect(() => {
     const el = listRef.current;
@@ -171,15 +154,6 @@ export default function RecordList({
         <div class="selection-mismatch-banner">
           {selectedIds.value.size} selected record{selectedIds.value.size !== 1 ? 's' : ''} may no longer match the current view.
           <button class="btn-link" onClick={onViewSelected}>View selected only</button>
-        </div>
-      )}
-      {showCopyHint && records.length > 0 && !selectionMode.value && (
-        <div class="record-list-hint">
-          <span class="record-list-hint-text">
-            <span class="record-list-hint-icon" aria-hidden="true">⧉</span>
-            Hover any row for a copy button, or hold <kbd class="kbd">{ALT_KEY}</kbd> and click a field name to copy its path, a value to copy it.
-          </span>
-          <button class="btn-link record-list-hint-dismiss" onClick={dismissCopyHint} title="Don't show again">Got it</button>
         </div>
       )}
       <div class="record-list" ref={listRef}>

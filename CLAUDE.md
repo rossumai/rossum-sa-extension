@@ -68,7 +68,7 @@ Preact JSX. Detects current site (Rossum/NetSuite/Coupa) and dims irrelevant sec
 
 - Feature toggles: `schemaAnnotationsEnabled`, `expandFormulasEnabled`, `expandReasoningFieldsEnabled`, `scrollLockEnabled`, `resourceIdsEnabled`, `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled`
 - MDH staging auth: `mdhAuth_<uuid>` (single-use, 24h TTL, removed on first read)
-- MDH state: `mdhPipelineWidth`, `mdhUploadsColumnWidths`, `mdhActiveView`, `mdhSelectedCollection`, `mdhActivePanel`, `mdhOpsSearch`, `mdhCopyHintDismissed`
+- MDH state: `mdhPipelineWidth`, `mdhUploadsColumnWidths`, `mdhActiveView`, `mdhSelectedCollection`, `mdhActivePanel`, `mdhOpsSearch`
 - Audit staging auth: `auditAuth_<uuid>` (same pattern as MDH)
 - Audit state: `auditFilters`, `auditPageSize`
 

@@ -2698,43 +2698,6 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
   gap: 8px;
 }
 
-/* One-time tip banner above the records list, dismissable. */
-.record-list-hint {
-  background: var(--bg-hover);
-  color: var(--text-secondary);
-  padding: 8px 14px;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.record-list-hint-text { flex: 1; }
-
-.record-list-hint-icon {
-  display: inline-block;
-  margin-right: 6px;
-  font-size: 14px;
-  color: var(--accent);
-}
-
-.record-list-hint-dismiss { flex-shrink: 0; }
-
-/* Inline keyboard-key chip, used to call out shortcut keys in copy. */
-.kbd {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  padding: 1px 6px;
-  border: 1px solid var(--border);
-  border-bottom-width: 2px;
-  border-radius: 3px;
-  background: var(--bg-card);
-  color: var(--text-primary);
-  white-space: nowrap;
-}
-
 .selection-popover {
   position: absolute;
   background: var(--bg-card);
