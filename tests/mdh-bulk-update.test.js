@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { h, render } from 'preact';
 
 vi.mock('../src/mdh/api.js');
@@ -9,11 +9,19 @@ import Modal from '../src/mdh/components/Modal.jsx';
 import { modalContent, selectedCollection } from '../src/mdh/store.js';
 import { openBulkUpdate, diffJsonContent } from '../src/mdh/components/BulkUpdate.jsx';
 
+// `activeRoot` tracks the currently-mounted modal so afterEach can call
+// render(null, root) to actually unmount it. Without that, every test leaks
+// a Modal instance — still subscribed to modalContent — and the next test's
+// signal write fans out to all of them, double-mounting Body and consuming
+// extra mock values (root cause of the historic flake on this file).
+let activeRoot = null;
 function mountModal() {
+  if (activeRoot) { render(null, activeRoot); activeRoot = null; }
   document.body.innerHTML = '';
   const root = document.createElement('div');
   document.body.appendChild(root);
   render(h(Modal, null), root);
+  activeRoot = root;
   return root;
 }
 function rerender(root) { render(h(Modal, null), root); }
@@ -28,12 +36,31 @@ beforeEach(() => {
   selectedCollection.value = 'vendors';
 });
 
+afterEach(() => {
+  if (activeRoot) { render(null, activeRoot); activeRoot = null; }
+});
+
+// Repeatable mock for preview queries. previewMatch fires two aggregate
+// calls in parallel ($count and $limit) and BulkUpdate's useLayoutEffect
+// may run more than once under concurrent suite load (e.g. when a signal-
+// triggered Modal re-render races with the explicit rerender() the test
+// helper performs). Using mockImplementation rather than a fixed-length
+// queue of mockResolvedValueOnce keeps the test resilient to those extra
+// fires without changing what it asserts. The snapshot-fetch case (a
+// plain $match-only pipeline, used by runBulkUpdate for undo) falls
+// through to the same sample data.
+function mockPreviewAndSnapshot({ count, sample }) {
+  api.aggregate.mockImplementation((_coll, pipeline) => {
+    if (pipeline.some((s) => s.$count)) {
+      return Promise.resolve({ result: [{ total: count }] });
+    }
+    return Promise.resolve({ result: sample });
+  });
+}
+
 describe('openBulkUpdate — filter mode', () => {
   it('shows preview with count and sample, and submit calls updateMany', async () => {
-    api.aggregate
-      .mockResolvedValueOnce({ result: [{ total: 2 }] })
-      .mockResolvedValueOnce({ result: [{ _id: '1', status: 'old' }, { _id: '2', status: 'old' }] })
-      .mockResolvedValueOnce({ result: [{ _id: '1', status: 'old' }, { _id: '2', status: 'old' }] }); // snapshot
+    mockPreviewAndSnapshot({ count: 2, sample: [{ _id: '1', status: 'old' }, { _id: '2', status: 'old' }] });
     api.updateMany.mockResolvedValueOnce({ result: { matched_count: 2, modified_count: 2 } });
     const onSuccess = vi.fn();
 
@@ -54,9 +81,7 @@ describe('openBulkUpdate — filter mode', () => {
   });
 
   it('prefills the editor with $set and $unset blocks plus a hint comment', async () => {
-    api.aggregate
-      .mockResolvedValueOnce({ result: [{ total: 1 }] })
-      .mockResolvedValueOnce({ result: [{ _id: '1' }] });
+    mockPreviewAndSnapshot({ count: 1, sample: [{ _id: '1' }] });
 
     const root = mountModal();
     openBulkUpdate({ collection: 'vendors', mode: 'filter', filter: {}, onSuccess: () => {}, fieldsFn: () => [] });
@@ -78,9 +103,7 @@ describe('openBulkUpdate — filter mode', () => {
   });
 
   it('forces the name-gate when the filter is exactly {}', async () => {
-    api.aggregate
-      .mockResolvedValueOnce({ result: [{ total: 5 }] })
-      .mockResolvedValueOnce({ result: [] });
+    mockPreviewAndSnapshot({ count: 5, sample: [] });
 
     const root = mountModal();
     openBulkUpdate({ collection: 'vendors', mode: 'filter', filter: {}, onSuccess: () => {}, fieldsFn: () => [] });

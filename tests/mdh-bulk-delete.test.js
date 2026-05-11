@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { h, render } from 'preact';
 
 vi.mock('../src/mdh/api.js');
@@ -9,11 +9,19 @@ import Modal from '../src/mdh/components/Modal.jsx';
 import { modalContent, selectedCollection } from '../src/mdh/store.js';
 import { openBulkDelete } from '../src/mdh/components/BulkDelete.jsx';
 
+// `activeRoot` tracks the currently-mounted modal so afterEach can call
+// render(null, root) to actually unmount it. Without that, every test leaks
+// a Modal instance — still subscribed to modalContent — and the next test's
+// signal write fans out to all of them, double-mounting Body and consuming
+// extra mock values (root cause of the historic flake on this file).
+let activeRoot = null;
 function mountModal() {
+  if (activeRoot) { render(null, activeRoot); activeRoot = null; }
   document.body.innerHTML = '';
   const root = document.createElement('div');
   document.body.appendChild(root);
   render(h(Modal, null), root);
+  activeRoot = root;
   return root;
 }
 
@@ -30,11 +38,29 @@ beforeEach(() => {
   selectedCollection.value = 'vendors';
 });
 
+afterEach(() => {
+  if (activeRoot) { render(null, activeRoot); activeRoot = null; }
+});
+
+// Repeatable mock for preview queries. previewMatch fires two aggregate
+// calls in parallel ($count and $limit) and BulkDelete's useLayoutEffect
+// may run more than once under concurrent suite load (e.g. when a signal-
+// triggered Modal re-render races with the explicit rerender() the test
+// helper performs). Using mockImplementation rather than a fixed-length
+// queue of mockResolvedValueOnce keeps the test resilient to those extra
+// fires without changing what it asserts.
+function mockPreview({ count, sample }) {
+  api.aggregate.mockImplementation((_coll, pipeline) => {
+    if (pipeline.some((s) => s.$count)) {
+      return Promise.resolve({ result: [{ total: count }] });
+    }
+    return Promise.resolve({ result: sample });
+  });
+}
+
 describe('openBulkDelete — filter mode', () => {
   it('opens with the prefilled filter and runs preview against the API', async () => {
-    api.aggregate
-      .mockResolvedValueOnce({ result: [{ total: 3 }] })
-      .mockResolvedValueOnce({ result: [{ _id: '1' }, { _id: '2' }, { _id: '3' }] });
+    mockPreview({ count: 3, sample: [{ _id: '1' }, { _id: '2' }, { _id: '3' }] });
 
     const root = mountModal();
     openBulkDelete({ collection: 'vendors', mode: 'filter', filter: { status: 'draft' }, onSuccess: () => {}, fieldsFn: () => [] });
@@ -66,9 +92,7 @@ describe('openBulkDelete — filter mode', () => {
   });
 
   it('forces the name-gate when the filter is exactly {}', async () => {
-    api.aggregate
-      .mockResolvedValueOnce({ result: [{ total: 7 }] })
-      .mockResolvedValueOnce({ result: [] });
+    mockPreview({ count: 7, sample: [] });
 
     const root = mountModal();
     openBulkDelete({ collection: 'vendors', mode: 'filter', filter: {}, onSuccess: () => {}, fieldsFn: () => [] });
