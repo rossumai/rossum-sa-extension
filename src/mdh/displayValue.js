@@ -46,3 +46,17 @@ export function displayValue(v) {
   if (typeof v === 'object') return Array.isArray(v) ? `[${v.length}]` : '{...}';
   return String(v);
 }
+
+// Text that goes to the clipboard when the user copies a value from the JSON tree.
+// Strings are returned unquoted (so they can be pasted straight into other systems).
+// EJSON-typed values are returned in their inner human form (ObjectId hex, ISO date,
+// numeric strings) so they can be reused in queries without the wrapper. Objects and
+// arrays are pretty-printed JSON.
+export function copyTextFor(v) {
+  if (v === null) return 'null';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  const ejson = getEjsonType(v);
+  if (ejson) return formatEjsonValue(v, ejson);
+  return JSON.stringify(v, null, 2);
+}

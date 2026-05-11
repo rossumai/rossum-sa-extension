@@ -6,6 +6,9 @@ import JSON5 from 'json5';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
 import { RESERVED_PX, CHAR_WIDTH_PX, MIN_CHAR_BUDGET } from '../recordSummary.js';
+import { ALT_KEY } from '../platform.js';
+
+const COPY_HINT_STORAGE_KEY = 'mdhCopyHintDismissed';
 
 export default function RecordList({
   records, pipelineText, filterState, sortState, lastQueryMs, totalCount, pagination,
@@ -15,10 +18,25 @@ export default function RecordList({
 }) {
   const [expandedSet, setExpandedSet] = useState(new Set([0]));
   const [expandAll, setExpandAll] = useState(false);
+  const [showCopyHint, setShowCopyHint] = useState(false);
 
   const listRef = useRef(null);
   const [listWidth, setListWidth] = useState(0);
   const [indexes, setIndexes] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    chrome.storage.local.get([COPY_HINT_STORAGE_KEY], (data) => {
+      if (cancelled) return;
+      if (!data[COPY_HINT_STORAGE_KEY]) setShowCopyHint(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  function dismissCopyHint() {
+    setShowCopyHint(false);
+    chrome.storage.local.set({ [COPY_HINT_STORAGE_KEY]: true });
+  }
 
   useEffect(() => {
     const el = listRef.current;
@@ -155,6 +173,15 @@ export default function RecordList({
           <button class="btn-link" onClick={onViewSelected}>View selected only</button>
         </div>
       )}
+      {showCopyHint && records.length > 0 && !selectionMode.value && (
+        <div class="record-list-hint">
+          <span class="record-list-hint-text">
+            <span class="record-list-hint-icon" aria-hidden="true">⧉</span>
+            Hover any row for a copy button, or hold <kbd class="kbd">{ALT_KEY}</kbd> and click a field name to copy its path, a value to copy it.
+          </span>
+          <button class="btn-link record-list-hint-dismiss" onClick={dismissCopyHint} title="Don't show again">Got it</button>
+        </div>
+      )}
       <div class="record-list" ref={listRef}>
         {emptyContent}
         {records.map((record, i) => (
@@ -178,7 +205,7 @@ export default function RecordList({
       </div>
       <div class="pagination">
         <span class={'record-count' + (lastQueryMs > 1000 ? ' record-count-slow' : '')} title="Total is the unfiltered collection size — it does not reflect the active pipeline filters">{countText}</span>
-        <span class="pagination-hint">Click key to sort {'\u00b7'} Click value to filter</span>
+        <span class="pagination-hint">Click key to sort {'\u00b7'} Click value to filter {'\u00b7'} {ALT_KEY}+click or hover to copy</span>
         <div class="pagination-controls">
           <button disabled={!pagination.hasPrev()} onClick={() => onPageChange('prev')}>{'\u2190'} Prev</button>
           <span>Page {pagination.page()}</span>

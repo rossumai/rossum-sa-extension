@@ -914,6 +914,59 @@ body {
   flex-shrink: 0;
 }
 
+/* Per-row copy button: an icon-only affordance that stays out of the way
+   until the row is hovered, briefly turns green when the value has been
+   copied. */
+.json-tree-copy-btn {
+  display: none;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 0 3px;
+  margin-left: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-secondary);
+  opacity: 0.55;
+  flex-shrink: 0;
+}
+
+.json-tree-row:hover > .json-tree-copy-btn {
+  display: inline-flex;
+  align-items: center;
+}
+
+.json-tree-copy-btn:hover {
+  opacity: 1;
+  background: var(--bg-hover);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+.json-tree-copy-btn-success {
+  display: inline-flex !important;
+  align-items: center;
+  opacity: 1 !important;
+  background: var(--success-bg, var(--bg-hover)) !important;
+  border-color: var(--success) !important;
+  color: var(--success) !important;
+}
+
+/* Brief outline flash for Alt+click on a key or value — gives feedback
+   that the keyboard shortcut wrote to the clipboard, without permanently
+   altering the button's appearance. */
+.json-tree-flash {
+  animation: jsonTreeCopyFlash 700ms ease-out;
+}
+
+@keyframes jsonTreeCopyFlash {
+  0% { box-shadow: 0 0 0 2px var(--success); }
+  60% { box-shadow: 0 0 0 2px var(--success); }
+  100% { box-shadow: 0 0 0 2px transparent; }
+}
+
 .pagination {
   display: flex; align-items: center; justify-content: space-between;
   padding: 8px 16px; border-top: 1px solid var(--border);
@@ -924,7 +977,7 @@ body {
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--text-secondary);
-  opacity: 0.5;
+  opacity: 0.75;
 }
 
 .pagination-controls { display: flex; gap: 8px; align-items: center; }
@@ -2643,6 +2696,43 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* One-time tip banner above the records list, dismissable. */
+.record-list-hint {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  padding: 8px 14px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.record-list-hint-text { flex: 1; }
+
+.record-list-hint-icon {
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 14px;
+  color: var(--accent);
+}
+
+.record-list-hint-dismiss { flex-shrink: 0; }
+
+/* Inline keyboard-key chip, used to call out shortcut keys in copy. */
+.kbd {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  white-space: nowrap;
 }
 
 .selection-popover {

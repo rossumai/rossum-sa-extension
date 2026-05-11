@@ -4,6 +4,7 @@ import {
   getEjsonType,
   formatEjsonValue,
   displayValue,
+  copyTextFor,
 } from '../src/mdh/displayValue.js';
 
 describe('getEjsonType', () => {
@@ -81,5 +82,44 @@ describe('displayValue', () => {
     expect(displayValue({ $oid: '507f1f77bcf86cd799439011' })).toBe('507f1f77bcf86cd799439011');
     // An ISO date is 24 chars exactly, so no truncation:
     expect(displayValue({ $date: '2024-01-01T00:00:00Z' })).toBe('2024-01-01T00:00:00.000Z');
+  });
+});
+
+describe('copyTextFor', () => {
+  it('returns strings without surrounding quotes', () => {
+    expect(copyTextFor('hello world')).toBe('hello world');
+    expect(copyTextFor('')).toBe('');
+  });
+
+  it('returns numbers and booleans as plain strings', () => {
+    expect(copyTextFor(42)).toBe('42');
+    expect(copyTextFor(3.14)).toBe('3.14');
+    expect(copyTextFor(true)).toBe('true');
+    expect(copyTextFor(false)).toBe('false');
+  });
+
+  it('returns the literal "null" for null', () => {
+    expect(copyTextFor(null)).toBe('null');
+  });
+
+  it('returns the inner formatted EJSON value, not the wrapper', () => {
+    expect(copyTextFor({ $oid: '507f1f77bcf86cd799439011' })).toBe('507f1f77bcf86cd799439011');
+    expect(copyTextFor({ $date: '2024-01-01T00:00:00Z' })).toBe('2024-01-01T00:00:00.000Z');
+    expect(copyTextFor({ $numberLong: '123' })).toBe('123');
+    expect(copyTextFor({ $numberDecimal: '1.5' })).toBe('1.5');
+    expect(copyTextFor({ $regex: 'foo' })).toBe('/foo/');
+  });
+
+  it('returns pretty-printed JSON for plain objects', () => {
+    expect(copyTextFor({ a: 1, b: 'two' })).toBe('{\n  "a": 1,\n  "b": "two"\n}');
+  });
+
+  it('returns pretty-printed JSON for arrays', () => {
+    expect(copyTextFor([1, 2, 3])).toBe('[\n  1,\n  2,\n  3\n]');
+  });
+
+  it('preserves long strings verbatim (no truncation, no quotes)', () => {
+    const long = 'a'.repeat(100);
+    expect(copyTextFor(long)).toBe(long);
   });
 });
