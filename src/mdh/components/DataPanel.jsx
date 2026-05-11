@@ -21,6 +21,7 @@ import * as api from '../api.js';
 import * as cache from '../cache.js';
 import { applySortToPipeline, applyFilterDeltaToPipeline, applySkipToPipeline, extractUIStateFromPipeline } from '../pipelineOps.js';
 import { savePipelineState, getPipelineState } from '../pipelineState.js';
+import { downloadCollection as runDownload } from '../downloadCollection.js';
 import JSON5 from 'json5';
 
 export default function DataPanel() {
@@ -382,57 +383,25 @@ export default function DataPanel() {
     }
 
     downloadCancelRef.current = false;
-    let total = pagination.totalCount.value;
-    setDownloadState({ count: 0, total });
+    setDownloadState({ count: 0, total: tc });
+    error.value = null;
 
-    const BATCH = 5000;
-    const CONCURRENCY = 10;
     try {
-      error.value = null;
-
-      if (total === null) {
-        const countRes = await api.aggregate(collection, [{ $count: 'total' }]);
-        total = countRes.result?.[0]?.total ?? 0;
-        setDownloadState({ count: 0, total });
-      }
-
-      if (total === 0 || downloadCancelRef.current) {
-        setDownloadState(null);
-        return;
-      }
-
-      const offsets = [];
-      for (let s = 0; s < total; s += BATCH) offsets.push(s);
-
-      const results = new Array(offsets.length);
-      let fetched = 0;
-
-      for (let i = 0; i < offsets.length; i += CONCURRENCY) {
-        if (downloadCancelRef.current) break;
-        const chunk = offsets.slice(i, i + CONCURRENCY);
-        await Promise.all(chunk.map((s, j) =>
-          api.aggregate(collection, [{ $match: {} }, { $skip: s }, { $limit: BATCH }]).then((res) => {
-            results[i + j] = res.result || [];
-            fetched += (res.result || []).length;
-            setDownloadState({ count: fetched, total });
-          })
-        ));
-      }
-
-      if (downloadCancelRef.current) {
-        setDownloadState({ count: fetched, cancelled: true });
+      const col = collection;
+      const result = await runDownload(col, {
+        fetchCount: async () => {
+          if (pagination.totalCount.value !== null) return pagination.totalCount.value;
+          const r = await api.aggregate(col, [{ $count: 'total' }]);
+          return r.result?.[0]?.total ?? 0;
+        },
+        isCancelled: () => downloadCancelRef.current,
+        onProgress: ({ fetched, total }) => setDownloadState({ count: fetched, total }),
+      });
+      if (result.cancelled) {
+        setDownloadState({ count: result.fetched, cancelled: true });
         setTimeout(() => setDownloadState(null), 1500);
       } else {
-        const allDocs = results.flat();
-        const json = JSON.stringify(allDocs, null, 2);
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${collection}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-        setDownloadState({ count: allDocs.length, done: true });
+        setDownloadState({ count: result.fetched, done: true });
         setTimeout(() => setDownloadState(null), 2000);
       }
     } catch (err) {
