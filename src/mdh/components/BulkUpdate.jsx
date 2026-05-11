@@ -6,8 +6,23 @@ import JsonEditor from './JsonEditor.jsx';
 import BulkConfirm from './BulkConfirm.jsx';
 import * as api from '../api.js';
 import { previewMatch, runBulkUpdate, selectionToFilter, UNDO_LIMIT } from '../bulkOps.js';
+import { stripEmptyOperators, trivialSetDiff } from '../updateExpr.js';
 
 const PREVIEW_DEBOUNCE_MS = 400;
+
+// Default expression shown to the user. Both blocks start empty with a
+// parallel hint comment inside so the syntax is discoverable without bloating
+// the modal with extra inputs. strip-empties on submit drops any block left
+// empty.
+const DEFAULT_UPDATE_JSON = `{
+  "$set": {
+    // Fields to update, e.g. "status": "active"
+  },
+  "$unset": {
+    // Fields to remove, e.g. "legacy": "" (value is ignored)
+  }
+}`;
+const DEFAULT_UPDATE_VALUE = { $set: {}, $unset: {} };
 
 export function openBulkUpdate({ collection, mode, ids, filter, onSuccess, fieldsFn }) {
   openModal(mode === 'selection' ? `Update ${ids.length} record${ids.length !== 1 ? 's' : ''}` : 'Update by filter', () => (
@@ -15,48 +30,46 @@ export function openBulkUpdate({ collection, mode, ids, filter, onSuccess, field
   ));
 }
 
-// For the trivial `$set` case we surface a per-field diff: read the new value
-// from the expression and compare to the doc field. For other operators
-// ($inc, $push, $unset, $rename, …) we don't try to predict — surfacing those
-// diffs would mean reimplementing a chunk of the MongoDB update engine.
-function trivialSetDiff(updateExpr, doc) {
-  if (!updateExpr || typeof updateExpr !== 'object') return null;
-  const keys = Object.keys(updateExpr);
-  if (keys.length !== 1 || keys[0] !== '$set') return null;
-  const setObj = updateExpr.$set;
-  if (!setObj || typeof setObj !== 'object') return null;
-  const out = {};
-  for (const k of Object.keys(setObj)) {
-    out[k] = { from: doc?.[k], to: setObj[k] };
-  }
-  return out;
-}
-
-// Renders the document as pretty-printed JSON, but with any field listed in
-// `diff` highlighted inline as `"key": <from> → <to>` so the user can see
-// exactly which lines will change in the context of the surrounding doc.
-// Returns an array of JSX/string children (suitable for inserting into a
-// <pre> body). Top-level fields only — dot-notation keys like "address.city"
-// fall through and appear in the doc as-is, with the change visible only via
-// the entry in `diff`.
-function diffJsonContent(doc, diff) {
+// Renders the document as pretty-printed JSON, with any field listed in
+// `diff` highlighted inline so the user can see exactly which lines will
+// change in the context of the surrounding doc. Returns an array of JSX /
+// string children suitable for insertion into a <pre> body. Top-level fields
+// only — dot-notation keys like "address.city" appear in the doc as-is and
+// surface only via the entry in `diff`. Diff entries take three shapes:
+//   { from, to }              — $set: render `from → to` highlighted
+//   { from, removed: true }   — $unset: render struck-through, danger-tinted
+//   (additions: key not in doc) — render `to` on a green-tinted line
+export function diffJsonContent(doc, diff) {
   const docKeys = Object.keys(doc);
-  const additions = Object.keys(diff).filter((k) => !(k in doc));
+  // Only $set entries can be additions; $unset of a non-existent field is a
+  // no-op and shouldn't show up as a phantom green line.
+  const additions = Object.keys(diff).filter((k) => !(k in doc) && !diff[k].removed);
   const totalLines = docKeys.length + additions.length;
   const out = ['{\n'];
 
   docKeys.forEach((k, i) => {
     const trail = i < totalLines - 1 ? ',\n' : '\n';
     if (k in diff) {
-      out.push(
-        <span class="sample-card-line-changed" key={`c-${k}`}>
-          {`  ${JSON.stringify(k)}: `}
-          <span class="sample-card-diff-from">{JSON.stringify(diff[k].from)}</span>
-          {' → '}
-          <span class="sample-card-diff-to">{JSON.stringify(diff[k].to)}</span>
-          {trail}
-        </span>,
-      );
+      const entry = diff[k];
+      if (entry.removed) {
+        out.push(
+          <span class="sample-card-line-removed" key={`r-${k}`}>
+            {`  ${JSON.stringify(k)}: `}
+            <span class="sample-card-diff-from sample-card-diff-strike">{JSON.stringify(entry.from)}</span>
+            {trail}
+          </span>,
+        );
+      } else {
+        out.push(
+          <span class="sample-card-line-changed" key={`c-${k}`}>
+            {`  ${JSON.stringify(k)}: `}
+            <span class="sample-card-diff-from">{JSON.stringify(entry.from)}</span>
+            {' → '}
+            <span class="sample-card-diff-to">{JSON.stringify(entry.to)}</span>
+            {trail}
+          </span>,
+        );
+      }
     } else {
       const valStr = JSON.stringify(doc[k], null, 2).replace(/\n/g, '\n  ');
       out.push(`  ${JSON.stringify(k)}: ${valStr}${trail}`);
@@ -86,8 +99,8 @@ function Body({ collection, mode, ids, initialFilter, onSuccess, fieldsFn }) {
   const [filterJson, setFilterJson] = useState(() => JSON.stringify(initialFilter || {}, null, 2));
   const [filterValue, setFilterValue] = useState(initialFilter || {});
   const [filterValid, setFilterValid] = useState(true);
-  const [updateJson, setUpdateJson] = useState('{\n  "$set": {}\n}');
-  const [updateValue, setUpdateValue] = useState({ $set: {} });
+  const [updateJson, setUpdateJson] = useState(DEFAULT_UPDATE_JSON);
+  const [updateValue, setUpdateValue] = useState(DEFAULT_UPDATE_VALUE);
   const [updateValid, setUpdateValid] = useState(true);
   const [count, setCount] = useState(null);
   const [sample, setSample] = useState([]);
@@ -162,7 +175,7 @@ function Body({ collection, mode, ids, initialFilter, onSuccess, fieldsFn }) {
     try {
       loading.value = true;
       error.value = null;
-      await runBulkUpdate(collection, effectiveFilter, updateValue, {
+      await runBulkUpdate(collection, effectiveFilter, stripEmptyOperators(updateValue), {
         count,
         undoMessage: `Updated ${count} record${count !== 1 ? 's' : ''} in "${collection}"`,
         onSuccess,

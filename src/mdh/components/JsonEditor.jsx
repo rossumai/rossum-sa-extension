@@ -5,7 +5,10 @@ import { EditorView, basicSetup } from 'codemirror';
 import { EditorState } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
-import { json } from '@codemirror/lang-json';
+// We use the JavaScript grammar (a strict superset of JSON5) so that line and
+// block comments inside prefilled templates are tokenized as comments instead
+// of falling through as untagged text. JSON5.parse below still owns validation.
+import { javascript } from '@codemirror/lang-javascript';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
@@ -22,6 +25,7 @@ const lightHighlight = syntaxHighlighting(HighlightStyle.define([
   { tag: tags.bool, color: '#4270db' },
   { tag: tags.null, color: '#7a7a8c' },
   { tag: tags.propertyName, color: '#1a1a24' },
+  { tag: [tags.lineComment, tags.blockComment], color: '#7a7a8c', fontStyle: 'italic' },
 ]));
 
 const darkHighlight = syntaxHighlighting(HighlightStyle.define([
@@ -30,6 +34,7 @@ const darkHighlight = syntaxHighlighting(HighlightStyle.define([
   { tag: tags.bool, color: '#5b8af0' },
   { tag: tags.null, color: '#8888a0' },
   { tag: tags.propertyName, color: '#dddde8' },
+  { tag: [tags.lineComment, tags.blockComment], color: '#8888a0', fontStyle: 'italic' },
 ]));
 
 const baseTheme = EditorView.theme({
@@ -199,7 +204,7 @@ export default function JsonEditor({ value = '', onChange, onValidChange, mode =
     const extensions = [
       basicSetup,
       keymap.of(keymaps),
-      json(),
+      javascript(),
       compact ? compactTheme : baseTheme,
       EditorView.lineWrapping,
       autocompletion({ override: [mongoCompletions(completionSets, fieldsFn)] }),

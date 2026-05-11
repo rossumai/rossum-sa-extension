@@ -7,7 +7,7 @@ vi.mock('../src/mdh/api.js');
 import * as api from '../src/mdh/api.js';
 import Modal from '../src/mdh/components/Modal.jsx';
 import { modalContent, selectedCollection } from '../src/mdh/store.js';
-import { openBulkUpdate } from '../src/mdh/components/BulkUpdate.jsx';
+import { openBulkUpdate, diffJsonContent } from '../src/mdh/components/BulkUpdate.jsx';
 
 function mountModal() {
   document.body.innerHTML = '';
@@ -43,14 +43,38 @@ describe('openBulkUpdate — filter mode', () => {
     await flush();
     rerender(root);
 
-    // Default update expression is `{ "$set": {} }` — submit it.
-    // Count is 2 → one-click mode (≤10), no typing required.
+    // Default expression is `{ "$set": {}, "$unset": {} }`. Both blocks are empty,
+    // so strip-empties drops them and updateMany sees `{}` on the wire.
     const submitBtn = root.querySelector('[data-testid="bulk-submit"]');
     submitBtn.click();
     await flush();
 
-    expect(api.updateMany).toHaveBeenCalledWith('vendors', { status: 'old' }, { $set: {} });
+    expect(api.updateMany).toHaveBeenCalledWith('vendors', { status: 'old' }, {});
     expect(onSuccess).toHaveBeenCalled();
+  });
+
+  it('prefills the editor with $set and $unset blocks plus a hint comment', async () => {
+    api.aggregate
+      .mockResolvedValueOnce({ result: [{ total: 1 }] })
+      .mockResolvedValueOnce({ result: [{ _id: '1' }] });
+
+    const root = mountModal();
+    openBulkUpdate({ collection: 'vendors', mode: 'filter', filter: {}, onSuccess: () => {}, fieldsFn: () => [] });
+    rerender(root);
+    await flush();
+    rerender(root);
+
+    // The update editor is the second .cm-content in the modal (filter editor is first).
+    const editors = root.querySelectorAll('.cm-content');
+    expect(editors.length).toBeGreaterThanOrEqual(2);
+    const updateEditorText = editors[1].textContent;
+    expect(updateEditorText).toContain('$set');
+    expect(updateEditorText).toContain('$unset');
+    // Parallel hint comments inside each block teach the syntax.
+    expect(updateEditorText).toContain('Fields to update');
+    expect(updateEditorText).toContain('Fields to remove');
+    // The non-obvious bit about $unset is that the value is ignored.
+    expect(updateEditorText).toContain('value is ignored');
   });
 
   it('forces the name-gate when the filter is exactly {}', async () => {
@@ -86,7 +110,46 @@ describe('openBulkUpdate — selection mode', () => {
     root.querySelector('[data-testid="bulk-submit"]').click();
     await flush();
 
-    expect(api.updateMany).toHaveBeenCalledWith('vendors', { _id: { $in: ['a', 'b'] } }, { $set: {} });
+    // Default update is empty `$set` + empty `$unset`, both stripped on submit.
+    expect(api.updateMany).toHaveBeenCalledWith('vendors', { _id: { $in: ['a', 'b'] } }, {});
     expect(onSuccess).toHaveBeenCalled();
+  });
+});
+
+describe('diffJsonContent', () => {
+  function renderDiff(doc, diff) {
+    const root = document.createElement('div');
+    // Wrapper component so preact owns the children diffing — diffJsonContent
+    // returns a mixed array of strings and vnodes, and rendering it via a
+    // function component is the most reliable way to mount that shape.
+    const Wrapper = () => h('pre', null, ...diffJsonContent(doc, diff));
+    render(h(Wrapper, null), root);
+    return root;
+  }
+
+  it('renders $unset entries as struck-through, danger-tinted lines', () => {
+    const doc = { name: 'Acme', legacy: true };
+    const diff = { legacy: { from: true, removed: true } };
+    const root = renderDiff(doc, diff);
+
+    const removed = root.querySelector('.sample-card-line-removed');
+    expect(removed).toBeTruthy();
+    // Original value is shown so the user sees what's being dropped.
+    expect(removed.textContent).toContain('legacy');
+    expect(removed.textContent).toContain('true');
+    // The unchanged field still appears, untouched.
+    expect(root.textContent).toContain('"name": "Acme"');
+  });
+
+  it('renders mixed $set + $unset diffs in the same document body', () => {
+    const doc = { name: 'Acme', legacy: true };
+    const diff = {
+      name: { from: 'Acme', to: 'Beta' },
+      legacy: { from: true, removed: true },
+    };
+    const root = renderDiff(doc, diff);
+
+    expect(root.querySelector('.sample-card-line-changed')).toBeTruthy();
+    expect(root.querySelector('.sample-card-line-removed')).toBeTruthy();
   });
 });
