@@ -126,66 +126,112 @@ async function performDrop(name, snapshot) {
   }
 }
 
-async function confirmDrop(name) {
-  // Look up the size first so we can decide whether undo is feasible. A failed
-  // count is treated the same as "too large" — we'd rather skip undo than
-  // attempt to snapshot a collection of unknown size.
-  let count = null;
-  try {
-    const res = await api.aggregate(name, [{ $count: 'n' }]);
-    count = res.result?.[0]?.n ?? 0;
-  } catch { /* keep null */ }
+// Body of the "Drop collection?" modal. Opens instantly with a "Counting
+// documents…" placeholder and fetches the count in the background — on a
+// large unindexed collection $count can take many seconds, and the user
+// needs to see that work is in progress instead of staring at a frozen UI.
+function DropConfirmBody({ name }) {
+  // count: null = still counting, number = known, false = count failed
+  const [count, setCount] = useState(null);
+  const [confirmText, setConfirmText] = useState('');
+  const [hintMessage, setHintMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const inputRef = useRef(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    api.aggregate(name, [{ $count: 'n' }])
+      .then((res) => {
+        if (cancelled) return;
+        setCount(res.result?.[0]?.n ?? 0);
+      })
+      .catch(() => {
+        // Treat a failed count the same as "too large to snapshot" — we'd
+        // rather skip undo than attempt to snapshot a collection of unknown size.
+        if (cancelled) return;
+        setCount(false);
+      });
+    return () => { cancelled = true; };
+  }, [name]);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const countKnown = count !== null;
   const canUndo = typeof count === 'number' && count <= UNDO_LIMIT;
+  const nameMatches = confirmText === name;
+  const submitDisabled = !countKnown || submitting || !nameMatches;
 
-  let message;
-  if (count === 0) {
-    message = `This will permanently delete the empty collection "${name}".`;
+  let messageEl;
+  if (!countKnown) {
+    messageEl = (
+      <p class="modal-message modal-message-loading">
+        <span class="modal-inline-spinner" aria-hidden="true"></span>
+        <span>Counting documents{'…'}</span>
+      </p>
+    );
+  } else if (count === false) {
+    messageEl = <p class="modal-message">This will permanently delete "{name}" and all its data.</p>;
+  } else if (count === 0) {
+    messageEl = <p class="modal-message">This will permanently delete the empty collection "{name}".</p>;
   } else if (canUndo) {
-    message = `${count.toLocaleString()} document${count !== 1 ? 's' : ''} will be deleted. You'll have a few seconds to undo.`;
-  } else if (typeof count === 'number') {
-    message = `${count.toLocaleString()} documents will be permanently deleted. Undo is unavailable above ${UNDO_LIMIT.toLocaleString()} documents.`;
+    messageEl = <p class="modal-message">{count.toLocaleString()} document{count !== 1 ? 's' : ''} will be deleted. You'll have a few seconds to undo.</p>;
   } else {
-    message = `This will permanently delete "${name}" and all its data.`;
+    messageEl = <p class="modal-message">{count.toLocaleString()} documents will be permanently deleted. Undo is unavailable above {UNDO_LIMIT.toLocaleString()} documents.</p>;
   }
 
-  await promptModal(
-    `Drop "${name}"?`,
-    {
-      message,
-      placeholder: `Type "${name}" to confirm`,
-      submitLabel: 'Drop',
-      submitClass: 'btn-danger',
-    },
-    async (val, hint) => {
-      if (val !== name) {
-        if (hint) {
-          hint.style.color = 'var(--danger)';
-          hint.textContent = `Doesn't match "${name}".`;
-        }
+  async function doSubmit() {
+    if (!nameMatches) {
+      setHintMessage(`Doesn't match "${name}".`);
+      return;
+    }
+    if (!countKnown) return;
+    setSubmitting(true);
+    closeModal();
+
+    const numericCount = typeof count === 'number' ? count : null;
+    if (canUndo) {
+      let snapshot = null;
+      try {
+        loading.value = true;
+        const [docsRes, idxRes] = await Promise.all([
+          numericCount > 0 ? api.aggregate(name, [{ $match: {} }]) : Promise.resolve({ result: [] }),
+          api.listIndexes(name),
+        ]);
+        snapshot = { docs: docsRes.result || [], indexes: idxRes.result || [] };
+      } catch (err) {
+        loading.value = false;
+        error.value = { message: `Snapshot for undo failed: ${err.message}` };
         return;
       }
-      closeModal();
-      if (canUndo) {
-        let snapshot = null;
-        try {
-          loading.value = true;
-          const [docsRes, idxRes] = await Promise.all([
-            count > 0 ? api.aggregate(name, [{ $match: {} }]) : Promise.resolve({ result: [] }),
-            api.listIndexes(name),
-          ]);
-          snapshot = { docs: docsRes.result || [], indexes: idxRes.result || [] };
-        } catch (err) {
-          loading.value = false;
-          error.value = { message: `Snapshot for undo failed: ${err.message}` };
-          return;
-        }
-        performDrop(name, snapshot);
-      } else {
-        performDrop(name, null);
-      }
-    },
+      performDrop(name, snapshot);
+    } else {
+      performDrop(name, null);
+    }
+  }
+
+  return (
+    <div class="modal-body">
+      {messageEl}
+      <input
+        ref={inputRef}
+        class="input"
+        style="width:100%"
+        placeholder={`Type "${name}" to confirm`}
+        value={confirmText}
+        onInput={(e) => { setConfirmText(e.target.value); if (hintMessage) setHintMessage(''); }}
+        onKeyDown={(e) => { if (e.key === 'Enter') doSubmit(); }}
+      />
+      <div class="input-hint" style={hintMessage ? 'color: var(--danger)' : ''}>{hintMessage}</div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>
+        <button class="btn btn-danger" onClick={doSubmit} disabled={submitDisabled}>Drop</button>
+      </div>
+    </div>
   );
+}
+
+function confirmDrop(name) {
+  openModal(`Drop "${name}"?`, () => <DropConfirmBody name={name} />);
 }
 
 export { loadCollections };

@@ -1398,7 +1398,35 @@ body {
 }
 
 .modal-message { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+
+/* "Counting documents…" placeholder shown while the modal opens and the
+   real message is still loading. */
+.modal-message-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modal-inline-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn:disabled:hover { background: var(--bg-card); }
+.btn-danger:disabled:hover { background: var(--danger); }
+.btn-primary:disabled:hover { background: var(--accent); }
+.btn-success:disabled:hover { background: var(--success); }
 .file-input-area {
   border: 2px dashed var(--border); border-radius: var(--radius);
   padding: 16px; text-align: center; cursor: pointer;
