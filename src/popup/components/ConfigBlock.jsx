@@ -1,7 +1,8 @@
 import { h } from 'preact';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
   configUsesLineItems,
+  evaluateCfgCondition,
   queryToPipeline,
   replayConfig,
   substitutePlaceholders,
@@ -94,6 +95,34 @@ export default function ConfigBlock({
   const valuesForCurrentRow = () =>
     usesRows ? valuesForRow(headerValues, rowValues, rowToUse) : headerValues;
 
+  const condInfo = useMemo(
+    () => evaluateCfgCondition(cfg, valuesForCurrentRow(), types),
+    [cfg, headerValues, rowValues, types, rowToUse, usesRows],
+  );
+
+  // The condition status drives two pieces of UI: a strike-through on the
+  // target name when the cfg is gated out (false), and a faint caption row
+  // showing the raw expression (errors render the caption in danger color;
+  // the substituted form and evaluator error are revealed in the tooltip).
+  const condTooltip = (() => {
+    if (!condInfo.hasCondition) return null;
+    const lines = [];
+    if (condInfo.error) {
+      lines.push('action_condition failed to evaluate');
+    } else {
+      lines.push(condInfo.result
+        ? 'action_condition evaluates true — cfg runs'
+        : 'action_condition evaluates false — cfg is skipped');
+    }
+    lines.push(`expression: ${cfg.actionCondition}`);
+    if (condInfo.substituted && condInfo.substituted !== cfg.actionCondition) {
+      lines.push(`evaluated: ${condInfo.substituted}`);
+    }
+    if (condInfo.error) lines.push(`error: ${condInfo.error}`);
+    return lines.join('\n');
+  })();
+  const headGated = condInfo.hasCondition && condInfo.result === false && !condInfo.error;
+
   const copyQuery = async (i) => {
     const pipeline = queryToPipeline(cfg.queries[i].raw);
     if (!pipeline) return;
@@ -113,7 +142,7 @@ export default function ConfigBlock({
       {cfg.name ? (
         <div class="mdh-cfg-name" title={cfg.name}>{cfg.name}</div>
       ) : null}
-      <div class="mdh-cfg-head">
+      <div class={`mdh-cfg-head${headGated ? ' mdh-cfg-head--gated' : ''}`}>
         <span class="mdh-q-target" title={`target_schema_id: ${cfg.target}`}>{cfg.target}</span>
         <span class="mdh-q-arrow">←</span>
         <span
@@ -123,6 +152,15 @@ export default function ConfigBlock({
           {cfg.dataset}
         </span>
       </div>
+
+      {condInfo.hasCondition ? (
+        <div
+          class={`mdh-cfg-cond-caption${condInfo.error ? ' mdh-cfg-cond-caption--error' : ''}`}
+          title={condTooltip}
+        >
+          <code class="mdh-cfg-cond-expr">{cfg.actionCondition}</code>
+        </div>
+      ) : null}
 
       {showPicker ? (
         <div class="mdh-row-picker">

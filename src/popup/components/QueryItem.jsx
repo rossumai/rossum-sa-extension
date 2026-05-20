@@ -59,6 +59,7 @@ export default function QueryItem({ index, label, status, onCopy, onOpen }) {
     'mdh-q',
     status?.status === 'winner' ? 'mdh-q--winner' : '',
     status?.status === 'skipped' ? 'mdh-q--skipped' : '',
+    status?.status === 'gated' ? 'mdh-q--gated' : '',
   ].filter(Boolean).join(' ');
 
   const dotTitle = hint ? `${meta.title} — ${hint}` : meta.title;

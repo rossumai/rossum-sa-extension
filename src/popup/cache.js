@@ -5,8 +5,11 @@ const TTL_MS = 5 * 60 * 1000;
 
 // ── Hook entries (per queue) ──
 
-// v2: cfg.queries entries gained a precomputed `placeholders` array.
-const HOOKS_PREFIX = 'mdhProv:hooks:v2:';
+// v3: cfg entries gained `actionCondition`, `actionConditionPlaceholders`,
+// and `additionalMappings`. v2 entries lack these — treating them as null
+// would mis-render hooks that actually have action_condition / extra mappings,
+// so bump the prefix and let stale entries fall through to a refetch.
+const HOOKS_PREFIX = 'mdhProv:hooks:v3:';
 
 const hooksKey = (domain, queueId) => `${HOOKS_PREFIX}${domain}#${queueId}`;
 

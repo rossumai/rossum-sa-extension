@@ -2,8 +2,11 @@ import { describe, it, expect } from 'vitest';
 import {
   collectPlaceholders,
   describeQuery,
+  evaluateCfgCondition,
+  extractConfigsFromHook,
   filterHookEntries,
   flattenContent,
+  replayConfig,
   substitutePlaceholders,
 } from '../src/popup/mdh-provenance.js';
 
@@ -417,5 +420,193 @@ describe('filterHookEntries', () => {
   it('handles cfgs with missing target gracefully (treated as no-match)', () => {
     const e = [{ hook: { id: 1 }, cfgs: [{ dataset: 'd', queries: [] }] }];
     expect(filterHookEntries(e, 'foo')).toEqual([]);
+  });
+
+  it('matches against additionalMappings targets too', () => {
+    const e = [
+      {
+        hook: { id: 1, name: 'A' },
+        cfgs: [
+          {
+            target: 'vendor_match',
+            dataset: 'd',
+            queries: [],
+            additionalMappings: [
+              { target: 'vendor_name', datasetKey: 'name' },
+              { target: 'vendor_address', datasetKey: 'address' },
+            ],
+          },
+        ],
+      },
+    ];
+    // Primary target doesn't contain 'address' but an additional mapping does.
+    const r = filterHookEntries(e, 'address');
+    expect(r).toHaveLength(1);
+    expect(r[0].cfgs[0].target).toBe('vendor_match');
+  });
+});
+
+// ── extractConfigsFromHook ────────────────────────────
+
+describe('extractConfigsFromHook', () => {
+  it('captures action_condition as a non-empty string, or null', () => {
+    const hook = {
+      settings: {
+        configurations: [
+          {
+            mapping: { target_schema_id: 't1', dataset_key: 'k' },
+            source: { dataset: 'd', queries: [] },
+            action_condition: "'{x}' != 'True'",
+          },
+          {
+            mapping: { target_schema_id: 't2', dataset_key: 'k' },
+            source: { dataset: 'd', queries: [] },
+            action_condition: '   ',
+          },
+          {
+            mapping: { target_schema_id: 't3', dataset_key: 'k' },
+            source: { dataset: 'd', queries: [] },
+          },
+        ],
+      },
+    };
+    const cfgs = extractConfigsFromHook(hook);
+    expect(cfgs).toHaveLength(3);
+    expect(cfgs[0].actionCondition).toBe("'{x}' != 'True'");
+    expect(cfgs[0].actionConditionPlaceholders).toEqual(['x']);
+    expect(cfgs[1].actionCondition).toBe(null);
+    expect(cfgs[1].actionConditionPlaceholders).toEqual([]);
+    expect(cfgs[2].actionCondition).toBe(null);
+  });
+
+  it('captures additional_mappings as a list of {target, datasetKey}', () => {
+    const hook = {
+      settings: {
+        configurations: [
+          {
+            mapping: { target_schema_id: 'primary', dataset_key: 'k' },
+            source: { dataset: 'd', queries: [] },
+            additional_mappings: [
+              { target_schema_id: 'name', dataset_key: 'Name' },
+              { target_schema_id: 'addr', dataset_key: 'Address' },
+              { target_schema_id: '', dataset_key: '' }, // empty entry — dropped
+            ],
+          },
+        ],
+      },
+    };
+    const cfgs = extractConfigsFromHook(hook);
+    expect(cfgs[0].additionalMappings).toEqual([
+      { target: 'name', datasetKey: 'Name' },
+      { target: 'addr', datasetKey: 'Address' },
+    ]);
+  });
+
+  it('defaults additionalMappings to [] when the field is absent or not an array', () => {
+    const hook = {
+      settings: {
+        configurations: [
+          { mapping: { target_schema_id: 't' }, source: { dataset: 'd', queries: [] } },
+          { mapping: { target_schema_id: 't' }, source: { dataset: 'd', queries: [] }, additional_mappings: 'not-an-array' },
+        ],
+      },
+    };
+    const cfgs = extractConfigsFromHook(hook);
+    expect(cfgs[0].additionalMappings).toEqual([]);
+    expect(cfgs[1].additionalMappings).toEqual([]);
+  });
+});
+
+// ── evaluateCfgCondition ──────────────────────────────
+
+describe('evaluateCfgCondition', () => {
+  it('returns hasCondition=false when the cfg has no action_condition', () => {
+    const r = evaluateCfgCondition({ actionCondition: null }, {}, {});
+    expect(r.hasCondition).toBe(false);
+    expect(r.result).toBe(true);
+  });
+
+  it('substitutes placeholders and evaluates the real-world example to true', () => {
+    const cfg = { actionCondition: "'{supplier_invoice_any_wd}' != 'True'" };
+    const r = evaluateCfgCondition(cfg, { supplier_invoice_any_wd: 'something_else' }, {});
+    expect(r.hasCondition).toBe(true);
+    expect(r.result).toBe(true);
+    expect(r.substituted).toBe("'something_else' != 'True'");
+  });
+
+  it('substitutes placeholders and evaluates the real-world example to false', () => {
+    const cfg = { actionCondition: "'{supplier_invoice_any_wd}' != 'True'" };
+    const r = evaluateCfgCondition(cfg, { supplier_invoice_any_wd: 'True' }, {});
+    expect(r.result).toBe(false);
+  });
+
+  it('returns result=true when the placeholder is missing (empty-string substitution)', () => {
+    const cfg = { actionCondition: "'{missing}' != 'True'" };
+    expect(evaluateCfgCondition(cfg, {}, {}).result).toBe(true);
+  });
+
+  it('returns result=null with an error when the expression is malformed', () => {
+    const cfg = { actionCondition: 'foo == bar' };
+    const r = evaluateCfgCondition(cfg, {}, {});
+    expect(r.result).toBe(null);
+    expect(r.error).toMatch(/unknown identifier/);
+  });
+});
+
+// ── replayConfig gating ──────────────────────────────
+
+describe('replayConfig (gating on action_condition)', () => {
+  it('marks every query as `gated` when action_condition evaluates false, without calling MDH', async () => {
+    // No fetch mock — if replayConfig tried to call MDH, this would throw.
+    const cfg = {
+      dataset: 'd',
+      actionCondition: "'{x}' != 'True'",
+      queries: [
+        { label: 'q1', raw: { aggregate: [{ $match: {} }] }, placeholders: [] },
+        { label: 'q2', raw: { aggregate: [{ $match: {} }] }, placeholders: [] },
+      ],
+    };
+    const result = await replayConfig(
+      'https://example.com',
+      'token',
+      cfg,
+      { x: 'True' },
+      undefined,
+      undefined,
+      {},
+    );
+    expect(result).toEqual([
+      { status: 'gated', hint: 'action_condition is false' },
+      { status: 'gated', hint: 'action_condition is false' },
+    ]);
+  });
+
+  it('proceeds to replay queries when action_condition is true (broken-fetch path verifies the gate was passed)', async () => {
+    const cfg = {
+      dataset: 'd',
+      actionCondition: 'True',
+      queries: [
+        { label: 'q1', raw: { aggregate: [{ $match: {} }] }, placeholders: [] },
+      ],
+    };
+    // Stub fetch so replay's HTTP call fails — replay should record an `error`
+    // status, proving it got past the gate.
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => { throw new Error('boom'); };
+    try {
+      const result = await replayConfig(
+        'https://example.com',
+        'token',
+        cfg,
+        {},
+        undefined,
+        undefined,
+        {},
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].status).toBe('error');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

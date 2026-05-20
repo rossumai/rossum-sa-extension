@@ -120,6 +120,7 @@ export default function MdhProvenancePanel({ tab }) {
         for (const { cfgs } of hookEntries) {
           for (const cfg of cfgs) {
             for (const q of cfg.queries) for (const p of q.placeholders) placeholders.add(p);
+            for (const p of (cfg.actionConditionPlaceholders || [])) placeholders.add(p);
             if (cfg.dataset) collectPlaceholders(cfg.dataset, placeholders);
           }
         }

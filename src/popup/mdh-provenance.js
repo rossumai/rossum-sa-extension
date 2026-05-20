@@ -1,6 +1,8 @@
 // MDH provenance — pure cascade replay engine + parsing helpers.
 // No DOM access; consumers (Preact components) render based on returned data.
 
+import { evalCondition } from './actionCondition.js';
+
 // ── API ─────────────────────────────────────────────
 
 export async function fetchJson(url, token) {
@@ -88,7 +90,7 @@ export function queryToPipeline(q, { withLimit } = {}) {
   return pipeline;
 }
 
-function extractConfigsFromHook(hook) {
+export function extractConfigsFromHook(hook) {
   const out = [];
   const cfgs = hook?.settings?.configurations || [];
   for (const cfg of cfgs) {
@@ -97,16 +99,31 @@ function extractConfigsFromHook(hook) {
     const datasetKey = cfg?.mapping?.dataset_key || '';
     const queueIds = Array.isArray(cfg?.queue_ids) ? cfg.queue_ids : [];
     const queries = cfg?.source?.queries || cfg?.matching?.queries || [];
+    const rawCondition = typeof cfg?.action_condition === 'string' ? cfg.action_condition : '';
+    const actionCondition = rawCondition.trim() === '' ? null : rawCondition;
+    const conditionPhSet = new Set();
+    if (actionCondition) collectPlaceholders(actionCondition, conditionPhSet);
+    const additionalMappings = Array.isArray(cfg?.additional_mappings)
+      ? cfg.additional_mappings
+          .map((m) => ({
+            target: m?.target_schema_id || '',
+            datasetKey: m?.dataset_key || '',
+          }))
+          .filter((m) => m.target || m.datasetKey)
+      : [];
     out.push({
       name: cfg?.name || '',
       target: target || '(no target)',
       dataset: dataset || '(no dataset)',
       datasetKey,
       queueIds,
+      actionCondition,
+      // Array (not Set) so the structure survives chrome.storage.session JSON serialization.
+      actionConditionPlaceholders: [...conditionPhSet],
+      additionalMappings,
       queries: queries.map((q) => {
         const set = new Set();
         collectPlaceholders(q, set);
-        // Array (not Set) so the structure survives chrome.storage.session JSON serialization.
         return { label: describeQuery(q), raw: q, placeholders: [...set] };
       }),
     });
@@ -315,17 +332,21 @@ export function buildHookEntries(mdhHooks, queueId) {
     .filter((e) => e.cfgs.length > 0);
 }
 
-// Case-insensitive substring filter on `cfg.target`. Empty/whitespace query
-// returns the input array reference unchanged (cheap "no-op" identity check).
-// Hooks left with zero matching cfgs are dropped.
+// Case-insensitive substring filter against the primary `cfg.target` OR any
+// `cfg.additionalMappings[].target`. Empty/whitespace query returns the input
+// array reference unchanged (cheap "no-op" identity check). Hooks left with
+// zero matching cfgs are dropped.
 export function filterHookEntries(entries, query) {
   const q = (query == null ? '' : String(query)).trim().toLowerCase();
   if (!q) return entries;
+  const matches = (cfg) => {
+    if (String(cfg?.target || '').toLowerCase().includes(q)) return true;
+    const adds = Array.isArray(cfg?.additionalMappings) ? cfg.additionalMappings : [];
+    return adds.some((m) => String(m?.target || '').toLowerCase().includes(q));
+  };
   const out = [];
   for (const { hook, cfgs } of entries) {
-    const filtered = cfgs.filter((cfg) =>
-      String(cfg?.target || '').toLowerCase().includes(q),
-    );
+    const filtered = cfgs.filter(matches);
     if (filtered.length > 0) out.push({ hook, cfgs: filtered });
   }
   return out;
@@ -347,8 +368,27 @@ export const STATUS_GLYPH = {
   winner: { glyph: '✓', cls: 'mdh-q-status--winner', title: 'Winning query', showHint: false },
   empty: { glyph: '—', cls: 'mdh-q-status--empty', title: 'No results', showHint: false },
   skipped: { glyph: '·', cls: 'mdh-q-status--skipped', title: 'Cascade short-circuited before this query', showHint: true },
+  gated: { glyph: '⊘', cls: 'mdh-q-status--gated', title: 'Skipped — action_condition gates this configuration', showHint: true },
   error: { glyph: '!', cls: 'mdh-q-status--error', title: 'Replay failed', showHint: true },
 };
+
+// Evaluates a cfg's `action_condition` against the supplied annotation values.
+// Returns `{ hasCondition, result, error, substituted }` where:
+//   - `hasCondition` is false iff the cfg has no condition (cfg always runs)
+//   - `result` is true | false | null (null on parse/eval error)
+//   - `substituted` is the post-substitution expression (for UI display)
+// A null result is treated as "don't gate" by replayConfig (the user sees the
+// underlying error in the UI; gating on a broken expression would be worse).
+export function evaluateCfgCondition(cfg, values, types) {
+  const expr = cfg?.actionCondition;
+  if (typeof expr !== 'string' || expr.trim() === '') {
+    return { hasCondition: false, result: true, error: null, substituted: null };
+  }
+  const subst = substitutePlaceholders(expr, values || {}, types || {});
+  const sStr = typeof subst === 'string' ? subst : String(subst);
+  const ev = evalCondition(sStr);
+  return { hasCondition: true, result: ev.result, error: ev.error, substituted: sStr };
+}
 
 // ── Cascade replay ─────────────────────────────────
 
@@ -362,6 +402,17 @@ export async function replayConfig(domain, token, cfg, values, signal, onStatus,
     statuses[i] = hint == null ? { status } : { status, hint };
     onStatus?.(i, statuses[i]);
   };
+  // Honor `action_condition` — when it evaluates to false, MDH skips the cfg
+  // entirely, so showing replay results for it would be misleading. A null
+  // result (parse/eval error) is surfaced separately in the UI; we proceed
+  // with replay in that case so the user still sees what the cascade would do.
+  const cond = evaluateCfgCondition(cfg, values, types);
+  if (cond.hasCondition && cond.result === false) {
+    for (let i = 0; i < cfg.queries.length; i++) {
+      record(i, 'gated', 'action_condition is false');
+    }
+    return statuses;
+  }
   let foundWinner = false;
   for (let i = 0; i < cfg.queries.length; i++) {
     if (signal?.aborted) return null;

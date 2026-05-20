@@ -725,8 +725,7 @@ body.popup-wide .mdh-card {
 }
 
 .mdh-cfg-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  display: flex;
   align-items: baseline;
   gap: 4px;
   font-family: var(--font-mono);
@@ -734,6 +733,21 @@ body.popup-wide .mdh-card {
   line-height: 1.3;
   padding: 1px 0 4px;
 }
+.mdh-cfg-head .mdh-q-target,
+.mdh-cfg-head .mdh-q-dataset {
+  flex: 1;
+  min-width: 0;
+}
+
+.mdh-cfg-head--gated .mdh-q-target {
+  text-decoration: line-through;
+  text-decoration-color: currentColor;
+  color: var(--text-hint);
+  font-weight: 400;
+}
+.mdh-cfg-head--gated .mdh-q-dataset { color: var(--text-hint); opacity: 0.75; }
+.mdh-cfg-head--gated .mdh-q-arrow { color: var(--text-hint); }
+
 
 .mdh-q-target {
   color: var(--text-primary);
@@ -818,6 +832,7 @@ body.popup-wide .mdh-card {
 .mdh-q-status--winner { color: #fff; background: #16a34a; }
 .mdh-q-status--empty { color: var(--text-hint); background: transparent; }
 .mdh-q-status--skipped { color: var(--text-hint); background: transparent; opacity: 0.6; }
+.mdh-q-status--gated { color: var(--text-hint); background: transparent; opacity: 0.6; }
 .mdh-q-status--error { color: #fff; background: #c0392b; }
 
 .mdh-q--winner .mdh-q-name {
@@ -825,11 +840,50 @@ body.popup-wide .mdh-card {
   color: var(--text-primary);
 }
 .mdh-q--skipped .mdh-q-num,
-.mdh-q--skipped .mdh-q-name { opacity: 0.45; }
+.mdh-q--skipped .mdh-q-name,
+.mdh-q--gated .mdh-q-num,
+.mdh-q--gated .mdh-q-name { opacity: 0.45; }
 
 @media (prefers-color-scheme: dark) {
   .mdh-q-status--winner { background: #15803d; }
   .mdh-q-status--error { background: #991b1b; }
+}
+
+.mdh-cfg-cond-caption {
+  margin: 0 0 4px;
+  line-height: 1.3;
+  cursor: help;
+  /* The caption itself is just a layout wrapper; the expression badge below
+     carries the visual weight. */
+}
+.mdh-cfg-cond-expr {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+.mdh-cfg-cond-caption--error .mdh-cfg-cond-expr {
+  background: rgba(192, 57, 43, 0.08);
+  border-color: rgba(192, 57, 43, 0.35);
+  color: #c0392b;
+}
+
+@media (prefers-color-scheme: dark) {
+  .mdh-cfg-cond-caption--error .mdh-cfg-cond-expr {
+    background: rgba(248, 113, 113, 0.12);
+    border-color: rgba(248, 113, 113, 0.35);
+    color: #f87171;
+  }
 }
 
 .mdh-q-detail {
