@@ -10,6 +10,7 @@ import * as store from '../src/mdh/store.js';
 import { usePipeline } from '../src/mdh/hooks/usePipeline.js';
 import { useQuery } from '../src/mdh/hooks/useQuery.js';
 import { usePagination } from '../src/mdh/hooks/usePagination.js';
+import JSON5 from 'json5';
 
 function renderHook(hookFn) {
   let result;
@@ -137,6 +138,42 @@ describe('pipeline building (usePipeline)', () => {
   it('leaves unset placeholders as-is', () => {
     const hook = renderHook(usePipeline);
     expect(hook.substitutePlaceholders('{unknown}')).toBe('{unknown}');
+  });
+
+  it('quotes leading-zero numeric strings instead of emitting invalid JSON5', () => {
+    // Regression for the "Fill from Annotation" bug: annotation fields commonly
+    // carry zero-padded IDs (vendor numbers, document numbers, zip codes). The
+    // old `!isNaN(Number(val))` check accepted "007" as a literal — but JSON5
+    // rejects `007` as a number, so the substituted pipeline failed to parse
+    // and the entire PipelineDebug panel disappeared.
+    const hook = renderHook(usePipeline);
+    hook.setPlaceholder('vendor_id', '007');
+    const result = hook.substitutePlaceholders('[{"$match": {"vendor_id": {vendor_id}}}]');
+    expect(result).toBe('[{"$match": {"vendor_id": "007"}}]');
+    expect(() => JSON5.parse(result)).not.toThrow();
+  });
+
+  it('quotes other malformed-as-JSON5 numeric shapes (commas, spaces, repeated dots)', () => {
+    const hook = renderHook(usePipeline);
+    hook.setPlaceholder('a', '5,552.14'); // locale-formatted number from a Rossum field
+    hook.setPlaceholder('b', ' 42 ');     // padded
+    const r = hook.substitutePlaceholders('[{a}, {b}]');
+    // Both must end up as strings (not bare literals) for the result to parse.
+    expect(() => JSON5.parse(r)).not.toThrow();
+    const parsed = JSON5.parse(r);
+    expect(parsed[0]).toBe('5,552.14');
+    expect(parsed[1]).toBe(' 42 ');
+  });
+
+  it('still inlines plain numeric values as JSON5 literals', () => {
+    const hook = renderHook(usePipeline);
+    hook.setPlaceholder('a', '42');
+    hook.setPlaceholder('b', '3.14');
+    hook.setPlaceholder('c', '-5');
+    hook.setPlaceholder('d', '0');
+    const r = hook.substitutePlaceholders('[{a}, {b}, {c}, {d}]');
+    expect(r).toBe('[42, 3.14, -5, 0]');
+    expect(JSON5.parse(r)).toEqual([42, 3.14, -5, 0]);
   });
 
   it('reset clears sort, filter, placeholders, and skip', () => {

@@ -7,6 +7,23 @@ const PLACEHOLDER_RE = /\{(\w+)\}/g;
 // string) from a bare `{name}` (user wants a literal value).
 const PLACEHOLDER_RE_QUOTED = /"\{(\w+)\}"|\{(\w+)\}/g;
 
+// JSON5's number grammar: an optional sign, then either a leading-digit form
+// (`0`, or `1-9` followed by more digits) with optional fractional/exponent
+// parts, or a leading-decimal form (`.5`). Rejects "007", "5,000", " 5 ",
+// and other shapes that Number() would happily coerce but JSON5.parse would
+// not — emitting those as bare literals breaks every downstream consumer
+// (the pipeline editor, the run-query path, and PipelineDebug).
+//
+// Big integers that exceed Number's 53-bit precision still match this regex
+// and will silently lose precision when JSON5 parses them. That's a
+// pre-existing footgun, not specific to Fill-from-Annotation — surface as a
+// future fix; the immediate bug to fix is the parse-time crash on padded IDs.
+const JSON5_NUMBER_RE = /^-?(?:0|[1-9]\d*)(?:\.\d*)?(?:[eE][+-]?\d+)?$|^-?\.\d+(?:[eE][+-]?\d+)?$/;
+
+function isJson5NumberLiteral(val) {
+  return typeof val === 'string' && val !== '' && JSON5_NUMBER_RE.test(val);
+}
+
 // Default sort: _id descending. Stable ordering for pagination, newest-first
 // when _id is an ObjectId, and always indexed (every collection has the `_id_` index).
 // Held in sortState directly so the `_id` column shows its ↓ indicator by default,
@@ -93,7 +110,7 @@ export function usePipeline() {
       if (quotedName) return JSON.stringify(String(val));
       // Bare `{name}` — try literal interpretation first.
       if (val === 'true' || val === 'false' || val === 'null') return val;
-      if (val !== '' && !isNaN(Number(val))) return val;
+      if (isJson5NumberLiteral(val)) return val;
       // Otherwise it's a bare string. JSON-encode it so the result is valid
       // JSON5 — otherwise `{name: ABC}` reaches JSON5.parse, throws, and
       // useQuery silently drops the request.
