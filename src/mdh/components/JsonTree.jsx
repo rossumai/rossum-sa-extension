@@ -126,8 +126,8 @@ function JsonTreeRow({ fieldKey, value, fullPath, depth, collapseDepth, sortStat
     return (
       <div class="json-tree-row">
         <button class={keyCls} title={keyTitle} onClick={handleKeyClick}>{fieldKey}{sortInd}</button>
-        <span class="json-tree-sep">: </span>
-        <span class="json-tree-badge">{info.label}</span>
+        <span class="json-tree-sep">:</span>
+        <span class={'json-tree-badge ' + info.css}>{info.label}</span>
         <button
           class={'json-tree-value json-tree-value-clickable ' + info.css
             + (filtered ? ' json-tree-value-filtered' : '')

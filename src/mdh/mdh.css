@@ -844,13 +844,15 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  padding: 1px 4px;
+  padding: 0 3px;
   border-radius: 3px;
-  margin-right: 4px;
+  margin: 0 4px;
   flex-shrink: 0;
-  background: var(--bg-hover);
+  background: color-mix(in srgb, currentColor 14%, transparent);
   color: var(--text-secondary);
 }
+
+.json-tree-badge.json-tree-value-null { font-style: normal; }
 
 .json-tree-value-oid { color: #9d6dca; }
 .json-tree-value-date { color: #0d9488; }
