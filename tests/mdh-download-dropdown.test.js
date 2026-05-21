@@ -11,6 +11,7 @@ function mount(props) {
 }
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
+const flushEffects = () => new Promise((r) => setTimeout(r, 20));
 
 beforeEach(() => { document.body.innerHTML = ''; });
 
@@ -70,5 +71,31 @@ describe('DownloadSplitButton', () => {
     btn.click();
     await flush();
     expect(root.querySelector('.toolbar-more-menu')).toBeNull();
+  });
+
+  it('closes when a mousedown happens outside the dropdown', async () => {
+    const root = mount({ onAll: () => {}, onFiltered: () => {} });
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+
+    root.querySelector('button').click();
+    await flushEffects();
+    expect(root.querySelector('.toolbar-more-menu')).not.toBeNull();
+
+    outside.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    await flushEffects();
+    expect(root.querySelector('.toolbar-more-menu')).toBeNull();
+  });
+
+  it('stays open when a mousedown happens inside the dropdown', async () => {
+    const root = mount({ onAll: () => {}, onFiltered: () => {} });
+    root.querySelector('button').click();
+    await flushEffects();
+    const menu = root.querySelector('.toolbar-more-menu');
+    expect(menu).not.toBeNull();
+
+    menu.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    await flushEffects();
+    expect(root.querySelector('.toolbar-more-menu')).not.toBeNull();
   });
 });

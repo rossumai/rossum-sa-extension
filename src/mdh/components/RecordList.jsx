@@ -193,9 +193,20 @@ export default function RecordList({
 
 function SplitButton({ label, cls, onMain, onFile }) {
   const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onMouseDown(e) {
+      if (rootRef.current?.contains(e.target)) return;
+      setOpen(false);
+    }
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [open]);
 
   return (
-    <div class="split-btn">
+    <div ref={rootRef} class="split-btn">
       <button class={`btn btn-sm ${cls}`} onClick={onMain}>{label}</button>
       <button class={`btn btn-sm split-btn-drop ${cls}`} onClick={(e) => { e.stopPropagation(); setOpen(!open); }}>{'\u25BE'}</button>
       {open && (
@@ -254,8 +265,20 @@ function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh
 
 function BulkSplitButton({ onUpdate, onDelete }) {
   const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onMouseDown(e) {
+      if (rootRef.current?.contains(e.target)) return;
+      setOpen(false);
+    }
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [open]);
+
   return (
-    <div class="dropdown-btn">
+    <div ref={rootRef} class="dropdown-btn">
       <button class="btn btn-sm" onClick={(e) => { e.stopPropagation(); setOpen(!open); }}>
         Bulk {'\u25BE'}
       </button>
