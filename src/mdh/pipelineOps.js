@@ -101,3 +101,25 @@ export function extractUIStateFromPipeline(pipeline) {
 
   return { sorts, filters };
 }
+
+// Drop the contiguous trailing run of `$skip` / `$limit` stages from a
+// pipeline, returning a new array. Mid-pipeline `$skip` / `$limit` stages
+// are preserved — they may be query-specific (e.g., a `$limit` cap before a
+// `$group`, or a `$skip` that's part of the query semantics).
+//
+// Used by the download flow: the editor's trailing pagination stages are for
+// paging the on-screen preview, not for the export — the downloader appends
+// its own `$skip` / `$limit` per batch.
+export function stripPaginationStages(pipeline) {
+  if (!Array.isArray(pipeline)) {
+    throw new Error('Pipeline must be a JSON array');
+  }
+  let end = pipeline.length;
+  while (end > 0) {
+    const stage = pipeline[end - 1];
+    if (!stage || typeof stage !== 'object') break;
+    if (!('$skip' in stage) && !('$limit' in stage)) break;
+    end--;
+  }
+  return pipeline.slice(0, end);
+}

@@ -49,9 +49,15 @@ export async function downloadCollection(collectionName, opts = {}) {
     batchSize = BATCH_SIZE,
     concurrency = CONCURRENCY,
     maxBuffered = MAX_BUFFERED,
+    // Prepended to every batch's aggregate call. Default downloads the raw
+    // collection; pass `[{$match: ...}, {$sort: ...}, ...]` to export the
+    // result of a filtered/transformed pipeline. The downloader appends its
+    // own `$skip` / `$limit` per batch — callers should strip those.
+    pipelineStages = [{ $match: {} }],
+    filename: filenameOpt,
   } = opts;
 
-  const filename = `${collectionName}.json`;
+  const filename = filenameOpt || `${collectionName}.json`;
 
   // Picker must be the first await after the user gesture — any earlier
   // await would invalidate transient activation and the browser would
@@ -144,7 +150,7 @@ export async function downloadCollection(collectionName, opts = {}) {
 
         try {
           const res = await api.aggregate(collectionName, [
-            { $match: {} },
+            ...pipelineStages,
             { $skip: myOffset },
             { $limit: batchSize },
           ]);

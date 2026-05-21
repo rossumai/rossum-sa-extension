@@ -2,6 +2,7 @@ import { h } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { skip, limit, selectedCollection, selectionMode, selectedIds, selectionPipelineDirty } from '../store.js';
 import RecordCard from './RecordCard.jsx';
+import DownloadSplitButton from './DownloadSplitButton.jsx';
 import JSON5 from 'json5';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
@@ -218,11 +219,17 @@ function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh
         {downloadState ? (
           <span class="download-progress">
             <span class="download-progress-text">
-              {downloadState.cancelled ? 'Cancelled' : downloadState.done ? `\u2713 ${downloadState.count} records` : `Downloading\u2026 ${downloadState.count}${downloadState.total ? ' / ' + downloadState.total : ''} records`}
+              {downloadState.counting
+                ? 'Counting matching documents\u2026'
+                : downloadState.cancelled
+                  ? 'Cancelled'
+                  : downloadState.done
+                    ? `\u2713 ${downloadState.count} records`
+                    : `Downloading\u2026 ${downloadState.count}${downloadState.total ? ' / ' + downloadState.total : ''} records${downloadState.filtered ? ' (filtered)' : ''}`}
             </span>
             {!downloadState.cancelled && !downloadState.done && (
               <span class="download-bar">
-                {downloadState.total > 0
+                {!downloadState.counting && downloadState.total > 0
                   ? <span class="download-bar-fill" style={`width:${Math.min(100, Math.round((downloadState.count / downloadState.total) * 100))}%`}></span>
                   : <span class="download-bar-fill download-bar-indeterminate"></span>
                 }
@@ -233,7 +240,10 @@ function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh
             )}
           </span>
         ) : (
-          <button class="btn btn-sm" title="Download entire collection as JSON" onClick={() => onRefresh('download')}>Download all</button>
+          <DownloadSplitButton
+            onAll={() => onRefresh('download')}
+            onFiltered={() => onRefresh('download-filtered')}
+          />
         )}
         <BulkSplitButton onUpdate={onBulkUpdate} onDelete={onBulkDelete} />
         <SplitButton label="Insert" cls="btn-success" onMain={() => onRefresh('insert')} onFile={() => onRefresh('insert-file')} />

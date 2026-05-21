@@ -425,3 +425,111 @@ describe('downloadCollection — output format', () => {
     expect(actual).toBe(expected);
   });
 });
+
+describe('downloadCollection — pipelineStages option (filtered download)', () => {
+  it('prepends the supplied pipeline stages to every batch aggregate call', async () => {
+    api.aggregate
+      .mockResolvedValueOnce({ result: [{ _id: 1 }] })
+      .mockResolvedValueOnce({ result: [{ _id: 2 }] });
+
+    const writer = fakeWriter();
+    await downloadCollection('orders', {
+      batchSize: 1,
+      concurrency: 1,
+      fetchCount: async () => 2,
+      pipelineStages: [
+        { $match: { status: 'paid' } },
+        { $sort: { date: -1 } },
+      ],
+      pickFile: () => Promise.resolve(fakeHandle(writer)),
+    });
+
+    expect(api.aggregate).toHaveBeenNthCalledWith(1, 'orders', [
+      { $match: { status: 'paid' } },
+      { $sort: { date: -1 } },
+      { $skip: 0 },
+      { $limit: 1 },
+    ]);
+    expect(api.aggregate).toHaveBeenNthCalledWith(2, 'orders', [
+      { $match: { status: 'paid' } },
+      { $sort: { date: -1 } },
+      { $skip: 1 },
+      { $limit: 1 },
+    ]);
+  });
+
+  it('still writes a valid JSON array with filtered/projected results', async () => {
+    const docs = [{ name: 'alpha' }, { name: 'beta' }];
+    api.aggregate.mockResolvedValueOnce({ result: docs });
+
+    const writer = fakeWriter();
+    await downloadCollection('orders', {
+      fetchCount: async () => 2,
+      pipelineStages: [
+        { $match: { status: 'paid' } },
+        { $project: { _id: 0, name: 1 } },
+      ],
+      pickFile: () => Promise.resolve(fakeHandle(writer)),
+    });
+
+    expect(JSON.parse(writer.chunks.join(''))).toEqual(docs);
+  });
+
+  it('defaults to $match {} when pipelineStages is omitted (backwards compatible)', async () => {
+    api.aggregate.mockResolvedValueOnce({ result: [{ _id: 1 }] });
+    const writer = fakeWriter();
+    await downloadCollection('c', {
+      fetchCount: async () => 1,
+      pickFile: () => Promise.resolve(fakeHandle(writer)),
+    });
+    expect(api.aggregate).toHaveBeenCalledWith('c', [
+      { $match: {} },
+      { $skip: 0 },
+      { $limit: 1000 },
+    ]);
+  });
+});
+
+describe('downloadCollection — filename option', () => {
+  it('uses the supplied filename for the Blob fallback download', async () => {
+    api.aggregate.mockResolvedValueOnce({ result: [{ _id: 1 }] });
+    const downloadBlob = vi.fn();
+
+    await downloadCollection('orders', {
+      fetchCount: async () => 1,
+      pickFile: () => Promise.resolve(null),
+      downloadBlob,
+      filename: 'orders-filtered.json',
+    });
+
+    expect(downloadBlob).toHaveBeenCalledOnce();
+    expect(downloadBlob.mock.calls[0][1]).toBe('orders-filtered.json');
+  });
+
+  it('passes the supplied filename to the file picker as suggestedName', async () => {
+    api.aggregate.mockResolvedValueOnce({ result: [{ _id: 1 }] });
+    const writer = fakeWriter();
+    const pickFile = vi.fn(() => Promise.resolve(fakeHandle(writer)));
+
+    await downloadCollection('orders', {
+      fetchCount: async () => 1,
+      pickFile,
+      filename: 'orders-filtered.json',
+    });
+
+    expect(pickFile).toHaveBeenCalledWith('orders-filtered.json');
+  });
+
+  it('defaults to <collection>.json when filename is omitted', async () => {
+    api.aggregate.mockResolvedValueOnce({ result: [{ _id: 1 }] });
+    const downloadBlob = vi.fn();
+
+    await downloadCollection('mycoll', {
+      fetchCount: async () => 1,
+      pickFile: () => Promise.resolve(null),
+      downloadBlob,
+    });
+
+    expect(downloadBlob.mock.calls[0][1]).toBe('mycoll.json');
+  });
+});

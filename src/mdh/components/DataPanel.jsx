@@ -19,7 +19,7 @@ import { showUndo } from '../undo.js';
 import { addToHistory } from './QueryHistory.jsx';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
-import { applySortToPipeline, applyFilterDeltaToPipeline, applySkipToPipeline, extractUIStateFromPipeline } from '../pipelineOps.js';
+import { applySortToPipeline, applyFilterDeltaToPipeline, applySkipToPipeline, extractUIStateFromPipeline, stripPaginationStages } from '../pipelineOps.js';
 import { savePipelineState, getPipelineState } from '../pipelineState.js';
 import { downloadCollection as runDownload } from '../downloadCollection.js';
 import JSON5 from 'json5';
@@ -30,8 +30,9 @@ export default function DataPanel() {
   const query = useQuery();
   const pagination = usePagination();
   const leftRef = useRef(null);
-  const [downloadState, setDownloadState] = useState(null); // null | { count, cancelled }
+  const [downloadState, setDownloadState] = useState(null); // null | { count, total, filtered?, counting?, cancelled?, done? }
   const downloadCancelRef = useRef(false);
+  const downloadCountAbortRef = useRef(null); // AbortController for the pre-flight count of filtered downloads
   // When switching collections via a saved/recent pipeline, stash the payload
   // so the collection-change effect can apply it instead of running the default.
   const pendingLoadRef = useRef(null); // null | { pipelineText, variables }
@@ -355,7 +356,9 @@ export default function DataPanel() {
 
   function handleToolbarAction(action) {
     if (action === 'download') {
-      downloadCollection();
+      downloadAll();
+    } else if (action === 'download-filtered') {
+      downloadFiltered();
     } else if (action === 'insert') {
       openDataOperations('insert', invalidateAndRun, currentFields);
     } else if (action === 'insert-file') {
@@ -372,7 +375,7 @@ export default function DataPanel() {
     handleSetPlaceholder._timer = setTimeout(runQuery, 400);
   }
 
-  async function downloadCollection() {
+  async function downloadAll() {
     const tc = pagination.totalCount.value;
     if (tc !== null && tc > 10_000) {
       const proceed = await confirmModal(
@@ -382,26 +385,97 @@ export default function DataPanel() {
       if (!proceed) return;
     }
 
+    const col = collection;
+    await runDownloadJob({
+      pipelineStages: [{ $match: {} }],
+      filename: `${col}.json`,
+      filtered: false,
+      fetchCount: async () => {
+        if (pagination.totalCount.value !== null) return pagination.totalCount.value;
+        const r = await api.aggregate(col, [{ $count: 'total' }]);
+        return r.result?.[0]?.total ?? 0;
+      },
+    });
+  }
+
+  async function downloadFiltered() {
+    if (!editorRef.current) return;
+
+    let pipelineStages;
+    try {
+      const text = pipeline.substitutePlaceholders(editorRef.current.getValue());
+      const parsed = JSON5.parse(text);
+      if (!Array.isArray(parsed)) throw new Error('pipeline must be a JSON array');
+      pipelineStages = stripPaginationStages(parsed);
+    } catch (err) {
+      error.value = { message: `Cannot download filtered: ${err.message}` };
+      return;
+    }
+
+    // Pre-flight count so we can (a) populate the progress bar's total and
+    // (b) gate the >10k confirmation on the filtered subset, not the whole
+    // collection. Cancellable while in flight.
     downloadCancelRef.current = false;
-    setDownloadState({ count: 0, total: tc });
+    error.value = null;
+    setDownloadState({ counting: true, filtered: true });
+
+    const ac = new AbortController();
+    downloadCountAbortRef.current = ac;
+    const col = collection;
+    let filteredCount;
+    try {
+      const r = await api.aggregate(col, [...pipelineStages, { $count: 'total' }], { signal: ac.signal });
+      filteredCount = r.result?.[0]?.total ?? 0;
+    } catch (err) {
+      downloadCountAbortRef.current = null;
+      if (downloadCancelRef.current || err.name === 'AbortError') {
+        setDownloadState(null);
+        return;
+      }
+      error.value = { message: `Cannot download filtered: ${err.message}` };
+      setDownloadState(null);
+      return;
+    }
+    downloadCountAbortRef.current = null;
+
+    if (downloadCancelRef.current) { setDownloadState(null); return; }
+
+    if (filteredCount > 10_000) {
+      setDownloadState(null);
+      const proceed = await confirmModal(
+        'Large download',
+        `This filter matches ${filteredCount.toLocaleString()} documents. Downloading may take a while and use significant memory. Continue?`,
+      );
+      if (!proceed) return;
+    }
+
+    await runDownloadJob({
+      pipelineStages,
+      filename: `${col}-filtered.json`,
+      filtered: true,
+      fetchCount: async () => filteredCount,
+    });
+  }
+
+  async function runDownloadJob({ pipelineStages, filename, filtered, fetchCount }) {
+    downloadCancelRef.current = false;
+    setDownloadState({ count: 0, total: null, filtered });
     error.value = null;
 
     try {
       const col = collection;
       const result = await runDownload(col, {
-        fetchCount: async () => {
-          if (pagination.totalCount.value !== null) return pagination.totalCount.value;
-          const r = await api.aggregate(col, [{ $count: 'total' }]);
-          return r.result?.[0]?.total ?? 0;
-        },
+        pipelineStages,
+        filename,
+        fetchCount,
         isCancelled: () => downloadCancelRef.current,
-        onProgress: ({ fetched, total }) => setDownloadState({ count: fetched, total }),
+        onProgress: ({ fetched, total }) => setDownloadState({ count: fetched, total, filtered }),
       });
       if (result.cancelled) {
-        setDownloadState({ count: result.fetched, cancelled: true });
+        setDownloadState({ count: result.fetched, cancelled: true, filtered });
         setTimeout(() => setDownloadState(null), 1500);
       } else {
-        setDownloadState({ count: result.fetched, done: true });
+        setDownloadState({ count: result.fetched, done: true, filtered });
         setTimeout(() => setDownloadState(null), 2000);
       }
     } catch (err) {
@@ -414,6 +488,10 @@ export default function DataPanel() {
 
   function cancelDownload() {
     downloadCancelRef.current = true;
+    if (downloadCountAbortRef.current) {
+      try { downloadCountAbortRef.current.abort(); } catch { /* already aborted */ }
+      downloadCountAbortRef.current = null;
+    }
   }
 
   let parsedPipeline = null;
