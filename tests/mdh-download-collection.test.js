@@ -73,11 +73,47 @@ describe('downloadCollection — streaming (FileSystem Access) path', () => {
 
     expect(result.fetched).toBe(2500);
     expect(api.aggregate).toHaveBeenCalledTimes(3);
-    expect(api.aggregate).toHaveBeenNthCalledWith(1, 'big', [{ $match: {} }, { $skip: 0 }, { $limit: 1000 }]);
-    expect(api.aggregate).toHaveBeenNthCalledWith(2, 'big', [{ $match: {} }, { $skip: 1000 }, { $limit: 1000 }]);
-    expect(api.aggregate).toHaveBeenNthCalledWith(3, 'big', [{ $match: {} }, { $skip: 2000 }, { $limit: 1000 }]);
+    // Every batch must include the {$sort: {_id: 1}} we inject — without it,
+    // MongoDB's natural order isn't stable across separate aggregate calls
+    // and adjacent windows overlap, producing duplicate _ids in the output.
+    expect(api.aggregate).toHaveBeenNthCalledWith(1, 'big', [{ $match: {} }, { $sort: { _id: 1 } }, { $skip: 0 }, { $limit: 1000 }]);
+    expect(api.aggregate).toHaveBeenNthCalledWith(2, 'big', [{ $match: {} }, { $sort: { _id: 1 } }, { $skip: 1000 }, { $limit: 1000 }]);
+    expect(api.aggregate).toHaveBeenNthCalledWith(3, 'big', [{ $match: {} }, { $sort: { _id: 1 } }, { $skip: 2000 }, { $limit: 1000 }]);
     const parsed = JSON.parse(writer.chunks.join(''));
     expect(parsed).toEqual(docs);
+  });
+
+  it('preserves a caller-provided sort instead of overriding it', async () => {
+    api.aggregate.mockResolvedValueOnce({ result: [{ _id: 1 }] });
+    const writer = fakeWriter();
+    await downloadCollection('c', {
+      fetchCount: async () => 1,
+      pipelineStages: [{ $match: { status: 'open' } }, { $sort: { name: 1, _id: 1 } }],
+      pickFile: () => Promise.resolve(fakeHandle(writer)),
+    });
+    expect(api.aggregate).toHaveBeenCalledWith('c', [
+      { $match: { status: 'open' } },
+      { $sort: { name: 1, _id: 1 } },
+      { $skip: 0 },
+      { $limit: 1000 },
+    ]);
+  });
+
+  it('appends the trailing _id sort when the caller\'s pipeline ends with a non-sort stage', async () => {
+    api.aggregate.mockResolvedValueOnce({ result: [{ _id: 1 }] });
+    const writer = fakeWriter();
+    await downloadCollection('c', {
+      fetchCount: async () => 1,
+      pipelineStages: [{ $match: { active: true } }, { $project: { name: 1 } }],
+      pickFile: () => Promise.resolve(fakeHandle(writer)),
+    });
+    expect(api.aggregate).toHaveBeenCalledWith('c', [
+      { $match: { active: true } },
+      { $project: { name: 1 } },
+      { $sort: { _id: 1 } },
+      { $skip: 0 },
+      { $limit: 1000 },
+    ]);
   });
 
   it('writes batches in source order even when later batches resolve first', async () => {
@@ -484,6 +520,7 @@ describe('downloadCollection — pipelineStages option (filtered download)', () 
     });
     expect(api.aggregate).toHaveBeenCalledWith('c', [
       { $match: {} },
+      { $sort: { _id: 1 } },
       { $skip: 0 },
       { $limit: 1000 },
     ]);

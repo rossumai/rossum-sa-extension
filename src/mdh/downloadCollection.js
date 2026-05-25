@@ -31,6 +31,15 @@ import * as api from './api.js';
 // inside the buffer-room wait. The streaming file, if any, is aborted on
 // cancel so the partial file is discarded rather than left as half-valid
 // JSON on the user's disk.
+//
+// Stable ordering across batches: each worker issues its OWN aggregate
+// call, and MongoDB does not guarantee a stable natural order across
+// independent aggregations on the same collection. Without an explicit
+// sort, adjacent $skip/$limit windows can overlap (the same doc appears
+// in two batches) AND leave gaps (other docs missed entirely). We append
+// {$sort: {_id: 1}} to the pipeline when the caller hasn't provided
+// their own sort, so every worker scans in the same deterministic order.
+// {_id: 1} uses the always-present _id index, so this is free.
 
 export const BATCH_SIZE = 1000;
 export const CONCURRENCY = 10;
@@ -52,7 +61,10 @@ export async function downloadCollection(collectionName, opts = {}) {
     // Prepended to every batch's aggregate call. Default downloads the raw
     // collection; pass `[{$match: ...}, {$sort: ...}, ...]` to export the
     // result of a filtered/transformed pipeline. The downloader appends its
-    // own `$skip` / `$limit` per batch — callers should strip those.
+    // own `$sort` (if absent), `$skip`, and `$limit` per batch — callers
+    // should strip those. Callers sorting on a non-unique field should
+    // include `_id` as a tie-breaker (e.g. `{$sort: {name: 1, _id: 1}}`)
+    // to keep batch boundaries stable.
     pipelineStages = [{ $match: {} }],
     filename: filenameOpt,
   } = opts;
@@ -85,6 +97,14 @@ export async function downloadCollection(collectionName, opts = {}) {
 
     const offsets = [];
     for (let s = 0; s < total; s += batchSize) offsets.push(s);
+
+    // Inject a deterministic sort unless the caller already ended their
+    // pipeline with one. Without this, separate aggregate calls can iterate
+    // the collection in different orders and the workers' $skip/$limit
+    // windows overlap.
+    const stages = pipelineEndsWithSort(pipelineStages)
+      ? pipelineStages
+      : [...pipelineStages, { $sort: { _id: 1 } }];
 
     const parts = [];
     let docsWritten = 0;
@@ -150,7 +170,7 @@ export async function downloadCollection(collectionName, opts = {}) {
 
         try {
           const res = await api.aggregate(collectionName, [
-            ...pipelineStages,
+            ...stages,
             { $skip: myOffset },
             { $limit: batchSize },
           ]);
@@ -201,6 +221,12 @@ export async function downloadCollection(collectionName, opts = {}) {
 // spaces to the doc and to every internal newline.
 function formatDoc(doc) {
   return '  ' + JSON.stringify(doc, null, 2).replace(/\n/g, '\n  ');
+}
+
+function pipelineEndsWithSort(stages) {
+  if (!Array.isArray(stages) || stages.length === 0) return false;
+  const last = stages[stages.length - 1];
+  return last && typeof last === 'object' && Object.prototype.hasOwnProperty.call(last, '$sort');
 }
 
 async function safeAbort(writer) {
