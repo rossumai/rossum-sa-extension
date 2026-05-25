@@ -9,33 +9,50 @@ export function init() {
 [data-cy="extensions-list-name"],
 [data-cy="rule-tile"],
 [data-field="original_file_name"],
-[data-field="name"],
 [data-sentry-component="LabelChip"] {
   position: relative !important;
   overflow: visible !important;
 }
 
+/* Graph bubble cell + Users name cell: need position:relative for badge
+   anchoring, but NOT overflow:visible — Rossum relies on overflow:hidden +
+   text-overflow:ellipsis here to truncate long names. Forcing visible lets
+   the name overflow into adjacent space (graph: pushes the gear/squares
+   buttons past the bubble border; users: name spills into the email column).
+   The badge sits inside the cell at bottom-right or cell-overlay, so clipping
+   is fine. */
+[data-cy^="extension-cell-"],
+[data-field="name"] {
+  position: relative !important;
+}
+
 .rossum-sa-extension-resource-id {
   position: absolute;
-  top: 0;
-  right: 0;
-  color: red;
-  font-size: 10px;
-  transition: font-size 0.25s ease-in-out, opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
-  opacity: .7;
-  margin-inline: 3px;
+  top: 2px;
+  right: 2px;
+  font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', 'Roboto Mono', Menlo, Consolas, monospace;
+  font-size: 9px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  color: rgba(190, 40, 70, 0.6);
+  background-color: rgba(255, 255, 255, 0.75);
+  padding: 1px 4px;
+  border-radius: 4px;
+  opacity: 0.85;
   z-index: 100;
-  background-color: rgba(255,255,255,0.5);
   pointer-events: auto;
   cursor: pointer;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease, font-size 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .rossum-sa-extension-resource-id:hover {
-  font-size: 16px;
   opacity: 1;
-  background-color: rgba(255, 255, 255, 0.9);
-  border-radius: 3px;
-  padding-inline: 3px;
+  font-size: 11px;
+  color: rgba(190, 40, 70, 1);
+  background-color: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
   z-index: 9999;
 }
 
@@ -43,18 +60,31 @@ export function init() {
   top: auto;
   right: auto;
   bottom: 2px;
-  left: 0;
+  left: 2px;
+}
+
+.rossum-sa-extension-resource-id--bottom-right {
+  top: auto;
+  bottom: 2px;
 }
 
 .rossum-sa-extension-resource-id--below {
   top: 100%;
   right: auto;
-  left: 0;
+  left: 2px;
 }
 
 .rossum-sa-extension-resource-id--left-offset {
   right: auto;
   left: 100%;
+  margin-left: 4px;
+}
+
+.rossum-sa-extension-resource-id--cell-overlay {
+  top: 50%;
+  right: auto;
+  left: 2px;
+  transform: translateY(-50%);
 }`;
   document.head?.appendChild(style);
 }
@@ -122,6 +152,16 @@ export function handleNode(node) {
     }
   }
 
+  // Extensions dependency graph: each bubble has [data-cy="extension-cell-<slug>"]
+  // wrapping the leaf icon and name. The ID lives in the sibling gear link's href.
+  if (node.matches('[data-cy^="extension-cell-"]')) {
+    const link = node.parentElement?.querySelector('a[data-cy="go-to-extension-settings"]');
+    const match = (link?.getAttribute('href') ?? '').match(/\/extensions\/my-extensions\/(\d+)/);
+    if (match) {
+      displayResourceId(node, match[1], 'cell-overlay');
+    }
+  }
+
   // Settings > Labels screen: name-matched via API
   if (node.matches('[data-sentry-component="LabelChip"]')) {
     const nameEl = node.querySelector('.MuiChip-label');
@@ -139,13 +179,15 @@ export function handleNode(node) {
     displayResourceId(node, node.dataset.id);
   }
 
-  // Settings > Users screen: label on the name cell, ID from parent anchor href
+  // Settings > Users screen: label on the name cell, ID from parent anchor href.
+  // Use bottom-right placement so the badge sits in the cell's lower whitespace
+  // below the vertically-centered name text, avoiding overlap with long names.
   if (node.matches('[data-field="name"]')) {
     const anchor = node.closest('a[href*="/settings/users/"]');
     if (anchor) {
       const match = (anchor.getAttribute('href') ?? '').match(/\/settings\/users\/(\d+)/);
       if (match) {
-        displayResourceId(node, match[1]);
+        displayResourceId(node, match[1], 'bottom-right');
       }
     }
   }
