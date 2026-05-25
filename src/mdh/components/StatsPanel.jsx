@@ -154,7 +154,7 @@ export default function StatsPanel() {
   const [discovering, setDiscovering] = useState(false);
   const runIdRef = useRef(0);
 
-  const SECTION_ORDER = ['overview', 'coverage', 'schema', 'cardinality', 'strings', 'numeric', 'dates', 'distribution'];
+  const SECTION_ORDER = ['overview', 'distribution', 'coverage', 'schema', 'cardinality', 'strings', 'numeric', 'dates'];
 
   function setStatus(key, value) {
     setStatuses((prev) => ({ ...prev, [key]: value }));
@@ -446,6 +446,36 @@ export default function StatsPanel() {
           );
         })()}
 
+        {/* Value Distribution */}
+        {distribution && canShow('distribution') && (
+          <Section title={`Value Distribution (top ${TOP_VALUES})`} status={statuses.distribution}>
+            <div class="stats-note">The most frequently occurring values for each field, with their count. Useful for spotting placeholder data (e.g., "N/A", "TBD"), unexpected duplicates, or fields dominated by a single value.</div>
+            <div class="stats-dist-grid">
+              {distribution.map((d) => (
+                <div class="stats-dist-card">
+                  <div class="stats-dist-field"><FieldName path={d.field} /></div>
+                  {d.values.length === 0 ? (
+                    <div class="stats-dist-empty">no values</div>
+                  ) : (
+                    (() => {
+                      const maxCount = d.values[0]?.count || 1;
+                      return d.values.map((v) => (
+                        <div class={`stats-dist-row${isSpecialValue(v.value) ? ' stats-dist-row-special' : ''}`}>
+                          <div class="stats-dist-bar" style={{ width: `${Math.round((v.count / maxCount) * 100)}%` }} />
+                          <span class="stats-dist-value" title={formatValue(v.value)}>
+                            <FormattedValue value={v.value} />
+                          </span>
+                          <span class="stats-dist-count">{v.count.toLocaleString()}</span>
+                        </div>
+                      ));
+                    })()
+                  )}
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
         {/* ── Data Quality ─────────────────────────── */}
 
         {/* Field Quality (merged: coverage + empties + types) */}
@@ -721,36 +751,6 @@ export default function StatsPanel() {
                 {dateRanges.length > 1 && <DateTimeline ranges={dateRanges} />}
               </Fragment>
             )}
-          </Section>
-        )}
-
-        {/* Value Distribution */}
-        {distribution && canShow('distribution') && (
-          <Section title={`Value Distribution (top ${TOP_VALUES})`} status={statuses.distribution}>
-            <div class="stats-note">The most frequently occurring values for each field, with their count. Useful for spotting placeholder data (e.g., "N/A", "TBD"), unexpected duplicates, or fields dominated by a single value.</div>
-            <div class="stats-dist-grid">
-              {distribution.map((d) => (
-                <div class="stats-dist-card">
-                  <div class="stats-dist-field"><FieldName path={d.field} /></div>
-                  {d.values.length === 0 ? (
-                    <div class="stats-dist-empty">no values</div>
-                  ) : (
-                    (() => {
-                      const maxCount = d.values[0]?.count || 1;
-                      return d.values.map((v) => (
-                        <div class={`stats-dist-row${isSpecialValue(v.value) ? ' stats-dist-row-special' : ''}`}>
-                          <div class="stats-dist-bar" style={{ width: `${Math.round((v.count / maxCount) * 100)}%` }} />
-                          <span class="stats-dist-value" title={formatValue(v.value)}>
-                            <FormattedValue value={v.value} />
-                          </span>
-                          <span class="stats-dist-count">{v.count.toLocaleString()}</span>
-                        </div>
-                      ));
-                    })()
-                  )}
-                </div>
-              ))}
-            </div>
           </Section>
         )}
 
