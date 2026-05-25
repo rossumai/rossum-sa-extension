@@ -3,6 +3,7 @@ import { useState, useRef } from 'preact/hooks';
 import { selectedCollection, loading, error } from '../store.js';
 import { openModal, closeModal } from './Modal.jsx';
 import JsonEditor from './JsonEditor.jsx';
+import InsertFileWizard from './InsertFileWizard.jsx';
 import * as api from '../api.js';
 
 function FileInput({ onParsed }) {
@@ -67,29 +68,27 @@ export function openDataOperations(mode, onSuccess, fieldsFn) {
   const title = op.charAt(0).toUpperCase() + op.slice(1) + (isFile ? ' from File' : '');
 
   openModal(title, () => {
-    if (op === 'insert') return <InsertPanel isFile={isFile} onSuccess={onSuccess} fieldsFn={fieldsFn} />;
+    if (op === 'insert' && isFile) return <InsertFileWizard onSuccess={onSuccess} />;
+    if (op === 'insert') return <InsertPanel isFile={false} onSuccess={onSuccess} fieldsFn={fieldsFn} />;
     if (op === 'update' && isFile) return <UpdatePanel onSuccess={onSuccess} fieldsFn={fieldsFn} />;
     if (op === 'replace' && isFile) return <ReplacePanel onSuccess={onSuccess} fieldsFn={fieldsFn} />;
     return null;
   });
 }
 
-function InsertPanel({ isFile, onSuccess, fieldsFn }) {
+// Inline (JSON-editor) insert path. The file-import path is handled by
+// InsertFileWizard, which adds chunking, pre-validation, conflict resolution,
+// progress, and cancellation.
+function InsertPanel({ onSuccess, fieldsFn }) {
   const editorRef = useRef(null);
   const hintRef = useRef(null);
-  const [fileDocs, setFileDocs] = useState(null);
 
   async function handleSubmit() {
     const collection = selectedCollection.value;
     let docs;
     try {
-      if (isFile) {
-        if (!fileDocs) { hintRef.current.textContent = 'No file selected'; return; }
-        docs = fileDocs;
-      } else {
-        if (!editorRef.current?.isValid()) { hintRef.current.textContent = 'Invalid JSON'; return; }
-        docs = editorRef.current.getParsed();
-      }
+      if (!editorRef.current?.isValid()) { hintRef.current.textContent = 'Invalid JSON'; return; }
+      docs = editorRef.current.getParsed();
     } catch (e) { hintRef.current.textContent = e.message; return; }
 
     if (!Array.isArray(docs)) docs = [docs];
@@ -113,17 +112,10 @@ function InsertPanel({ isFile, onSuccess, fieldsFn }) {
 
   return (
     <div class="modal-body">
-      {isFile ? (
-        <div>
-          <div class="modal-field-label">Select a JSON file with documents to insert:</div>
-          <FileInput onParsed={setFileDocs} />
-        </div>
-      ) : (
-        <div>
-          <div class="modal-field-label">Document or array of documents:</div>
-          <JsonEditor value={'{\n  \n}'} minHeight="200px" fields={fieldsFn} editorRef={editorRef} />
-        </div>
-      )}
+      <div>
+        <div class="modal-field-label">Document or array of documents:</div>
+        <JsonEditor value={'{\n  \n}'} minHeight="200px" fields={fieldsFn} editorRef={editorRef} />
+      </div>
       <div ref={hintRef} class="input-hint"></div>
       <div class="modal-actions">
         <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>

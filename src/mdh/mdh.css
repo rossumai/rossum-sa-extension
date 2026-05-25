@@ -1472,6 +1472,96 @@ body {
   background: var(--bg-hover); border-radius: var(--radius);
 }
 
+/* --- Import from JSON file wizard --- */
+
+.import-wizard { gap: 14px; }
+
+.import-conflict-info {
+  font-size: 12px; line-height: 1.45;
+  padding: 8px 10px; border-radius: var(--radius);
+  background: var(--bg-hover); color: var(--text-primary);
+  border-left: 3px solid var(--accent);
+}
+.import-conflict-info code {
+  font-family: var(--font-mono); font-size: 11px;
+  background: var(--bg-card); padding: 1px 4px; border-radius: 3px;
+}
+.import-conflict-warn { border-left-color: var(--warning, var(--danger)); }
+
+.import-id-sample {
+  margin-top: 4px; font-family: var(--font-mono); font-size: 11px;
+  color: var(--text-secondary); word-break: break-all;
+}
+
+.import-mode-group { display: flex; flex-direction: column; gap: 6px; }
+
+.import-mode-option {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 8px 10px; border: 1px solid var(--border);
+  border-radius: var(--radius); cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+.import-mode-option:hover { border-color: var(--accent); }
+.import-mode-option.selected {
+  border-color: var(--accent); background: var(--bg-hover);
+}
+.import-mode-option input { margin-top: 3px; flex-shrink: 0; }
+.import-mode-option > span { display: flex; flex-direction: column; gap: 2px; }
+.import-mode-title { font-size: 12px; font-weight: 500; color: var(--text-primary); }
+.import-mode-desc { font-size: 11px; color: var(--text-secondary); line-height: 1.4; }
+
+.import-progress { display: flex; flex-direction: column; gap: 4px; }
+.import-progress-track {
+  height: 8px; background: var(--bg-hover); border-radius: 4px;
+  overflow: hidden; border: 1px solid var(--border);
+}
+.import-progress-fill {
+  height: 100%; background: var(--accent);
+  transition: width 0.18s ease-out;
+}
+.import-progress-counts {
+  display: flex; justify-content: space-between;
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary);
+}
+.import-progress-meta {
+  display: flex; gap: 12px; font-size: 11px; color: var(--text-secondary);
+}
+
+.import-result-header {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 500;
+}
+.import-result-header.success { color: var(--success); }
+.import-result-header.partial { color: var(--warning, var(--danger)); }
+.import-result-icon { font-size: 16px; line-height: 1; }
+.import-result-filename {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.import-result-list {
+  margin: 0; padding-left: 18px;
+  font-size: 12px; color: var(--text-primary); line-height: 1.6;
+}
+.import-result-list code {
+  font-family: var(--font-mono); font-size: 11px;
+  background: var(--bg-hover); padding: 1px 4px; border-radius: 3px;
+}
+.import-failure-list {
+  margin: 4px 0 0; padding-left: 16px;
+  font-size: 11px; color: var(--text-secondary); line-height: 1.5;
+}
+.import-failure-list code {
+  font-family: var(--font-mono); font-size: 10px;
+  background: var(--bg-hover); padding: 1px 3px; border-radius: 2px;
+  color: var(--danger);
+}
+.import-result-hint {
+  margin-top: 6px; font-size: 11px; color: var(--text-secondary);
+  background: var(--bg-hover); padding: 6px 8px; border-radius: var(--radius);
+  line-height: 1.4;
+}
+
 .op-status {
   padding: 10px 16px; background: var(--bg-code); border: 1px solid var(--border);
   border-radius: var(--radius); font-family: var(--font-mono); font-size: 11px;
