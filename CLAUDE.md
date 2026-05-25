@@ -122,3 +122,14 @@ Source `manifest.json` has a placeholder `"version": "0.0"` — never edit it ma
 2. `npm run build`
 3. ZIP the `dist/` folder
 4. Upload via https://chrome.google.com/webstore/devconsole
+
+## Browser Automation
+
+Use `agent-browser` for web automation. Run `agent-browser --help` for all commands.
+
+Core workflow:
+
+1. `agent-browser open <url>` - Navigate to page
+2. `agent-browser snapshot -i` - Get interactive elements with refs (@e1, @e2)
+3. `agent-browser click @e1` / `fill @e2 "text"` - Interact using refs
+4. Re-snapshot after page changes
