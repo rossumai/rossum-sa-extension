@@ -235,3 +235,108 @@ describe('resource-ids', () => {
     expect(el.querySelectorAll('.rossum-sa-extension-resource-id')).toHaveLength(1);
   });
 });
+
+describe('resource-ids labels', () => {
+  let handleNode, init;
+
+  // Mirrors the real Settings > Labels DOM: a TileContent tile wrapping a
+  // LabelChip whose name lives in a `.MuiChip-label` span.
+  function labelTile(name) {
+    const tile = document.createElement('div');
+    tile.setAttribute('data-sentry-component', 'TileContent');
+    const chip = document.createElement('div');
+    chip.setAttribute('data-sentry-component', 'LabelChip');
+    const label = document.createElement('span');
+    label.className = 'MuiChip-label';
+    label.textContent = name;
+    chip.appendChild(label);
+    tile.appendChild(chip);
+    document.body.appendChild(tile);
+    return chip;
+  }
+
+  // A LabelChip outside the management list (e.g. a label assigned to a document
+  // row) — no TileContent ancestor.
+  function looseChip(name) {
+    const chip = document.createElement('div');
+    chip.setAttribute('data-sentry-component', 'LabelChip');
+    const label = document.createElement('span');
+    label.className = 'MuiChip-label';
+    label.textContent = name;
+    chip.appendChild(label);
+    document.body.appendChild(chip);
+    return chip;
+  }
+
+  function badge(chip) {
+    return chip.querySelector('.rossum-sa-extension-resource-id')?.textContent;
+  }
+
+  // The labels endpoint returns results ordered by name, so a same-named group
+  // appears in the same order the list renders it.
+  const LABELS = {
+    results: [
+      { id: 9931, name: 'Audit hold' },
+      { id: 9920, name: 'Trial vendor' },
+      { id: 11492, name: 'Trial vendor' },
+    ],
+  };
+
+  beforeEach(async () => {
+    document.head.innerHTML = '';
+    document.body.innerHTML = '';
+    vi.resetModules();
+    vi.doMock('../src/rossum/api.js', () => ({
+      fetchRossumApi: vi.fn().mockResolvedValue(LABELS),
+    }));
+    const mod = await import('../src/rossum/features/resource-ids.js');
+    handleNode = mod.handleNode;
+    init = mod.init;
+    init();
+  });
+
+  it('gives two same-named labels their own distinct IDs', async () => {
+    const first = labelTile('Trial vendor');
+    const second = labelTile('Trial vendor');
+
+    handleNode(first);
+    handleNode(second);
+
+    await vi.waitFor(() => {
+      expect(badge(first)).toBeDefined();
+      expect(badge(second)).toBeDefined();
+    });
+
+    // Nth same-named tile -> Nth same-named label, in list/API order.
+    expect(badge(first)).toBe('9920');
+    expect(badge(second)).toBe('11492');
+  });
+
+  it('shows the single ID for a unique label name', async () => {
+    const chip = labelTile('Audit hold');
+
+    handleNode(chip);
+
+    await vi.waitFor(() => expect(badge(chip)).toBeDefined());
+    expect(badge(chip)).toBe('9931');
+  });
+
+  it('does not positionally disambiguate chips outside the management list', async () => {
+    // Two document-row chips for the same label name must NOT be treated as two
+    // different labels — only a subset of chips is present there, so positional
+    // mapping is meaningless. Both keep the first-match id (unchanged behaviour).
+    const a = looseChip('Trial vendor');
+    const b = looseChip('Trial vendor');
+
+    handleNode(a);
+    handleNode(b);
+
+    await vi.waitFor(() => {
+      expect(badge(a)).toBeDefined();
+      expect(badge(b)).toBeDefined();
+    });
+
+    expect(badge(a)).toBe('9920');
+    expect(badge(b)).toBe('9920');
+  });
+});

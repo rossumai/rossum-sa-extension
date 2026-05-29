@@ -89,6 +89,22 @@ export function init() {
   document.head?.appendChild(style);
 }
 
+// Position of a label tile among the same-named tiles in the labels management
+// list (DOM order). Label names are not unique, so this is what lets us map each
+// tile to its own label: the Nth same-named tile gets the Nth same-named label.
+// Only tiles inside the management list (LabelChip wrapped in a TileContent tile)
+// are counted, so chips elsewhere on the page can't skew the position.
+function labelTileIndex(node, name) {
+  let index = 0;
+  for (const chip of document.querySelectorAll('[data-sentry-component="LabelChip"]')) {
+    if (chip === node) continue;
+    if (chip.closest('[data-sentry-component="TileContent"]') == null) continue;
+    if (chip.querySelector('.MuiChip-label')?.textContent.trim() !== name) continue;
+    if (node.compareDocumentPosition(chip) & Node.DOCUMENT_POSITION_PRECEDING) index++;
+  }
+  return index;
+}
+
 function displayResourceId(node, id, variant) {
   if (node.querySelector('.rossum-sa-extension-resource-id') != null) return;
   const span = document.createElement('span');
@@ -162,14 +178,28 @@ export function handleNode(node) {
     }
   }
 
-  // Settings > Labels screen: name-matched via API
+  // Settings > Labels screen: name-matched via API. Label names are not unique,
+  // so when several labels share a name a plain name lookup would hand every tile
+  // the same (first) ID. /api/v1/labels and the rendered list are both ordered by
+  // name, so a same-named group appears in the same order in both — we disambiguate
+  // by position: the Nth same-named tile maps to the Nth same-named label. This is
+  // only meaningful inside the labels management list (LabelChip in a TileContent
+  // tile), where every label is present; elsewhere (document rows, annotation
+  // sidebar) only a subset of chips shows, so we keep the simple first match.
   if (node.matches('[data-sentry-component="LabelChip"]')) {
     const nameEl = node.querySelector('.MuiChip-label');
     const name = nameEl?.textContent.trim();
     if (name) {
       fetchRossumApi('/api/v1/labels?page_size=100').then((data) => {
-        const label = data.results?.find((l) => l.name === name);
-        if (label) displayResourceId(node, String(label.id));
+        const matches = (data.results ?? []).filter((l) => l.name === name);
+        if (matches.length === 0) return;
+        const inLabelList = node.closest('[data-sentry-component="TileContent"]') != null;
+        if (matches.length === 1 || !inLabelList) {
+          displayResourceId(node, String(matches[0].id));
+          return;
+        }
+        const i = labelTileIndex(node, name);
+        displayResourceId(node, String(matches[Math.min(i, matches.length - 1)].id));
       }).catch(() => {});
     }
   }
