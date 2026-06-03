@@ -22,9 +22,10 @@ export const operationsLoaded = signal(false);
 export const pendingOperations = signal(null); // { ops, changedOps } | null
 export const opsSearch = signal('');
 export const undoToast = signal(null); // { id, message, action, ts, ttlMs, status, error } | null
-// One-shot pipeline prefill from the popup's "Open in Dataset Management" button.
-// Cleared by DataPanel after the matching collection's effect applies it.
-export const pendingPipelineLoad = signal(null); // { collection, pipelineText } | null
+// One-shot pipeline prefill consumed by DataPanel's [collection] effect: set by
+// the popup's "Open in Dataset Management" button and by boot to restore the
+// last remembered query. Cleared after the matching collection's effect applies it.
+export const pendingPipelineLoad = signal(null); // { collection, pipelineText, variables? } | null
 
 // Bulk-op selection state. selectionMode toggles whether RecordCard renders
 // checkboxes and whether the RecordList toolbar shows bulk actions instead

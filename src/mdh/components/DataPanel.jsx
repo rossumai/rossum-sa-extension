@@ -21,6 +21,7 @@ import * as api from '../api.js';
 import * as cache from '../cache.js';
 import { applySortToPipeline, applyFilterDeltaToPipeline, applySkipToPipeline, extractUIStateFromPipeline, stripPaginationStages } from '../pipelineOps.js';
 import { savePipelineState, getPipelineState } from '../pipelineState.js';
+import { saveLastPipeline } from '../lastPipeline.js';
 import { downloadCollection as runDownload } from '../downloadCollection.js';
 import JSON5 from 'json5';
 
@@ -36,6 +37,9 @@ export default function DataPanel() {
   // When switching collections via a saved/recent pipeline, stash the payload
   // so the collection-change effect can apply it instead of running the default.
   const pendingLoadRef = useRef(null); // null | { pipelineText, variables }
+  // Debounce timer for persisting the editor's contents (text + variables) to
+  // chrome.storage.local, so a page reload restores the user's last query.
+  const persistTimerRef = useRef(null);
 
   const collection = selectedCollection.value;
 
@@ -105,6 +109,7 @@ export default function DataPanel() {
     const external = pendingPipelineLoad.peek();
     if (external && external.collection === collection) {
       pendingPipelineLoad.value = null;
+      if (external.variables) pipeline.placeholderValues.value = { ...external.variables };
       setTimeout(() => {
         if (!editorRef.current) return;
         pipeline.suppressSync.value = true;
@@ -296,10 +301,21 @@ export default function DataPanel() {
     } catch { /* invalid — keep existing UI state */ }
   }
 
+  // Persist the editor text + current placeholder variables (debounced) so the
+  // user's last query survives a page reload.
+  function persistLastPipeline() {
+    clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = setTimeout(() => {
+      if (!editorRef.current) return;
+      saveLastPipeline(editorRef.current.getValue(), pipeline.placeholderValues.value);
+    }, 400);
+  }
+
   function handleEditorChange() {
     // Previously cleared sortState/filterState on every keystroke. No longer
     // needed: the next valid parse repopulates them from the pipeline text
     // (see handleValidChange → syncUIStateFromPipeline).
+    persistLastPipeline();
   }
 
   function handleValidChange() {
@@ -371,6 +387,7 @@ export default function DataPanel() {
 
   function handleSetPlaceholder(name, value) {
     pipeline.setPlaceholder(name, value);
+    persistLastPipeline();
     clearTimeout(handleSetPlaceholder._timer);
     handleSetPlaceholder._timer = setTimeout(runQuery, 400);
   }
@@ -500,6 +517,8 @@ export default function DataPanel() {
     parsedPipeline = JSON5.parse(text);
     if (!Array.isArray(parsedPipeline)) parsedPipeline = null;
   } catch { parsedPipeline = null; }
+
+  useEffect(() => () => clearTimeout(persistTimerRef.current), []);
 
   useEffect(() => {
     const leftPane = leftRef.current;

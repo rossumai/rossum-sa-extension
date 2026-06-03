@@ -4,6 +4,7 @@ import * as api from './api.js';
 import * as store from './store.js';
 import App from './components/App.jsx';
 import { prefetchForPanel, prefetchAll } from './prefetch.js';
+import { LAST_PIPELINE_KEY, bootPrefillFor } from './lastPipeline.js';
 
 const POLL_DELAY_VISIBLE = 5_000;
 const POLL_DELAY_HIDDEN = 60_000;
@@ -129,7 +130,7 @@ async function boot() {
 
   const stored = await chrome.storage.local.get([
     ...(authKey ? [authKey] : []),
-    'mdhActiveView', 'mdhSelectedCollection', 'mdhActivePanel', 'mdhOpsSearch',
+    'mdhActiveView', 'mdhSelectedCollection', 'mdhActivePanel', 'mdhOpsSearch', LAST_PIPELINE_KEY,
   ]);
   const entry = authKey ? stored[authKey] : null;
 
@@ -190,6 +191,16 @@ async function boot() {
       };
     }
   }
+
+  // Restore the last query (pipeline text + variables) the user had, so a page
+  // reload doesn't lose it. Skipped if a popup prefill already claimed the slot
+  // or if there's no remembered query / no collection to restore into.
+  const restoredPipeline = bootPrefillFor(
+    stored[LAST_PIPELINE_KEY],
+    store.selectedCollection.value,
+    !!store.pendingPipelineLoad.value,
+  );
+  if (restoredPipeline) store.pendingPipelineLoad.value = restoredPipeline;
 
   let connected = false;
   try {
