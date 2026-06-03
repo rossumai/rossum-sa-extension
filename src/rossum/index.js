@@ -4,8 +4,10 @@ import { handleNode as handleExpandFormulas } from './features/expand-formulas.j
 import { handleNode as handleExpandReasoning } from './features/expand-reasoning.js';
 import { initScrollLock } from './features/scroll-lock.js';
 import { init as initClosableTooltips, handleNode as handleClosableTooltip } from './features/closable-tooltips.js';
+import { init as initDatasetMgmtSuggest } from './features/dataset-mgmt-suggest.js';
 
 initClosableTooltips();
+initDatasetMgmtSuggest();
 
 const SETTINGS_KEYS = [
   'schemaAnnotationsEnabled',

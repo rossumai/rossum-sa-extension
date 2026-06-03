@@ -19,7 +19,7 @@ esbuild config: `format: 'iife'`, `minify: true`, `jsxFactory: 'h'`, `jsxFragmen
 
 ## Architecture
 
-Six esbuild entry points:
+Seven esbuild entry points:
 
 1. **`src/rossum/index.js`** → content script for Rossum pages
 2. **`src/netsuite/index.js`** → content script for NetSuite pages
@@ -27,8 +27,14 @@ Six esbuild entry points:
 4. **`src/popup/popup.jsx`** → extension popup UI (Preact)
 5. **`src/mdh/index.jsx`** → Dataset Management standalone page (opened via `chrome.tabs.create`)
 6. **`src/audit/index.jsx`** → Audit Logs standalone page (opened via `chrome.tabs.create`)
+7. **`src/background/index.js`** → MV3 service worker (`background.js`)
 
-No background/service worker — purely content scripts + popup + opened extension pages.
+The background service worker exists for a single job: a content script can't
+`chrome.tabs.create` an extension page, so the `dataset-mgmt-suggest` feature
+messages the worker (`{ type: 'openDatasetManagement', token, domain }`) and the
+worker stages `mdhAuth_<uuid>` + opens `mdh.html` — letting us open the Dataset
+Management from the legacy MDH web app without `web_accessible_resources`.
+Otherwise the extension is purely content scripts + popup + opened pages.
 
 ### Rossum content script
 
@@ -88,7 +94,7 @@ Preact JSX. Detects current site (Rossum/NetSuite/Coupa) and dims irrelevant sec
 
 ## Key Patterns
 
-- Most features are gated behind chrome.storage.local toggles controlled via popup. The `closable-tooltips` feature is always on (no toggle, no storage key) and is not advertised in the popup UI.
+- Most features are gated behind chrome.storage.local toggles controlled via popup. The `closable-tooltips` and `dataset-mgmt-suggest` features are always on (no toggle, no storage key) and are not advertised in the popup UI. `dataset-mgmt-suggest` self-gates on the legacy MDH web app path (`/svc/master-data-hub/web/`).
 - Rossum entry point builds handlers array from enabled settings — disabled features add zero overhead
 - NetSuite and Coupa content scripts are self-contained single files (no MutationObserver pattern)
 

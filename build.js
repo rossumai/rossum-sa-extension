@@ -39,6 +39,7 @@ const options = {
     'popup/popup': 'src/popup/popup.jsx',
     'mdh/mdh': 'src/mdh/index.jsx',
     'audit/audit': 'src/audit/index.jsx',
+    'background': 'src/background/index.js',
   },
   bundle: true,
   minify: true,
