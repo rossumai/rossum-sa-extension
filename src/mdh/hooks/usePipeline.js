@@ -1,11 +1,37 @@
 import { useRef } from 'preact/hooks';
 import { signal } from '@preact/signals';
+import JSON5 from 'json5';
 import { skip } from '../store.js';
 
-const PLACEHOLDER_RE = /\{(\w+)\}/g;
-// Same name set as PLACEHOLDER_RE, but separates `"{name}"` (user wants a
-// string) from a bare `{name}` (user wants a literal value).
-const PLACEHOLDER_RE_QUOTED = /"\{(\w+)\}"|\{(\w+)\}/g;
+// Scan for variables. A variable is ONLY a whole quoted value `"{name}"` — the
+// syntax MDH supports. A `{...}` that is merely *part* of a larger string
+// literal (e.g. a value like "GBL CS WLD FLG {A105N} CSF DC N/STK") is literal
+// data, not a variable, and is left untouched. Returns [{ name, start, end }] in
+// document order, where start/end span the surrounding quotes so substitution
+// can replace the value-and-quotes (enabling type-aware replacement).
+function scanPlaceholders(text) {
+  const out = [];
+  const n = text.length;
+  let i = 0;
+  let inString = false;
+  let strStart = -1;
+  while (i < n) {
+    const c = text[i];
+    if (inString) {
+      if (c === '\\') { i += 2; continue; } // skip the escaped char
+      if (c === '"') {
+        const m = /^\{(\w+)\}$/.exec(text.slice(strStart + 1, i));
+        if (m) out.push({ name: m[1], start: strStart, end: i + 1 });
+        inString = false;
+      }
+      i += 1;
+      continue;
+    }
+    if (c === '"') { inString = true; strStart = i; }
+    i += 1;
+  }
+  return out;
+}
 
 // JSON5's number grammar: an optional sign, then either a leading-digit form
 // (`0`, or `1-9` followed by more digits) with optional fractional/exponent
@@ -95,31 +121,50 @@ export function usePipeline() {
 
   function extractPlaceholders(text) {
     const names = new Set();
-    for (const match of text.matchAll(PLACEHOLDER_RE)) {
-      names.add(match[1]);
-    }
+    for (const m of scanPlaceholders(text)) names.add(m.name);
     return [...names];
   }
 
   function substitutePlaceholders(text) {
-    return text.replace(PLACEHOLDER_RE_QUOTED, (match, quotedName, bareName) => {
-      const name = quotedName || bareName;
-      if (!(name in placeholderValues.value)) return match;
-      const val = placeholderValues.value[name];
-      // `"{name}"` — user wants a string regardless of value content.
-      if (quotedName) return JSON.stringify(String(val));
-      // Bare `{name}` — try literal interpretation first.
-      if (val === 'true' || val === 'false' || val === 'null') return val;
-      if (isJson5NumberLiteral(val)) return val;
-      // Otherwise it's a bare string. JSON-encode it so the result is valid
-      // JSON5 — otherwise `{name: ABC}` reaches JSON5.parse, throws, and
-      // useQuery silently drops the request.
-      return JSON.stringify(val);
-    });
+    const matches = scanPlaceholders(text);
+    if (matches.length === 0) return text;
+    let result = '';
+    let last = 0;
+    for (const m of matches) {
+      result += text.slice(last, m.start);
+      // An unfilled variable defaults to an empty string — a valid value, so the
+      // query still runs ("even empty string is a valid variable value").
+      const val = m.name in placeholderValues.value ? placeholderValues.value[m.name] : '';
+      // Type-aware, mirroring MDH: a `"{name}"` becomes a JSON number / bool /
+      // null when the value looks like one, otherwise a JSON string. The match
+      // span includes the surrounding quotes, so a numeric value cleanly drops
+      // the quotes (`"amount": "{amount}"` + 5 → `"amount": 5`).
+      if (val === 'true' || val === 'false' || val === 'null') result += val;
+      else if (isJson5NumberLiteral(val)) result += val;
+      else result += JSON.stringify(val);
+      last = m.end;
+    }
+    result += text.slice(last);
+    return result;
   }
 
   function setPlaceholder(name, value) {
     placeholderValues.value = { ...placeholderValues.value, [name]: value };
+  }
+
+  // Snapshot the editor text for the UI that depends on it: the variable names
+  // (Variables inputs) and the parsed pipeline (Pipeline Debug). Unfilled
+  // variables substitute to an empty string, so the pipeline still parses and
+  // the debug still renders before the user fills anything in.
+  function computeEditorState(text) {
+    const placeholders = extractPlaceholders(text);
+    const substituted = substitutePlaceholders(text);
+    let parsed = null;
+    try {
+      const p = JSON5.parse(substituted);
+      if (Array.isArray(p)) parsed = p;
+    } catch { /* invalid JSON5 — leave parsed null */ }
+    return { placeholders, parsed };
   }
 
   function reset() {
@@ -142,6 +187,7 @@ export function usePipeline() {
     extractPlaceholders,
     substitutePlaceholders,
     setPlaceholder,
+    computeEditorState,
     reset,
   };
 }

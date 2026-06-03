@@ -122,13 +122,11 @@ describe('full data exploration flow', () => {
   it('query with placeholders → substitute → execute', async () => {
     const hooks = renderAllHooks();
 
-    const template = '[{"$match": {"status": "{status}", "minPrice": {minPrice}}}]';
+    // Variables are whole quoted values. A numeric value still substitutes as a
+    // JSON number (type-aware), so "{minPrice}" + "100" → 100.
+    const template = '[{"$match": {"status": "{status}", "minPrice": "{minPrice}"}}]';
     const names = hooks.pipeline.extractPlaceholders(template);
     expect(names).toEqual(['status', 'minPrice']);
-
-    // Query skipped while placeholders unresolved
-    await hooks.query.runQuery('products', template);
-    expect(api.aggregate).not.toHaveBeenCalled();
 
     // Set placeholders and substitute
     hooks.pipeline.setPlaceholder('status', 'active');

@@ -115,15 +115,17 @@ describe('pipeline building (usePipeline)', () => {
     expect(store.skip.value).toBe(0);
   });
 
-  it('extracts and substitutes placeholders with type coercion', () => {
+  it('extracts and substitutes "{name}" placeholders with type coercion', () => {
     const hook = renderHook(usePipeline);
 
-    const names = hook.extractPlaceholders('{"status": "{status}", "count": {count}}');
+    // Variables are whole quoted values; type-aware substitution still turns a
+    // numeric value into a JSON number (dropping the quotes).
+    const names = hook.extractPlaceholders('{"status": "{status}", "count": "{count}"}');
     expect(names).toEqual(['status', 'count']);
 
     hook.setPlaceholder('status', 'active');
     hook.setPlaceholder('count', '42');
-    const result = hook.substitutePlaceholders('{"status": "{status}", "count": {count}}');
+    const result = hook.substitutePlaceholders('{"status": "{status}", "count": "{count}"}');
     expect(result).toBe('{"status": "active", "count": 42}');
   });
 
@@ -131,13 +133,13 @@ describe('pipeline building (usePipeline)', () => {
     const hook = renderHook(usePipeline);
     hook.setPlaceholder('flag', 'true');
     hook.setPlaceholder('val', 'null');
-    expect(hook.substitutePlaceholders('{flag}')).toBe('true');
-    expect(hook.substitutePlaceholders('{val}')).toBe('null');
+    expect(hook.substitutePlaceholders('"{flag}"')).toBe('true');
+    expect(hook.substitutePlaceholders('"{val}"')).toBe('null');
   });
 
-  it('leaves unset placeholders as-is', () => {
+  it('substitutes an unfilled "{name}" as an empty string', () => {
     const hook = renderHook(usePipeline);
-    expect(hook.substitutePlaceholders('{unknown}')).toBe('{unknown}');
+    expect(hook.substitutePlaceholders('"{unknown}"')).toBe('""');
   });
 
   it('quotes leading-zero numeric strings instead of emitting invalid JSON5', () => {
@@ -148,7 +150,7 @@ describe('pipeline building (usePipeline)', () => {
     // and the entire PipelineDebug panel disappeared.
     const hook = renderHook(usePipeline);
     hook.setPlaceholder('vendor_id', '007');
-    const result = hook.substitutePlaceholders('[{"$match": {"vendor_id": {vendor_id}}}]');
+    const result = hook.substitutePlaceholders('[{"$match": {"vendor_id": "{vendor_id}"}}]');
     expect(result).toBe('[{"$match": {"vendor_id": "007"}}]');
     expect(() => JSON5.parse(result)).not.toThrow();
   });
@@ -157,7 +159,7 @@ describe('pipeline building (usePipeline)', () => {
     const hook = renderHook(usePipeline);
     hook.setPlaceholder('a', '5,552.14'); // locale-formatted number from a Rossum field
     hook.setPlaceholder('b', ' 42 ');     // padded
-    const r = hook.substitutePlaceholders('[{a}, {b}]');
+    const r = hook.substitutePlaceholders('["{a}", "{b}"]');
     // Both must end up as strings (not bare literals) for the result to parse.
     expect(() => JSON5.parse(r)).not.toThrow();
     const parsed = JSON5.parse(r);
@@ -171,7 +173,7 @@ describe('pipeline building (usePipeline)', () => {
     hook.setPlaceholder('b', '3.14');
     hook.setPlaceholder('c', '-5');
     hook.setPlaceholder('d', '0');
-    const r = hook.substitutePlaceholders('[{a}, {b}, {c}, {d}]');
+    const r = hook.substitutePlaceholders('["{a}", "{b}", "{c}", "{d}"]');
     expect(r).toBe('[42, 3.14, -5, 0]');
     expect(JSON5.parse(r)).toEqual([42, 3.14, -5, 0]);
   });
@@ -259,10 +261,15 @@ describe('query execution (useQuery)', () => {
     expect(api.aggregate).not.toHaveBeenCalled();
   });
 
-  it('skips execution when unresolved placeholders remain', async () => {
+  it('runs the pipeline as-is with no substitution fn (a "{name}" is just a literal string)', async () => {
+    api.aggregate.mockResolvedValue({ result: [] });
     const hook = renderHook(useQuery);
     await hook.runQuery('col', '[{"$match": {"status": "{status}"}}]');
-    expect(api.aggregate).not.toHaveBeenCalled();
+    expect(api.aggregate).toHaveBeenCalledWith(
+      'col',
+      [{ $match: { status: '{status}' } }],
+      { signal: expect.any(AbortSignal) },
+    );
   });
 
   it('skips execution when collection is empty', async () => {

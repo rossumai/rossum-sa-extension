@@ -20,9 +20,10 @@ export function useQuery() {
   async function runQuery(collection, rawText, substituteFn) {
     if (!collection || !rawText) return;
 
+    // Unfilled variables substitute to an empty string, so there is nothing to
+    // "wait for" — just run whatever resolves to a valid pipeline. (Invalid
+    // JSON, e.g. a half-typed pipeline, is still skipped by the parse below.)
     const resolvedText = substituteFn ? substituteFn(rawText) : rawText;
-
-    if (/\{\w+\}/.test(resolvedText)) return;
 
     let pipeline;
     try {

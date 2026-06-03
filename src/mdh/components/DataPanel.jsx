@@ -4,6 +4,7 @@ import { selectedCollection, records, skip, limit, loading, error, pendingPipeli
 import { usePipeline } from '../hooks/usePipeline.js';
 import { useQuery } from '../hooks/useQuery.js';
 import { usePagination } from '../hooks/usePagination.js';
+import { useEditorSnapshot } from '../hooks/useEditorSnapshot.js';
 import { extractFieldNames } from './JsonEditor.jsx';
 import PipelineEditor from './PipelineEditor.jsx';
 import PlaceholderInputs from './PlaceholderInputs.jsx';
@@ -40,6 +41,11 @@ export default function DataPanel() {
   // Debounce timer for persisting the editor's contents (text + variables) to
   // chrome.storage.local, so a page reload restores the user's last query.
   const persistTimerRef = useRef(null);
+  // Debounced snapshot of the editor (text, variable names, parsed pipeline)
+  // that drives the Variables inputs and the Pipeline Debug — see
+  // useEditorSnapshot. recomputeEditorState() is called on every editor edit and
+  // on placeholder changes.
+  const [editorState, recomputeEditorState] = useEditorSnapshot(editorRef, pipeline.computeEditorState);
 
   const collection = selectedCollection.value;
 
@@ -302,7 +308,9 @@ export default function DataPanel() {
   }
 
   // Persist the editor text + current placeholder variables (debounced) so the
-  // user's last query survives a page reload.
+  // user's last query survives a page reload. Captures whatever is in the
+  // editor — valid or not, run or not — per the "remember current editor text"
+  // behavior.
   function persistLastPipeline() {
     clearTimeout(persistTimerRef.current);
     persistTimerRef.current = setTimeout(() => {
@@ -316,6 +324,7 @@ export default function DataPanel() {
     // needed: the next valid parse repopulates them from the pipeline text
     // (see handleValidChange → syncUIStateFromPipeline).
     persistLastPipeline();
+    recomputeEditorState();
   }
 
   function handleValidChange() {
@@ -382,12 +391,15 @@ export default function DataPanel() {
     }
   }
 
-  const pipelineText = editorRef.current ? editorRef.current.getValue() : '';
-  const placeholderNames = pipeline.extractPlaceholders(pipelineText);
+  const pipelineText = editorState.text;
+  const placeholderNames = editorState.placeholders;
 
   function handleSetPlaceholder(name, value) {
     pipeline.setPlaceholder(name, value);
     persistLastPipeline();
+    // Filling a variable changes the substitution result, so re-snapshot to
+    // resolve the pipeline and bring the debug back.
+    recomputeEditorState();
     clearTimeout(handleSetPlaceholder._timer);
     handleSetPlaceholder._timer = setTimeout(runQuery, 400);
   }
@@ -511,13 +523,6 @@ export default function DataPanel() {
     }
   }
 
-  let parsedPipeline = null;
-  try {
-    const text = editorRef.current ? pipeline.substitutePlaceholders(editorRef.current.getValue()) : '';
-    parsedPipeline = JSON5.parse(text);
-    if (!Array.isArray(parsedPipeline)) parsedPipeline = null;
-  } catch { parsedPipeline = null; }
-
   useEffect(() => () => clearTimeout(persistTimerRef.current), []);
 
   useEffect(() => {
@@ -572,7 +577,7 @@ export default function DataPanel() {
           onSetValue={handleSetPlaceholder}
           onRunQuery={runQuery}
         />
-        <PipelineDebug pipeline={parsedPipeline} />
+        <PipelineDebug pipeline={editorState.parsed} />
       </div>
       <div class="data-panel-resizer" onMouseDown={initPanelResize}></div>
       <div class="data-panel-right">
