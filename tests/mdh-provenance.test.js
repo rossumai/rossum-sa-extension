@@ -6,6 +6,8 @@ import {
   extractConfigsFromHook,
   filterHookEntries,
   flattenContent,
+  hookConfigs,
+  loadMdhHooksForQueue,
   replayConfig,
   substitutePlaceholders,
 } from '../src/popup/mdh-provenance.js';
@@ -514,6 +516,114 @@ describe('extractConfigsFromHook', () => {
     const cfgs = extractConfigsFromHook(hook);
     expect(cfgs[0].additionalMappings).toEqual([]);
     expect(cfgs[1].additionalMappings).toEqual([]);
+  });
+
+  it('reads configs from the legacy settings.configs key, not only settings.configurations', () => {
+    const hook = {
+      settings: {
+        configs: [
+          {
+            name: 'Supplier by VAT number',
+            mapping: { target_schema_id: 'supplier_wd', dataset_key: 'Supplier_ID' },
+            source: {
+              dataset: 'workday_suppliers',
+              queries: [{ aggregate: [{ $match: { tax: '{sender_vat_id_normalized}' } }] }],
+            },
+          },
+        ],
+      },
+    };
+    const cfgs = extractConfigsFromHook(hook);
+    expect(cfgs).toHaveLength(1);
+    expect(cfgs[0].target).toBe('supplier_wd');
+    expect(cfgs[0].dataset).toBe('workday_suppliers');
+    expect(cfgs[0].queries[0].placeholders).toEqual(['sender_vat_id_normalized']);
+  });
+});
+
+// ── hookConfigs (configs vs configurations key) ───────
+
+describe('hookConfigs', () => {
+  it('prefers the modern settings.configurations when both keys are present', () => {
+    const hook = { settings: { configs: [{ name: 'legacy' }], configurations: [{ name: 'modern' }] } };
+    expect(hookConfigs(hook)).toEqual([{ name: 'modern' }]);
+  });
+
+  it('falls back to the legacy settings.configs when configurations is absent', () => {
+    const hook = { settings: { configs: [{ name: 'legacy' }] } };
+    expect(hookConfigs(hook)).toEqual([{ name: 'legacy' }]);
+  });
+
+  it('returns [] when neither key holds an array', () => {
+    expect(hookConfigs({ settings: {} })).toEqual([]);
+    expect(hookConfigs({ settings: { configs: 'nope' } })).toEqual([]);
+    expect(hookConfigs({})).toEqual([]);
+    expect(hookConfigs(null)).toEqual([]);
+  });
+});
+
+// ── loadMdhHooksForQueue (the ANWB false-negative bug) ─
+
+describe('loadMdhHooksForQueue', () => {
+  const withFetch = async (results, run) => {
+    const original = globalThis.fetch;
+    globalThis.fetch = async () => ({ ok: true, json: async () => ({ results }) });
+    try {
+      return await run();
+    } finally {
+      globalThis.fetch = original;
+    }
+  };
+
+  const dmv2Hook = {
+    id: 435212,
+    name: 'Data Matching v2 - non PO AX - TEST',
+    type: 'webhook',
+    active: true,
+    settings: {
+      // ANWB's live hook uses the legacy `configs` key, which the panel
+      // previously missed (it only read the modern `configurations`).
+      configs: [
+        {
+          name: 'Supplier by VAT number',
+          mapping: { target_schema_id: 'supplier_wd', dataset_key: 'Supplier_ID' },
+          source: {
+            dataset: 'workday_suppliers',
+            queries: [{ aggregate: [{ $match: { tax: '{sender_vat_id_normalized}' } }] }],
+          },
+        },
+      ],
+    },
+  };
+
+  it('recognizes a webhook MDH hook whose cascade lives under settings.configs', async () => {
+    const hooks = await withFetch([dmv2Hook], () =>
+      loadMdhHooksForQueue('https://anwb.rossum.app', 'token', 1030099),
+    );
+    expect(hooks).toHaveLength(1);
+    expect(hooks[0].id).toBe(435212);
+  });
+
+  it('still recognizes the modern settings.configurations shape', async () => {
+    const legacy = {
+      id: 99,
+      type: 'webhook',
+      active: true,
+      settings: { configurations: [{ source: { dataset: 'd', queries: [{ find: {} }] } }] },
+    };
+    const hooks = await withFetch([legacy], () =>
+      loadMdhHooksForQueue('https://x.rossum.app', 'token', 1),
+    );
+    expect(hooks.map((h) => h.id)).toEqual([99]);
+  });
+
+  it('excludes inactive hooks and non-webhook types even with a valid config shape', async () => {
+    const inactive = { ...dmv2Hook, id: 1, active: false };
+    const fn = { ...dmv2Hook, id: 2, type: 'function' };
+    const hooks = await withFetch([inactive, fn, dmv2Hook], () =>
+      loadMdhHooksForQueue('https://x.rossum.app', 'token', 1),
+    );
+    expect(hooks.map((h) => h.id)).toEqual([435212]);
   });
 });
 

@@ -90,9 +90,19 @@ export function queryToPipeline(q, { withLimit } = {}) {
   return pipeline;
 }
 
+// MDH match configs live under `settings.configurations` (the modern key) or
+// `settings.configs` (the legacy key — still emitted by some hooks, e.g. ones
+// created from older Store templates). Prefer the modern key, fall back to the
+// legacy one, so the panel recognizes both. Returns [] when neither is a usable
+// array.
+export function hookConfigs(hook) {
+  const c = hook?.settings?.configurations ?? hook?.settings?.configs;
+  return Array.isArray(c) ? c : [];
+}
+
 export function extractConfigsFromHook(hook) {
   const out = [];
-  const cfgs = hook?.settings?.configurations || [];
+  const cfgs = hookConfigs(hook);
   for (const cfg of cfgs) {
     const target = cfg?.mapping?.target_schema_id || '';
     const dataset = cfg?.source?.dataset || '';
@@ -133,9 +143,7 @@ export function extractConfigsFromHook(hook) {
 
 function isMdhHook(hook) {
   if (!hook) return false;
-  const cfgs = hook?.settings?.configurations;
-  if (!Array.isArray(cfgs)) return false;
-  return cfgs.some(
+  return hookConfigs(hook).some(
     (c) => Array.isArray(c?.source?.queries) || Array.isArray(c?.matching?.queries),
   );
 }
