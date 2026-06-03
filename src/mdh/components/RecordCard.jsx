@@ -1,8 +1,7 @@
 import { h } from 'preact';
 import { useState, useMemo, useEffect } from 'preact/hooks';
 import JsonTree, { countFields, AUTO_COLLAPSE_FIELD_THRESHOLD } from './JsonTree.jsx';
-import AiInsight from './AiInsight.jsx';
-import { selectedCollection, selectionMode, selectedIds } from '../store.js';
+import { selectionMode, selectedIds } from '../store.js';
 import { recordSummary, MIN_CHAR_BUDGET, EMPTY_SENTINEL } from '../recordSummary.js';
 
 export default function RecordCard({
@@ -98,8 +97,7 @@ export default function RecordCard({
         </span>
       </div>
       {expanded && (
-        <div class="record-card-body" style="position:relative">
-          <AiInsight input={record} type="record" mode="overlay" context={selectedCollection.value} />
+        <div class="record-card-body">
           <JsonTree
             key={treeKey}
             data={record}

@@ -4,11 +4,8 @@ import { collections, selectedCollection, activeView, loading, error } from '../
 import { promptModal, closeModal, openModal } from './Modal.jsx';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
-import * as ai from '../ai.js';
 import { showUndo } from '../undo.js';
 import { UNDO_LIMIT } from '../bulkOps.js';
-import { FEATURES } from '../featurePreview/registry.js';
-import FeaturePreviewModal from './FeaturePreviewModal.jsx';
 
 async function loadCollections() {
   try {
@@ -244,32 +241,6 @@ function confirmDrop(name) {
 
 export { loadCollections, performDrop };
 
-function countEnabledFeatures() {
-  let n = 0;
-  for (const f of FEATURES) {
-    const s = f.useState();
-    if (s.state === 'on' || s.state === 'downloading') n++;
-  }
-  return n;
-}
-
-function FeaturePreviewEntry() {
-  useEffect(() => { ai.initAvailability(); }, []);
-  const n = countEnabledFeatures();
-  return (
-    <div
-      class="sidebar-nav-item"
-      data-testid="feature-preview-entry"
-      onClick={() => openModal('Feature preview', () => <FeaturePreviewModal />)}
-      title="Try early-access features"
-    >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2l.5 4 4 .5-4 .5-.5 4-.5-4-4-.5 4-.5z"/><path d="M18 9l.5 3 3 .5-3 .5-.5 3-.5-3-3-.5 3-.5z"/><path d="M11 16l.5 3 3 .5-3 .5-.5 3-.5-3-3-.5 3-.5z"/></svg>
-      <span>Feature preview</span>
-      {n > 0 && <span class="feature-preview-count" style="margin-left:auto">{n}</span>}
-    </div>
-  );
-}
-
 export default function Sidebar() {
   useEffect(() => { loadCollections(); }, []);
 
@@ -362,7 +333,6 @@ export default function Sidebar() {
         </div>
       )}
       <div class="sidebar-footer">
-        <FeaturePreviewEntry />
         <div
           class={'sidebar-nav-item' + (activeView.value === 'overview' ? ' active' : '')}
           onClick={showOverview}

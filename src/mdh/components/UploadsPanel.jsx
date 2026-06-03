@@ -6,7 +6,6 @@ import {
   selectedCollection, activeView, activePanel,
 } from '../store.js';
 import * as api from '../api.js';
-import AiInsight from './AiInsight.jsx';
 import FlashOnChange from './FlashOnChange.jsx';
 
 const DEFAULT_COL_WIDTHS = {
@@ -579,7 +578,6 @@ export default function UploadsPanel() {
           <tr class={errRowClass}>
             <td colspan="8">
               <div class="uploads-error-inner">
-                <AiInsight input={errMsg} type="error" mode="overlay" />
                 {renderErrorText(op._id, errMsg)}
               </div>
             </td>
@@ -642,7 +640,6 @@ export default function UploadsPanel() {
           <tr class="uploads-row-error">
             <td colspan="8">
               <div class="uploads-error-inner">
-                <AiInsight input={errMsg} type="error" mode="overlay" />
                 {renderErrorText(first._id, errMsg)}
               </div>
             </td>

@@ -5,7 +5,6 @@ import { openModal, closeModal } from './Modal.jsx';
 import JsonEditor from './JsonEditor.jsx';
 import IndexCard from './IndexCard.jsx';
 import * as api from '../api.js';
-import * as ai from '../ai.js';
 import * as cache from '../cache.js';
 
 function defaultTemplate() {
@@ -36,7 +35,6 @@ export default function IndexPanel() {
       if (isVisible) loading.value = false;
       if (selectedCollection.value !== collection) return;
       setIndexes(result);
-      result.forEach((idx) => { if (typeof idx === 'object' && idx) ai.preload(idx, 'index'); });
     } catch (err) {
       if (isVisible) { error.value = { message: err.message }; loading.value = false; }
     }
@@ -138,7 +136,7 @@ export default function IndexPanel() {
           if (isObj && idx.unique) badges.push({ text: 'unique', cls: 'index-badge-unique' });
           if (isObj && idx.sparse) badges.push({ text: 'sparse' });
           if (isObj && idx.expireAfterSeconds != null) badges.push({ text: `TTL: ${idx.expireAfterSeconds}s` });
-          return <IndexCard name={name} badges={badges} definition={isObj ? idx : null} canDrop={!isDefault} onDrop={() => doDropIndex(name)} indexType="index" />;
+          return <IndexCard name={name} badges={badges} definition={isObj ? idx : null} canDrop={!isDefault} onDrop={() => doDropIndex(name)} />;
         })}
       </div>
       {opStatus && (

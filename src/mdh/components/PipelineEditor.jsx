@@ -1,11 +1,9 @@
 import { h } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
-import { selectedCollection, records, aiEnabled, aiStatus, error } from '../store.js';
+import { selectedCollection, records } from '../store.js';
 import { extractFieldNames } from './JsonEditor.jsx';
 import JsonEditor from './JsonEditor.jsx';
 import { LibraryPanel, saveQuery, unsaveQuery, isSaved } from './QueryHistory.jsx';
-import AiInsight from './AiInsight.jsx';
-import * as ai from '../ai.js';
 import JSON5 from 'json5';
 
 export default function PipelineEditor({ editorRef, initialValue, onChange, onValidChange, onLoadPipeline, onReset }) {
@@ -15,13 +13,7 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [popupPos, setPopupPos] = useState(null); // { top, left }
-  const [validPipeline, setValidPipeline] = useState(() => {
-    try { JSON5.parse(initialValue); return initialValue.trim(); } catch { return null; }
-  });
-  const [nlQuery, setNlQuery] = useState('');
-  const [nlLoading, setNlLoading] = useState(false);
   const saveInputRef = useRef(null);
-  const nlInputRef = useRef(null);
 
   // Close the overflow menu when clicking outside it
   useEffect(() => {
@@ -94,35 +86,6 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
     onLoadPipeline(pipeline, collection, variables);
   }
 
-  async function handleNlSubmit() {
-    const q = nlQuery.trim();
-    if (!q || nlLoading || !editorRef.current) return;
-
-    const fields = extractFieldNames(records.value);
-    const currentPipeline = editorRef.current.getValue().trim();
-
-    const parts = [];
-    if (fields.length > 0) parts.push(`Available fields: ${fields.join(', ')}`);
-    parts.push(`Current pipeline:\n${currentPipeline}`);
-    parts.push(`Request: ${q}`);
-    const prompt = parts.join('\n\n');
-
-    setNlLoading(true);
-    try {
-      const result = await ai.ask(prompt, 'nlsearch', { skipCache: true });
-      // Strip markdown code fences if the model wraps the output
-      const cleaned = result.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/, '').trim();
-      editorRef.current.setValue(cleaned);
-      setNlQuery('');
-    } catch (err) {
-      if (err.name !== 'AbortError') {
-        error.value = { message: 'AI search failed: ' + err.message };
-      }
-    } finally {
-      setNlLoading(false);
-    }
-  }
-
   return (
     <div style="display:flex;flex-direction:column;flex:1;min-height:0">
       <div class="pipeline-header">
@@ -182,27 +145,7 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
           </div>
         </div>
       )}
-      {aiEnabled.value && aiStatus.value === 'ready' && (
-        <div class="nl-search-row">
-          <div class="nl-search-wrapper">
-            <input
-              ref={nlInputRef}
-              class={'nl-search-input' + (nlLoading ? ' loading' : '')}
-              type="text"
-              placeholder="Describe a simple query in plain English..."
-              value={nlLoading ? '' : nlQuery}
-              disabled={nlLoading}
-              onInput={(e) => setNlQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleNlSubmit();
-                if (e.key === 'Escape') { setNlQuery(''); nlInputRef.current?.blur(); }
-              }}
-            />
-            {nlLoading && <div class="nl-search-loading">Generating pipeline...</div>}
-          </div>
-        </div>
-      )}
-      <div style="position:relative;display:flex;flex:1;min-height:0">
+      <div style="display:flex;flex:1;min-height:0">
         <JsonEditor
           value={initialValue}
           mode="aggregate"
@@ -212,10 +155,8 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
           onValidChange={() => {
             onValidChange();
             updateSaveBtn();
-            if (editorRef.current) setValidPipeline(editorRef.current.getValue().trim());
           }}
         />
-        <AiInsight input={validPipeline} type="pipeline" mode="overlay" />
       </div>
     </div>
   );
