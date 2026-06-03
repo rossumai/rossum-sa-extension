@@ -137,7 +137,7 @@ body {
 .collection-item.menu-open .collection-item-actions { opacity: 1; }
 
 .collection-item.menu-open { background: var(--bg-hover); color: var(--text-primary); }
-.collection-item.active.menu-open { background: var(--accent-hover); }
+.collection-item.active.menu-open { background: var(--accent-hover); color: #fff; }
 
 .collection-action-btn {
   background: none; border: none; cursor: pointer;
