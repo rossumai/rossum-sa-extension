@@ -290,12 +290,13 @@ export default function MdhProvenancePanel({ tab }) {
                   currentRow={currentRow}
                   onRowChange={setCurrentRow}
                   forceRefreshNonce={refreshNonce}
-                  onOpenInDm={(dataset, pipelineText) =>
+                  onOpenInDm={(dataset, pipelineText, variables) =>
                     openMdhTab(tab, {
                       token: state.ctx.token,
                       domain: state.ctx.domain,
                       pendingCollection: dataset,
                       pendingPipeline: pipelineText,
+                      pendingVariables: variables,
                     })
                   }
                 />

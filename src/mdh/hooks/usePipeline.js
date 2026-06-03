@@ -3,12 +3,23 @@ import { signal } from '@preact/signals';
 import JSON5 from 'json5';
 import { skip } from '../store.js';
 
-// Scan for variables. A variable is ONLY a whole quoted value `"{name}"` — the
-// syntax MDH supports. A `{...}` that is merely *part* of a larger string
-// literal (e.g. a value like "GBL CS WLD FLG {A105N} CSF DC N/STK") is literal
-// data, not a variable, and is left untouched. Returns [{ name, start, end }] in
-// document order, where start/end span the surrounding quotes so substitution
-// can replace the value-and-quotes (enabling type-aware replacement).
+// Scan for variables. A variable lives inside a JSON string literal, in one of
+// two forms — mirroring MDH's server-side substitution (see
+// src/popup/mdh-provenance.js, the canonical model of the service):
+//   • WHOLE — the string is *exactly* the placeholder, e.g. "{name}" or
+//     "{name | split(',')}". Substituted as a typed JSON token: a number / bool /
+//     null when the value looks like one (quotes dropped), an array for `split`,
+//     otherwise a quoted string.
+//   • EMBEDDED — the placeholder is *part* of a larger string, e.g.
+//     "BLUE WIDGET {part_no} LARGE" or "{a}/{b}". Each occurrence is replaced
+//     in-place by its (string) value, JSON-escaped to stay inside the quotes.
+// A bare unquoted {name} (outside any string literal) is NOT a variable — it
+// isn't valid JSON, so it never reaches substitution. Returns
+// [{ whole, name, modifier, arg, start, end }] in document order; for WHOLE the
+// span covers the surrounding quotes, for EMBEDDED only the `{...}` itself.
+const VAR_RE = /^\{\s*([a-zA-Z_]\w*)\s*(?:\|\s*([a-zA-Z_]+)(?:\s*\(\s*([^)]*?)\s*\))?\s*)?\}$/;
+const VAR_RE_G = /\{\s*([a-zA-Z_]\w*)\s*(?:\|\s*([a-zA-Z_]+)(?:\s*\(\s*([^)]*?)\s*\))?\s*)?\}/g;
+
 function scanPlaceholders(text) {
   const out = [];
   const n = text.length;
@@ -20,8 +31,18 @@ function scanPlaceholders(text) {
     if (inString) {
       if (c === '\\') { i += 2; continue; } // skip the escaped char
       if (c === '"') {
-        const m = /^\{(\w+)\}$/.exec(text.slice(strStart + 1, i));
-        if (m) out.push({ name: m[1], start: strStart, end: i + 1 });
+        const inner = text.slice(strStart + 1, i);
+        const exact = VAR_RE.exec(inner);
+        if (exact) {
+          out.push({ whole: true, name: exact[1], modifier: exact[2] || null, arg: exact[3] != null ? exact[3] : null, start: strStart, end: i + 1 });
+        } else {
+          // Embedded: each `{...}` within the larger string. m.index is relative
+          // to `inner`, so offset by strStart + 1 to map back into `text`.
+          for (const m of inner.matchAll(VAR_RE_G)) {
+            const off = strStart + 1 + m.index;
+            out.push({ whole: false, name: m[1], modifier: m[2] || null, arg: m[3] != null ? m[3] : null, start: off, end: off + m[0].length });
+          }
+        }
         inString = false;
       }
       i += 1;
@@ -48,6 +69,50 @@ const JSON5_NUMBER_RE = /^-?(?:0|[1-9]\d*)(?:\.\d*)?(?:[eE][+-]?\d+)?$|^-?\.\d+(
 
 function isJson5NumberLiteral(val) {
   return typeof val === 'string' && val !== '' && JSON5_NUMBER_RE.test(val);
+}
+
+// Placeholder modifiers, mirroring MDH's server-side substitution as modeled in
+// src/popup/mdh-provenance.js. `split(sep)` turns the value into an array of
+// strings; `re` regex-escapes it; no/unknown modifier → the raw string value.
+// Single-quoted or bare args are supported (the common convention, e.g.
+// `split(',')`); since the value is read from the editor text, a double-quoted
+// arg would arrive JSON-escaped — a rare shape left unhandled.
+const REGEX_SPECIALS_RE = /[.*+?^${}()|[\]\\]/g;
+
+function unquoteArg(raw) {
+  if (raw == null) return '';
+  const t = raw.trim();
+  if (t.length >= 2 && ((t.startsWith("'") && t.endsWith("'")) || (t.startsWith('"') && t.endsWith('"')))) {
+    return t.slice(1, -1);
+  }
+  return t;
+}
+
+function applyModifier(val, modifier, arg) {
+  if (modifier === 'split') return String(val).split(unquoteArg(arg));
+  if (modifier === 're') return String(val).replace(REGEX_SPECIALS_RE, '\\$&');
+  return String(val); // no modifier or unknown → raw string
+}
+
+// WHOLE `"{name}"` → a JSON token replacing the value AND its surrounding quotes:
+// type-aware (number / bool / null) when there's no modifier and the value looks
+// like one, an array for `split`, otherwise a quoted string. (`"amount":
+// "{amount}"` + 5 → `"amount": 5`; `"{x | split(',')}"` + "a,b" → `["a","b"]`.)
+function renderWholeToken(val, modifier, arg) {
+  if (!modifier && (val === 'true' || val === 'false' || val === 'null')) return val;
+  if (!modifier && isJson5NumberLiteral(val)) return val;
+  return JSON.stringify(applyModifier(val, modifier, arg));
+}
+
+// EMBEDDED `{name}` → the value spliced INSIDE an existing string literal, so it
+// is JSON-escaped (quotes / backslashes / control chars) but contributes no
+// quotes of its own. Always a string — `"id-{x}"` + 5 → `"id-5"`, never a number
+// (only a whole `"{name}"` is type-aware). A `split` array is JSON-stringified
+// into the surrounding text, mirroring src/popup/mdh-provenance.js.
+function renderEmbeddedFragment(val, modifier, arg) {
+  const out = applyModifier(val, modifier, arg);
+  const text = typeof out === 'string' ? out : JSON.stringify(out);
+  return JSON.stringify(text).slice(1, -1);
 }
 
 // Default sort: _id descending. Stable ordering for pagination, newest-first
@@ -135,13 +200,8 @@ export function usePipeline() {
       // An unfilled variable defaults to an empty string — a valid value, so the
       // query still runs ("even empty string is a valid variable value").
       const val = m.name in placeholderValues.value ? placeholderValues.value[m.name] : '';
-      // Type-aware, mirroring MDH: a `"{name}"` becomes a JSON number / bool /
-      // null when the value looks like one, otherwise a JSON string. The match
-      // span includes the surrounding quotes, so a numeric value cleanly drops
-      // the quotes (`"amount": "{amount}"` + 5 → `"amount": 5`).
-      if (val === 'true' || val === 'false' || val === 'null') result += val;
-      else if (isJson5NumberLiteral(val)) result += val;
-      else result += JSON.stringify(val);
+      result += m.whole ? renderWholeToken(val, m.modifier, m.arg)
+        : renderEmbeddedFragment(val, m.modifier, m.arg);
       last = m.end;
     }
     result += text.slice(last);

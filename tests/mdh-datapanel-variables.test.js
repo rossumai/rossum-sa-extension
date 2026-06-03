@@ -137,24 +137,56 @@ describe('DataPanel variables → debug + query', () => {
     ), 'the filled query should have run').toBe(true);
   });
 
-  it("a string value containing {braces} is literal: no variable input, debug shows, query runs", async () => {
+  it('an embedded {var} inside a larger string shows an input and substitutes into the text', async () => {
     const root = document.createElement('div');
     document.body.appendChild(root);
     render(h(DataPanel, null), root);
 
     await tick(150);
 
-    // The user's real query: {A105N} is part of a literal string, not a variable.
-    typeInEditor('[{"$match":{"LINE DESC":"GBL CS WLD FLG {A105N} CSF DC N/STK"}},{"$sort":{"_id":-1}},{"$skip":0},{"$limit":50}]');
+    // {part_no} is embedded in a larger string — a valid variable, substituted into the text.
+    typeInEditor('[{"$match":{"LINE DESC":"BLUE WIDGET {part_no} LARGE"}},{"$sort":{"_id":-1}},{"$skip":0},{"$limit":50}]');
     await tick(700); // recompute (250) + onValidChange (500)
 
-    expect(root.querySelector('.placeholder-input'), 'no spurious variable input').toBeNull();
+    expect(root.querySelector('.placeholder-input'), 'a variable input should appear').not.toBeNull();
     expect(root.querySelector('.pipeline-debug-hint'), 'no unresolved hint').toBeNull();
     expect(root.querySelector('.pipeline-debug-input-row'), 'debug should render').not.toBeNull();
+    // Runs immediately with the unfilled var → emptied substitution (two spaces).
+    expect(api.aggregate.mock.calls.some(
+      ([col, pl]) => col === 'vendors' && JSON.stringify(pl).includes('BLUE WIDGET  LARGE'),
+    ), 'runs with the empty embedded value before filling').toBe(true);
 
-    const ranLiteral = api.aggregate.mock.calls.some(
-      ([col, pl]) => col === 'vendors' && JSON.stringify(pl).includes('GBL CS WLD FLG {A105N}'),
-    );
-    expect(ranLiteral, 'the literal-match query should have run').toBe(true);
+    const input = root.querySelector('.placeholder-input');
+    input.value = 'XYZ';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await tick(550);
+
+    expect(api.aggregate.mock.calls.some(
+      ([col, pl]) => col === 'vendors' && JSON.stringify(pl).includes('BLUE WIDGET XYZ LARGE'),
+    ), 'the filled embedded query should have run').toBe(true);
+  });
+
+  it('split modifier: the variable stays as-is, the input is raw, the query runs with the array', async () => {
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+    render(h(DataPanel, null), root);
+
+    await tick(150);
+
+    typeInEditor('[{"$match":{"tags":"{categories | split(\',\')}"}}]');
+    await tick(700);
+
+    const input = root.querySelector('.placeholder-input');
+    expect(input, 'a variable input should appear for the split placeholder').not.toBeNull();
+    expect(root.querySelector('.pipeline-debug-input-row'), 'debug shows').not.toBeNull();
+
+    // The user types the raw, comma-joined value — exactly what the field holds.
+    input.value = 'food,drink';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await tick(550);
+
+    expect(api.aggregate.mock.calls.some(
+      ([col, pl]) => col === 'vendors' && JSON.stringify(pl).includes('"tags":["food","drink"]'),
+    ), 'the query should run with the split array value').toBe(true);
   });
 });

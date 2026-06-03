@@ -2,7 +2,7 @@
 //
 // A variable is ONLY a whole quoted value "{name}" (what MDH supports). A {...}
 // that is part of a larger string is literal data — e.g. the user's
-// "GBL CS WLD FLG {A105N} CSF DC N/STK". Unfilled variables substitute to an
+// "BLUE WIDGET {part_no} LARGE". Unfilled variables substitute to an
 // empty string (a valid value), so the pipeline still parses and runs.
 //
 import { describe, it, expect } from 'vitest';
@@ -68,32 +68,120 @@ describe('computeEditorState — variables are whole quoted values', () => {
   });
 });
 
-describe('only a whole quoted "{name}" counts as a variable', () => {
-  const lineDesc = '[{"$match":{"LINE DESC":"GBL CS WLD FLG {A105N} CSF DC N/STK"}},{"$sort":{"_id":-1}},{"$skip":0},{"$limit":50}]';
+// A variable lives inside a string literal in two forms: WHOLE "{name}" (typed)
+// and EMBEDDED "...{name}..." (substituted into the text as a string). Embedded
+// is valid in Rossum/MDH — confirmed by the user and mirrored in
+// src/popup/mdh-provenance.js. Only a bare {name} outside any string is not one.
+describe('variables: whole-quoted (typed) and embedded (string)', () => {
+  const lineDesc = '[{"$match":{"LINE DESC":"BLUE WIDGET {part_no} LARGE"}},{"$sort":{"_id":-1}},{"$skip":0},{"$limit":50}]';
 
-  it("treats {braces} inside a larger string as literal data (user's LINE DESC case)", () => {
+  it("a {name} inside a larger string is an embedded variable (user's LINE DESC case)", () => {
     const p = getPipeline();
-    expect(p.extractPlaceholders(lineDesc)).toEqual([]);
-    const r = p.computeEditorState(lineDesc);
-    expect(r.placeholders).toEqual([]);
-    expect(r.parsed).not.toBeNull(); // → debug shows, query runs as a literal match
-    expect(p.substitutePlaceholders(lineDesc)).toBe(lineDesc); // left untouched
+    expect(p.extractPlaceholders(lineDesc)).toEqual(['part_no']);
+    p.setPlaceholder('part_no', 'XYZ');
+    expect(p.computeEditorState(lineDesc).parsed).toEqual([
+      { $match: { 'LINE DESC': 'BLUE WIDGET XYZ LARGE' } },
+      { $sort: { _id: -1 } }, { $skip: 0 }, { $limit: 50 },
+    ]);
   });
 
-  it('a bare unquoted {name} is NOT a variable', () => {
+  it('an unfilled embedded variable substitutes to nothing (empty string), query still runs', () => {
+    const p = getPipeline();
+    const r = p.computeEditorState('[{"$match":{"d":"flag {part_no} stk"}}]');
+    expect(r.placeholders).toEqual(['part_no']);
+    expect(r.parsed).toEqual([{ $match: { d: 'flag  stk' } }]); // emptied, two spaces
+  });
+
+  it('an embedded number-looking value stays a string (only a whole "{name}" is type-aware)', () => {
+    const p = getPipeline();
+    p.setPlaceholder('id', '5');
+    expect(p.computeEditorState('[{"$match":{"code":"id-{id}"}}]').parsed)
+      .toEqual([{ $match: { code: 'id-5' } }]); // "id-5", not a number
+  });
+
+  it('multiple embedded variables in one string both substitute', () => {
+    const p = getPipeline();
+    p.setPlaceholder('a', 'X'); p.setPlaceholder('b', 'Y');
+    expect(p.computeEditorState('[{"$match":{"k":"{a}/{b}"}}]').parsed)
+      .toEqual([{ $match: { k: 'X/Y' } }]);
+  });
+
+  it('a bare unquoted {name} is NOT a variable (not inside a string literal)', () => {
     const p = getPipeline();
     expect(p.extractPlaceholders('[{"$match":{"amount":{amount}}}]')).toEqual([]);
   });
 
-  it('detects a real "{name}" alongside an embedded literal of the same shape', () => {
+  it('detects both a whole "{name}" and an embedded {name} of the same shape', () => {
     const p = getPipeline();
-    const text = '[{"$match":{"vendor":"{vendor}","note":"see {A105N} ref"}}]';
-    expect(p.extractPlaceholders(text)).toEqual(['vendor']);
+    const text = '[{"$match":{"vendor":"{vendor}","note":"see {part_no} ref"}}]';
+    expect([...p.extractPlaceholders(text)].sort()).toEqual(['part_no', 'vendor']);
   });
 
-  it('handles escaped quotes without breaking string tracking', () => {
+  it('handles escaped quotes without breaking string tracking, still finds the embedded var', () => {
     const p = getPipeline();
     const text = '[{"$match":{"q":"a \\" b {x} c"}}]';
-    expect(p.extractPlaceholders(text)).toEqual([]);
+    expect(p.extractPlaceholders(text)).toEqual(['x']);
+    p.setPlaceholder('x', 'Z');
+    expect(p.computeEditorState(text).parsed).toEqual([{ $match: { q: 'a " b Z c' } }]);
+  });
+
+  it('an embedded value with special chars is JSON-escaped (stays valid)', () => {
+    const p = getPipeline();
+    p.setPlaceholder('x', 'a"b\\c');
+    expect(p.computeEditorState('[{"$match":{"v":"p={x}"}}]').parsed)
+      .toEqual([{ $match: { v: 'p=a"b\\c' } }]);
+  });
+});
+
+// Mirrors MDH's server-side substitution grammar (src/popup/mdh-provenance.js):
+// a whole-quoted "{name | modifier(arg)}" — `split` → JSON array, `re` →
+// regex-escaped string. Lets a provenance query open with its placeholders
+// intact and still run with the right value.
+describe('placeholder modifiers', () => {
+  it('split(sep) substitutes a JSON array', () => {
+    const p = getPipeline();
+    p.setPlaceholder('cats', 'food,drink');
+    const r = p.computeEditorState('[{"$match":{"tags":"{cats | split(\',\')}"}}]');
+    expect(r.placeholders).toEqual(['cats']);
+    expect(r.parsed).toEqual([{ $match: { tags: ['food', 'drink'] } }]);
+  });
+
+  it('split with an unfilled value yields [""] (empty-string split), still runnable', () => {
+    const p = getPipeline();
+    const r = p.computeEditorState('[{"$match":{"tags":"{cats | split(\',\')}"}}]');
+    expect(r.placeholders).toEqual(['cats']);
+    expect(r.parsed).toEqual([{ $match: { tags: [''] } }]);
+  });
+
+  it('re escapes regex specials and stays a JSON string', () => {
+    const p = getPipeline();
+    p.setPlaceholder('v', 'A.C. Corp');
+    expect(p.computeEditorState('[{"$match":{"name":"{v | re}"}}]').parsed)
+      .toEqual([{ $match: { name: 'A\\.C\\. Corp' } }]);
+  });
+
+  it('tolerates whitespace inside the braces ("{ amount }")', () => {
+    const p = getPipeline();
+    p.setPlaceholder('amount', '5');
+    const r = p.computeEditorState('[{"$match":{"amount":"{ amount }"}}]');
+    expect(r.placeholders).toEqual(['amount']);
+    expect(r.parsed).toEqual([{ $match: { amount: 5 } }]);
+  });
+
+  it('a name shared by a bare and a split placeholder uses one input value', () => {
+    const p = getPipeline();
+    p.setPlaceholder('x', 'a,b');
+    const r = p.computeEditorState('[{"$match":{"raw":"{x}","arr":"{x | split(\',\')}"}}]');
+    expect(r.placeholders).toEqual(['x']); // one variable, two uses
+    expect(r.parsed).toEqual([{ $match: { raw: 'a,b', arr: ['a', 'b'] } }]);
+  });
+
+  it('an embedded split modifier stringifies the array into the surrounding text', () => {
+    const p = getPipeline();
+    p.setPlaceholder('x', 'a,b');
+    // Embedded (not whole-quoted): mirrors mdh-provenance — the split array is
+    // JSON-stringified into the string.
+    expect(p.computeEditorState('[{"$match":{"note":"see {x | split(\',\')} ref"}}]').parsed)
+      .toEqual([{ $match: { note: 'see ["a","b"] ref' } }]);
   });
 });

@@ -131,10 +131,20 @@ export default function ConfigBlock({
   };
 
   const openQuery = (i) => {
-    const pipeline = queryToPipeline(cfg.queries[i].raw);
+    const q = cfg.queries[i];
+    const pipeline = queryToPipeline(q.raw);
     if (!pipeline) return;
-    const substituted = substitutePlaceholders(pipeline, valuesForCurrentRow(), types);
-    onOpenInDm(cfg.dataset, JSON.stringify(substituted, null, 2));
+    // Keep the placeholders verbatim so the dataset manager shows them as live,
+    // pre-filled variables (rather than baking in the values). Pass the current
+    // row's resolved values so each variable's input is pre-filled and the query
+    // runs with the right value — the editor understands the same `{name}` and
+    // `{name | split(',')}` grammar, so it substitutes them on run.
+    const values = valuesForCurrentRow();
+    const variables = {};
+    for (const name of q.placeholders) {
+      if (name in values) variables[name] = String(values[name]);
+    }
+    onOpenInDm(cfg.dataset, JSON.stringify(pipeline, null, 2), variables);
   };
 
   return (

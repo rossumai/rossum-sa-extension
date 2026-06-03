@@ -141,12 +141,13 @@ async function boot() {
   // is single-use: consume it on first read and hand the credentials off to
   // sessionStorage so the token doesn't linger in chrome.storage.local for the
   // 24-hour TTL.
-  let token, domain, pendingCollection, pendingPipeline;
+  let token, domain, pendingCollection, pendingPipeline, pendingVariables;
   if (entry?.token && entry?.domain) {
     token = entry.token;
     domain = entry.domain;
     pendingCollection = entry.pendingCollection;
     pendingPipeline = entry.pendingPipeline;
+    pendingVariables = entry.pendingVariables;
     chrome.storage.local.remove(authKey);
     sessionStorage.setItem('mdhToken', token);
     sessionStorage.setItem('mdhDomain', domain);
@@ -188,6 +189,7 @@ async function boot() {
       store.pendingPipelineLoad.value = {
         collection: pendingCollection,
         pipelineText: pendingPipeline,
+        variables: pendingVariables || undefined,
       };
     }
   }
