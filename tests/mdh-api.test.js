@@ -145,3 +145,44 @@ describe('MDH API client', () => {
     expect(fetchMock.mock.calls[0][0]).toContain('limit=50');
   });
 });
+
+describe('async operation helpers', () => {
+  it('parseOperationId extracts a 24-hex operation id from the message', () => {
+    expect(api.parseOperationId('Accepted, operation 5f4e3d2c1b0a98765432abcd scheduled'))
+      .toBe('5f4e3d2c1b0a98765432abcd');
+    expect(api.parseOperationId('nothing here')).toBeNull();
+    expect(api.parseOperationId(undefined)).toBeNull();
+    expect(api.parseOperationId(null)).toBeNull();
+  });
+
+  it('waitForOperation polls until the operation reaches FINISHED', async () => {
+    fetchMock
+      .mockResolvedValueOnce(ok({ result: { status: 'CREATED' } }))
+      .mockResolvedValueOnce(ok({ result: { status: 'RUNNING' } }))
+      .mockResolvedValueOnce(ok({ result: { status: 'FINISHED', _id: 'op1' } }));
+
+    const op = await api.waitForOperation('op1', { intervalMs: 1, timeoutMs: 1000 });
+
+    expect(op).toEqual({ status: 'FINISHED', _id: 'op1' });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[0][0]).toContain('/api/v1/operation_status/op1');
+  });
+
+  it('waitForOperation throws the server error_message on FAILED', async () => {
+    fetchMock.mockResolvedValueOnce(ok({ result: { status: 'FAILED', error_message: 'disk is full' } }));
+    await expect(api.waitForOperation('op1', { intervalMs: 1 })).rejects.toThrow('disk is full');
+  });
+
+  it('waitForOperation throws on timeout when the operation never finishes', async () => {
+    fetchMock.mockResolvedValue(ok({ result: { status: 'RUNNING' } }));
+    await expect(api.waitForOperation('op1', { intervalMs: 1, timeoutMs: 5 }))
+      .rejects.toThrow(/did not finish/);
+  });
+
+  it('waitForOperation bails out immediately on an already-aborted signal', async () => {
+    const ac = new AbortController();
+    ac.abort();
+    await expect(api.waitForOperation('op1', { signal: ac.signal })).rejects.toThrow(/aborted/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});

@@ -180,6 +180,34 @@ export function checkOperationStatus(operationId) {
   return get(`/api/v1/operation_status/${operationId}`);
 }
 
+// Async endpoints (drop collection, create/drop index, drop search index,
+// bulk_write) return 202 Accepted with the operation id embedded in the
+// response `message`. Extract the 24-hex id so callers can poll for completion.
+export function parseOperationId(message) {
+  return typeof message === 'string' ? (message.match(/[a-f0-9]{24}/i)?.[0] ?? null) : null;
+}
+
+// Poll an async operation until it reaches a terminal state. Resolves with the
+// Operation object on FINISHED; throws on FAILED (surfacing the server's
+// error_message) or once `timeoutMs` elapses. A 202 only means "accepted" — the
+// work runs in the background — so callers that must see the effect reflected
+// immediately afterwards (e.g. re-listing collections after a drop) have to
+// await this first.
+export async function waitForOperation(operationId, { intervalMs = 600, timeoutMs = 120_000, signal } = {}) {
+  const start = Date.now();
+  for (;;) {
+    if (signal?.aborted) throw new Error('Operation polling aborted');
+    const res = await checkOperationStatus(operationId);
+    const op = res?.result || {};
+    if (op.status === 'FINISHED') return op;
+    if (op.status === 'FAILED') throw new Error(op.error_message || `Operation ${operationId} failed`);
+    if (Date.now() - start > timeoutMs) {
+      throw new Error(`Operation ${operationId} did not finish within ${Math.round(timeoutMs / 1000)}s`);
+    }
+    await new Promise((resolve) => { setTimeout(resolve, intervalMs); });
+  }
+}
+
 export function healthz() {
   return get('/api/healthz');
 }

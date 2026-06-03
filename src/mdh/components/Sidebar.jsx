@@ -94,7 +94,15 @@ async function performDrop(name, snapshot) {
   loading.value = true;
   error.value = null;
   try {
-    await api.dropCollection(name);
+    // Dropping a collection is asynchronous: the server returns 202 immediately
+    // and removes the collection in the background. Wait for that operation to
+    // finish before re-listing — otherwise loadCollections() re-fetches the
+    // still-present collection and the sidebar looks like nothing happened.
+    // Waiting also keeps the undo offer below from recreating the collection
+    // while the background drop is still in flight (which would then delete it).
+    const res = await api.dropCollection(name);
+    const opId = api.parseOperationId(res?.message);
+    if (opId) await api.waitForOperation(opId);
     cache.invalidateAll();
     if (selectedCollection.value === name) selectedCollection.value = null;
     await loadCollections();
@@ -234,7 +242,7 @@ function confirmDrop(name) {
   openModal(`Drop "${name}"?`, () => <DropConfirmBody name={name} />);
 }
 
-export { loadCollections };
+export { loadCollections, performDrop };
 
 function countEnabledFeatures() {
   let n = 0;
