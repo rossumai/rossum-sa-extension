@@ -6,6 +6,22 @@ import * as api from '../api.js';
 
 const DEBUG_PREVIEW_LIMIT = 5;
 
+// Map a stage/input count result ({count} | {error} | undefined) to the count
+// cell's text + class. Shared by the per-stage rows and the 0th input row.
+function countCell(info) {
+  if (!info) return { text: '…', cls: 'pipeline-debug-count' };
+  if (info.error) {
+    return {
+      text: info.error.status ? `HTTP ${info.error.status}` : 'error',
+      cls: 'pipeline-debug-count pipeline-debug-error',
+    };
+  }
+  return {
+    text: `${info.count.toLocaleString()} docs`,
+    cls: 'pipeline-debug-count' + (info.count === 0 ? ' pipeline-debug-zero' : ''),
+  };
+}
+
 function StageTooltip({ stage, children }) {
   const [show, setShow] = useState(false);
   const rowRef = useRef(null);
@@ -49,11 +65,13 @@ function StageTooltip({ stage, children }) {
 
 export default function PipelineDebug({ pipeline }) {
   const [stageCounts, setStageCounts] = useState({});
+  const [inputInfo, setInputInfo] = useState(null);
   const collection = selectedCollection.value;
 
   useEffect(() => {
     if (!collection || !pipeline || pipeline.length === 0) return;
     setStageCounts({});
+    setInputInfo(null);
 
     // Each prefix runs as its own aggregation, not a $facet branch. Atlas
     // requires $search to be the FIRST stage of the whole pipeline — wrapping
@@ -82,6 +100,24 @@ export default function PipelineDebug({ pipeline }) {
         });
     });
 
+    // 0th step — the pipeline input: the whole collection before any stage.
+    // Counted via $collStats (instant metadata count) so it reflects ALL
+    // records without a COLLSCAN. Handy when stage 1 already matches zero and
+    // you need to see which values the raw documents actually hold.
+    const inputT0 = performance.now();
+    api.aggregate(collection, [{ $collStats: { count: {} } }, { $limit: 1 }], { signal: controller.signal })
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setInputInfo({ count: res?.result?.[0]?.count ?? 0, ms: Math.round(performance.now() - inputT0) });
+      })
+      .catch((err) => {
+        if (err?.name === 'AbortError' || controller.signal.aborted) return;
+        setInputInfo({
+          error: { message: err?.message || String(err), status: err?.status },
+          ms: Math.round(performance.now() - inputT0),
+        });
+      });
+
     return () => controller.abort();
   }, [collection, JSON.stringify(pipeline)]);
 
@@ -92,27 +128,46 @@ export default function PipelineDebug({ pipeline }) {
     openModal(`Stage ${stageIndex + 1}: ${stageKey}`, () => <StageInspector collection={collection} prefix={prefix} stageIndex={stageIndex} stageKey={stageKey} />);
   }
 
+  function inspectInput() {
+    openModal('Input: all records', () => <StageInspector collection={collection} prefix={[]} stageIndex={-1} stageKey="input" isInput />);
+  }
+
   const timingTitle = 'End-to-end latency for the prefix up to this stage (network + server + contention with parallel debug requests). Cumulative — not per-stage MongoDB executor time. Data Storage does not expose explain output.';
+  const inputTimingTitle = 'End-to-end latency of the $collStats document count for the whole collection (network + server). This is a metadata count, so it is typically near-instant — not a measure of how long a full scan would take.';
+
+  const inputCell = countCell(inputInfo);
 
   return (
     <div class="pipeline-debug">
       <div class="placeholder-label">Aggregate Pipeline Debug</div>
+      <div class="pipeline-debug-stage-wrap">
+        <div
+          class="pipeline-debug-row pipeline-debug-input-row"
+          onClick={inspectInput}
+          title="All documents in the collection — the input to stage 1. Click to preview the first few raw documents."
+        >
+          <span class="pipeline-debug-num">0.</span>
+          <span class="pipeline-debug-stage">input</span>
+          <span class="pipeline-debug-preview">all records (pipeline input)</span>
+          <span class="pipeline-debug-arrow">{'→'}</span>
+          <span class={inputCell.cls}>{inputCell.text}</span>
+          {inputInfo?.ms != null && (
+            <span class="pipeline-debug-time" title={inputTimingTitle}>{inputInfo.ms}ms</span>
+          )}
+        </div>
+        {inputInfo?.error && (
+          <div class="pipeline-debug-error-detail" onClick={(e) => e.stopPropagation()}>
+            <div class="pipeline-debug-error-msg">{inputInfo.error.message}</div>
+            <div class="pipeline-debug-error-hint">Couldn{'’'}t read the collection{'’'}s documents.</div>
+          </div>
+        )}
+      </div>
       {pipeline.map((stage, i) => {
         const stageKey = Object.keys(stage)[0] || '?';
         const stageStr = JSON.stringify(stage);
         const preview = stageStr.length > 50 ? stageStr.slice(0, 50) + '…' : stageStr;
         const info = stageCounts[i];
-        let countText = '…';
-        let countCls = 'pipeline-debug-count';
-        if (info) {
-          if (info.error) {
-            countText = info.error.status ? `HTTP ${info.error.status}` : 'error';
-            countCls += ' pipeline-debug-error';
-          } else {
-            countText = `${info.count.toLocaleString()} docs`;
-            if (info.count === 0) countCls += ' pipeline-debug-zero';
-          }
-        }
+        const { text: countText, cls: countCls } = countCell(info);
 
         return (
           <div class="pipeline-debug-stage-wrap">
@@ -145,7 +200,7 @@ export default function PipelineDebug({ pipeline }) {
   );
 }
 
-function StageInspector({ collection, prefix, stageIndex, stageKey }) {
+function StageInspector({ collection, prefix, stageIndex, stageKey, isInput }) {
   const [docs, setDocs] = useState(null);
   const [err, setErr] = useState(null);
 
@@ -157,13 +212,17 @@ function StageInspector({ collection, prefix, stageIndex, stageKey }) {
 
   return (
     <div class="modal-body">
-      <div class="pipeline-inspect-info">Showing first {DEBUG_PREVIEW_LIMIT} documents after stage {stageIndex + 1} ({stageKey})</div>
+      <div class="pipeline-inspect-info">
+        {isInput
+          ? `Showing first ${DEBUG_PREVIEW_LIMIT} documents from the collection (before any stage)`
+          : `Showing first ${DEBUG_PREVIEW_LIMIT} documents after stage ${stageIndex + 1} (${stageKey})`}
+      </div>
       {err && (
         <span style="color:var(--danger)">
           {err.status ? `HTTP ${err.status}: ` : 'Error: '}{err.message}
         </span>
       )}
-      {docs && docs.length === 0 && <span style="color:var(--text-secondary)">No documents at this stage</span>}
+      {docs && docs.length === 0 && <span style="color:var(--text-secondary)">{isInput ? 'This collection is empty' : 'No documents at this stage'}</span>}
       {docs && docs.length > 0 && (
         <div class="sample-cards">
           {docs.map((doc, i) => (

@@ -444,6 +444,10 @@ body {
 
 .pipeline-debug-total:hover { background: none; }
 
+/* 0th step: the pipeline input (all records before any stage). The italic
+   "input" label distinguishes it from the numbered pipeline stages below. */
+.pipeline-debug-input-row .pipeline-debug-stage { color: var(--text-secondary); font-style: italic; }
+
 .pipeline-debug-zero { color: var(--danger); }
 .pipeline-debug-error { color: var(--danger); font-weight: 600; font-style: normal; }
 
