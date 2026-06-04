@@ -22,21 +22,21 @@ describe('openDatasetManagement', () => {
     };
   });
 
-  it('stages a single-use mdhAuth entry with the token + domain', () => {
+  it('stages a single-use consoleAuth entry with the token + domain + app', () => {
     openDatasetManagement({ token: 'tok', domain: 'https://x.rossum.app' }, deps);
     expect(deps.storageSet).toHaveBeenCalledWith(
-      { mdhAuth_UUID: { token: 'tok', domain: 'https://x.rossum.app', createdAt: 1234 } },
+      { consoleAuth_UUID: { token: 'tok', domain: 'https://x.rossum.app', app: 'mdh', createdAt: 1234 } },
       expect.any(Function),
     );
   });
 
-  it('opens mdh.html right next to the requesting tab (after the stage completes)', () => {
+  it('opens console.html right next to the requesting tab (after the stage completes)', () => {
     openDatasetManagement(
       { token: 'tok', domain: 'https://x.rossum.app', openerTab: { index: 3, windowId: 7 } },
       deps,
     );
     expect(deps.tabsCreate).toHaveBeenCalledWith({
-      url: 'chrome-extension://self/mdh/mdh.html?authId=UUID',
+      url: 'chrome-extension://self/console/console.html?authId=UUID',
       index: 4,
       windowId: 7,
     });
@@ -45,7 +45,7 @@ describe('openDatasetManagement', () => {
   it('opens without a position when there is no opener tab', () => {
     openDatasetManagement({ token: 'tok', domain: 'https://x.rossum.app' }, deps);
     expect(deps.tabsCreate).toHaveBeenCalledWith({
-      url: 'chrome-extension://self/mdh/mdh.html?authId=UUID',
+      url: 'chrome-extension://self/console/console.html?authId=UUID',
     });
   });
 

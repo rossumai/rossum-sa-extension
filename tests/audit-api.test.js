@@ -18,48 +18,44 @@ function jsonRes(body, { ok = true, status = 200 } = {}) {
   };
 }
 
-describe('listAuditLogs', () => {
-  it('builds the GET URL with page, page_size, object_type, and action params', async () => {
+describe('get + buildQuery', () => {
+  it('builds a GET request with Authorization and Accept headers', async () => {
     fetchMock.mockResolvedValue(jsonRes({ results: [] }));
-
-    await api.listAuditLogs({ page: 2, pageSize: 100, object_type: 'annotation', action: 'create' });
-
+    const qs = api.buildQuery({ page: 2, page_size: 100, object_type: 'annotation', action: 'create' });
+    await api.get(`/api/v1/audit_logs/?${qs}`);
     const [url, opts] = fetchMock.mock.calls[0];
     expect(url).toMatch(/^https:\/\/x\.rossum\.ai\/api\/v1\/audit_logs\/\?/);
-    const qs = new URL(url).searchParams;
-    expect(qs.get('page')).toBe('2');
-    expect(qs.get('page_size')).toBe('100');
-    expect(qs.get('object_type')).toBe('annotation');
-    expect(qs.get('action')).toBe('create');
+    const params = new URL(url).searchParams;
+    expect(params.get('page')).toBe('2');
+    expect(params.get('page_size')).toBe('100');
+    expect(params.get('object_type')).toBe('annotation');
+    expect(params.get('action')).toBe('create');
     expect(opts.headers.Authorization).toBe('Bearer tok-123');
     expect(opts.headers.Accept).toBe('application/json');
   });
 
-  it('omits empty/null params from the query string', async () => {
-    fetchMock.mockResolvedValue(jsonRes({ results: [] }));
-    await api.listAuditLogs({ object_type: 'annotation', action: '' });
-    const url = new URL(fetchMock.mock.calls[0][0]);
-    expect(url.searchParams.has('action')).toBe(false);
+  it('buildQuery omits empty/null params from the query string', () => {
+    const qs = api.buildQuery({ object_type: 'annotation', action: '' });
+    expect(new URLSearchParams(qs).has('action')).toBe(false);
   });
 
   it('returns parsed JSON on success', async () => {
     fetchMock.mockResolvedValue(jsonRes({ results: [{ id: 1 }], pagination: { total: 5 } }));
-    const data = await api.listAuditLogs({ object_type: 'annotation' });
+    const data = await api.get('/api/v1/audit_logs/?object_type=annotation');
     expect(data).toEqual({ results: [{ id: 1 }], pagination: { total: 5 } });
   });
 
   it('throws a session-expired error with status 401 on 401', async () => {
     fetchMock.mockResolvedValue(jsonRes({ detail: 'Auth' }, { ok: false, status: 401 }));
-    const p = api.listAuditLogs({ object_type: 'annotation' });
+    const p = api.get('/api/v1/audit_logs/?object_type=annotation');
     await expect(p).rejects.toThrow(/Session expired/);
     await p.catch((e) => expect(e.status).toBe(401));
   });
 
   it('marks 403 as featureUnavailable', async () => {
     fetchMock.mockResolvedValue(jsonRes({ detail: 'Forbidden' }, { ok: false, status: 403 }));
-
     let caught;
-    try { await api.listAuditLogs({ object_type: 'annotation' }); }
+    try { await api.get('/api/v1/audit_logs/?object_type=annotation'); }
     catch (e) { caught = e; }
     expect(caught).toBeDefined();
     expect(caught.status).toBe(403);
@@ -67,11 +63,10 @@ describe('listAuditLogs', () => {
     expect(caught.message).toBe('Forbidden');
   });
 
-  it('does NOT mark 404 as featureUnavailable (regression: bad query params used to be swallowed)', async () => {
+  it('does NOT mark 404 as featureUnavailable', async () => {
     fetchMock.mockResolvedValue(jsonRes({ detail: 'Bad param' }, { ok: false, status: 404 }));
-
     let caught;
-    try { await api.listAuditLogs({ object_type: 'annotation' }); }
+    try { await api.get('/api/v1/audit_logs/?object_type=badtype'); }
     catch (e) { caught = e; }
     expect(caught.status).toBe(404);
     expect(caught.featureUnavailable).toBeUndefined();
@@ -82,9 +77,8 @@ describe('listAuditLogs', () => {
       { object_type: ['Available options: [\'annotation\', \'document\']'] },
       { ok: false, status: 400 },
     ));
-
     let caught;
-    try { await api.listAuditLogs({ object_type: 'badtype' }); }
+    try { await api.get('/api/v1/audit_logs/?object_type=badtype'); }
     catch (e) { caught = e; }
     expect(caught.fieldErrors).toEqual({
       object_type: ['Available options: [\'annotation\', \'document\']'],
@@ -100,7 +94,7 @@ describe('listAuditLogs', () => {
     });
     ac.abort();
     await expect(
-      api.listAuditLogs({ object_type: 'annotation', signal: ac.signal }),
+      api.get('/api/v1/audit_logs/?object_type=annotation', { signal: ac.signal }),
     ).rejects.toMatchObject({ name: 'AbortError' });
   });
 });
@@ -113,5 +107,35 @@ describe('whoami', () => {
     const [url, opts] = fetchMock.mock.calls[0];
     expect(url).toBe('https://x.rossum.ai/api/v1/auth/user/');
     expect(opts.headers.Authorization).toBe('Bearer tok-123');
+  });
+});
+
+import { extractParam, normalizePage } from '../src/audit/api.js';
+
+describe('extractParam', () => {
+  it('reads a query param from an absolute URL', () => {
+    expect(extractParam('https://x/api/v1/audit_logs?cursor=abc123&page_size=3', 'cursor')).toBe('abc123');
+  });
+  it('returns null for missing param or bad url', () => {
+    expect(extractParam('https://x/api/v1/audit_logs?page_size=3', 'cursor')).toBeNull();
+    expect(extractParam(null, 'cursor')).toBeNull();
+    expect(extractParam('not a url', 'cursor')).toBeNull();
+  });
+});
+
+describe('normalizePage', () => {
+  it('offset: derives hasPrev from current page, hasNext from next link', () => {
+    const p = normalizePage({ total: 43, total_pages: 15, next: 'https://x?page=2', previous: null }, 'offset', 1);
+    expect(p).toMatchObject({ total: 43, totalPages: 15, hasNext: true, hasPrev: false, nextCursor: null, prevCursor: null });
+    expect(normalizePage({ total: 43, total_pages: 15, next: null, previous: 'https://x?page=1' }, 'offset', 2).hasPrev).toBe(true);
+  });
+  it('cursor: extracts next/prev cursors and total', () => {
+    const p = normalizePage({ total: 238, total_pages: 80, next: 'https://x?cursor=NEXT&include_total=true', previous: null }, 'cursor', 1);
+    expect(p).toMatchObject({ total: 238, totalPages: 80, hasNext: true, hasPrev: false, nextCursor: 'NEXT', prevCursor: null });
+    const p2 = normalizePage({ next: null, previous: 'https://x?cursor=PREV' }, 'cursor', 1);
+    expect(p2).toMatchObject({ hasNext: false, hasPrev: true, nextCursor: null, prevCursor: 'PREV' });
+  });
+  it('handles a null pagination object', () => {
+    expect(normalizePage(null, 'offset', 1)).toMatchObject({ total: null, hasNext: false, hasPrev: false });
   });
 });

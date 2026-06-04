@@ -1,8 +1,7 @@
-import { h, render } from 'preact';
 import { effect } from '@preact/signals';
 import * as api from './api.js';
 import * as store from './store.js';
-import App from './components/App.jsx';
+import { activeApp } from '../console/store.js';
 import { prefetchForPanel, prefetchAll } from './prefetch.js';
 import { LAST_PIPELINE_KEY, bootPrefillFor } from './lastPipeline.js';
 
@@ -13,7 +12,7 @@ let pollTimer = null;
 let pollInFlight = false;
 
 function shouldPoll() {
-  return store.activeView.value === 'operations';
+  return activeApp.value === 'mdh' && store.activeView.value === 'operations';
 }
 
 function currentPollDelay() {
@@ -74,10 +73,6 @@ async function pollOperations() {
       if (!prevOp || hasStructuralChange(prevOp, nextOp)) changedOps.push(nextOp);
     }
 
-    // Live-merge existing rows in place: preserve position + structural fields,
-    // adopt live fields (metadata/record_count/file_size, started, updated).
-    // A fresh array ref every poll re-renders the panel so time-based values
-    // (timeAgo, running duration) refresh too.
     store.operations.value = store.operations.value.map((prevOp) => {
       const nextOp = newById.get(prevOp._id);
       if (!nextOp) return prevOp;
@@ -96,74 +91,14 @@ async function pollOperations() {
   }
 }
 
-const AUTH_TTL_MS = 24 * 60 * 60 * 1000;
-
-async function purgeStaleAuthEntries() {
-  const all = await chrome.storage.local.get(null);
-  const now = Date.now();
-  const toRemove = [];
-  for (const [key, value] of Object.entries(all)) {
-    if (!key.startsWith('mdhAuth_')) continue;
-    const createdAt = value?.createdAt;
-    if (typeof createdAt !== 'number' || now - createdAt > AUTH_TTL_MS) {
-      toRemove.push(key);
-    }
-  }
-  if ('mdhToken' in all) toRemove.push('mdhToken');
-  if ('mdhDomain' in all) toRemove.push('mdhDomain');
-  if (toRemove.length > 0) await chrome.storage.local.remove(toRemove);
-}
-
-function resolveAuthId() {
-  const fromUrl = new URLSearchParams(location.search).get('authId');
-  if (fromUrl) {
-    sessionStorage.setItem('mdhAuthId', fromUrl);
-    history.replaceState(null, '', location.pathname);
-    return fromUrl;
-  }
-  return sessionStorage.getItem('mdhAuthId');
-}
-
-async function boot() {
-  const authId = resolveAuthId();
-  const authKey = authId ? `mdhAuth_${authId}` : null;
-
+// Post-auth setup for the Dataset Management app. The shell has already resolved
+// auth, set store.domain/token, and called api.init. This restores persisted
+// view state, applies any pipeline prefill, probes the connection, and registers
+// the app's effects. Runs once (the shell memoizes per app).
+export async function initMdh({ pendingCollection, pendingPipeline, pendingVariables } = {}) {
   const stored = await chrome.storage.local.get([
-    ...(authKey ? [authKey] : []),
     'mdhActiveView', 'mdhSelectedCollection', 'mdhActivePanel', 'mdhOpsSearch', LAST_PIPELINE_KEY,
   ]);
-  const entry = authKey ? stored[authKey] : null;
-
-  purgeStaleAuthEntries().catch(() => {});
-
-  // Resolve token+domain from the auth-staging entry (initial open from the
-  // popup) or from sessionStorage (reload in the same tab). The staging entry
-  // is single-use: consume it on first read and hand the credentials off to
-  // sessionStorage so the token doesn't linger in chrome.storage.local for the
-  // 24-hour TTL.
-  let token, domain, pendingCollection, pendingPipeline, pendingVariables;
-  if (entry?.token && entry?.domain) {
-    token = entry.token;
-    domain = entry.domain;
-    pendingCollection = entry.pendingCollection;
-    pendingPipeline = entry.pendingPipeline;
-    pendingVariables = entry.pendingVariables;
-    chrome.storage.local.remove(authKey);
-    sessionStorage.setItem('mdhToken', token);
-    sessionStorage.setItem('mdhDomain', domain);
-  } else {
-    token = sessionStorage.getItem('mdhToken');
-    domain = sessionStorage.getItem('mdhDomain');
-  }
-
-  if (!token || !domain) {
-    render(<App connected={false} />, document.getElementById('app'));
-    return;
-  }
-
-  store.domain.value = domain;
-  store.token.value = token;
-  api.init(domain, token);
 
   if (stored.mdhActiveView === 'operations' || stored.mdhActiveView === 'overview') {
     store.activeView.value = stored.mdhActiveView;
@@ -178,9 +113,6 @@ async function boot() {
     store.opsSearch.value = stored.mdhOpsSearch;
   }
 
-  // Pipeline prefill from the popup's "Open in Dataset Management" button.
-  // Set the one-shot signal that DataPanel consumes; override view/panel/collection
-  // so the user lands on the right collection's data panel.
   if (pendingCollection) {
     store.activeView.value = 'collection';
     store.selectedCollection.value = pendingCollection;
@@ -194,9 +126,6 @@ async function boot() {
     }
   }
 
-  // Restore the last query (pipeline text + variables) the user had, so a page
-  // reload doesn't lose it. Skipped if a popup prefill already claimed the slot
-  // or if there's no remembered query / no collection to restore into.
   const restoredPipeline = bootPrefillFor(
     stored[LAST_PIPELINE_KEY],
     store.selectedCollection.value,
@@ -211,14 +140,14 @@ async function boot() {
   } catch {
     connected = false;
   }
-
-  render(<App connected={connected} />, document.getElementById('app'));
+  store.connected.value = connected;
 
   if (connected) {
     document.addEventListener('visibilitychange', onVisibilityChange);
     effect(() => {
       const view = store.activeView.value;
-      if (view === 'operations') {
+      const app = activeApp.value;
+      if (app === 'mdh' && view === 'operations') {
         if (!pollInFlight && !pollTimer) pollTick();
       } else if (pollTimer) {
         clearTimeout(pollTimer);
@@ -242,9 +171,9 @@ async function boot() {
   });
 
   let bgController = null;
-
   effect(() => {
     const selected = store.selectedCollection.value;
+    if (activeApp.value !== 'mdh') return;
     if (!selected || store.collections.value.length === 0) return;
 
     if (bgController) bgController.abort();
@@ -260,5 +189,3 @@ async function boot() {
     })();
   });
 }
-
-boot();

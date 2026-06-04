@@ -51,32 +51,18 @@ export async function runInTab(tabId, func, args = []) {
   }
 }
 
-// Stages the auth payload under a single-use mdhAuth_<uuid> key, then opens
-// the Dataset Management tab pointing at it. Persists across page reload via
-// sessionStorage in mdh/index.jsx; cleaned up by purgeStaleAuthEntries on
-// subsequent boots.
-export function openMdhTab(tab, authData) {
+// Stages the auth payload under a single-use consoleAuth_<uuid> key (carrying
+// the initial app), then opens the unified console page pointing at it. The
+// console reads consoleAuth_<uuid> on boot and consumes it; pending* pipeline
+// prefill fields ride along inside authData. Cleaned up by the console's
+// purgeStaleAuthEntries on subsequent boots.
+export function openConsoleTab(tab, authData, app) {
   const authId = crypto.randomUUID();
   chrome.storage.local.set(
-    { [`mdhAuth_${authId}`]: { ...authData, createdAt: Date.now() } },
+    { [`consoleAuth_${authId}`]: { ...authData, app, createdAt: Date.now() } },
     () => {
       chrome.tabs.create({
-        url: chrome.runtime.getURL(`mdh/mdh.html?authId=${authId}`),
-        index: tab.index + 1,
-      });
-    },
-  );
-}
-
-// Same staging pattern for the Audit Logs SPA. The audit page reads
-// auditAuth_<uuid> on boot and purges stale entries on subsequent loads.
-export function openAuditTab(tab, authData) {
-  const authId = crypto.randomUUID();
-  chrome.storage.local.set(
-    { [`auditAuth_${authId}`]: { ...authData, createdAt: Date.now() } },
-    () => {
-      chrome.tabs.create({
-        url: chrome.runtime.getURL(`audit/audit.html?authId=${authId}`),
+        url: chrome.runtime.getURL(`console/console.html?authId=${authId}`),
         index: tab.index + 1,
       });
     },

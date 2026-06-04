@@ -24,7 +24,7 @@ function combinedSignal(externalSignal) {
   return { signal, timer, externalSignal };
 }
 
-async function get(path, { signal: externalSignal } = {}) {
+export async function get(path, { signal: externalSignal } = {}) {
   const { signal, timer, externalSignal: ext } = combinedSignal(externalSignal);
   let res;
   try {
@@ -91,7 +91,7 @@ function extractFieldErrors(data) {
   return out;
 }
 
-function buildQuery(params) {
+export function buildQuery(params) {
   const sp = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
     if (v == null || v === '') continue;
@@ -100,22 +100,37 @@ function buildQuery(params) {
   return sp.toString();
 }
 
-export function listAuditLogs({
-  page = 1,
-  pageSize = 50,
-  object_type,
-  action,
-  signal,
-} = {}) {
-  const qs = buildQuery({
-    page,
-    page_size: pageSize,
-    object_type,
-    action,
-  });
-  return get(`/api/v1/audit_logs/?${qs}`, { signal });
-}
-
 export function whoami({ signal } = {}) {
   return get('/api/v1/auth/user/', { signal });
+}
+
+// Read a single query-param value from an absolute URL (the API returns full
+// next/previous URLs). Null on missing param or unparseable URL.
+export function extractParam(url, name) {
+  if (!url) return null;
+  try { return new URL(url).searchParams.get(name); } catch { return null; }
+}
+
+// Normalize the API `pagination` object into the shell's pageInfo shape.
+// mode 'cursor' uses cursor tokens from next/previous; mode 'offset' uses page math.
+export function normalizePage(pagination, mode, currentPage) {
+  const empty = { total: null, totalPages: null, hasNext: false, hasPrev: false, nextCursor: null, prevCursor: null };
+  if (!pagination) return empty;
+  const total = typeof pagination.total === 'number' ? pagination.total : null;
+  const totalPages = typeof pagination.total_pages === 'number' ? pagination.total_pages : null;
+  if (mode === 'cursor') {
+    return {
+      total, totalPages,
+      hasNext: !!pagination.next,
+      hasPrev: !!pagination.previous,
+      nextCursor: extractParam(pagination.next, 'cursor'),
+      prevCursor: pagination.previous ? extractParam(pagination.previous, 'cursor') : null,
+    };
+  }
+  return {
+    total, totalPages,
+    hasNext: !!pagination.next,
+    hasPrev: (currentPage || 1) > 1,
+    nextCursor: null, prevCursor: null,
+  };
 }

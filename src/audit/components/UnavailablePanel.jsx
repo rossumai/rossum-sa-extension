@@ -1,13 +1,15 @@
 import { h } from 'preact';
-import { availabilityMessage, availabilityStatus } from '../store.js';
+import { availabilityMessage, availabilityStatus, activeSource } from '../store.js';
+import { SOURCES } from '../sources/index.js';
 
 export default function UnavailablePanel() {
   const status = availabilityStatus.value;
   const message = availabilityMessage.value;
+  const label = SOURCES[activeSource.value]?.label || 'This source';
 
   return (
     <div class="unavailable-panel">
-      <h2 class="unavailable-title">Audit Logs aren't available on this tenant</h2>
+      <h2 class="unavailable-title">{label} aren't available for your role/plan</h2>
       <p class="unavailable-lead">
         The audit log endpoint refused the request{status ? ` (HTTP ${status})` : ''}. This usually means one of:
       </p>

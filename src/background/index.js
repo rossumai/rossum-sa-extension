@@ -1,13 +1,13 @@
 // MV3 service worker. Its only job: let a content script open the Dataset
 // Management tab. A content script can't chrome.tabs.create an extension page,
-// and opening mdh.html via window.open would require web_accessible_resources;
+// and opening console/console.html via window.open would require web_accessible_resources;
 // doing it here (a privileged extension context) avoids that — same launch
-// contract the popup uses (single-use mdhAuth_<uuid>, consumed + purged on boot).
+// contract the popup uses (single-use consoleAuth_<uuid>, consumed + purged on boot).
 
 export function openDatasetManagement(msg, deps) {
   const { storageSet, tabsCreate, getURL, uuid, now } = deps;
   const authId = uuid();
-  const opts = { url: getURL(`mdh/mdh.html?authId=${authId}`) };
+  const opts = { url: getURL(`console/console.html?authId=${authId}`) };
   // Open right next to the tab the request came from (same window).
   const opener = msg.openerTab;
   if (opener && typeof opener.index === 'number') {
@@ -15,7 +15,7 @@ export function openDatasetManagement(msg, deps) {
     opts.windowId = opener.windowId;
   }
   storageSet(
-    { [`mdhAuth_${authId}`]: { token: msg.token, domain: msg.domain, createdAt: now() } },
+    { [`consoleAuth_${authId}`]: { token: msg.token, domain: msg.domain, app: 'mdh', createdAt: now() } },
     () => tabsCreate(opts),
   );
   return authId;

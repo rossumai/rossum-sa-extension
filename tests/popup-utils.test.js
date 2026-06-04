@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { runInTab, openMdhTab, openAuditTab, detectSite, findRossumTabs, activateTab } from '../src/popup/utils.js';
+import { runInTab, openConsoleTab, detectSite, findRossumTabs, activateTab } from '../src/popup/utils.js';
 
 let executeScriptMock;
 let storageSetMock;
@@ -69,53 +69,47 @@ describe('runInTab', () => {
   });
 });
 
-describe('openMdhTab', () => {
-  it('stages auth under a uuid key, opens mdh tab next to source tab', () => {
+describe('openConsoleTab', () => {
+  it('stages consoleAuth_<uuid> with the app and opens the console tab', () => {
     const tab = { id: 99, index: 4 };
     const auth = { token: 'tok', domain: 'https://x.rossum.ai' };
 
-    openMdhTab(tab, auth);
+    openConsoleTab(tab, auth, 'mdh');
 
-    // Storage write happens first; the storage callback fires chrome.tabs.create.
     expect(storageSetMock).toHaveBeenCalledTimes(1);
     const [storageObj] = storageSetMock.mock.calls[0];
-    expect(Object.keys(storageObj)).toEqual(['mdhAuth_uuid-1']);
-    const entry = storageObj['mdhAuth_uuid-1'];
+    expect(Object.keys(storageObj)).toEqual(['consoleAuth_uuid-1']);
+    const entry = storageObj['consoleAuth_uuid-1'];
     expect(entry.token).toBe('tok');
     expect(entry.domain).toBe('https://x.rossum.ai');
+    expect(entry.app).toBe('mdh');
     expect(typeof entry.createdAt).toBe('number');
 
     expect(tabsCreateMock).toHaveBeenCalledWith({
-      url: 'chrome-extension://abc/mdh/mdh.html?authId=uuid-1',
+      url: 'chrome-extension://abc/console/console.html?authId=uuid-1',
       index: 5,
     });
   });
 
-  it('passes through pendingCollection / pendingPipeline metadata', () => {
-    openMdhTab(
-      { id: 1, index: 0 },
-      { token: 't', domain: 'd', pendingCollection: 'invoices', pendingPipeline: '[]' },
-    );
-    const entry = storageSetMock.mock.calls[0][0]['mdhAuth_uuid-1'];
-    expect(entry.pendingCollection).toBe('invoices');
-    expect(entry.pendingPipeline).toBe('[]');
-  });
-});
-
-describe('openAuditTab', () => {
-  it('stages auth under auditAuth_<uuid> and opens audit tab', () => {
-    openAuditTab({ id: 7, index: 2 }, { token: 'a', domain: 'https://x.rossum.app' });
-
-    const [storageObj] = storageSetMock.mock.calls[0];
-    expect(Object.keys(storageObj)).toEqual(['auditAuth_uuid-1']);
-    const entry = storageObj['auditAuth_uuid-1'];
-    expect(entry.token).toBe('a');
-    expect(entry.domain).toBe('https://x.rossum.app');
-
+  it('stages app:"audit" when opened for the Audit Log Viewer', () => {
+    openConsoleTab({ id: 7, index: 2 }, { token: 'a', domain: 'https://x.rossum.app' }, 'audit');
+    const entry = storageSetMock.mock.calls[0][0]['consoleAuth_uuid-1'];
+    expect(entry.app).toBe('audit');
     expect(tabsCreateMock).toHaveBeenCalledWith({
-      url: 'chrome-extension://abc/audit/audit.html?authId=uuid-1',
+      url: 'chrome-extension://abc/console/console.html?authId=uuid-1',
       index: 3,
     });
+  });
+
+  it('passes through pendingCollection / pendingPipeline metadata', () => {
+    openConsoleTab(
+      { id: 1, index: 0 },
+      { token: 't', domain: 'd', pendingCollection: 'invoices', pendingPipeline: '[]' },
+      'mdh',
+    );
+    const entry = storageSetMock.mock.calls[0][0]['consoleAuth_uuid-1'];
+    expect(entry.pendingCollection).toBe('invoices');
+    expect(entry.pendingPipeline).toBe('[]');
   });
 });
 

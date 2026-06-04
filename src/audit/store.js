@@ -1,50 +1,34 @@
 import { signal } from '@preact/signals';
 
+// Shared connection (set by the console shell before initAudit runs).
 export const domain = signal('');
 export const token = signal('');
+export const connected = signal(null); // null = not yet probed; true/false after whoami
 
-export const results = signal([]);
-export const total = signal(null);
-export const page = signal(1);
-export const pageSize = signal(50);
+// Which source tab is active.
+export const activeSource = signal('audit');
 
-// object_type is required by the API; default to annotation as the most common
-// audit subject. Only the filters documented by the audit log API reference
-// (object_type + action) are supported here — any other narrowing happens
-// client-side via `quickSearch`.
-export const filters = signal({
-  object_type: 'annotation',
-  action: '',
+// Per-source filter + paging state. `page` is used by offset sources, `cursor`
+// by cursor sources; both reset on any filter/search/pageSize change.
+export const filtersBySource = signal({
+  audit: { object_type: 'annotation', action: '', object_id: '', username: '',
+           timestamp_after: '', timestamp_before: '', page: 1, cursor: null, pageSize: 100, search: '' },
 });
 
+// Active-view results for the currently displayed source.
+export const rows = signal([]);
+export const pageInfo = signal({ total: null, totalPages: null, hasNext: false, hasPrev: false, nextCursor: null, prevCursor: null });
 export const loading = signal(false);
 export const error = signal(null);
+export const selectedRow = signal(null); // row._idx of the open detail, or null
 
-// Feature availability for this tenant. The audit-log endpoint may be
-// disabled either because the caller lacks a required role or because
-// the feature isn't included in the org's subscription. Detected from
-// 403/404 responses on the first call.
-//   'unknown'      — not yet probed
-//   'available'    — at least one successful fetch
-//   'unavailable'  — endpoint refused with 403/404
-export const availability = signal('unknown');
+// Per-active-source availability (a source may 403 independently).
+export const availability = signal('unknown'); // 'unknown' | 'available' | 'unavailable'
 export const availabilityMessage = signal(null);
 export const availabilityStatus = signal(null);
 
-export const expandedRow = signal(null);
-
-// Substring search applied client-side over the currently loaded page only.
-// Distinct from the server-side filters because the audit log API restricts
-// which fields/values are filterable; this lets users narrow visible rows
-// by anything they see in the table.
-export const quickSearch = signal('');
-
-// Filter values the API has confirmed as valid via "Available options: [...]"
-// in error responses. Keyed coarsely:
-//   constraints.value.action[<object_type>] = ['update-status', ...]
-//   constraints.value.object_type = ['annotation', 'document', 'user']
-// This is authoritative — the docs may be outdated, but the running API isn't.
-export const constraints = signal({
-  object_type: null,
-  action: {},
-});
+// Merge a patch into one source's filter state (immutably, to trigger signals).
+export function patchFilters(key, patch) {
+  const cur = filtersBySource.value[key];
+  filtersBySource.value = { ...filtersBySource.value, [key]: { ...cur, ...patch } };
+}

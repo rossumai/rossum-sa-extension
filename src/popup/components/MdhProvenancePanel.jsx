@@ -17,7 +17,7 @@ import {
   setCachedAnnotation,
   setCachedHookEntries,
 } from '../cache.js';
-import { openMdhTab, runInTab } from '../utils.js';
+import { openConsoleTab, runInTab } from '../utils.js';
 import { readCurrentContext } from '../tab-readers.js';
 import ConfigBlock from './ConfigBlock.jsx';
 
@@ -291,13 +291,13 @@ export default function MdhProvenancePanel({ tab }) {
                   onRowChange={setCurrentRow}
                   forceRefreshNonce={refreshNonce}
                   onOpenInDm={(dataset, pipelineText, variables) =>
-                    openMdhTab(tab, {
+                    openConsoleTab(tab, {
                       token: state.ctx.token,
                       domain: state.ctx.domain,
                       pendingCollection: dataset,
                       pendingPipeline: pipelineText,
                       pendingVariables: variables,
-                    })
+                    }, 'mdh')
                   }
                 />
               ))}

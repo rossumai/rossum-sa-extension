@@ -2,7 +2,7 @@ import { h, Fragment } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import Toggle from './Toggle.jsx';
 import MdhProvenancePanel from './MdhProvenancePanel.jsx';
-import { openMdhTab, openAuditTab, runInTab, detectSite, findRossumTabs, activateTab } from '../utils.js';
+import { openConsoleTab, runInTab, detectSite, findRossumTabs, activateTab } from '../utils.js';
 import { readAuthInfo, readPageFlag, togglePageFlag } from '../tab-readers.js';
 
 const STORAGE_TOGGLES = [
@@ -168,8 +168,8 @@ export default function App({ tab }) {
     opener(tab, auth);
   };
 
-  const onDataStorage = () => fetchAuthAndOpen(openMdhTab);
-  const onAuditLogs = () => fetchAuthAndOpen(openAuditTab);
+  const onDataStorage = () => fetchAuthAndOpen((tab, auth) => openConsoleTab(tab, auth, 'mdh'));
+  const onAuditLogs = () => fetchAuthAndOpen((tab, auth) => openConsoleTab(tab, auth, 'audit'));
 
   const onReloadTab = () => {
     chrome.tabs.reload(tab.id);

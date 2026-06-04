@@ -13,28 +13,28 @@ Uses **esbuild** to bundle ES modules from `src/` into `dist/`. No other build t
 - `npm run build` — clean build into `dist/`
 - `npm run dev` — watch mode (JS only; re-run build for CSS/HTML changes)
 - `dist/` is the loadable Chrome extension (gitignored)
-- `build.js` orchestrates bundling + static asset copying (manifest.json, icons/, popup HTML/CSS, mdh HTML/CSS, audit HTML/CSS)
+- `build.js` orchestrates bundling + static asset copying (manifest.json, icons/, popup HTML/CSS, console HTML/CSS)
 
 esbuild config: `format: 'iife'`, `minify: true`, `jsxFactory: 'h'`, `jsxFragment: 'Fragment'` (Preact JSX).
 
 ## Architecture
 
-Seven esbuild entry points:
+Six esbuild entry points:
 
 1. **`src/rossum/index.js`** → content script for Rossum pages
 2. **`src/netsuite/index.js`** → content script for NetSuite pages
 3. **`src/coupa/index.js`** → content script for Coupa pages
 4. **`src/popup/popup.jsx`** → extension popup UI (Preact)
-5. **`src/mdh/index.jsx`** → Dataset Management standalone page (opened via `chrome.tabs.create`)
-6. **`src/audit/index.jsx`** → Audit Logs standalone page (opened via `chrome.tabs.create`)
-7. **`src/background/index.js`** → MV3 service worker (`background.js`)
+5. **`src/console/index.jsx`** → unified Console page (`console/console.html`, opened via `chrome.tabs.create`) — a left app-switcher rail over two apps: Dataset Management (`src/mdh/`) and Audit Log Viewer (`src/audit/`)
+6. **`src/background/index.js`** → MV3 service worker (`background.js`)
 
 The background service worker exists for a single job: a content script can't
 `chrome.tabs.create` an extension page, so the `dataset-mgmt-suggest` feature
 messages the worker (`{ type: 'openDatasetManagement', token, domain }`) and the
-worker stages `mdhAuth_<uuid>` + opens `mdh.html` — letting us open the Dataset
-Management from the legacy MDH web app without `web_accessible_resources`.
-Otherwise the extension is purely content scripts + popup + opened pages.
+worker stages `consoleAuth_<uuid>` (with `app: 'mdh'`) + opens `console/console.html`
+— letting us open the Dataset Management from the legacy MDH web app without
+`web_accessible_resources`. Otherwise the extension is purely content scripts +
+popup + opened pages.
 
 ### Rossum content script
 
@@ -56,11 +56,13 @@ A Preact SPA (`src/mdh/`) for managing Rossum Data Storage collections:
 - **`hooks/`** — `usePipeline` (sort/filter state → MongoDB aggregation pipeline, placeholder substitution), `useQuery` (executes aggregations with stale-result cancellation via queryId counter), `usePagination` (skip/limit page tracking with cached total count)
 - **`components/`** — 25 JSX components. Modal system: `openModal(title, renderFn)`, `confirmModal(title, msg, onConfirm)`, `promptModal(title, opts, onSubmit)`.
 
-Auth flow: popup uses `chrome.scripting.executeScript` to run `readAuthInfo` in the Rossum tab's main world → reads `{token, domain}` from `localStorage.secureToken` + `location.origin` → popup stages it under a single-use `mdhAuth_<uuid>` key in `chrome.storage.local` and opens `mdh.html?authId=<uuid>`. On boot, MDH reads + immediately removes the staging entry, hands the credentials off to `sessionStorage` so subsequent reloads of the same tab still work without leaving the token at rest in `chrome.storage.local`. A 24-hour TTL purge sweeps any stale staging entries that were never consumed (e.g., user closed the tab before boot finished). The Audit Logs SPA uses the same staging pattern with `auditAuth_<uuid>`.
+Auth flow: popup (or background worker) uses `chrome.scripting.executeScript` to run `readAuthInfo` in the Rossum tab's main world → reads `{token, domain}` from `localStorage.secureToken` + `location.origin` → stages a single-use `consoleAuth_<uuid>` key in `chrome.storage.local` carrying `{token, domain, app, createdAt, pending*}` and opens `console/console.html?authId=<uuid>`. On boot, the Console shell reads + immediately removes the staging entry, hands credentials to `sessionStorage` (`consoleToken`/`consoleDomain`/`consoleAuthId`), inits both app API clients, picks the initial app (staging `app` > persisted `consoleActiveApp` > `mdh`), and lazily runs `initMdh()`/`initAudit()` on first activation. Subsequent reloads of the same tab use sessionStorage so the token is never left at rest in `chrome.storage.local`. A 24-hour TTL purge sweeps any stale `consoleAuth_` entries (and orphaned `mdhAuth_`/`auditAuth_` entries from older builds) that were never consumed.
 
-### Audit Logs (`src/audit/`)
+### Audit & Activity Console (`src/audit/`)
 
-Smaller Preact SPA over the Rossum `/api/v1/audit_logs` endpoint. Mirrors MDH conventions (signals + staging-auth flow, JSON-tree rendering of payloads, dark-mode-aware theming). 403 responses are surfaced as a dedicated "feature unavailable" panel since the endpoint is gated by role/subscription.
+A unified Audit & Activity console — a descriptor-driven shell over four Rossum log sources: Audit Logs (`audit_logs`), Hook Logs (`hooks/logs`), Workflow Activity (`workflow_activities`), and Rules Execution (`rules_execution_logs`). Lives under the Console app rail (entry point `src/console/index.jsx`) and is styled by the shared `console.css`. Auth uses the shared `consoleAuth_<uuid>` staging described above.
+
+Architecture: one generic shell (`TabBar` → `FiltersBar` → `ResultsTable` → `DetailPanel` → `Pagination`) driven by per-source **descriptors** (`src/audit/sources/`), each exporting `{ key, path, paginationMode, supportsServerSearch, filters, columns, detail, buildParams, refs }`. Sources use either cursor pagination (audit_logs, workflow_activities) or offset pagination (hooks/logs, rules_execution_logs). A cached id→name resolver (`resolve.js`, 60s LRU, signal-backed) resolves hook/queue/user IDs to human names. Deep-links to the Rossum UI are built by `deeplink.js`. Each source 403s independently → per-source `UnavailablePanel`. Client-side quick filtering over the loaded page is handled by `quickSearch.js` (still used by `ResultsTable`).
 
 ### Coupa content script
 
@@ -73,14 +75,14 @@ Preact JSX. Detects current site (Rossum/NetSuite/Coupa) and dims irrelevant sec
 ## Chrome Storage Keys
 
 - Feature toggles: `schemaAnnotationsEnabled`, `expandFormulasEnabled`, `expandReasoningFieldsEnabled`, `scrollLockEnabled`, `resourceIdsEnabled`, `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled`
-- MDH staging auth: `mdhAuth_<uuid>` (single-use, 24h TTL, removed on first read)
+- Console staging auth: `consoleAuth_<uuid>` (single-use, 24h TTL, removed on first read; carries `app` + optional DS pipeline prefill)
+- Console state: `consoleActiveApp`
 - MDH state: `mdhPipelineWidth`, `mdhUploadsColumnWidths`, `mdhActiveView`, `mdhSelectedCollection`, `mdhActivePanel`, `mdhOpsSearch`
-- Audit staging auth: `auditAuth_<uuid>` (same pattern as MDH)
-- Audit state: `auditFilters`, `auditPageSize`
+- Audit state: `auditActiveSource`, `auditFiltersBySource`
 
 ## CSS Architecture
 
-- **MDH** (`mdh.css`): CSS custom properties for all colors, surfaces, typography. Dark mode via `@media (prefers-color-scheme: dark)` overriding `:root` variables. Semantic color variables: `--accent`, `--success`, `--warning`, `--danger` plus `-hover`, `-bg`, `-fg`, `-border` variants.
+- **Console** (`console.css`): CSS custom properties for all colors, surfaces, typography shared by both the Dataset Management and Audit Log Viewer apps. Includes `.app-rail*` rules for the left app-switcher rail. Dark mode via `@media (prefers-color-scheme: dark)` overriding `:root` variables. Semantic color variables: `--accent`, `--success`, `--warning`, `--danger` plus `-hover`, `-bg`, `-fg`, `-border` variants. (`mdh.css` was renamed to `console.css`; `audit.css` was removed — the Audit app now uses `console.css`.)
 - **Popup** (`popup.css`): Separate variable system, also supports dark mode.
 - **Content scripts**: Inject styles dynamically via `init()` functions (styles only in DOM when feature enabled). All classes prefixed `rossum-sa-extension-*`.
 - **CodeMirror**: Custom highlight themes (light + dark) in `JsonEditor.jsx` matching the JSON tree renderer colors via `@lezer/highlight` tags.

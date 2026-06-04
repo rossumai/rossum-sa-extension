@@ -1,31 +1,32 @@
-import { h, Fragment } from 'preact';
+import { h } from 'preact';
+import { availability } from '../store.js';
 import ConnectionBar from './ConnectionBar.jsx';
 import ErrorBanner from './ErrorBanner.jsx';
-import Filters from './Filters.jsx';
+import FiltersBar from './FiltersBar.jsx';
 import ResultsTable from './ResultsTable.jsx';
+import DetailPanel from './DetailPanel.jsx';
 import Pagination from './Pagination.jsx';
 import UnavailablePanel from './UnavailablePanel.jsx';
-import { availability } from '../store.js';
 
 export default function App({ connected }) {
-  const isUnavailable = availability.value === 'unavailable';
   return (
     <div class="app-root">
       <main class="main">
         <ConnectionBar connected={connected} />
         <ErrorBanner />
         {!connected ? (
-          <div class="empty-state">
-            Not connected — open a Rossum page and click Audit Logs in the extension popup.
-          </div>
-        ) : isUnavailable ? (
+          <div class="empty-state">Not connected — open a Rossum page and click Audit Logs in the extension popup.</div>
+        ) : availability.value === 'unavailable' ? (
           <UnavailablePanel />
         ) : (
-          <Fragment>
-            <Filters />
-            <ResultsTable />
+          <div class="audit-body">
+            <FiltersBar />
+            <div class="audit-results-row">
+              <ResultsTable />
+              <DetailPanel />
+            </div>
             <Pagination />
-          </Fragment>
+          </div>
         )}
       </main>
     </div>

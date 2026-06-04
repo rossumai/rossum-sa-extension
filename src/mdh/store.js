@@ -13,6 +13,10 @@ export const activeView = signal('collection');
 export const loading = signal(false);
 export const error = signal(null);
 export const modalContent = signal(null);
+// Connection state for the Dataset Management app. null = not yet checked
+// (shell shows a connecting state), true/false after the healthz probe. The
+// shell passes this to <App connected={...}/>.
+export const connected = signal(null);
 export const statsSummary = signal(null); // { collection, health, label } | null
 export const operations = signal([]);
 export const operationsLoaded = signal(false);

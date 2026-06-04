@@ -1,0 +1,120 @@
+import { h, render } from 'preact';
+import { effect } from '@preact/signals';
+import { activeApp } from './store.js';
+import {
+  pickInitialApp,
+  resolveBootAuth,
+  computeStaleAuthRemovals,
+} from './boot.js';
+import Console from './components/Console.jsx';
+import * as mdhApi from '../mdh/api.js';
+import * as mdhStore from '../mdh/store.js';
+import { initMdh } from '../mdh/index.jsx';
+import * as auditApi from '../audit/api.js';
+import * as auditStore from '../audit/store.js';
+import { initAudit } from '../audit/index.jsx';
+
+const AUTH_TTL_MS = 24 * 60 * 60 * 1000;
+const TITLES = {
+  mdh: 'Dataset Management — Rossum SA',
+  audit: 'Audit Logs — Rossum SA',
+};
+
+async function purgeStaleAuthEntries() {
+  const all = await chrome.storage.local.get(null);
+  const toRemove = computeStaleAuthRemovals(all, Date.now(), AUTH_TTL_MS);
+  if (toRemove.length > 0) await chrome.storage.local.remove(toRemove);
+}
+
+function resolveAuthId() {
+  const fromUrl = new URLSearchParams(location.search).get('authId');
+  if (fromUrl) {
+    sessionStorage.setItem('consoleAuthId', fromUrl);
+    history.replaceState(null, '', location.pathname);
+    return fromUrl;
+  }
+  return sessionStorage.getItem('consoleAuthId');
+}
+
+let mdhInited = false;
+let auditInited = false;
+let pendingCtx = {};
+
+function ensureInited(app) {
+  if (app === 'mdh' && !mdhInited) {
+    mdhInited = true;
+    // pendingCtx (DS pipeline prefill) is only meaningful for MDH, and only when
+    // MDH is the initially-active app — staging always sets app:'mdh' as the
+    // initial app whenever prefill is present, so the lazy path never drops it.
+    return initMdh(pendingCtx);
+  }
+  if (app === 'audit' && !auditInited) {
+    auditInited = true;
+    return initAudit();
+  }
+  return Promise.resolve();
+}
+
+async function boot() {
+  const authId = resolveAuthId();
+  const authKey = authId ? `consoleAuth_${authId}` : null;
+
+  const stored = await chrome.storage.local.get([
+    ...(authKey ? [authKey] : []),
+    'consoleActiveApp',
+  ]);
+  const entry = authKey ? stored[authKey] : null;
+
+  purgeStaleAuthEntries().catch(() => {});
+
+  const { token, domain, stagingApp, consumeKey, pendingCtx: ctx } = resolveBootAuth({
+    entry,
+    session: {
+      token: sessionStorage.getItem('consoleToken'),
+      domain: sessionStorage.getItem('consoleDomain'),
+    },
+  });
+  pendingCtx = ctx;
+
+  if (consumeKey) {
+    chrome.storage.local.remove(authKey);
+    sessionStorage.setItem('consoleToken', token);
+    sessionStorage.setItem('consoleDomain', domain);
+  }
+
+  const initial = pickInitialApp({ stagingApp, persistedApp: stored.consoleActiveApp });
+  activeApp.value = initial;
+
+  if (!token || !domain) {
+    // No credentials: let each app render its own not-connected message instead
+    // of a spinner that never resolves.
+    mdhStore.connected.value = false;
+    auditStore.connected.value = false;
+    render(<Console />, document.getElementById('app'));
+    return;
+  }
+
+  mdhStore.domain.value = domain;
+  mdhStore.token.value = token;
+  mdhApi.init(domain, token);
+
+  auditStore.domain.value = domain;
+  auditStore.token.value = token;
+  auditApi.init(domain, token);
+
+  effect(() => {
+    chrome.storage.local.set({ consoleActiveApp: activeApp.value });
+  });
+  effect(() => {
+    document.title = TITLES[activeApp.value] || 'Rossum SA';
+  });
+
+  // Initialize the initially-active app (and await its connection probe) before
+  // first paint, so there's no not-connected flash. The other app initializes
+  // lazily the first time it's activated.
+  await ensureInited(initial);
+  render(<Console />, document.getElementById('app'));
+  effect(() => { ensureInited(activeApp.value); });
+}
+
+boot();

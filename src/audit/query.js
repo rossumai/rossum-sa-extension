@@ -1,91 +1,51 @@
 import * as api from './api.js';
 import * as store from './store.js';
+import { SOURCES } from './sources/index.js';
 
 let queryId = 0;
 
-// "Available options: ['a', 'b']" — DRF formats the choices Python-repr style
-// (single quotes), so just grab everything between the first [ and ].
-const OPTIONS_RE = /Available options:\s*\[([^\]]+)\]/i;
-
-function parseAvailableOptions(message) {
-  if (typeof message !== 'string') return null;
-  const m = message.match(OPTIONS_RE);
-  if (!m) return null;
-  return m[1]
-    .split(',')
-    .map((s) => s.trim().replace(/^['"]|['"]$/g, ''))
-    .filter(Boolean);
-}
-
-function recordConstraintsFromError(fieldErrors, sentObjectType) {
-  if (!fieldErrors) return;
-  const next = { ...store.constraints.value };
-  let changed = false;
-  for (const [field, msgs] of Object.entries(fieldErrors)) {
-    for (const msg of msgs) {
-      const opts = parseAvailableOptions(msg);
-      if (!opts) continue;
-      if (field === 'object_type') {
-        next.object_type = opts;
-        changed = true;
-      } else if (field === 'action' && sentObjectType) {
-        next.action = { ...next.action, [sentObjectType]: opts };
-        changed = true;
-      }
-    }
-  }
-  if (changed) store.constraints.value = next;
-}
-
-export async function fetchPage({ signal } = {}) {
+export async function fetchActive({ signal } = {}) {
   const myId = ++queryId;
+  const key = store.activeSource.value;
+  const desc = SOURCES[key];
+  const st = store.filtersBySource.value[key];
+
   store.loading.value = true;
   store.error.value = null;
-  // Always collapse the expanded row before issuing a new fetch — the
-  // positional `_idx` key would otherwise re-expand a different record on
-  // pagination, filter change, or page-size change.
-  store.expandedRow.value = null;
-  const sentObjectType = store.filters.value.object_type;
+  store.selectedRow.value = null;
+  store.availability.value = 'unknown';
+  store.availabilityMessage.value = null;
+  store.availabilityStatus.value = null;
+
+  const params = { ...desc.buildParams(st), page_size: st.pageSize };
+  if (desc.paginationMode === 'cursor') {
+    params.include_total = 'true';
+    if (st.cursor) params.cursor = st.cursor;
+  } else if (st.page && st.page > 1) {
+    params.page = st.page;
+  }
+  if (desc.supportsServerSearch && st.search) params.search = st.search;
+
   try {
-    const res = await api.listAuditLogs({
-      page: store.page.value,
-      pageSize: store.pageSize.value,
-      ...store.filters.value,
-      signal,
-    });
+    const res = await api.get(`${desc.path}?${api.buildQuery(params)}`, { signal });
     if (myId !== queryId) return;
-    // Tag each record with its position in the page so the row component
-    // has a key guaranteed unique within the page — content.request_id
-    // is not unique (a single HTTP request can produce multiple records).
-    const items = (Array.isArray(res?.results) ? res.results : []).map((rec, i) => ({
-      ...rec,
-      _idx: i,
-    }));
-    store.results.value = items;
+    const items = (Array.isArray(res?.results) ? res.results : []).map((r, i) => ({ ...r, _idx: i }));
+    store.rows.value = items;
+    store.pageInfo.value = api.normalizePage(res?.pagination, desc.paginationMode, st.page || 1);
     store.availability.value = 'available';
     store.availabilityMessage.value = null;
     store.availabilityStatus.value = null;
-    if (typeof res?.pagination?.total === 'number') {
-      store.total.value = res.pagination.total;
-    } else if (typeof res?.count === 'number') {
-      store.total.value = res.count;
-    } else {
-      store.total.value = null;
-    }
   } catch (err) {
-    if (err?.name === 'AbortError') return;
-    if (myId !== queryId) return;
-    recordConstraintsFromError(err?.fieldErrors, sentObjectType);
-    store.results.value = [];
-    store.total.value = null;
+    if (err?.name === 'AbortError' || myId !== queryId) return;
+    store.rows.value = [];
+    store.pageInfo.value = { total: null, totalPages: null, hasNext: false, hasPrev: false, nextCursor: null, prevCursor: null };
     if (err?.featureUnavailable) {
-      // Don't show the error banner — render a dedicated empty state.
       store.availability.value = 'unavailable';
       store.availabilityMessage.value = err?.message || null;
       store.availabilityStatus.value = err?.status ?? null;
       store.error.value = null;
     } else {
-      store.error.value = err?.message || 'Failed to load audit logs';
+      store.error.value = err?.message || 'Failed to load';
     }
   } finally {
     if (myId === queryId) store.loading.value = false;

@@ -1,5 +1,5 @@
 import { h } from 'preact';
-import { domain, loading, total } from '../store.js';
+import { domain, loading, pageInfo } from '../store.js';
 
 export default function ConnectionBar({ connected }) {
   if (!connected) {
@@ -14,8 +14,8 @@ export default function ConnectionBar({ connected }) {
     <div class="connection-bar">
       <span class={'connection-dot' + (loading.value ? ' busy' : '')}></span>
       Audit Logs · Connected to {prettyDomain(domain.value)}
-      {total.value != null && (
-        <span class="connection-meta">{total.value.toLocaleString()} records</span>
+      {pageInfo.value.total != null && (
+        <span class="connection-meta">{pageInfo.value.total.toLocaleString()} records</span>
       )}
     </div>
   );

@@ -13,7 +13,7 @@ const chromeVersion = `${chromeMajor}.${chromeMinor}`;
 
 rmSync('dist', { recursive: true, force: true });
 
-for (const dir of ['dist/popup', 'dist/icons', 'dist/mdh', 'dist/audit']) {
+for (const dir of ['dist/popup', 'dist/icons', 'dist/console']) {
   mkdirSync(dir, { recursive: true });
 }
 
@@ -26,10 +26,8 @@ writeFileSync('dist/manifest.json', JSON.stringify(manifest, null, 2) + '\n');
 cpSync('icons', 'dist/icons', { recursive: true });
 cpSync('src/popup/popup.html', 'dist/popup/popup.html');
 cpSync('src/popup/popup.css', 'dist/popup/popup.css');
-cpSync('src/mdh/mdh.html', 'dist/mdh/mdh.html');
-cpSync('src/mdh/mdh.css', 'dist/mdh/mdh.css');
-cpSync('src/audit/audit.html', 'dist/audit/audit.html');
-cpSync('src/audit/audit.css', 'dist/audit/audit.css');
+cpSync('src/console/console.html', 'dist/console/console.html');
+cpSync('src/console/console.css', 'dist/console/console.css');
 
 const options = {
   entryPoints: {
@@ -37,8 +35,7 @@ const options = {
     'scripts/netsuite': 'src/netsuite/index.js',
     'scripts/coupa': 'src/coupa/index.js',
     'popup/popup': 'src/popup/popup.jsx',
-    'mdh/mdh': 'src/mdh/index.jsx',
-    'audit/audit': 'src/audit/index.jsx',
+    'console/console': 'src/console/index.jsx',
     'background': 'src/background/index.js',
   },
   bundle: true,
