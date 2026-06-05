@@ -25,7 +25,7 @@ Six esbuild entry points:
 2. **`src/netsuite/index.js`** → content script for NetSuite pages
 3. **`src/coupa/index.js`** → content script for Coupa pages
 4. **`src/popup/popup.jsx`** → extension popup UI (Preact)
-5. **`src/console/index.jsx`** → unified Console page (`console/console.html`, opened via `chrome.tabs.create`) — a left app-switcher rail over two apps: Dataset Management (`src/mdh/`) and Audit Log Viewer (`src/audit/`)
+5. **`src/console/index.jsx`** → unified Console page (`console/console.html`, opened via `chrome.tabs.create`) — a left app-switcher rail over three apps: Dataset Management (`src/mdh/`), Audit Log Viewer (`src/audit/`), and Galaxy (`src/galaxy/`, a 3D org birdview)
 6. **`src/background/index.js`** → MV3 service worker (`background.js`)
 
 The background service worker exists for a single job: a content script can't
@@ -64,6 +64,19 @@ A unified Audit & Activity console — a descriptor-driven shell over four Rossu
 
 Architecture: one generic shell (`TabBar` → `FiltersBar` → `ResultsTable` → `DetailPanel` → `Pagination`) driven by per-source **descriptors** (`src/audit/sources/`), each exporting `{ key, path, paginationMode, supportsServerSearch, filters, columns, detail, buildParams, refs }`. Sources use either cursor pagination (audit_logs, workflow_activities) or offset pagination (hooks/logs, rules_execution_logs). A cached id→name resolver (`resolve.js`, 60s LRU, signal-backed) resolves hook/queue/user IDs to human names. Deep-links to the Rossum UI are built by `deeplink.js`. Each source 403s independently → per-source `UnavailablePanel`. Client-side quick filtering over the loaded page is handled by `quickSearch.js` (still used by `ResultsTable`).
 
+### Galaxy (3D org birdview) (`src/galaxy/`)
+
+A Preact app that fetches the live Rossum org over REST and renders it as an explorable 3D force-directed graph. Built directly on **three.js + d3-force-3d + OrbitControls** (NOT `3d-force-graph` — that bundles ngraph's `new Function` codegen which would violate the Console page's default MV3 CSP; the hand-rolled scene is CSP-clean by construction, verified by a `grep` of `dist/console/console.js`). Node types: organization, workspace, queue, hook, engine (5 types; `connector` and the `run_after` edge were intentionally dropped). Edges: **containment** (org→workspace→queue) and **reference** (queue→hook by inverting `hook.queues[]`; queue→engine via the unified **`queue.engine`** field — verified live on ferguson-dev — falling back to legacy `dedicated_engine`/`generic_engine`).
+
+- **`graph.js`** — pure `buildGraph(rawBundle) → {nodes, links}` (URL→id parsing, dedup, missing-ref tolerance) where each node carries a curated `detail` (`[label, value]` pairs from verified API fields). Exports `NODE_STYLE` (rainbow palette keyed to hierarchy depth) + `LINK_STYLE`.
+- **`api.js`** — `init`/`get`/`listAll` (follows `pagination.next`)/`fetchOrgResources` (parallel fetch of organizations/workspaces/queues/hooks/engines; per-collection 403→[] tolerance; `onProgress` reports a per-page running count for the loading counter).
+- **`scene.js`** — imperative three.js wrapper: `createScene(container) → { setData, onHover, onClick, focus, setIdleSpin, setVisibleTypes, destroy }`. d3-force-3d layout (re-heated on a type toggle so the visible subset reflows); light theme (no bloom); OrbitControls with **auto-rotate off**; raycaster hover-dim + click-to-pin (survives a rotate drag via a click-vs-drag movement threshold); fit-to-visible on open and after settle. Hand-verified in the browser; unit-tested via mocks (no WebGL under jsdom).
+- **`index.jsx`** — `initGalaxy()` probes `whoami`, then loads the graph in the background (non-blocking) so the shell paints the rail + loading overlay immediately on open/reload.
+- **`store.js`** — signals: `domain`, `token`, `connected`, `graph`, `loading`, `error`, `selectedNodeId`, `hoveredNodeId`, `loadedCount`, `visibleTypes` (+ `toggleType`).
+- **`components/`** — `App` (scene bridge via `preact/hooks`), `Legend` (clickable per-type visibility filters), `DetailCard` (curated per-type facts + Open-in-Rossum deep-link for queue/hook), `NavGuide` (mouse-controls hint).
+
+Adding the app touched three hardcoded rail switch-points (`Rail.jsx` APPS, `Console.jsx` render switch, `boot.js` `isValidApp`) plus `console/index.jsx` (imports, `TITLES`, auth wiring, lazy `initGalaxy`). Auth uses the shared `consoleAuth_<uuid>` flow; styled by `console.css` (`.galaxy-*`). No persisted state in v1.
+
 ### Coupa content script
 
 Two strategies: JSON metadata extraction from `#initial_full_react_data` script tag (React pages like invoices) and DOM attribute extraction with `IGNORE_S_CLASSES` filtering (Rails pages like POs).
@@ -79,19 +92,21 @@ Preact JSX. Detects current site (Rossum/NetSuite/Coupa) and dims irrelevant sec
 - Console state: `consoleActiveApp`
 - MDH state: `mdhPipelineWidth`, `mdhUploadsColumnWidths`, `mdhActiveView`, `mdhSelectedCollection`, `mdhActivePanel`, `mdhOpsSearch`
 - Audit state: `auditActiveSource`, `auditFiltersBySource`
+- Galaxy state: none (no persisted state in v1)
 
 ## CSS Architecture
 
-- **Console** (`console.css`): CSS custom properties for all colors, surfaces, typography shared by both the Dataset Management and Audit Log Viewer apps. Includes `.app-rail*` rules for the left app-switcher rail. Dark mode via `@media (prefers-color-scheme: dark)` overriding `:root` variables. Semantic color variables: `--accent`, `--success`, `--warning`, `--danger` plus `-hover`, `-bg`, `-fg`, `-border` variants. (`mdh.css` was renamed to `console.css`; `audit.css` was removed — the Audit app now uses `console.css`.)
+- **Console** (`console.css`): CSS custom properties for all colors, surfaces, typography shared by the Console's apps (Dataset Management, Audit, and Galaxy — Galaxy adds `.galaxy-*` rules). Includes `.app-rail*` rules for the left app-switcher rail. Dark mode via `@media (prefers-color-scheme: dark)` overriding `:root` variables. Semantic color variables: `--accent`, `--success`, `--warning`, `--danger` plus `-hover`, `-bg`, `-fg`, `-border` variants. (`mdh.css` was renamed to `console.css`; `audit.css` was removed — the Audit app now uses `console.css`.)
 - **Popup** (`popup.css`): Separate variable system, also supports dark mode.
 - **Content scripts**: Inject styles dynamically via `init()` functions (styles only in DOM when feature enabled). All classes prefixed `rossum-sa-extension-*`.
 - **CodeMirror**: Custom highlight themes (light + dark) in `JsonEditor.jsx` matching the JSON tree renderer colors via `@lezer/highlight` tags.
 
 ## Dependencies
 
-- **preact** + **@preact/signals** — UI rendering and reactive state for MDH
+- **preact** + **@preact/signals** — UI rendering and reactive state for the popup and Console apps (MDH, Audit, Galaxy)
 - **codemirror** + **@codemirror/lang-json** + **@codemirror/theme-one-dark** — JSON/pipeline editor with MongoDB operator autocompletion
 - **json5** — lenient JSON parsing (allows trailing commas, unquoted keys in pipeline editor)
+- **three** + **d3-force-3d** — WebGL rendering + force-directed layout for the Galaxy app. The scene is hand-rolled on these directly; `3d-force-graph` was deliberately avoided (its bundled ngraph engine uses `new Function`, which the Console page's default MV3 CSP forbids). Adds ~360KB to `console.js`.
 - **esbuild** (dev) — bundler
 
 ## Key Patterns

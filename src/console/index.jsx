@@ -13,11 +13,15 @@ import { initMdh } from '../mdh/index.jsx';
 import * as auditApi from '../audit/api.js';
 import * as auditStore from '../audit/store.js';
 import { initAudit } from '../audit/index.jsx';
+import * as galaxyApi from '../galaxy/api.js';
+import * as galaxyStore from '../galaxy/store.js';
+import { initGalaxy } from '../galaxy/index.jsx';
 
 const AUTH_TTL_MS = 24 * 60 * 60 * 1000;
 const TITLES = {
   mdh: 'Dataset Management — Rossum SA',
   audit: 'Audit Logs — Rossum SA',
+  galaxy: 'Org Galaxy — Rossum SA',
 };
 
 async function purgeStaleAuthEntries() {
@@ -38,6 +42,7 @@ function resolveAuthId() {
 
 let mdhInited = false;
 let auditInited = false;
+let galaxyInited = false;
 let pendingCtx = {};
 
 function ensureInited(app) {
@@ -51,6 +56,10 @@ function ensureInited(app) {
   if (app === 'audit' && !auditInited) {
     auditInited = true;
     return initAudit();
+  }
+  if (app === 'galaxy' && !galaxyInited) {
+    galaxyInited = true;
+    return initGalaxy();
   }
   return Promise.resolve();
 }
@@ -90,6 +99,7 @@ async function boot() {
     // of a spinner that never resolves.
     mdhStore.connected.value = false;
     auditStore.connected.value = false;
+    galaxyStore.connected.value = false;
     render(<Console />, document.getElementById('app'));
     return;
   }
@@ -101,6 +111,14 @@ async function boot() {
   auditStore.domain.value = domain;
   auditStore.token.value = token;
   auditApi.init(domain, token);
+
+  galaxyStore.domain.value = domain;
+  galaxyStore.token.value = token;
+  galaxyApi.init(domain, token);
+  // Galaxy shows its own loading overlay (set below) instead of the shell's
+  // generic "Connecting" placeholder while initGalaxy probes the session + loads.
+  galaxyStore.connected.value = true;
+  galaxyStore.loading.value = true;
 
   effect(() => {
     chrome.storage.local.set({ consoleActiveApp: activeApp.value });

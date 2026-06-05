@@ -169,7 +169,6 @@ export default function App({ tab }) {
   };
 
   const onDataStorage = () => fetchAuthAndOpen((tab, auth) => openConsoleTab(tab, auth, 'mdh'));
-  const onAuditLogs = () => fetchAuthAndOpen((tab, auth) => openConsoleTab(tab, auth, 'audit'));
 
   const onReloadTab = () => {
     chrome.tabs.reload(tab.id);
@@ -312,11 +311,6 @@ export default function App({ tab }) {
               <div class={`tools-row${dimClass('rossum')}`} data-context="rossum">
                 <button class="tool-btn" onClick={onDataStorage}>
                   <span>Dataset Management</span>
-                  <span class="beta-badge">beta</span>
-                  <ExternalIconSmall />
-                </button>
-                <button class="tool-btn" onClick={onAuditLogs}>
-                  <span>Audit Logs</span>
                   <span class="beta-badge">beta</span>
                   <ExternalIconSmall />
                 </button>

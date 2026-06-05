@@ -20,9 +20,19 @@ const AUDIT_ICON = (
   </svg>
 );
 
+const GALAXY_ICON = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="2.2" />
+    <ellipse cx="12" cy="12" rx="10" ry="4.3" />
+    <ellipse cx="12" cy="12" rx="10" ry="4.3" transform="rotate(60 12 12)" />
+    <ellipse cx="12" cy="12" rx="10" ry="4.3" transform="rotate(120 12 12)" />
+  </svg>
+);
+
 const APPS = [
   { id: 'mdh', label: 'Data', title: 'Dataset Management', icon: DATA_ICON },
   { id: 'audit', label: 'Audit', title: 'Audit Log Viewer', icon: AUDIT_ICON },
+  { id: 'galaxy', label: 'Galaxy', title: 'Org Galaxy', icon: GALAXY_ICON, beta: true },
 ];
 
 export default function Rail() {
@@ -39,6 +49,7 @@ export default function Rail() {
         >
           <span class="app-rail-icon">{a.icon}</span>
           <span class="app-rail-label">{a.label}</span>
+          {a.beta && <span class="app-rail-beta">beta</span>}
         </button>
       ))}
     </nav>

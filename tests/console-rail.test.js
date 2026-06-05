@@ -21,13 +21,30 @@ describe('Rail', () => {
 
   it('renders one button per app', () => {
     const root = mount();
-    expect(root.querySelectorAll('.app-rail-item').length).toBe(2);
+    expect(root.querySelectorAll('.app-rail-item').length).toBe(3);
+  });
+
+  it('renders the Galaxy app button and switches to it on click', () => {
+    const root = mount();
+    const btn = [...root.querySelectorAll('.app-rail-item')]
+      .find((b) => b.getAttribute('title') === 'Org Galaxy');
+    expect(btn).toBeTruthy();
+    btn.click();
+    expect(activeApp.value).toBe('galaxy');
   });
 
   it('marks the active app with its full name as the tooltip', () => {
     const root = mount();
     const active = root.querySelector('.app-rail-item.active');
     expect(active.getAttribute('title')).toBe('Dataset Management');
+  });
+
+  it('Galaxy rail item contains a beta badge', () => {
+    const root = mount();
+    const btn = [...root.querySelectorAll('.app-rail-item')]
+      .find((b) => b.getAttribute('title') === 'Org Galaxy');
+    expect(btn.querySelector('.app-rail-beta')).toBeTruthy();
+    expect(btn.querySelector('.app-rail-beta').textContent).toBe('beta');
   });
 
   it('clicking the Audit button sets activeApp to audit', () => {
