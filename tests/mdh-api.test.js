@@ -145,40 +145,6 @@ describe('MDH API client', () => {
     expect(fetchMock.mock.calls[0][0]).toContain('limit=50');
   });
 
-  it('aggregate still sends only collectionName + pipeline (timeoutMs is client-side)', async () => {
-    await api.aggregate('test_col', [{ $match: {} }], { timeoutMs: 20_000 });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(body).toEqual({ collectionName: 'test_col', pipeline: [{ $match: {} }] });
-  });
-
-  it('flags a timeout abort with err.timeout = true', async () => {
-    // fetch never resolves on its own; the internal 10ms timer aborts it.
-    fetchMock.mockImplementation((_url, opts) => new Promise((_resolve, reject) => {
-      opts.signal.addEventListener('abort', () => {
-        const e = new Error('aborted'); e.name = 'AbortError'; reject(e);
-      });
-    }));
-    let caught;
-    try { await api.aggregate('col', [{ $match: {} }], { timeoutMs: 10 }); }
-    catch (e) { caught = e; }
-    expect(caught.timeout).toBe(true);
-  });
-
-  it('does NOT flag err.timeout when the caller aborts (cancellation, not timeout)', async () => {
-    const ac = new AbortController();
-    fetchMock.mockImplementation((_url, opts) => new Promise((_resolve, reject) => {
-      opts.signal.addEventListener('abort', () => {
-        const e = new Error('aborted'); e.name = 'AbortError'; reject(e);
-      });
-    }));
-    // Large timeout so the timer never fires; the caller's abort wins.
-    const p = api.aggregate('col', [{ $match: {} }], { signal: ac.signal, timeoutMs: 10_000 });
-    ac.abort();
-    let caught;
-    try { await p; } catch (e) { caught = e; }
-    expect(caught.name).toBe('AbortError');
-    expect(caught.timeout).toBeUndefined();
-  });
 });
 
 describe('getOrgId', () => {

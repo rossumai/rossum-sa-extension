@@ -10,9 +10,9 @@ export function init(domain, token) {
 
 const REQUEST_TIMEOUT = 30_000;
 
-function combinedSignal(externalSignal, timeoutMs = REQUEST_TIMEOUT) {
+function combinedSignal(externalSignal) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
   // Drop the timer immediately if the caller aborts, so a long-lived (or
   // already-aborted) external signal can't keep an idle timer alive.
   if (externalSignal) {
@@ -29,15 +29,8 @@ function combinedSignal(externalSignal, timeoutMs = REQUEST_TIMEOUT) {
   return { signal, timer, externalSignal };
 }
 
-function timeoutError(timeoutMs) {
-  const e = new Error(`Request timed out after ${Math.round(timeoutMs / 1000)}s`);
-  e.timeout = true;
-  e.name = 'TimeoutError';
-  return e;
-}
-
-async function post(path, body, { signal: externalSignal, timeoutMs } = {}) {
-  const { signal, timer } = combinedSignal(externalSignal, timeoutMs);
+async function post(path, body, { signal: externalSignal } = {}) {
+  const { signal, timer } = combinedSignal(externalSignal);
   let res;
   try {
     res = await fetch(`${serviceBase}/api/v1${path}`, {
@@ -50,7 +43,7 @@ async function post(path, body, { signal: externalSignal, timeoutMs } = {}) {
     clearTimeout(timer);
     if (err.name === 'AbortError') {
       if (externalSignal?.aborted) throw err;
-      throw timeoutError(timeoutMs ?? REQUEST_TIMEOUT);
+      throw new Error('Request timed out after 30s');
     }
     throw err;
   }
@@ -65,8 +58,8 @@ async function post(path, body, { signal: externalSignal, timeoutMs } = {}) {
   return data;
 }
 
-async function get(path, { signal: externalSignal, timeoutMs } = {}) {
-  const { signal, timer } = combinedSignal(externalSignal, timeoutMs);
+async function get(path, { signal: externalSignal } = {}) {
+  const { signal, timer } = combinedSignal(externalSignal);
   let res;
   try {
     res = await fetch(`${serviceBase}${path}`, {
@@ -77,7 +70,7 @@ async function get(path, { signal: externalSignal, timeoutMs } = {}) {
     clearTimeout(timer);
     if (err.name === 'AbortError') {
       if (externalSignal?.aborted) throw err;
-      throw timeoutError(timeoutMs ?? REQUEST_TIMEOUT);
+      throw new Error('Request timed out after 30s');
     }
     throw err;
   }
@@ -171,8 +164,8 @@ export function replaceOne(collectionName, filter, replacement) {
   return post('/data/replace_one', { collectionName, filter, replacement });
 }
 
-export function aggregate(collectionName, pipeline, { signal, timeoutMs } = {}) {
-  return post('/data/aggregate', { collectionName, pipeline }, { signal, timeoutMs });
+export function aggregate(collectionName, pipeline, { signal } = {}) {
+  return post('/data/aggregate', { collectionName, pipeline }, { signal });
 }
 
 export function bulkWrite(collectionName, operations) {
