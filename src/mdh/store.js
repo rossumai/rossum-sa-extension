@@ -3,6 +3,9 @@ import { signal } from '@preact/signals';
 
 export const domain = signal('');
 export const token = signal('');
+// Organization id of the connected project (resolved at connect via
+// api.getOrgId). null until resolved, or if the lookup failed.
+export const orgId = signal(null);
 export const collections = signal([]);
 export const selectedCollection = signal(null);
 export const records = signal([]);
@@ -43,3 +46,10 @@ export const selectedIds = signal(new Map());
 // and after "View selected only" (which makes the pipeline match the selection
 // exactly, so any prior drift is resolved).
 export const selectionPipelineDirty = signal(false);
+
+// Suffix that namespaces per-org client state (saved/recent/last queries) so it
+// isn't shared across projects. Prefers the org id; falls back to the origin so
+// the data is still per-project (never global) if the org id is unavailable.
+export function scopeSuffix() {
+  return orgId.value != null ? `org:${orgId.value}` : `domain:${domain.value}`;
+}

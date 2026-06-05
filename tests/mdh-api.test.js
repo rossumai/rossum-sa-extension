@@ -144,6 +144,72 @@ describe('MDH API client', () => {
     expect(fetchMock.mock.calls[0][0]).toContain('/svc/master-data-hub/api/v2/operation/');
     expect(fetchMock.mock.calls[0][0]).toContain('limit=50');
   });
+
+  it('aggregate still sends only collectionName + pipeline (timeoutMs is client-side)', async () => {
+    await api.aggregate('test_col', [{ $match: {} }], { timeoutMs: 20_000 });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body).toEqual({ collectionName: 'test_col', pipeline: [{ $match: {} }] });
+  });
+
+  it('flags a timeout abort with err.timeout = true', async () => {
+    // fetch never resolves on its own; the internal 10ms timer aborts it.
+    fetchMock.mockImplementation((_url, opts) => new Promise((_resolve, reject) => {
+      opts.signal.addEventListener('abort', () => {
+        const e = new Error('aborted'); e.name = 'AbortError'; reject(e);
+      });
+    }));
+    let caught;
+    try { await api.aggregate('col', [{ $match: {} }], { timeoutMs: 10 }); }
+    catch (e) { caught = e; }
+    expect(caught.timeout).toBe(true);
+  });
+
+  it('does NOT flag err.timeout when the caller aborts (cancellation, not timeout)', async () => {
+    const ac = new AbortController();
+    fetchMock.mockImplementation((_url, opts) => new Promise((_resolve, reject) => {
+      opts.signal.addEventListener('abort', () => {
+        const e = new Error('aborted'); e.name = 'AbortError'; reject(e);
+      });
+    }));
+    // Large timeout so the timer never fires; the caller's abort wins.
+    const p = api.aggregate('col', [{ $match: {} }], { signal: ac.signal, timeoutMs: 10_000 });
+    ac.abort();
+    let caught;
+    try { await p; } catch (e) { caught = e; }
+    expect(caught.name).toBe('AbortError');
+    expect(caught.timeout).toBeUndefined();
+  });
+});
+
+describe('getOrgId', () => {
+  beforeEach(() => { api.init('https://acme.rossum.app', 'tok'); });
+
+  it('returns the organization_uuid from /internal/token_info', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ organization_uuid: 'b3f1c2d4-5a6b-7c8d-9e0f-112233445566' }),
+    });
+    expect(await api.getOrgId()).toBe('b3f1c2d4-5a6b-7c8d-9e0f-112233445566');
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      'https://acme.rossum.app/api/v1/internal/token_info',
+      expect.objectContaining({ headers: { Authorization: 'Bearer tok' } }),
+    );
+  });
+
+  it('returns null on HTTP error', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, json: () => Promise.resolve({}) });
+    expect(await api.getOrgId()).toBeNull();
+  });
+
+  it('returns null when organization_uuid is missing', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ user: {} }) });
+    expect(await api.getOrgId()).toBeNull();
+  });
+
+  it('returns null when fetch throws', async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('network'));
+    expect(await api.getOrgId()).toBeNull();
+  });
 });
 
 describe('async operation helpers', () => {

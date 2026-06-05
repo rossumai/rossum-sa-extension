@@ -3,7 +3,7 @@ import * as api from './api.js';
 import * as store from './store.js';
 import { activeApp } from '../console/store.js';
 import { prefetchForPanel, prefetchAll } from './prefetch.js';
-import { LAST_PIPELINE_KEY, bootPrefillFor } from './lastPipeline.js';
+import { lastPipelineKey, bootPrefillFor } from './lastPipeline.js';
 
 const POLL_DELAY_VISIBLE = 5_000;
 const POLL_DELAY_HIDDEN = 60_000;
@@ -96,8 +96,14 @@ async function pollOperations() {
 // view state, applies any pipeline prefill, probes the connection, and registers
 // the app's effects. Runs once (the shell memoizes per app).
 export async function initMdh({ pendingCollection, pendingPipeline, pendingVariables } = {}) {
+  // Resolve the org id first so per-org keys (last pipeline here, and saved/recent
+  // in QueryHistory) are correct before any scoped read. Failure -> null -> the
+  // domain-scoped fallback in scopeSuffix.
+  store.orgId.value = await api.getOrgId();
+
+  const lpKey = lastPipelineKey();
   const stored = await chrome.storage.local.get([
-    'mdhActiveView', 'mdhSelectedCollection', 'mdhActivePanel', 'mdhOpsSearch', LAST_PIPELINE_KEY,
+    'mdhActiveView', 'mdhSelectedCollection', 'mdhActivePanel', 'mdhOpsSearch', lpKey,
   ]);
 
   if (stored.mdhActiveView === 'operations' || stored.mdhActiveView === 'overview') {
@@ -127,7 +133,7 @@ export async function initMdh({ pendingCollection, pendingPipeline, pendingVaria
   }
 
   const restoredPipeline = bootPrefillFor(
-    stored[LAST_PIPELINE_KEY],
+    stored[lpKey],
     store.selectedCollection.value,
     !!store.pendingPipelineLoad.value,
   );

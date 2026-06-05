@@ -13,30 +13,40 @@ beforeEach(() => {
       },
     },
   };
+  orgId.value = 7;
+  domain.value = 'https://x.rossum.app';
 });
 
-import { LAST_PIPELINE_KEY, saveLastPipeline, bootPrefillFor } from '../src/mdh/lastPipeline.js';
+import { lastPipelineKey, saveLastPipeline, bootPrefillFor } from '../src/mdh/lastPipeline.js';
+import { orgId, domain } from '../src/mdh/store.js';
 
 describe('lastPipeline persistence', () => {
-  it('saveLastPipeline writes text + variables under the global key', () => {
+  it('writes text + variables under the org-scoped key', () => {
     saveLastPipeline('[{"$match":{"v":"{vendor}"}}]', { vendor: 'ACME' });
-    expect(chrome.storage.local.set).toHaveBeenCalledTimes(1);
-    expect(store[LAST_PIPELINE_KEY]).toEqual({
+    expect(lastPipelineKey()).toBe('mdhLastPipeline::org:7');
+    expect(store[lastPipelineKey()]).toEqual({
       pipelineText: '[{"$match":{"v":"{vendor}"}}]',
       variables: { vendor: 'ACME' },
     });
   });
 
-  it('saveLastPipeline copies variables (later mutation of the source does not leak in)', () => {
+  it('copies variables (later mutation of the source does not leak in)', () => {
     const vars = { a: '1' };
     saveLastPipeline('[]', vars);
     vars.a = 'mutated';
-    expect(store[LAST_PIPELINE_KEY].variables).toEqual({ a: '1' });
+    expect(store[lastPipelineKey()].variables).toEqual({ a: '1' });
   });
 
-  it('saveLastPipeline tolerates missing variables', () => {
+  it('tolerates missing variables', () => {
     saveLastPipeline('[]');
-    expect(store[LAST_PIPELINE_KEY]).toEqual({ pipelineText: '[]', variables: {} });
+    expect(store[lastPipelineKey()]).toEqual({ pipelineText: '[]', variables: {} });
+  });
+
+  it('falls back to a domain-scoped key when org id is null', () => {
+    orgId.value = null;
+    saveLastPipeline('[]');
+    expect(lastPipelineKey()).toBe('mdhLastPipeline::domain:https://x.rossum.app');
+    expect(store['mdhLastPipeline::domain:https://x.rossum.app']).toBeTruthy();
   });
 });
 

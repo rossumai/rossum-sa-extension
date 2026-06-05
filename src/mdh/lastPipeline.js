@@ -1,18 +1,18 @@
-// Remembers the most recent Data-panel pipeline (editor text + placeholder
-// variables) GLOBALLY so a full page reload doesn't lose the user's query.
-// One entry — not per-collection — matching the "remember the last query"
-// behavior. The in-memory pipelineState Map still handles within-session
-// per-collection tab switches; this adds reload durability via
-// chrome.storage.local.
+import { scopeSuffix } from './store.js';
 
-export const LAST_PIPELINE_KEY = 'mdhLastPipeline';
+// Per-organization key for the most recent Data-panel pipeline (editor text +
+// placeholder variables): a reload restores the query and projects don't share
+// it. scopeSuffix prefers the org id, falling back to the origin.
+export function lastPipelineKey() {
+  return `mdhLastPipeline::${scopeSuffix()}`;
+}
 
-// Persist the current editor text and placeholder variables. Best-effort: a
+// Persist the current editor text + placeholder variables. Best-effort: a
 // storage hiccup must never break editing, so failures are swallowed.
 export function saveLastPipeline(pipelineText, variables) {
   try {
     chrome.storage.local.set({
-      [LAST_PIPELINE_KEY]: { pipelineText, variables: { ...(variables || {}) } },
+      [lastPipelineKey()]: { pipelineText, variables: { ...(variables || {}) } },
     });
   } catch { /* storage unavailable — non-fatal */ }
 }

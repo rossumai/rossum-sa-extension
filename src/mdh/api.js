@@ -10,9 +10,9 @@ export function init(domain, token) {
 
 const REQUEST_TIMEOUT = 30_000;
 
-function combinedSignal(externalSignal) {
+function combinedSignal(externalSignal, timeoutMs = REQUEST_TIMEOUT) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   // Drop the timer immediately if the caller aborts, so a long-lived (or
   // already-aborted) external signal can't keep an idle timer alive.
   if (externalSignal) {
@@ -29,8 +29,15 @@ function combinedSignal(externalSignal) {
   return { signal, timer, externalSignal };
 }
 
-async function post(path, body, { signal: externalSignal } = {}) {
-  const { signal, timer } = combinedSignal(externalSignal);
+function timeoutError(timeoutMs) {
+  const e = new Error(`Request timed out after ${Math.round(timeoutMs / 1000)}s`);
+  e.timeout = true;
+  e.name = 'TimeoutError';
+  return e;
+}
+
+async function post(path, body, { signal: externalSignal, timeoutMs } = {}) {
+  const { signal, timer } = combinedSignal(externalSignal, timeoutMs);
   let res;
   try {
     res = await fetch(`${serviceBase}/api/v1${path}`, {
@@ -43,7 +50,7 @@ async function post(path, body, { signal: externalSignal } = {}) {
     clearTimeout(timer);
     if (err.name === 'AbortError') {
       if (externalSignal?.aborted) throw err;
-      throw new Error('Request timed out after 30s');
+      throw timeoutError(timeoutMs ?? REQUEST_TIMEOUT);
     }
     throw err;
   }
@@ -58,8 +65,8 @@ async function post(path, body, { signal: externalSignal } = {}) {
   return data;
 }
 
-async function get(path, { signal: externalSignal } = {}) {
-  const { signal, timer } = combinedSignal(externalSignal);
+async function get(path, { signal: externalSignal, timeoutMs } = {}) {
+  const { signal, timer } = combinedSignal(externalSignal, timeoutMs);
   let res;
   try {
     res = await fetch(`${serviceBase}${path}`, {
@@ -70,7 +77,7 @@ async function get(path, { signal: externalSignal } = {}) {
     clearTimeout(timer);
     if (err.name === 'AbortError') {
       if (externalSignal?.aborted) throw err;
-      throw new Error('Request timed out after 30s');
+      throw timeoutError(timeoutMs ?? REQUEST_TIMEOUT);
     }
     throw err;
   }
@@ -89,6 +96,31 @@ function apiError(message, status) {
   const e = new Error(message);
   e.status = status;
   return e;
+}
+
+// Resolve the active project's organization UUID from the token's own context via
+// /internal/token_info. token_info reflects the org the *token* belongs to (the
+// customer org), unlike /auth/user which returns the signed-in user's home org
+// (always org 1 for system users). Used only to namespace per-org client state;
+// returns null on any failure so callers fall back to a domain-scoped key.
+// (Read with the extension's Bearer secureToken; live-verified to return the
+// customer org's organization_uuid. Some tokens lack token_info access — hence the
+// null-on-failure + domain fallback.)
+export async function getOrgId() {
+  const { signal, timer } = combinedSignal();
+  try {
+    const res = await fetch(`${baseDomain}/api/v1/internal/token_info`, {
+      headers: { Authorization: authHeader },
+      signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => null);
+    return data?.organization_uuid || null;
+  } catch {
+    clearTimeout(timer);
+    return null;
+  }
 }
 
 export function listCollections(filter = null, nameOnly = true) {
@@ -139,8 +171,8 @@ export function replaceOne(collectionName, filter, replacement) {
   return post('/data/replace_one', { collectionName, filter, replacement });
 }
 
-export function aggregate(collectionName, pipeline, { signal } = {}) {
-  return post('/data/aggregate', { collectionName, pipeline }, { signal });
+export function aggregate(collectionName, pipeline, { signal, timeoutMs } = {}) {
+  return post('/data/aggregate', { collectionName, pipeline }, { signal, timeoutMs });
 }
 
 export function bulkWrite(collectionName, operations) {

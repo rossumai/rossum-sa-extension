@@ -1,29 +1,19 @@
 import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import JSON5 from 'json5';
-import { selectedCollection } from '../store.js';
+import { selectedCollection, scopeSuffix } from '../store.js';
 
 const MAX_HISTORY = 30;
 
-// Storage moved from chrome.storage.sync to chrome.storage.local: sync's 8 KB
-// per-item / 100 KB total limits silently dropped large pipelines. local has
-// 10 MB. On read we still merge anything left in sync so existing users
-// don't lose their history; on write we go local-only and clear sync.
-async function readList(key) {
-  const local = (await chrome.storage.local.get(key))?.[key] || [];
-  if (local.length > 0) return local;
-  try {
-    const sync = (await chrome.storage.sync.get(key))?.[key] || [];
-    if (sync.length > 0) {
-      await chrome.storage.local.set({ [key]: sync });
-      await chrome.storage.sync.remove(key);
-      return sync;
-    }
-  } catch { /* sync may be unavailable; ignore */ }
-  return [];
+// Saved / Recent queries are namespaced per organization (scopeSuffix) so they
+// aren't shared across projects. Stored in chrome.storage.local.
+async function readList(baseKey) {
+  const key = `${baseKey}::${scopeSuffix()}`;
+  return (await chrome.storage.local.get(key))?.[key] || [];
 }
 
-async function writeList(key, list) {
+async function writeList(baseKey, list) {
+  const key = `${baseKey}::${scopeSuffix()}`;
   await chrome.storage.local.set({ [key]: list });
 }
 
