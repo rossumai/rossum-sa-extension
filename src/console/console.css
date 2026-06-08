@@ -33,6 +33,9 @@
   --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
   --radius: 6px;
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.85);
+  --glass-shadow: 0 8px 30px rgba(20, 32, 54, 0.16);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -68,6 +71,9 @@
     --type-user-bg: #2a1f4a;
     --type-user-fg: #c4b5fd;
     --shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --glass-bg: rgba(26, 26, 46, 0.62);
+    --glass-border: rgba(255, 255, 255, 0.14);
+    --glass-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
   }
 }
 
@@ -2654,10 +2660,12 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
   position: absolute;
   bottom: 16px;
   left: 16px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  box-shadow: var(--glass-shadow);
   padding: 8px 12px;
   display: flex;
   flex-direction: column;
@@ -2719,10 +2727,12 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
   top: 16px;
   right: 16px;
   width: 280px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow), 0 4px 16px rgba(0, 0, 0, 0.08);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  box-shadow: var(--glass-shadow);
   overflow: hidden;
   z-index: 2;
 }
@@ -2858,10 +2868,12 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
   top: 16px;
   left: 16px;
   z-index: 2;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  box-shadow: var(--glass-shadow);
   padding: 10px 12px;
   display: flex;
   flex-direction: column;

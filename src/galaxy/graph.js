@@ -3,15 +3,18 @@
 
 // Rainbow keyed to hierarchy depth: top (organization) -> bottom (engine).
 export const NODE_STYLE = {
-  organization: { color: '#e5484d', val: 14 }, // red — top of the hierarchy
-  workspace:    { color: '#ea7317', val: 9 },  // orange
-  queue:        { color: '#16a34a', val: 5 },  // green
-  hook:         { color: '#2563eb', val: 6 },  // blue
-  engine:       { color: '#9333ea', val: 6 },  // violet — leaf
+  organization: { color: '#e5484d', val: 11 }, // red — top of the hierarchy
+  workspace:    { color: '#ea7317', val: 7 },  // orange
+  queue:        { color: '#16a34a', val: 4 },  // green
+  hook:         { color: '#2563eb', val: 5 },  // blue
+  engine:       { color: '#9333ea', val: 5 },  // violet — leaf
 };
 export const LINK_STYLE = {
-  containment: { color: 'rgba(60,95,180,1)', width: 1.4 },
-  reference:   { color: 'rgba(95,110,150,1)', width: 0.6 },
+  // Soft neutral cool greys; containment slightly stronger than reference.
+  // Two-theme contract: `color` is the light-theme edge colour, `colorDark` the
+  // dark-theme one. The scene selects between them based on the active theme.
+  containment: { color: 'rgba(120,128,150,0.85)', colorDark: 'rgba(128,138,176,0.85)', width: 1.4 },
+  reference:   { color: 'rgba(150,158,178,0.55)', colorDark: 'rgba(96,108,150,0.6)',   width: 0.6 },
 };
 
 // Trailing numeric id out of a Rossum hyperlinked URL ('.../queues/123' -> '123').

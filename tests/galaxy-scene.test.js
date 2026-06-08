@@ -43,9 +43,10 @@ const { captured, Vector2, Vector3, Color, hits } = vi.hoisted(() => {
     captured: {
       rendererInstances: [],
       controlsInstances: [],
-      composerInstances: [],
       simInstances: [],
       groupInstances: [],
+      sceneInstances: [],
+      lightInstances: [],
       raycasterInstances: [],
     },
     Vector2, Vector3, Color,
@@ -56,7 +57,10 @@ const { captured, Vector2, Vector3, Color, hits } = vi.hoisted(() => {
 
 // --- three core mock ------------------------------------------------------
 vi.mock('three', () => {
-  class Scene { add() {} }
+  class Scene {
+    constructor() { this.added = []; this.fog = null; captured.sceneInstances.push(this); }
+    add(o) { this.added.push(o); }
+  }
   class Group {
     constructor() { this.added = []; captured.groupInstances.push(this); }
     add(o) { this.added.push(o); }
@@ -75,6 +79,7 @@ vi.mock('three', () => {
     }
     setPixelRatio() {}
     setSize() {}
+    render() { this.renders = (this.renders || 0) + 1; }
     dispose() { this.disposed = true; }
   }
   class Raycaster {
@@ -83,9 +88,9 @@ vi.mock('three', () => {
     intersectObjects() { return hits.list; }
   }
   class Sprite {
-    constructor() { this.scale = new Vector3(); this.position = new Vector3(); }
+    constructor(material) { this.material = material; this.scale = new Vector3(); this.position = new Vector3(); }
   }
-  class SpriteMaterial {}
+  class SpriteMaterial { constructor() { this.opacity = 1; } }
   class CanvasTexture {}
   class Mesh {
     constructor(geometry, material) {
@@ -95,12 +100,20 @@ vi.mock('three', () => {
       this.children = [];
     }
     add(o) { this.children.push(o); }
+    remove(o) { const i = this.children.indexOf(o); if (i >= 0) this.children.splice(i, 1); }
   }
   class SphereGeometry { dispose() {} }
   class MeshBasicMaterial {
     constructor(opts = {}) { this.color = opts.color || new Color(); }
     dispose() {}
   }
+  class MeshStandardMaterial {
+    constructor(opts = {}) { this.color = opts.color || new Color(); this.roughness = opts.roughness; this.metalness = opts.metalness; }
+    dispose() {}
+  }
+  class HemisphereLight { constructor() { captured.lightInstances.push(this); } }
+  class DirectionalLight { constructor() { this.position = new Vector3(); captured.lightInstances.push(this); } }
+  class Fog { constructor(color, near, far) { this.color = color; this.near = near; this.far = far; } }
   class BufferAttribute {
     constructor(array, itemSize) { this.array = array; this.itemSize = itemSize; this.needsUpdate = false; }
   }
@@ -115,7 +128,8 @@ vi.mock('three', () => {
   class LineBasicMaterial { dispose() {} }
   return {
     Scene, Group, PerspectiveCamera, WebGLRenderer, Raycaster,
-    Sprite, SpriteMaterial, CanvasTexture, Mesh, SphereGeometry, MeshBasicMaterial,
+    Sprite, SpriteMaterial, CanvasTexture, Mesh, SphereGeometry,
+    MeshBasicMaterial, MeshStandardMaterial, HemisphereLight, DirectionalLight, Fog,
     BufferAttribute, BufferGeometry, LineSegments, LineBasicMaterial,
     Vector2, Vector3, Color,
   };
@@ -135,17 +149,6 @@ vi.mock('three/addons/controls/OrbitControls.js', () => ({
     addEventListener(type, fn) { this._listeners[type] = fn; }
   },
 }));
-vi.mock('three/addons/postprocessing/EffectComposer.js', () => ({
-  EffectComposer: class {
-    constructor() { this.passes = []; this.rendered = 0; captured.composerInstances.push(this); }
-    addPass(p) { this.passes.push(p); }
-    render() { this.rendered++; }
-    setSize() {}
-    dispose() {}
-  },
-}));
-vi.mock('three/addons/postprocessing/RenderPass.js', () => ({ RenderPass: class {} }));
-
 // --- d3-force-3d mock -----------------------------------------------------
 vi.mock('d3-force-3d', () => {
   function makeSim() {
@@ -182,16 +185,26 @@ const SAMPLE = {
 };
 
 describe('createScene (three.js + d3-force-3d)', () => {
-  let container, scene, rafSpy, cancelSpy;
+  let container, scene, rafSpy, cancelSpy, themeState, mqListeners;
 
   beforeEach(() => {
     for (const k of Object.keys(captured)) captured[k] = [];
     hits.list = [];
-    // jsdom has no canvas 2D backend; labelSprite() (org/workspace labels) needs one.
+    themeState = { dark: false };
+    mqListeners = [];
+    window.matchMedia = (q) => ({
+      matches: themeState.dark,
+      media: q,
+      addEventListener: (_t, fn) => mqListeners.push(fn),
+      removeEventListener: (_t, fn) => { const i = mqListeners.indexOf(fn); if (i >= 0) mqListeners.splice(i, 1); },
+    });
+    // jsdom has no canvas 2D backend; labelSprite() (org/workspace labels) needs one,
+    // incl. the rounded backing pill (beginPath/roundRect/fill).
     vi.spyOn(window.HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
       font: '', fillStyle: '', textBaseline: '',
       measureText: () => ({ width: 42 }),
       fillText: () => {},
+      beginPath: () => {}, roundRect: () => {}, rect: () => {}, fill: () => {},
     });
     // Stub the render loop so animate() does not recurse during the test.
     rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(123);
@@ -202,6 +215,7 @@ describe('createScene (three.js + d3-force-3d)', () => {
   });
   afterEach(() => {
     vi.restoreAllMocks();
+    delete window.matchMedia;
     if (container.parentNode) container.parentNode.removeChild(container);
   });
 
@@ -327,6 +341,84 @@ describe('createScene (three.js + d3-force-3d)', () => {
     expect(captured.simInstances).toHaveLength(1); // initial layout
     scene.setVisibleTypes({ queue: false });
     expect(captured.simInstances).toHaveLength(2); // re-ran the sim on the visible subset
+  });
+
+  it('adds hemisphere + key lights and depth fog for the lit clay look', () => {
+    expect(captured.lightInstances).toHaveLength(2);
+    expect(captured.sceneInstances[0].fog).toBeTruthy();
+  });
+
+  it('renders directly via the WebGLRenderer (no EffectComposer)', () => {
+    expect(captured.rendererInstances[0].renders).toBeGreaterThan(0);
+  });
+
+  it('re-tones fog and rebuilds labels when the OS color scheme flips', () => {
+    scene.setData(SAMPLE);
+    const sceneObj = captured.sceneInstances[0];
+    const oldFogColor = sceneObj.fog.color;
+    const group = captured.groupInstances[0];
+    const orgMesh = group.added.find((o) => o && o.userData && o.userData.id === 'org:1');
+    const linkSeg = group.added.find((o) => o && o.geometry && o.geometry.attributes && o.geometry.attributes.color);
+    expect(orgMesh.children.length).toBe(1);          // exactly one label sprite
+    const labelBefore = orgMesh.children[0];
+    const edge0Before = linkSeg.geometry.attributes.color.array[0]; // containment R channel
+
+    themeState.dark = true;
+    mqListeners.forEach((fn) => fn()); // simulate the OS flipping to dark
+
+    expect(sceneObj.fog.color).not.toBe(oldFogColor);              // fog recolored to the new bg
+    expect(orgMesh.children.length).toBe(1);                        // label swapped in place, not duplicated
+    expect(orgMesh.children[0]).not.toBe(labelBefore);             // label sprite is a NEW object
+    expect(linkSeg.geometry.attributes.color.array[0]).not.toBe(edge0Before); // edges re-toned to colorDark
+  });
+
+  it('dims non-selected nodes (sphere + label) when a node is selected', () => {
+    // org -> queue -> hook: selecting org highlights org + its neighbour queue,
+    // leaving hook (not adjacent to org) as the non-selected node that dims.
+    scene.setData({
+      nodes: [
+        { id: 'org:1', type: 'organization', rawId: '1', name: 'Org', color: '#ffb648', val: 14 },
+        { id: 'queue:1', type: 'queue', rawId: '1', name: 'Q', color: '#29d4c5', val: 5 },
+        { id: 'hook:9', type: 'hook', rawId: '9', name: 'H', color: '#2563eb', val: 6 },
+      ],
+      links: [
+        { source: 'org:1', target: 'queue:1', kind: 'containment' },
+        { source: 'queue:1', target: 'hook:9', kind: 'reference' },
+      ],
+    });
+    const group = captured.groupInstances[0];
+    const meshOf = (id) => group.added.find((o) => o && o.userData && o.userData.id === id);
+    const labelOf = (id) => meshOf(id).userData.label;
+    const linkSeg = group.added.find((o) => o && o.geometry && o.geometry.attributes && o.geometry.attributes.color);
+    const edgeAlpha = (i) => linkSeg.geometry.attributes.color.array[i * 8 + 3]; // vertex-0 alpha of link i (RGBA stride 8)
+    const edgeR = (i) => linkSeg.geometry.attributes.color.array[i * 8];         // vertex-0 R of link i
+    const relEdgeRBefore = edgeR(0); // org->queue R at rest (base colour)
+    const canvas = captured.rendererInstances[0].domElement;
+
+    hits.list = [{ object: { userData: { id: 'org:1' } } }];
+    canvas.dispatchEvent(new window.MouseEvent('pointerdown', { clientX: 5, clientY: 5 }));
+    canvas.dispatchEvent(new window.MouseEvent('click', { clientX: 5, clientY: 5 }));
+
+    // Selected node + its neighbour stay fully opaque; the non-selected node fades.
+    expect(meshOf('org:1').material.opacity).toBe(1);            // selected sphere: full
+    expect(meshOf('hook:9').material.opacity).toBeLessThan(1);   // non-selected sphere: faded
+    expect(labelOf('org:1').material.opacity).toBe(1);           // selected label: full
+    expect(labelOf('queue:1').material.opacity).toBe(1);         // neighbour label: full
+    expect(labelOf('hook:9').material.opacity).toBeLessThan(1);  // non-selected label: dimmed
+    // Edges: link 0 (org->queue, within selection) stays opaque AND is recoloured
+    // toward the highlight ink; link 1 (queue->hook, irrelevant) fades almost away
+    // so the relevant edge clearly reads in a dense graph.
+    expect(edgeAlpha(0)).toBeGreaterThan(edgeAlpha(1));
+    expect(edgeAlpha(1)).toBeLessThan(0.3);
+    expect(edgeR(0)).not.toBe(relEdgeRBefore); // relevant edge recoloured (highlighted), not just left as-is
+
+    // Clearing the selection (click on empty space) restores everything to full.
+    hits.list = [];
+    canvas.dispatchEvent(new window.MouseEvent('pointerdown', { clientX: 5, clientY: 5 }));
+    canvas.dispatchEvent(new window.MouseEvent('click', { clientX: 5, clientY: 5 }));
+    expect(meshOf('hook:9').material.opacity).toBe(1);
+    expect(labelOf('hook:9').material.opacity).toBe(1);
+    expect(edgeAlpha(1)).toBeGreaterThan(0.5); // irrelevant edge restored to baseline opacity
   });
 
   it('auto-rotates on load, pauses on interaction, and resumes after 15s idle', () => {

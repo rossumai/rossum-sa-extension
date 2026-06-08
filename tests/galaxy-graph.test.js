@@ -172,6 +172,7 @@ describe('buildGraph — additional coverage', () => {
     }
     for (const k of ['containment', 'reference']) {
       expect(typeof LINK_STYLE[k].color).toBe('string');
+      expect(typeof LINK_STYLE[k].colorDark).toBe('string');
       expect(LINK_STYLE[k].width).toBeGreaterThan(0);
     }
   });
