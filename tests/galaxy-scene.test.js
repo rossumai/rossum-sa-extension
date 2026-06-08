@@ -372,6 +372,18 @@ describe('createScene (three.js + d3-force-3d)', () => {
     expect(linkSeg.geometry.attributes.color.array[0]).not.toBe(edge0Before); // edges re-toned to colorDark
   });
 
+  it('attaches a label to engine nodes (every node type is labeled)', () => {
+    scene.setData({
+      nodes: [{ id: 'engine:7', type: 'engine', rawId: '7', name: 'My Engine', color: '#9333ea', val: 5, detail: [] }],
+      links: [],
+    });
+    const group = captured.groupInstances[0];
+    const engineMesh = group.added.find((o) => o && o.userData && o.userData.id === 'engine:7');
+    expect(engineMesh).toBeTruthy();
+    expect(engineMesh.userData.label).toBeTruthy(); // label sprite attached
+    expect(engineMesh.children.length).toBe(1);     // exactly one label sprite
+  });
+
   it('dims non-selected nodes (sphere + label) when a node is selected', () => {
     // org -> queue -> hook: selecting org highlights org + its neighbour queue,
     // leaving hook (not adjacent to org) as the non-selected node that dims.

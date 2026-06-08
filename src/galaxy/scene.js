@@ -224,9 +224,7 @@ export function createScene(container) {
         new THREE.MeshStandardMaterial({ color: new THREE.Color(n.color), roughness: 0.9, metalness: 0, transparent: true }),
       );
       mesh.userData = { id: n.id, base: new THREE.Color(n.color), name: n.name, val: n.val, label: null };
-      if (n.type === 'organization' || n.type === 'workspace' || n.type === 'queue' || n.type === 'hook') {
-        attachLabel(mesh);
-      }
+      attachLabel(mesh); // every node type carries a name (incl. engines) — label them all
       group.add(mesh); meshes.set(n.id, mesh);
       typeById.set(n.id, n.type);
       nodeById.set(n.id, n);
