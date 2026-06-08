@@ -446,4 +446,95 @@ describe('createScene (three.js + d3-force-3d)', () => {
     expect(c.autoRotate).toBe(true);           // resumes after 15s of inactivity
     vi.useRealTimers();
   });
+
+  // Shared chain fixture: Q -> A (head) -> B -> C run_after chain, plus unrelated Z.
+  const CHAIN = {
+    nodes: [
+      { id: 'queue:1', type: 'queue', rawId: '1', name: 'Q', color: '#16a34a', val: 5 },
+      { id: 'hook:A', type: 'hook', rawId: '7', name: 'A', color: '#2563eb', val: 5 },
+      { id: 'hook:B', type: 'hook', rawId: '8', name: 'B', color: '#2563eb', val: 5 },
+      { id: 'hook:C', type: 'hook', rawId: '9', name: 'C', color: '#2563eb', val: 5 },
+      { id: 'hook:Z', type: 'hook', rawId: '6', name: 'Z', color: '#2563eb', val: 5 },
+    ],
+    links: [
+      { source: 'queue:1', target: 'hook:A', kind: 'reference' },
+      { source: 'hook:A', target: 'hook:B', kind: 'runAfter' },
+      { source: 'hook:B', target: 'hook:C', kind: 'runAfter' },
+    ],
+  };
+  const meshById = (id) => captured.groupInstances[0].added.find((o) => o && o.userData && o.userData.id === id);
+  const clickNode = (id) => {
+    const canvas = captured.rendererInstances[0].domElement;
+    hits.list = [{ object: { userData: { id } } }];
+    canvas.dispatchEvent(new window.MouseEvent('pointerdown', { clientX: 5, clientY: 5 }));
+    canvas.dispatchEvent(new window.MouseEvent('click', { clientX: 5, clientY: 5 }));
+  };
+  const hoverNode = (id) => {
+    const canvas = captured.rendererInstances[0].domElement;
+    hits.list = [{ object: { userData: { id } } }];
+    canvas.dispatchEvent(new window.MouseEvent('pointermove', { clientX: 5, clientY: 5 }));
+  };
+
+  it('clicking a queue highlights the whole run_after chain (transitive, not just 1-hop)', () => {
+    scene.setData(CHAIN);
+    clickNode('queue:1');
+    expect(meshById('hook:A').material.opacity).toBe(1); // head (1-hop)
+    expect(meshById('hook:B').material.opacity).toBe(1); // 2 hops — lit via run_after
+    expect(meshById('hook:C').material.opacity).toBe(1); // 3 hops — lit via run_after
+    expect(meshById('hook:Z').material.opacity).toBeLessThan(1); // unrelated — dimmed
+  });
+
+  it('clicking a hook in a chain highlights the whole chain both directions', () => {
+    scene.setData(CHAIN);
+    clickNode('hook:B');
+    expect(meshById('hook:A').material.opacity).toBe(1); // upstream
+    expect(meshById('hook:C').material.opacity).toBe(1); // downstream
+    expect(meshById('hook:Z').material.opacity).toBeLessThan(1);
+  });
+
+  it('clicking a hook also lights the queue it belongs to (the path back to the queue)', () => {
+    scene.setData(CHAIN);
+    clickNode('hook:C'); // tail of the chain, two hops from the queue via the head
+    expect(meshById('queue:1').material.opacity).toBe(1); // queue lit -> the chain's home is clear
+    expect(meshById('hook:A').material.opacity).toBe(1);  // head (the path back)
+  });
+
+  it('hovering a queue highlights the whole chain (same as a click)', () => {
+    scene.setData(CHAIN);
+    hoverNode('queue:1');
+    expect(meshById('hook:A').material.opacity).toBe(1);          // head
+    expect(meshById('hook:B').material.opacity).toBe(1);          // deep chain lit on hover too
+    expect(meshById('hook:C').material.opacity).toBe(1);
+    expect(meshById('hook:Z').material.opacity).toBeLessThan(1);  // unrelated still dims
+  });
+
+  it('hovering a hook highlights its whole chain + the queue (same as a click)', () => {
+    scene.setData(CHAIN);
+    hoverNode('hook:C');
+    expect(meshById('hook:A').material.opacity).toBe(1);          // path back through the chain
+    expect(meshById('queue:1').material.opacity).toBe(1);         // and the home queue
+  });
+
+  it('draws run_after edges with a source->target gradient (reference edges stay solid)', () => {
+    scene.setData({
+      nodes: [
+        { id: 'queue:1', type: 'queue', rawId: '1', name: 'Q', color: '#16a34a', val: 5 },
+        { id: 'hook:A', type: 'hook', rawId: '7', name: 'A', color: '#2563eb', val: 5 },
+        { id: 'hook:B', type: 'hook', rawId: '8', name: 'B', color: '#2563eb', val: 5 },
+      ],
+      links: [
+        { source: 'queue:1', target: 'hook:A', kind: 'reference' }, // link 0
+        { source: 'hook:A', target: 'hook:B', kind: 'runAfter' },   // link 1
+      ],
+    });
+    const linkSeg = captured.groupInstances[0].added.find((o) => o && o.geometry && o.geometry.attributes && o.geometry.attributes.color);
+    const arr = linkSeg.geometry.attributes.color.array; // RGBA, stride 8/link; v0 at i*8, v1 at i*8+4
+    // reference (link 0): both vertices equal -> solid
+    expect(arr[0]).toBeCloseTo(arr[4]);
+    expect(arr[1]).toBeCloseTo(arr[5]);
+    expect(arr[2]).toBeCloseTo(arr[6]);
+    // runAfter (link 1): source vertex differs from target vertex -> gradient present
+    const diff = Math.abs(arr[8] - arr[12]) + Math.abs(arr[9] - arr[13]) + Math.abs(arr[10] - arr[14]);
+    expect(diff).toBeGreaterThan(0.01);
+  });
 });

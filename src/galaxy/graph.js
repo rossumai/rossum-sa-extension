@@ -15,6 +15,9 @@ export const LINK_STYLE = {
   // dark-theme one. The scene selects between them based on the active theme.
   containment: { color: 'rgba(120,128,150,0.85)', colorDark: 'rgba(128,138,176,0.85)', width: 1.4 },
   reference:   { color: 'rgba(150,158,178,0.55)', colorDark: 'rgba(96,108,150,0.6)',   width: 0.6 },
+  // run_after pipeline edge (predecessor -> successor). The scene renders it
+  // directional via a source->target brightness gradient.
+  runAfter:    { color: '#6366f1', colorDark: '#818cf8', width: 1.2 },
 };
 
 // Trailing numeric id out of a Rossum hyperlinked URL ('.../queues/123' -> '123').
@@ -129,12 +132,24 @@ export function buildGraph(raw) {
     const engRef = idFromUrl(q.engine || q.dedicated_engine || q.generic_engine);
     if (engRef) addLink(qId, nodeId('engine', engRef), 'reference');
   }
-  // Reference: queue -> hook (invert hook.queues[]).
+  // Reference: queue -> hook, but ONLY for hooks that start a pipeline (empty
+  // run_after). A hook WITH run_after hangs off its predecessor(s) via a
+  // `runAfter` edge instead of fanning off the queue, so the chain reads as a
+  // pipeline. Branching DAGs work: every root (empty run_after) anchors to its
+  // queue(s); a hook with N predecessors gets N incoming runAfter edges.
   for (const hk of raw?.hooks || []) {
     const hkId = nodeId('hook', hk.id ?? idFromUrl(hk.url));
-    for (const qUrl of hk.queues || []) {
-      const qRef = idFromUrl(qUrl);
-      if (qRef) addLink(nodeId('queue', qRef), hkId, 'reference');
+    const runsAfter = hk.run_after || [];
+    if (runsAfter.length === 0) {
+      for (const qUrl of hk.queues || []) {
+        const qRef = idFromUrl(qUrl);
+        if (qRef) addLink(nodeId('queue', qRef), hkId, 'reference');
+      }
+    } else {
+      for (const predUrl of runsAfter) {
+        const predRef = idFromUrl(predUrl);
+        if (predRef) addLink(nodeId('hook', predRef), hkId, 'runAfter'); // predecessor -> this hook
+      }
     }
   }
 

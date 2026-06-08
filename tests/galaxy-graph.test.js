@@ -102,10 +102,15 @@ describe('buildGraph', () => {
   it('omits a containment link when the referenced workspace is missing', () => {
     expect(g.links.some((l) => l.target === 'queue:102' && l.kind === 'containment')).toBe(false);
   });
-  it('inverts hook.queues[] into queue -> hook reference links and skips unknown queues', () => {
+  it('links queue -> hook only for empty-run_after hooks; chains run_after hooks off their predecessor', () => {
+    // hook 200 (Validate) has empty run_after -> anchors to its queue.
     expect(has('queue:100', 'hook:200', 'reference')).toBe(true);
-    expect(has('queue:100', 'hook:201', 'reference')).toBe(true);
-    expect(has('queue:101', 'hook:201', 'reference')).toBe(true);
+    // hook 201 (Export) has run_after:[200] -> NO queue edges, even though it lists queues 100/101.
+    expect(has('queue:100', 'hook:201', 'reference')).toBe(false);
+    expect(has('queue:101', 'hook:201', 'reference')).toBe(false);
+    // instead it chains off its predecessor (200 -> 201), directional.
+    expect(has('hook:200', 'hook:201', 'runAfter')).toBe(true);
+    // unknown queue 777 yields no edge.
     expect(g.links.some((l) => l.source === 'queue:777')).toBe(false);
   });
   it('links queue -> derived engine', () => {
@@ -176,7 +181,7 @@ describe('buildGraph — additional coverage', () => {
       expect(LINK_STYLE[k].width).toBeGreaterThan(0);
     }
   });
-  it('does not create run_after links', () => {
+  it('chains a run_after hook off its predecessor as a runAfter edge (camelCase kind, never hyphenated)', () => {
     const g = buildGraph({
       organization: null, workspaces: [], queues: [],
       hooks: [
@@ -184,7 +189,8 @@ describe('buildGraph — additional coverage', () => {
         { id: 201, url: 'https://x/api/v1/hooks/201', name: 'B', queues: [], run_after: ['https://x/api/v1/hooks/200'] },
       ],
     });
-    expect(g.links.some((l) => l.kind === 'run_after')).toBe(false);
+    expect(g.links.some((l) => l.source === 'hook:200' && l.target === 'hook:201' && l.kind === 'runAfter')).toBe(true);
+    expect(g.links.some((l) => l.kind === 'run_after')).toBe(false); // the link kind is camelCase `runAfter`
   });
   it('derives an engine node + link from the unified queue.engine field', () => {
     const g = buildGraph({
@@ -202,5 +208,29 @@ describe('buildGraph — additional coverage', () => {
     });
     expect(g.nodes.filter((n) => n.id === 'engine:7')).toHaveLength(1);
     expect(g.nodes.find((n) => n.id === 'engine:7').name).toBe('Named Engine');
+  });
+
+  it('exposes a runAfter link style', () => {
+    expect(LINK_STYLE.runAfter).toBeTruthy();
+    expect(typeof LINK_STYLE.runAfter.color).toBe('string');
+  });
+
+  it('handles run_after DAGs: multiple roots anchor; a multi-predecessor hook gets one edge per predecessor', () => {
+    const g2 = buildGraph({
+      organization: null, workspaces: [], engines: [], connectors: [],
+      queues: [{ id: 1, url: 'https://x/api/v1/queues/1', name: 'Q', workspace: null }],
+      hooks: [
+        { id: 10, url: 'https://x/api/v1/hooks/10', name: 'R1', queues: ['https://x/api/v1/queues/1'], run_after: [] },
+        { id: 11, url: 'https://x/api/v1/hooks/11', name: 'R2', queues: ['https://x/api/v1/queues/1'], run_after: [] },
+        { id: 12, url: 'https://x/api/v1/hooks/12', name: 'Merge', queues: ['https://x/api/v1/queues/1'],
+          run_after: ['https://x/api/v1/hooks/10', 'https://x/api/v1/hooks/11'] },
+      ],
+    });
+    const has2 = (s, t, k) => g2.links.some((l) => l.source === s && l.target === t && l.kind === k);
+    expect(has2('queue:1', 'hook:10', 'reference')).toBe(true);   // root 1 anchors
+    expect(has2('queue:1', 'hook:11', 'reference')).toBe(true);   // root 2 anchors
+    expect(has2('queue:1', 'hook:12', 'reference')).toBe(false);  // merge has run_after -> no queue edge
+    expect(has2('hook:10', 'hook:12', 'runAfter')).toBe(true);    // both predecessors
+    expect(has2('hook:11', 'hook:12', 'runAfter')).toBe(true);
   });
 });

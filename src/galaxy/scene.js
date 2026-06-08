@@ -100,6 +100,8 @@ export function createScene(container) {
   let nodes = [], links = [];
   const meshes = new Map();
   const adjacency = new Map();
+  const raFwd = new Map(); // predId -> Set(succId)  (run_after, forward)
+  const raRev = new Map(); // succId -> Set(predId)  (run_after, backward)
   const highlight = new Set();
   const typeById = new Map(); // node id -> type, for visibility filtering
   const nodeById = new Map(); // node id -> node object, for link position resolution
@@ -119,12 +121,18 @@ export function createScene(container) {
   const isVisible = (type) => visibleTypes[type] !== false;
 
   function buildAdjacency() {
-    adjacency.clear();
+    adjacency.clear(); raFwd.clear(); raRev.clear();
     for (const l of links) {
       const s = endId(l.source), t = endId(l.target);
       if (!adjacency.has(s)) adjacency.set(s, new Set());
       if (!adjacency.has(t)) adjacency.set(t, new Set());
       adjacency.get(s).add(t); adjacency.get(t).add(s);
+      if (l.kind === 'runAfter') {
+        if (!raFwd.has(s)) raFwd.set(s, new Set());
+        raFwd.get(s).add(t);
+        if (!raRev.has(t)) raRev.set(t, new Set());
+        raRev.get(t).add(s);
+      }
     }
   }
   function disposeGraph() {
@@ -168,6 +176,16 @@ export function createScene(container) {
     const s = LINK_STYLE[kind];
     return rgbaColor(s && (dark ? (s.colorDark || s.color) : s.color));
   }
+  // Per-vertex base colour. run_after edges get a source->target brightness
+  // gradient (predecessor/source end faded toward the backdrop, successor/target
+  // end full) so flow direction reads without 3D arrowheads. Other kinds: solid.
+  function edgeVertexColor(kind, v) {
+    const c = edgeColor(kind);
+    if (kind !== 'runAfter' || v === 1) return c; // target (successor) end = full colour
+    const dimC = dark ? DIM_COLOR_DARK : DIM_COLOR_LIGHT;
+    const amt = 0.55; // how far the source (predecessor) end fades toward the backdrop
+    return { r: c.r * (1 - amt) + dimC.r * amt, g: c.g * (1 - amt) + dimC.g * amt, b: c.b * (1 - amt) + dimC.b * amt };
+  }
   function labelColorFor() { return dark ? '#e6e6f2' : '#243044'; }
   function labelBgFor() { return dark ? 'rgba(18,18,30,0.72)' : 'rgba(241,241,245,0.78)'; }
   // Build + position a label sprite for a mesh and store it on userData.
@@ -186,8 +204,11 @@ export function createScene(container) {
     if (scene.fog) scene.fog.color = new THREE.Color(cssVar('--bg-base', dark ? '#12121e' : '#f1f1f5'));
     if (linkGeom && baseLinkColors) {
       links.forEach((l, i) => {
-        const c = edgeColor(l.kind);
-        for (const o of [0, 3]) { baseLinkColors[i * 6 + o] = c.r; baseLinkColors[i * 6 + o + 1] = c.g; baseLinkColors[i * 6 + o + 2] = c.b; }
+        for (const v of [0, 1]) {
+          const c = edgeVertexColor(l.kind, v);
+          const rgb = i * 6 + v * 3;
+          baseLinkColors[rgb] = c.r; baseLinkColors[rgb + 1] = c.g; baseLinkColors[rgb + 2] = c.b;
+        }
       });
     }
     for (const m of meshes.values()) {
@@ -238,8 +259,8 @@ export function createScene(container) {
     baseLinkColors = new Float32Array(links.length * 6);
     const linkRGBA = new Float32Array(links.length * 8);
     links.forEach((l, i) => {
-      const c = edgeColor(l.kind);
       for (const v of [0, 1]) {
+        const c = edgeVertexColor(l.kind, v);
         const rgb = i * 6 + v * 3, rgba = i * 8 + v * 4;
         baseLinkColors[rgb] = c.r; baseLinkColors[rgb + 1] = c.g; baseLinkColors[rgb + 2] = c.b;
         linkRGBA[rgba] = c.r; linkRGBA[rgba + 1] = c.g; linkRGBA[rgba + 2] = c.b; linkRGBA[rgba + 3] = EDGE_ALPHA;
@@ -366,15 +387,54 @@ export function createScene(container) {
     const hits = raycaster.intersectObjects([...meshes.values()].filter((m) => m.visible), false);
     return hits.length ? hits[0].object.userData.id : null;
   }
-  function setHighlight(id) {
+  // Walk a set of directed maps from the seeds, adding every reachable node to
+  // `highlight`. Traversal tracks its own `seen` set (NOT `highlight` membership)
+  // so it explores THROUGH nodes that were already highlighted as 1-hop neighbours
+  // — otherwise a chain past the first hop (e.g. the queue beyond the head) is never reached.
+  function bfsInto(seeds, maps) {
+    const seen = new Set(seeds);
+    const stack = [...seeds];
+    while (stack.length) {
+      const cur = stack.pop();
+      highlight.add(cur);
+      for (const m of maps) {
+        for (const nx of m.get(cur) || []) {
+          if (!seen.has(nx)) { seen.add(nx); stack.push(nx); }
+        }
+      }
+    }
+  }
+  function setHighlight(id, transitive) {
     highlight.clear();
-    if (id) { highlight.add(id); for (const nb of adjacency.get(id) || []) highlight.add(nb); }
+    if (id) {
+      highlight.add(id);
+      for (const nb of adjacency.get(id) || []) highlight.add(nb);
+      if (transitive) {
+        const type = typeById.get(id);
+        if (type === 'queue') {
+          // forward through run_after from the queue's hook neighbours (chain heads)
+          const seeds = [...highlight].filter((x) => typeById.get(x) === 'hook');
+          bfsInto(seeds, [raFwd]);
+        } else if (type === 'hook') {
+          bfsInto([id], [raFwd, raRev]); // the whole chain this hook belongs to
+          // ...plus the path back to the queue: light the queue(s) the chain attaches to,
+          // so it's clear where the clicked hook belongs. Only chain heads carry a queue
+          // edge, so walking the chain hooks' queue neighbours surfaces the chain's home queue.
+          for (const h of [...highlight]) {
+            if (typeById.get(h) !== 'hook') continue;
+            for (const nb of adjacency.get(h) || []) {
+              if (typeById.get(nb) === 'queue') highlight.add(nb);
+            }
+          }
+        }
+      }
+    }
     applyHighlight();
   }
   function onMove(ev) {
     if (pinnedId) return; // a click pinned the selection; keep the dim fixed so the user can rotate
     const id = pick(ev);
-    setHighlight(id);
+    setHighlight(id, true); // hover highlights the whole chain too (same as a click)
     hoverCb(id);
   }
   function onDown(ev) { downX = ev.clientX; downY = ev.clientY; }
@@ -385,7 +445,7 @@ export function createScene(container) {
     const id = pick(ev);
     if (id) {
       pinnedId = id;
-      setHighlight(id);
+      setHighlight(id, true);
       focusOn(id);
     } else {
       pinnedId = null;
