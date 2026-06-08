@@ -8,8 +8,8 @@ const MDH_PATH = '/svc/master-data-hub/web/management';
 beforeEach(() => {
   document.head.innerHTML = '';
   document.body.innerHTML = '';
-  document.body.style.paddingTop = '';
   window.localStorage.clear();
+  window.sessionStorage.clear();
   globalThis.chrome = { runtime: { sendMessage: vi.fn() } };
 });
 
@@ -56,9 +56,29 @@ describe('dataset-mgmt-suggest banner', () => {
     });
   });
 
-  it('is not dismissable (no close button)', () => {
+  it('has a close button that removes the banner', () => {
     init({ pathname: MDH_PATH });
-    expect(document.querySelector(BANNER)).not.toBeNull();
-    expect(document.querySelector('.rossum-sa-extension-dm-close')).toBeNull();
+    const close = document.querySelector('.rossum-sa-extension-dm-close');
+    expect(close).not.toBeNull();
+    close.click();
+    expect(document.querySelector(BANNER)).toBeNull();
+  });
+
+  it('stays dismissed for the session — does not re-inject after closing', () => {
+    init({ pathname: MDH_PATH });
+    document.querySelector('.rossum-sa-extension-dm-close').click();
+    expect(window.sessionStorage.getItem('rossum-sa-extension-dm-suggest-dismissed')).toBe('1');
+    // Re-running init (e.g. another page load this session) must not bring it back.
+    init({ pathname: MDH_PATH });
+    expect(document.querySelector(BANNER)).toBeNull();
+  });
+
+  it('shows again in a fresh session (sessionStorage cleared)', () => {
+    window.sessionStorage.setItem('rossum-sa-extension-dm-suggest-dismissed', '1');
+    init({ pathname: MDH_PATH });
+    expect(document.querySelector(BANNER)).toBeNull(); // suppressed while flag set
+    window.sessionStorage.clear();
+    init({ pathname: MDH_PATH });
+    expect(document.querySelector(BANNER)).not.toBeNull(); // returns once the flag is gone
   });
 });
