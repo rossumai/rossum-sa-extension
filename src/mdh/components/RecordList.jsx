@@ -191,7 +191,7 @@ export default function RecordList({
   );
 }
 
-function SplitButton({ label, cls, onMain, onFile }) {
+function SplitButton({ label, cls, onMain, menuItems = [] }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
 
@@ -211,7 +211,9 @@ function SplitButton({ label, cls, onMain, onFile }) {
       <button class={`btn btn-sm split-btn-drop ${cls}`} onClick={(e) => { e.stopPropagation(); setOpen(!open); }}>{'\u25BE'}</button>
       {open && (
         <div class="toolbar-more-menu">
-          <button class="toolbar-menu-item" onClick={() => { setOpen(false); onFile(); }}>{label} from JSON file</button>
+          {menuItems.map((item) => (
+            <button key={item.label} class="toolbar-menu-item" onClick={() => { setOpen(false); item.onClick(); }}>{item.label}</button>
+          ))}
         </div>
       )}
     </div>
@@ -252,12 +254,22 @@ function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh
           </span>
         ) : (
           <DownloadSplitButton
-            onAll={() => onRefresh('download')}
-            onFiltered={() => onRefresh('download-filtered')}
+            onAllJson={() => onRefresh('download')}
+            onFilteredJson={() => onRefresh('download-filtered')}
+            onAllCsv={() => onRefresh('download-csv')}
+            onFilteredCsv={() => onRefresh('download-filtered-csv')}
           />
         )}
         <BulkSplitButton onUpdate={onBulkUpdate} onDelete={onBulkDelete} />
-        <SplitButton label="Insert" cls="btn-success" onMain={() => onRefresh('insert')} onFile={() => onRefresh('insert-file')} />
+        <SplitButton
+          label="Insert"
+          cls="btn-success"
+          onMain={() => onRefresh('insert')}
+          menuItems={[
+            { label: 'Insert from JSON file', onClick: () => onRefresh('insert-file') },
+            { label: 'Insert from CSV file', onClick: () => onRefresh('insert-csv-file') },
+          ]}
+        />
       </div>
     </div>
   );
@@ -284,8 +296,8 @@ function BulkSplitButton({ onUpdate, onDelete }) {
       </button>
       {open && (
         <div class="toolbar-more-menu">
-          <button class="toolbar-menu-item" onClick={() => { setOpen(false); onUpdate(); }}>Update by filter{'\u2026'}</button>
-          <button class="toolbar-menu-item toolbar-menu-danger" onClick={() => { setOpen(false); onDelete(); }}>Delete by filter{'\u2026'}</button>
+          <button class="toolbar-menu-item" onClick={() => { setOpen(false); onUpdate(); }}>Update by filter</button>
+          <button class="toolbar-menu-item toolbar-menu-danger" onClick={() => { setOpen(false); onDelete(); }}>Delete by filter</button>
         </div>
       )}
     </div>

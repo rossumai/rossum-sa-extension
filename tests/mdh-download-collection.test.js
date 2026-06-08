@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../src/mdh/api.js');
 import * as api from '../src/mdh/api.js';
-import { downloadCollection, BATCH_SIZE, CONCURRENCY } from '../src/mdh/downloadCollection.js';
+import { downloadCollection, BATCH_SIZE, CONCURRENCY, buildJsonSerializer, buildCsvSerializer } from '../src/mdh/downloadCollection.js';
+import { buildColumnDiscoveryPipeline } from '../src/mdh/csv.js';
 
 function fakeWriter() {
   const chunks = [];
@@ -568,5 +569,123 @@ describe('downloadCollection — filename option', () => {
     });
 
     expect(downloadBlob.mock.calls[0][1]).toBe('mycoll.json');
+  });
+});
+
+describe('downloadCollection — CSV serializer', () => {
+  it('discovers columns (_id-first, alphabetical) and writes header + CRLF rows', async () => {
+    api.aggregate
+      .mockResolvedValueOnce({ result: [{ _id: null, keys: ['name', '_id', 'active'] }] })  // discovery
+      .mockResolvedValueOnce({ result: [
+        { _id: 'V1', name: 'Acme', active: true },
+        { _id: 'V2', name: 'Globex' },                 // missing `active`
+      ] });
+
+    const writer = fakeWriter();
+    const result = await downloadCollection('vendors', {
+      fetchCount: async () => 2,
+      serializer: buildCsvSerializer({ dialect: { delimiter: ',' }, header: true, bom: false }),
+      pickFile: () => Promise.resolve(fakeHandle(writer)),
+    });
+
+    expect(result).toEqual({ fetched: 2, cancelled: false, streamed: true });
+    // discovery call uses the column-discovery pipeline on the default filter
+    expect(api.aggregate).toHaveBeenNthCalledWith(1, 'vendors', buildColumnDiscoveryPipeline([{ $match: {} }]));
+    // columns ordered _id, active, name
+    expect(writer.chunks.join('')).toBe('_id,active,name\r\nV1,true,Acme\r\nV2,,Globex');
+  });
+
+  it('omits the header when header:false and prepends a BOM when bom:true', async () => {
+    api.aggregate
+      .mockResolvedValueOnce({ result: [{ _id: null, keys: ['_id'] }] })
+      .mockResolvedValueOnce({ result: [{ _id: 1 }, { _id: 2 }] });
+    const writer = fakeWriter();
+    await downloadCollection('c', {
+      fetchCount: async () => 2,
+      serializer: buildCsvSerializer({ dialect: { delimiter: ',' }, header: false, bom: true }),
+      pickFile: () => Promise.resolve(fakeHandle(writer)),
+    });
+    expect(writer.chunks.join('')).toBe('﻿1\r\n2');
+  });
+
+  it('honors a custom delimiter', async () => {
+    api.aggregate
+      .mockResolvedValueOnce({ result: [{ _id: null, keys: ['a', 'b'] }] })
+      .mockResolvedValueOnce({ result: [{ a: '1', b: '2' }] });
+    const writer = fakeWriter();
+    await downloadCollection('c', {
+      fetchCount: async () => 1,
+      serializer: buildCsvSerializer({ dialect: { delimiter: ';' }, header: true, bom: false }),
+      pickFile: () => Promise.resolve(fakeHandle(writer)),
+    });
+    expect(writer.chunks.join('')).toBe('a;b\r\n1;2');
+  });
+
+  it('uses a .csv Blob (text/csv) in the fallback path', async () => {
+    api.aggregate
+      .mockResolvedValueOnce({ result: [{ _id: null, keys: ['_id'] }] })
+      .mockResolvedValueOnce({ result: [{ _id: 1 }] });
+    const downloadBlob = vi.fn();
+    await downloadCollection('orders', {
+      fetchCount: async () => 1,
+      serializer: buildCsvSerializer({ dialect: { delimiter: ',' }, header: true, bom: false }),
+      pickFile: () => Promise.resolve(null),
+      downloadBlob,
+    });
+    const [blob, filename] = downloadBlob.mock.calls[0];
+    expect(filename).toBe('orders.csv');
+    expect(blob.type).toBe('text/csv');
+    expect(await blob.text()).toBe('_id\r\n1');
+  });
+
+  it('buildJsonSerializer is the default — JSON output unchanged when omitted', async () => {
+    const docs = [{ _id: 1, name: 'a' }];
+    api.aggregate.mockResolvedValueOnce({ result: docs });
+    const writer = fakeWriter();
+    await downloadCollection('c', {
+      fetchCount: async () => 1,
+      pickFile: () => Promise.resolve(fakeHandle(writer)),
+    });
+    expect(JSON.parse(writer.chunks.join(''))).toEqual(docs);
+    // no discovery call — JSON serializer has no init()
+    expect(api.aggregate).toHaveBeenCalledTimes(1);
+  });
+
+  it('aborts the writer and rethrows when CSV column discovery fails', async () => {
+    api.aggregate.mockRejectedValueOnce(new Error('discovery timeout'));
+    const writer = fakeWriter();
+    await expect(downloadCollection('c', {
+      fetchCount: async () => 5,
+      serializer: buildCsvSerializer({ dialect: { delimiter: ',' }, header: true, bom: false }),
+      pickFile: () => Promise.resolve(fakeHandle(writer)),
+    })).rejects.toThrow('discovery timeout');
+    expect(writer.abort).toHaveBeenCalledOnce();
+    expect(writer.close).not.toHaveBeenCalled();
+  });
+
+  it('writes a header-only CSV for an empty collection', async () => {
+    api.aggregate.mockResolvedValueOnce({ result: [] }); // discovery over empty collection -> no $group output
+    const writer = fakeWriter();
+    const result = await downloadCollection('empty', {
+      fetchCount: async () => 0,
+      serializer: buildCsvSerializer({ dialect: { delimiter: ',' }, header: true, bom: false }),
+      pickFile: () => Promise.resolve(fakeHandle(writer)),
+    });
+    expect(result).toEqual({ fetched: 0, cancelled: false, streamed: true });
+    expect(api.aggregate).toHaveBeenCalledTimes(1); // discovery only; no data batches
+    expect(writer.chunks.join('')).toBe('\r\n');     // empty header (no columns) + CRLF
+  });
+
+  it('JSON-encodes a nested field value through the exporter', async () => {
+    api.aggregate
+      .mockResolvedValueOnce({ result: [{ _id: null, keys: ['_id', 'meta'] }] })
+      .mockResolvedValueOnce({ result: [{ _id: 'V3', meta: { role: 'admin' } }] });
+    const writer = fakeWriter();
+    await downloadCollection('c', {
+      fetchCount: async () => 1,
+      serializer: buildCsvSerializer({ dialect: { delimiter: ',' }, header: true, bom: false }),
+      pickFile: () => Promise.resolve(fakeHandle(writer)),
+    });
+    expect(writer.chunks.join('')).toBe('_id,meta\r\nV3,"{""role"":""admin""}"');
   });
 });

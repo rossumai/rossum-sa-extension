@@ -1,79 +1,81 @@
 import * as api from './api.js';
+import { csvHeader, csvRow, orderColumns, buildColumnDiscoveryPipeline } from './csv.js';
 
-// Streamed JSON export of a collection's documents.
+// Streamed export of a collection's documents, format-agnostic via a pluggable
+// serializer. The streaming engine (sliding-window workers, in-order flush,
+// buffer-room backpressure, cancellation, FS-Access-vs-Blob) is unchanged from
+// the JSON-only version; only serialization differs.
 //
-// Two write strategies:
-//  1. showSaveFilePicker (preferred): user picks a destination up-front,
-//     each batch is written to disk as it arrives. Memory stays bounded
-//     at roughly maxBuffered batches + concurrency in-flight requests.
-//  2. Blob-parts fallback (no picker support, or non-AbortError throw):
-//     each batch is serialized to its own string and pushed into a parts
-//     array; one Blob is built from the parts at the very end. The parts
-//     never get concatenated into a single huge JS string, so we never
-//     trip V8's max string length (which is what produces "Invalid string
-//     length" on the JSON.stringify(everything) path).
+// A serializer is { ext, mimeType, pickerTypes, init?(ctx), preamble(), item(doc),
+// separator, postamble() }. `init` (optional) runs AFTER the file picker — so the
+// picker stays the first await after the user gesture — and before the preamble;
+// the CSV serializer uses it to discover the column set.
 //
-// Concurrency model: a sliding window of CONCURRENCY workers. Each worker
-// pulls the next-available offset, fetches it, deposits the result, and
-// loops. There's no barrier — slot N+1 can start the moment slot N
-// finishes, so a slow batch only stalls the *write* (which has to wait
-// for its in-order predecessors) and never the *fetch* pipeline. The
-// workers naturally prioritize earlier offsets because they pull from a
-// monotonically-increasing counter in source order.
-//
-// Writes are still serialized in source order via a chained-promise flush
-// so the on-disk JSON stays sequential. A pending buffer holds completed
-// batches that are still waiting for their in-order predecessor; if it
-// fills (writes lagging behind fetches), workers pause until the writer
-// drains.
-//
-// Cancellation (opt-in via isCancelled()) is checked between fetches and
-// inside the buffer-room wait. The streaming file, if any, is aborted on
-// cancel so the partial file is discarded rather than left as half-valid
-// JSON on the user's disk.
-//
-// Stable ordering across batches: each worker issues its OWN aggregate
-// call, and MongoDB does not guarantee a stable natural order across
-// independent aggregations on the same collection. Without an explicit
-// sort, adjacent $skip/$limit windows can overlap (the same doc appears
-// in two batches) AND leave gaps (other docs missed entirely). We append
-// {$sort: {_id: 1}} to the pipeline when the caller hasn't provided
-// their own sort, so every worker scans in the same deterministic order.
-// {_id: 1} uses the always-present _id index, so this is free.
+// Stable ordering across batches: each worker issues its own aggregate, and Mongo
+// gives no stable natural order across independent aggregations. We append
+// {$sort:{_id:1}} unless the caller's pipeline already ends with a $sort, so every
+// worker scans in the same deterministic order.
 
 export const BATCH_SIZE = 1000;
 export const CONCURRENCY = 10;
-// Cap on completed-but-not-yet-written batches. Bounds memory when the
-// writer is slower than the fetcher (uncommon — writes are usually
-// instant for FS Access API and Blob parts — but worth bounding anyway).
 export const MAX_BUFFERED = CONCURRENCY * 2;
+
+function formatJsonDoc(doc) {
+  // Match JSON.stringify(array, null, 2)'s per-element indent.
+  return '  ' + JSON.stringify(doc, null, 2).replace(/\n/g, '\n  ');
+}
+
+// Default serializer — byte-for-byte identical to the previous JSON output.
+export function buildJsonSerializer() {
+  return {
+    ext: 'json',
+    mimeType: 'application/json',
+    pickerTypes: [{ description: 'JSON file', accept: { 'application/json': ['.json'] } }],
+    preamble: () => '[\n',
+    item: (doc) => formatJsonDoc(doc),
+    separator: ',\n',
+    postamble: () => '\n]\n',
+  };
+}
+
+// CSV serializer. Columns are the exact union of top-level keys, discovered in
+// init() (after the picker). Objects/arrays are JSON-encoded per csvCell.
+export function buildCsvSerializer({ dialect = {}, header = true, bom = true, columns = null } = {}) {
+  let cols = columns;
+  return {
+    ext: 'csv',
+    mimeType: 'text/csv',
+    pickerTypes: [{ description: 'CSV file', accept: { 'text/csv': ['.csv'] } }],
+    async init({ collectionName, pipelineStages }) {
+      if (cols != null) return;
+      const res = await api.aggregate(collectionName, buildColumnDiscoveryPipeline(pipelineStages));
+      cols = orderColumns(res?.result?.[0]?.keys ?? []);
+    },
+    preamble: () => (bom ? '﻿' : '') + (header ? csvHeader(cols, dialect) + '\r\n' : ''),
+    item: (doc) => csvRow(doc, cols, dialect),
+    separator: '\r\n',
+    postamble: () => '',
+  };
+}
 
 export async function downloadCollection(collectionName, opts = {}) {
   const {
     fetchCount = async () => 0,
     isCancelled = () => false,
     onProgress = () => {},
-    pickFile = defaultPickFile,
+    serializer = buildJsonSerializer(),
+    pickFile = (name) => defaultPickFile(name, serializer.pickerTypes),
     downloadBlob = defaultDownloadBlob,
     batchSize = BATCH_SIZE,
     concurrency = CONCURRENCY,
     maxBuffered = MAX_BUFFERED,
-    // Prepended to every batch's aggregate call. Default downloads the raw
-    // collection; pass `[{$match: ...}, {$sort: ...}, ...]` to export the
-    // result of a filtered/transformed pipeline. The downloader appends its
-    // own `$sort` (if absent), `$skip`, and `$limit` per batch — callers
-    // should strip those. Callers sorting on a non-unique field should
-    // include `_id` as a tie-breaker (e.g. `{$sort: {name: 1, _id: 1}}`)
-    // to keep batch boundaries stable.
     pipelineStages = [{ $match: {} }],
     filename: filenameOpt,
   } = opts;
 
-  const filename = filenameOpt || `${collectionName}.json`;
+  const filename = filenameOpt || `${collectionName}.${serializer.ext}`;
 
-  // Picker must be the first await after the user gesture — any earlier
-  // await would invalidate transient activation and the browser would
-  // refuse the call.
+  // Picker must be the first await after the user gesture.
   let writer = null;
   try {
     const handle = await pickFile(filename);
@@ -82,7 +84,7 @@ export async function downloadCollection(collectionName, opts = {}) {
     if (err && err.name === 'AbortError') {
       return { fetched: 0, cancelled: true, streamed: false };
     }
-    // Anything else (no support, permission denied, security) → Blob fallback.
+    // Anything else (no support, permission denied) → Blob fallback.
   }
 
   try {
@@ -95,13 +97,19 @@ export async function downloadCollection(collectionName, opts = {}) {
       return { fetched: 0, cancelled: true, streamed: !!writer };
     }
 
+    // Format-specific setup (CSV column discovery). After the picker, so the
+    // picker keeps transient activation; cancellable on either side.
+    if (serializer.init) {
+      await serializer.init({ collectionName, pipelineStages });
+      if (isCancelled()) {
+        await safeAbort(writer);
+        return { fetched: 0, cancelled: true, streamed: !!writer };
+      }
+    }
+
     const offsets = [];
     for (let s = 0; s < total; s += batchSize) offsets.push(s);
 
-    // Inject a deterministic sort unless the caller already ended their
-    // pipeline with one. Without this, separate aggregate calls can iterate
-    // the collection in different orders and the workers' $skip/$limit
-    // windows overlap.
     const stages = pipelineEndsWithSort(pipelineStages)
       ? pipelineStages
       : [...pipelineStages, { $sort: { _id: 1 } }];
@@ -114,22 +122,14 @@ export async function downloadCollection(collectionName, opts = {}) {
     let nextWriteIdx = 0;
     let flushChain = Promise.resolve();
     let workerError = null;
-    // Resolvers for workers parked on backpressure. Woken one-at-a-time
-    // by the writer as it drains pending, or all-at-once on cancel/error.
     const bufferWaiters = [];
 
     async function writeChunk(text) {
       if (writer) await writer.write(text);
       else parts.push(text);
     }
-
-    function wakeOneWaiter() {
-      const r = bufferWaiters.shift();
-      if (r) r();
-    }
-    function wakeAllWaiters() {
-      while (bufferWaiters.length > 0) bufferWaiters.shift()();
-    }
+    function wakeOneWaiter() { const r = bufferWaiters.shift(); if (r) r(); }
+    function wakeAllWaiters() { while (bufferWaiters.length > 0) bufferWaiters.shift()(); }
 
     function scheduleFlush() {
       flushChain = flushChain.then(async () => {
@@ -138,8 +138,8 @@ export async function downloadCollection(collectionName, opts = {}) {
           pending.delete(nextWriteIdx);
           let buf = '';
           for (const doc of docs) {
-            if (docsWritten > 0) buf += ',\n';
-            buf += formatDoc(doc);
+            if (docsWritten > 0) buf += serializer.separator;
+            buf += serializer.item(doc);
             docsWritten++;
           }
           if (buf) await writeChunk(buf);
@@ -149,25 +149,18 @@ export async function downloadCollection(collectionName, opts = {}) {
       });
     }
 
-    function stopped() {
-      return isCancelled() || workerError !== null;
-    }
+    function stopped() { return isCancelled() || workerError !== null; }
 
     async function workerLoop() {
       while (true) {
         if (stopped()) return;
-
-        // Backpressure: pause if the writer is lagging behind. Re-checks
-        // after each wake-up in case the user cancelled while parked.
         while (pending.size >= maxBuffered && !stopped()) {
           await new Promise((r) => bufferWaiters.push(r));
         }
         if (stopped()) return;
-
         if (nextFetchIdx >= offsets.length) return;
         const myIdx = nextFetchIdx++;
         const myOffset = offsets[myIdx];
-
         try {
           const res = await api.aggregate(collectionName, [
             ...stages,
@@ -187,7 +180,7 @@ export async function downloadCollection(collectionName, opts = {}) {
       }
     }
 
-    await writeChunk('[\n');
+    await writeChunk(serializer.preamble());
 
     const workers = Array.from(
       { length: Math.min(concurrency, offsets.length) },
@@ -196,31 +189,25 @@ export async function downloadCollection(collectionName, opts = {}) {
     await Promise.all(workers);
     await flushChain;
 
-    if (workerError) throw workerError; // outer catch aborts the writer
+    if (workerError) throw workerError;
 
     if (isCancelled()) {
       await safeAbort(writer);
       return { fetched, cancelled: true, streamed: !!writer };
     }
 
-    await writeChunk('\n]\n');
+    await writeChunk(serializer.postamble());
 
     if (writer) {
       await writer.close();
     } else {
-      downloadBlob(new Blob(parts, { type: 'application/json' }), filename);
+      downloadBlob(new Blob(parts, { type: serializer.mimeType }), filename);
     }
     return { fetched, cancelled: false, streamed: !!writer };
   } catch (err) {
     await safeAbort(writer);
     throw err;
   }
-}
-
-// Match JSON.stringify(array, null, 2)'s per-element indent: prepend two
-// spaces to the doc and to every internal newline.
-function formatDoc(doc) {
-  return '  ' + JSON.stringify(doc, null, 2).replace(/\n/g, '\n  ');
 }
 
 function pipelineEndsWithSort(stages) {
@@ -234,14 +221,11 @@ async function safeAbort(writer) {
   try { await writer.abort('cancelled'); } catch { /* writer may already be closed */ }
 }
 
-function defaultPickFile(suggestedName) {
+function defaultPickFile(suggestedName, types) {
   if (typeof window === 'undefined' || typeof window.showSaveFilePicker !== 'function') {
     return Promise.resolve(null);
   }
-  return window.showSaveFilePicker({
-    suggestedName,
-    types: [{ description: 'JSON file', accept: { 'application/json': ['.json'] } }],
-  });
+  return window.showSaveFilePicker({ suggestedName, types });
 }
 
 function defaultDownloadBlob(blob, filename) {

@@ -712,6 +712,19 @@ body {
 .toolbar-menu-item:hover { background: var(--bg-hover); }
 .toolbar-menu-danger { color: var(--danger); }
 .toolbar-menu-danger:hover { background: var(--danger-bg); }
+.toolbar-submenu-wrap { position: relative; }
+.toolbar-submenu-parent { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.toolbar-submenu-caret { color: var(--text-secondary); font-size: 11px; line-height: 1; }
+/* Format flyout. Side is chosen at open time (prefers right, flips left near the
+   viewport edge). top:-5px offsets the item's 7px padding to align the flyout row. */
+.toolbar-submenu {
+  position: absolute; top: -5px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow), 0 4px 12px rgba(0, 0, 0, 0.1);
+  min-width: 120px; z-index: 51; padding: 4px 0;
+}
+.toolbar-submenu.is-right { left: 100%; }
+.toolbar-submenu.is-left { right: 100%; }
 
 /* ── Record List ──────────────────────────────── */
 
@@ -1341,6 +1354,92 @@ body {
   background: var(--bg-hover); padding: 6px 8px; border-radius: var(--radius);
   line-height: 1.4;
 }
+
+/* CSV import — Configure stage */
+/* The Configure stage shows a toolbar + (2-column) Advanced panel above a
+   hero preview table, so give this modal more room than the default 800px cap.
+   width:90vw (from .modal-card) still caps it on narrow screens. */
+.modal-card:has(.csv-import-wizard) { max-width: 1040px; }
+
+/* Segmented pill group */
+.csv-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.csv-seg-opt {
+  padding: 4px 9px; font-size: 11px; font-family: inherit; line-height: 1.4;
+  border: none; border-right: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text-secondary); cursor: pointer;
+}
+.csv-seg-opt:last-child { border-right: none; }
+.csv-seg-opt.on { background: var(--accent); color: #fff; }
+
+/* Toggle switch */
+.csv-switch {
+  position: relative; width: 30px; height: 18px; flex: none; padding: 0;
+  border: none; border-radius: 9px; background: var(--border); cursor: pointer;
+  transition: background 0.15s;
+}
+.csv-switch.on { background: var(--accent); }
+.csv-switch-knob {
+  position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+  border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: left 0.15s;
+}
+.csv-switch.on .csv-switch-knob { left: 14px; }
+
+/* Mono char input (quote / escape / custom delimiter) */
+.csv-chip {
+  width: 44px; text-align: center; font-family: var(--font-mono); font-size: 11px;
+  border: 1px solid var(--border); border-radius: 6px; padding: 3px 6px;
+  background: var(--bg-input); color: var(--text-primary);
+}
+
+/* Inline hint text, reused in the Advanced panel */
+.csv-opt-hint { font-size: 11px; color: var(--text-secondary); margin: 2px 0 0 0; }
+
+/* Configure-stage toolbar + advanced panel */
+.csv-toolbar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin: 10px 0 0; padding: 9px 11px;
+  background: var(--bg-base); border: 1px solid var(--border); border-radius: 9px;
+}
+.csv-tb-item { display: flex; align-items: center; gap: 7px; }
+.csv-tb-k { font-size: 11px; color: var(--text-secondary); }
+.csv-adv-toggle {
+  margin-left: auto; border: none; background: none; cursor: pointer;
+  color: var(--accent); font-weight: 600; font-size: 11px; font-family: inherit;
+}
+.csv-advanced {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 20px;
+  margin-top: 9px; padding: 12px; border: 1px dashed var(--border); border-radius: 9px;
+}
+.csv-adv-item { display: flex; flex-direction: column; gap: 3px; }
+.csv-adv-item .csv-opt-hint { margin: 0; }
+
+/* Configure-stage meta bar */
+.csv-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 2px; }
+.csv-meta-fn { font-family: var(--font-mono); font-weight: 600; font-size: 12px; }
+.csv-meta-m { font-size: 11px; color: var(--text-secondary); }
+.csv-meta-m b { color: var(--text-primary); font-weight: 600; }
+
+/* CSV import — live preview */
+.csv-preview { margin-top: 12px; }
+.csv-preview-caption { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+.csv-preview-legend { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+.csv-legend-num { color: var(--accent); font-family: var(--font-mono); }
+.csv-legend-null { color: var(--text-secondary); font-style: italic; }
+.csv-preview-empty { font-size: 13px; color: var(--text-secondary); padding: 8px 0; }
+.csv-preview-scroll { max-height: 240px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
+.csv-preview-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.csv-preview-table th, .csv-preview-table td {
+  text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+.csv-preview-table th { position: sticky; top: 0; background: var(--bg-card); font-family: var(--font-mono); }
+.csv-cell-string { color: var(--text-primary, inherit); }
+.csv-cell-number { color: var(--accent); font-family: var(--font-mono); }
+.csv-cell-bool   { color: var(--accent); font-family: var(--font-mono); }
+.csv-cell-null   { color: var(--text-secondary); font-style: italic; }
+.csv-cell-missing { color: var(--text-secondary); }
+.csv-warning { font-size: 12px; color: var(--warning); margin-top: 6px; }
+.csv-error   { font-size: 13px; color: var(--danger); margin: 10px 0; }
 
 .op-status {
   padding: 10px 16px; background: var(--bg-code); border: 1px solid var(--border);

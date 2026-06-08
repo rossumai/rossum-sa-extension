@@ -15,7 +15,7 @@ import { openDataOperations } from './DataOperations.jsx';
 import { openBulkDelete } from './BulkDelete.jsx';
 import { openBulkUpdate } from './BulkUpdate.jsx';
 import { selectionMode, selectedIds, selectionPipelineDirty } from '../store.js';
-import { confirmModal } from './Modal.jsx';
+import { confirmModal, openModal } from './Modal.jsx';
 import { showUndo } from '../undo.js';
 import { addToHistory } from './QueryHistory.jsx';
 import * as api from '../api.js';
@@ -23,7 +23,8 @@ import * as cache from '../cache.js';
 import { applySortToPipeline, applyFilterDeltaToPipeline, applySkipToPipeline, extractUIStateFromPipeline, stripPaginationStages } from '../pipelineOps.js';
 import { savePipelineState, getPipelineState } from '../pipelineState.js';
 import { saveLastPipeline } from '../lastPipeline.js';
-import { downloadCollection as runDownload } from '../downloadCollection.js';
+import { downloadCollection as runDownload, buildCsvSerializer } from '../downloadCollection.js';
+import CsvExportOptions from './CsvExportOptions.jsx';
 import JSON5 from 'json5';
 
 export default function DataPanel() {
@@ -384,10 +385,16 @@ export default function DataPanel() {
       downloadAll();
     } else if (action === 'download-filtered') {
       downloadFiltered();
+    } else if (action === 'download-csv') {
+      downloadAllCsv();
+    } else if (action === 'download-filtered-csv') {
+      downloadFilteredCsv();
     } else if (action === 'insert') {
       openDataOperations('insert', invalidateAndRun, currentFields);
     } else if (action === 'insert-file') {
       openDataOperations('insert-file', invalidateAndRun, currentFields);
+    } else if (action === 'insert-csv-file') {
+      openDataOperations('insert-csv-file', invalidateAndRun, currentFields);
     }
   }
 
@@ -486,7 +493,87 @@ export default function DataPanel() {
     });
   }
 
-  async function runDownloadJob({ pipelineStages, filename, filtered, fetchCount }) {
+  function downloadAllCsv() {
+    const col = collection;
+    openModal('Export CSV', () => (
+      <CsvExportOptions onDownload={async (opts) => {
+        const tc = pagination.totalCount.value;
+        if (tc !== null && tc > 10_000) {
+          const proceed = await confirmModal(
+            'Large collection',
+            `This collection has ${tc.toLocaleString()} documents. Exporting may take a while and use significant memory. Continue?`,
+          );
+          if (!proceed) return;
+        }
+        await runDownloadJob({
+          pipelineStages: [{ $match: {} }],
+          filename: `${col}.csv`,
+          filtered: false,
+          fetchCount: async () => {
+            if (pagination.totalCount.value !== null) return pagination.totalCount.value;
+            const r = await api.aggregate(col, [{ $count: 'total' }]);
+            return r.result?.[0]?.total ?? 0;
+          },
+          serializer: buildCsvSerializer({ dialect: { delimiter: opts.delimiter }, header: opts.header, bom: opts.bom }),
+        });
+      }} />
+    ));
+  }
+
+  function downloadFilteredCsv() {
+    if (!editorRef.current) return;
+    let pipelineStages;
+    try {
+      const text = pipeline.substitutePlaceholders(editorRef.current.getValue());
+      const parsed = JSON5.parse(text);
+      if (!Array.isArray(parsed)) throw new Error('pipeline must be a JSON array');
+      pipelineStages = stripPaginationStages(parsed);
+    } catch (err) {
+      error.value = { message: `Cannot export filtered: ${err.message}` };
+      return;
+    }
+    const col = collection;
+    openModal('Export CSV', () => (
+      <CsvExportOptions onDownload={async (opts) => {
+        // Pre-count for the progress total + >10k gate (cancellable).
+        downloadCancelRef.current = false;
+        error.value = null;
+        setDownloadState({ counting: true, filtered: true });
+        const ac = new AbortController();
+        downloadCountAbortRef.current = ac;
+        let filteredCount;
+        try {
+          const r = await api.aggregate(col, [...pipelineStages, { $count: 'total' }], { signal: ac.signal });
+          filteredCount = r.result?.[0]?.total ?? 0;
+        } catch (err) {
+          downloadCountAbortRef.current = null;
+          if (downloadCancelRef.current || err.name === 'AbortError') { setDownloadState(null); return; }
+          error.value = { message: `Cannot export filtered: ${err.message}` };
+          setDownloadState(null);
+          return;
+        }
+        downloadCountAbortRef.current = null;
+        if (downloadCancelRef.current) { setDownloadState(null); return; }
+        if (filteredCount > 10_000) {
+          setDownloadState(null);
+          const proceed = await confirmModal(
+            'Large export',
+            `This filter matches ${filteredCount.toLocaleString()} documents. Exporting may take a while and use significant memory. Continue?`,
+          );
+          if (!proceed) return;
+        }
+        await runDownloadJob({
+          pipelineStages,
+          filename: `${col}-filtered.csv`,
+          filtered: true,
+          fetchCount: async () => filteredCount,
+          serializer: buildCsvSerializer({ dialect: { delimiter: opts.delimiter }, header: opts.header, bom: opts.bom }),
+        });
+      }} />
+    ));
+  }
+
+  async function runDownloadJob({ pipelineStages, filename, filtered, fetchCount, serializer }) {
     downloadCancelRef.current = false;
     setDownloadState({ count: 0, total: null, filtered });
     error.value = null;
@@ -497,6 +584,7 @@ export default function DataPanel() {
         pipelineStages,
         filename,
         fetchCount,
+        serializer,                         // undefined → JSON (default) for the existing callers
         isCancelled: () => downloadCancelRef.current,
         onProgress: ({ fetched, total }) => setDownloadState({ count: fetched, total, filtered }),
       });
