@@ -260,6 +260,8 @@ function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh
             onFilteredJson={() => onRefresh('download-filtered')}
             onAllCsv={() => onRefresh('download-csv')}
             onFilteredCsv={() => onRefresh('download-filtered-csv')}
+            onAllXml={() => onRefresh('download-xml')}
+            onFilteredXml={() => onRefresh('download-filtered-xml')}
           />
         )}
         <BulkSplitButton onUpdate={onBulkUpdate} onDelete={onBulkDelete} />
@@ -271,6 +273,7 @@ function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh
             { label: 'From JSON file', onClick: () => onRefresh('insert-file') },
             { label: 'From CSV file', beta: true, onClick: () => onRefresh('insert-csv-file') },
             { label: 'From Excel file', beta: true, onClick: () => onRefresh('insert-xlsx-file') },
+            { label: 'From XML file', beta: true, onClick: () => onRefresh('insert-xml-file') },
           ]}
         />
       </div>

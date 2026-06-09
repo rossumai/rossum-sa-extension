@@ -1,5 +1,6 @@
 import * as api from './api.js';
 import { csvHeader, csvRow, orderColumns, buildColumnDiscoveryPipeline } from './csv.js';
+import { docToXml, toXmlName } from './xml.js';
 
 // Streamed export of a collection's documents, format-agnostic via a pluggable
 // serializer. The streaming engine (sliding-window workers, in-order flush,
@@ -55,6 +56,21 @@ export function buildCsvSerializer({ dialect = {}, header = true, bom = true, co
     item: (doc) => csvRow(doc, cols, dialect),
     separator: '\r\n',
     postamble: () => '',
+  };
+}
+
+// XML serializer — plain text, streams incrementally like JSON/CSV. Every field
+// becomes a child element (no attributes); keys are sanitized to valid XML names.
+export function buildXmlSerializer({ rootName = 'records', recordName = 'record' } = {}) {
+  const root = toXmlName(rootName);
+  return {
+    ext: 'xml',
+    mimeType: 'application/xml',
+    pickerTypes: [{ description: 'XML file', accept: { 'application/xml': ['.xml'] } }],
+    preamble: () => `<?xml version="1.0" encoding="UTF-8"?>\n<${root}>\n`,
+    item: (doc) => '  ' + docToXml(doc, recordName),
+    separator: '\n',
+    postamble: () => `\n</${root}>\n`,
   };
 }
 

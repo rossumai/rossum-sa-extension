@@ -23,9 +23,10 @@ import * as cache from '../cache.js';
 import { applySortToPipeline, applyFilterDeltaToPipeline, applySkipToPipeline, extractUIStateFromPipeline, stripPaginationStages } from '../pipelineOps.js';
 import { savePipelineState, getPipelineState } from '../pipelineState.js';
 import { saveLastPipeline } from '../lastPipeline.js';
-import { downloadCollection as runDownload, buildCsvSerializer } from '../downloadCollection.js';
+import { downloadCollection as runDownload, buildCsvSerializer, buildXmlSerializer } from '../downloadCollection.js';
 import { buildColumnDiscoveryPipeline, orderColumns } from '../csv.js';
 import CsvExportOptions from './CsvExportOptions.jsx';
+import XmlExportOptions from './XmlExportOptions.jsx';
 import JSON5 from 'json5';
 
 export default function DataPanel() {
@@ -390,6 +391,10 @@ export default function DataPanel() {
       downloadAllCsv();
     } else if (action === 'download-filtered-csv') {
       downloadFilteredCsv();
+    } else if (action === 'download-xml') {
+      downloadAllXml();
+    } else if (action === 'download-filtered-xml') {
+      downloadFilteredXml();
     } else if (action === 'insert') {
       openDataOperations('insert', invalidateAndRun, currentFields);
     } else if (action === 'insert-file') {
@@ -398,6 +403,8 @@ export default function DataPanel() {
       openDataOperations('insert-csv-file', invalidateAndRun, currentFields);
     } else if (action === 'insert-xlsx-file') {
       openDataOperations('insert-xlsx-file', invalidateAndRun, currentFields);
+    } else if (action === 'insert-xml-file') {
+      openDataOperations('insert-xml-file', invalidateAndRun, currentFields);
     }
   }
 
@@ -588,6 +595,92 @@ export default function DataPanel() {
             filtered: true,
             fetchCount: async () => filteredCount,
             serializer: buildCsvSerializer({ dialect: { delimiter }, header, bom: false, columns }),
+          });
+        }}
+      />
+    ));
+  }
+
+  function downloadAllXml() {
+    const col = collection;
+    openModal('Export XML', () => (
+      <XmlExportOptions
+        loadPreview={async () => {
+          const r = await api.aggregate(col, [{ $match: {} }, { $limit: 10 }]);
+          return { sample: r.result || [] };
+        }}
+        onDownload={async ({ rootName, recordName }) => {
+          const tc = pagination.totalCount.value;
+          if (tc !== null && tc > 10_000) {
+            const proceed = await confirmModal('Large collection', `This collection has ${tc.toLocaleString()} documents. Exporting may take a while and use significant memory. Continue?`);
+            if (!proceed) return;
+          }
+          await runDownloadJob({
+            pipelineStages: [{ $match: {} }],
+            filename: `${col}.xml`,
+            filtered: false,
+            fetchCount: async () => {
+              if (pagination.totalCount.value !== null) return pagination.totalCount.value;
+              const r = await api.aggregate(col, [{ $count: 'total' }]);
+              return r.result?.[0]?.total ?? 0;
+            },
+            serializer: buildXmlSerializer({ rootName, recordName }),
+          });
+        }}
+      />
+    ));
+  }
+
+  function downloadFilteredXml() {
+    if (!editorRef.current) return;
+    let pipelineStages;
+    try {
+      const text = pipeline.substitutePlaceholders(editorRef.current.getValue());
+      const parsed = JSON5.parse(text);
+      if (!Array.isArray(parsed)) throw new Error('pipeline must be a JSON array');
+      pipelineStages = stripPaginationStages(parsed);
+    } catch (err) {
+      error.value = { message: `Cannot export filtered: ${err.message}` };
+      return;
+    }
+    const col = collection;
+    openModal('Export XML', () => (
+      <XmlExportOptions
+        loadPreview={async () => ({ sample: (await api.aggregate(col, [...pipelineStages, { $limit: 10 }])).result || [] })}
+        onDownload={async ({ rootName, recordName }) => {
+          // Pre-count for the progress total + >10k gate (cancellable).
+          downloadCancelRef.current = false;
+          error.value = null;
+          setDownloadState({ counting: true, filtered: true });
+          const ac = new AbortController();
+          downloadCountAbortRef.current = ac;
+          let filteredCount;
+          try {
+            const r = await api.aggregate(col, [...pipelineStages, { $count: 'total' }], { signal: ac.signal });
+            filteredCount = r.result?.[0]?.total ?? 0;
+          } catch (err) {
+            downloadCountAbortRef.current = null;
+            if (downloadCancelRef.current || err.name === 'AbortError') { setDownloadState(null); return; }
+            error.value = { message: `Cannot export filtered: ${err.message}` };
+            setDownloadState(null);
+            return;
+          }
+          downloadCountAbortRef.current = null;
+          if (downloadCancelRef.current) { setDownloadState(null); return; }
+          if (filteredCount > 10_000) {
+            setDownloadState(null);
+            const proceed = await confirmModal(
+              'Large export',
+              `This filter matches ${filteredCount.toLocaleString()} documents. Exporting may take a while and use significant memory. Continue?`,
+            );
+            if (!proceed) return;
+          }
+          await runDownloadJob({
+            pipelineStages,
+            filename: `${col}-filtered.xml`,
+            filtered: true,
+            fetchCount: async () => filteredCount,
+            serializer: buildXmlSerializer({ rootName, recordName }),
           });
         }}
       />
