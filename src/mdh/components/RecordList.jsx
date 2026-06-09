@@ -269,7 +269,7 @@ function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh
           onMain={() => onRefresh('insert')}
           menuItems={[
             { label: 'From JSON file', onClick: () => onRefresh('insert-file') },
-            { label: 'From CSV file', onClick: () => onRefresh('insert-csv-file') },
+            { label: 'From CSV file', beta: true, onClick: () => onRefresh('insert-csv-file') },
             { label: 'From Excel file', beta: true, onClick: () => onRefresh('insert-xlsx-file') },
           ]}
         />

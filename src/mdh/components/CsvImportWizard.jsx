@@ -157,7 +157,7 @@ function CsvStagePick({ onFile, errorMsg, onCancel }) {
   }
   return (
     <Fragment>
-      <div class="modal-field-label">Select a CSV file to insert:</div>
+      <div class="modal-field-label">Select a CSV file to insert: <span class="toolbar-menu-beta">beta</span></div>
       <input ref={inputRef} type="file" accept=".csv,text/csv" style="display:none" onChange={pick} data-testid="csv-file-input" />
       <div class="file-input-area" onClick={() => inputRef.current?.click()}>
         <div class="file-input-label">Click to select a CSV file</div>
@@ -307,6 +307,7 @@ function CsvStageConfigure({ fileMeta, opts, setOpt, parsed, onNext, onCancel })
     <Fragment>
       <div class="csv-meta" data-testid="csv-meta">
         <span class="csv-meta-fn">{fileMeta?.name}</span>
+        <span class="toolbar-menu-beta">beta</span>
         {rows != null && <span class="csv-meta-m">{'·'} <b>{rows.toLocaleString()}</b> row{rows === 1 ? '' : 's'}</span>}
         {fileMeta?.size != null && <span class="csv-meta-m">{'·'} <b>{formatBytes(fileMeta.size)}</b></span>}
         {cols != null && <span class="csv-meta-m">{'·'} <b>{cols}</b> column{cols === 1 ? '' : 's'}</span>}
