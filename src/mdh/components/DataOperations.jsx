@@ -5,6 +5,7 @@ import { openModal, closeModal } from './Modal.jsx';
 import JsonEditor from './JsonEditor.jsx';
 import InsertFileWizard from './InsertFileWizard.jsx';
 import CsvImportWizard from './CsvImportWizard.jsx';
+import XlsxImportWizard from './XlsxImportWizard.jsx';
 import * as api from '../api.js';
 
 function FileInput({ onParsed }) {
@@ -68,10 +69,13 @@ export function openDataOperations(mode, onSuccess, fieldsFn) {
   const op = mode.replace('-file', '');
   const title = op === 'insert-csv'
     ? 'Insert from CSV file'
+    : op === 'insert-xlsx'
+    ? 'Insert from Excel file'
     : op.charAt(0).toUpperCase() + op.slice(1) + (isFile ? ' from File' : '');
 
   openModal(title, () => {
     if (op === 'insert-csv') return <CsvImportWizard onSuccess={onSuccess} />;
+    if (op === 'insert-xlsx') return <XlsxImportWizard onSuccess={onSuccess} />;
     if (op === 'insert' && isFile) return <InsertFileWizard onSuccess={onSuccess} />;
     if (op === 'insert') return <InsertPanel isFile={false} onSuccess={onSuccess} fieldsFn={fieldsFn} />;
     if (op === 'update' && isFile) return <UpdatePanel onSuccess={onSuccess} fieldsFn={fieldsFn} />;

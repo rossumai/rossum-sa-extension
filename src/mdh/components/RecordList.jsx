@@ -212,7 +212,9 @@ function SplitButton({ label, cls, onMain, menuItems = [] }) {
       {open && (
         <div class="toolbar-more-menu">
           {menuItems.map((item) => (
-            <button key={item.label} class="toolbar-menu-item" onClick={() => { setOpen(false); item.onClick(); }}>{item.label}</button>
+            <button key={item.label} class="toolbar-menu-item" onClick={() => { setOpen(false); item.onClick(); }}>
+              {item.label}{item.beta && <span class="toolbar-menu-beta">beta</span>}
+            </button>
           ))}
         </div>
       )}
@@ -266,8 +268,9 @@ function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh
           cls="btn-success"
           onMain={() => onRefresh('insert')}
           menuItems={[
-            { label: 'Insert from JSON file', onClick: () => onRefresh('insert-file') },
-            { label: 'Insert from CSV file', onClick: () => onRefresh('insert-csv-file') },
+            { label: 'From JSON file', onClick: () => onRefresh('insert-file') },
+            { label: 'From CSV file', onClick: () => onRefresh('insert-csv-file') },
+            { label: 'From Excel file', beta: true, onClick: () => onRefresh('insert-xlsx-file') },
           ]}
         />
       </div>

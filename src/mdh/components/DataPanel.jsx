@@ -396,6 +396,8 @@ export default function DataPanel() {
       openDataOperations('insert-file', invalidateAndRun, currentFields);
     } else if (action === 'insert-csv-file') {
       openDataOperations('insert-csv-file', invalidateAndRun, currentFields);
+    } else if (action === 'insert-xlsx-file') {
+      openDataOperations('insert-xlsx-file', invalidateAndRun, currentFields);
     }
   }
 

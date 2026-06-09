@@ -712,6 +712,12 @@ body {
 .toolbar-menu-item:hover { background: var(--bg-hover); }
 .toolbar-menu-danger { color: var(--danger); }
 .toolbar-menu-danger:hover { background: var(--danger-bg); }
+.toolbar-menu-beta {
+  margin-left: 6px; vertical-align: middle;
+  font-size: 7.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+  padding: 1px 4px; border-radius: 999px;
+  background: var(--warning-bg); color: var(--warning-fg); line-height: 1.3;
+}
 .toolbar-submenu-wrap { position: relative; }
 .toolbar-submenu-parent { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .toolbar-submenu-caret { color: var(--text-secondary); font-size: 11px; line-height: 1; }
@@ -1359,7 +1365,7 @@ body {
 /* The Configure stage shows a toolbar + (2-column) Advanced panel above a
    hero preview table, so give this modal more room than the default 800px cap.
    width:90vw (from .modal-card) still caps it on narrow screens. */
-.modal-card:has(.csv-import-wizard) { max-width: 1040px; }
+.modal-card:has(.csv-import-wizard), .modal-card:has(.xlsx-import-wizard) { max-width: 1040px; }
 
 /* Segmented pill group */
 .csv-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
@@ -1388,6 +1394,14 @@ body {
 /* Mono char input (quote / escape / custom delimiter) */
 .csv-chip {
   width: 44px; text-align: center; font-family: var(--font-mono); font-size: 11px;
+  border: 1px solid var(--border); border-radius: 6px; padding: 3px 6px;
+  background: var(--bg-input); color: var(--text-primary);
+}
+
+/* Worksheet-name dropdown (XLSX Configure stage) — sized to fit a sheet name,
+   unlike the fixed 44px single-char .csv-chip. */
+.xlsx-sheet-select {
+  min-width: 120px; max-width: 240px; font-family: inherit; font-size: 11px;
   border: 1px solid var(--border); border-radius: 6px; padding: 3px 6px;
   background: var(--bg-input); color: var(--text-primary);
 }
