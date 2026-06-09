@@ -208,15 +208,12 @@ export function Toggle({ checked, onChange, title, testid }) {
   );
 }
 
-// Delimiter pills. '__custom__' reveals a 1-char input (delimiter set to '').
+// Delimiter pills (comma / semicolon / tab — matches the export modal).
 const DELIM_SEG = [
   { value: ',', label: ',', title: 'Comma', testid: 'csv-delim-comma' },
   { value: ';', label: ';', title: 'Semicolon', testid: 'csv-delim-semicolon' },
   { value: '\t', label: 'Tab', title: 'Tab', testid: 'csv-delim-tab' },
-  { value: '|', label: '|', title: 'Pipe', testid: 'csv-delim-pipe' },
-  { value: '__custom__', label: '⋯', title: 'Custom character', testid: 'csv-delim-custom' },
 ];
-const DELIM_PRESET_VALUES = [',', ';', '\t', '|'];
 
 const ENCODING_SEG = [
   { value: 'utf-8', label: 'UTF-8' },
@@ -233,7 +230,6 @@ const EMPTY_SEG = [
 
 function CsvOptions({ opts, setOpt }) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const delimiterIsCustom = !DELIM_PRESET_VALUES.includes(opts.delimiter);
 
   return (
     <div data-testid="csv-options">
@@ -241,16 +237,11 @@ function CsvOptions({ opts, setOpt }) {
         <span class="csv-tb-item">
           <span class="csv-tb-k" title="Character between fields.">Delimiter</span>
           <Segmented
-            value={delimiterIsCustom ? '__custom__' : opts.delimiter}
+            value={opts.delimiter}
             options={DELIM_SEG}
-            onChange={(v) => setOpt('delimiter', v === '__custom__' ? '' : v)}
+            onChange={(v) => setOpt('delimiter', v)}
             ariaLabel="Delimiter"
           />
-          {delimiterIsCustom && (
-            <input type="text" maxLength={1} class="csv-chip" value={opts.delimiter}
-              data-testid="csv-delim-input" placeholder="?"
-              onInput={(e) => setOpt('delimiter', e.target.value)} />
-          )}
         </span>
 
         <span class="csv-tb-item">
@@ -275,32 +266,6 @@ function CsvOptions({ opts, setOpt }) {
         <div class="csv-advanced" data-testid="csv-advanced">
           <div class="csv-adv-item">
             <span class="csv-tb-item">
-              <span class="csv-tb-k">Quote</span>
-              <input type="text" maxLength={1} class="csv-chip" value={opts.quoteChar}
-                onInput={(e) => setOpt('quoteChar', e.target.value || '"')} />
-            </span>
-            <div class="csv-opt-hint">Wraps fields containing the delimiter, quotes, or line breaks.</div>
-          </div>
-
-          <div class="csv-adv-item">
-            <span class="csv-tb-item">
-              <span class="csv-tb-k">Escape</span>
-              <input type="text" maxLength={1} class="csv-chip" value={opts.escapeChar}
-                onInput={(e) => setOpt('escapeChar', e.target.value)} placeholder="none" />
-            </span>
-            <div class="csv-opt-hint">If set (e.g. \), the next character inside a quoted field is taken literally.</div>
-          </div>
-
-          <div class="csv-adv-item">
-            <span class="csv-tb-item">
-              <span class="csv-tb-k">Double-quote</span>
-              <Toggle checked={opts.doubleQuote} onChange={(v) => setOpt('doubleQuote', v)} testid="csv-doublequote" />
-            </span>
-            <div class="csv-opt-hint">A doubled quote (<code>""</code>) inside a quoted field means one literal quote (RFC 4180).</div>
-          </div>
-
-          <div class="csv-adv-item">
-            <span class="csv-tb-item">
               <span class="csv-tb-k">Encoding</span>
               <Segmented value={opts.encoding} options={ENCODING_SEG} testid="csv-encoding"
                 ariaLabel="Encoding" onChange={(v) => setOpt('encoding', v)} />
@@ -315,14 +280,6 @@ function CsvOptions({ opts, setOpt }) {
                 ariaLabel="Empty cell" onChange={(v) => setOpt('emptyMode', v)} />
             </span>
             <div class="csv-opt-hint">What an empty cell becomes in the document.</div>
-          </div>
-
-          <div class="csv-adv-item">
-            <span class="csv-tb-item">
-              <span class="csv-tb-k">Skip empty lines</span>
-              <Toggle checked={opts.skipEmptyLines} onChange={(v) => setOpt('skipEmptyLines', v)} testid="csv-skipempty" />
-            </span>
-            <div class="csv-opt-hint">Ignore blank lines in the file.</div>
           </div>
 
           <div class="csv-adv-item">
@@ -342,7 +299,7 @@ function CsvOptions({ opts, setOpt }) {
 // gated on a clean parse. CsvOptions controls mutate opts via setOpt, which
 // re-runs the useMemo(parseCsv) in the parent and updates the preview live.
 function CsvStageConfigure({ fileMeta, opts, setOpt, parsed, onNext, onCancel }) {
-  const canNext = parsed && !parsed.error && parsed.docs.length > 0 && opts.delimiter !== '';
+  const canNext = parsed && !parsed.error && parsed.docs.length > 0;
   const clean = parsed && !parsed.error;
   const rows = clean ? parsed.docs.length : null;
   const cols = clean ? parsed.columns.length : null;
@@ -384,7 +341,7 @@ export function CsvPreview({ parsed, limit = 10 }) {
         <div class="csv-preview-caption">
           <span>Preview {'·'} first {Math.min(limit, docs.length)} of {docs.length.toLocaleString()} row{docs.length === 1 ? '' : 's'} {'·'} {columns.length} column{columns.length === 1 ? '' : 's'}</span>
           <span class="csv-preview-legend">
-            <span class="csv-legend-num">123</span> number {'·'} <span class="csv-legend-null">null</span> {'·'} "text"
+            <span class="csv-legend-num">123</span> number {'·'} <span class="csv-legend-str">text</span> {'·'} <span class="csv-legend-null">null</span>
           </span>
         </div>
       )}
@@ -416,5 +373,6 @@ function PreviewValue({ value, present }) {
   if (value === null) return <span class="csv-cell-null">null</span>;
   if (typeof value === 'number') return <span class="csv-cell-number">{String(value)}</span>;
   if (typeof value === 'boolean') return <span class="csv-cell-bool">{String(value)}</span>;
-  return <span class="csv-cell-string">"{value}"</span>;
+  if (value === '') return <span class="csv-cell-empty" title="empty string">(empty)</span>;
+  return <span class="csv-cell-string">{value}</span>;
 }

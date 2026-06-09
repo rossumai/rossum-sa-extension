@@ -24,6 +24,7 @@ import { applySortToPipeline, applyFilterDeltaToPipeline, applySkipToPipeline, e
 import { savePipelineState, getPipelineState } from '../pipelineState.js';
 import { saveLastPipeline } from '../lastPipeline.js';
 import { downloadCollection as runDownload, buildCsvSerializer } from '../downloadCollection.js';
+import { buildColumnDiscoveryPipeline, orderColumns } from '../csv.js';
 import CsvExportOptions from './CsvExportOptions.jsx';
 import JSON5 from 'json5';
 
@@ -496,27 +497,36 @@ export default function DataPanel() {
   function downloadAllCsv() {
     const col = collection;
     openModal('Export CSV', () => (
-      <CsvExportOptions onDownload={async (opts) => {
-        const tc = pagination.totalCount.value;
-        if (tc !== null && tc > 10_000) {
-          const proceed = await confirmModal(
-            'Large collection',
-            `This collection has ${tc.toLocaleString()} documents. Exporting may take a while and use significant memory. Continue?`,
-          );
-          if (!proceed) return;
-        }
-        await runDownloadJob({
-          pipelineStages: [{ $match: {} }],
-          filename: `${col}.csv`,
-          filtered: false,
-          fetchCount: async () => {
-            if (pagination.totalCount.value !== null) return pagination.totalCount.value;
-            const r = await api.aggregate(col, [{ $count: 'total' }]);
-            return r.result?.[0]?.total ?? 0;
-          },
-          serializer: buildCsvSerializer({ dialect: { delimiter: opts.delimiter }, header: opts.header, bom: opts.bom }),
-        });
-      }} />
+      <CsvExportOptions
+        loadPreview={async () => {
+          const [keysRes, sampleRes] = await Promise.all([
+            api.aggregate(col, buildColumnDiscoveryPipeline([{ $match: {} }])),
+            api.aggregate(col, [{ $match: {} }, { $limit: 10 }]),
+          ]);
+          return { columns: orderColumns(keysRes.result?.[0]?.keys ?? []), sample: sampleRes.result || [] };
+        }}
+        onDownload={async ({ delimiter, header, columns }) => {
+          const tc = pagination.totalCount.value;
+          if (tc !== null && tc > 10_000) {
+            const proceed = await confirmModal(
+              'Large collection',
+              `This collection has ${tc.toLocaleString()} documents. Exporting may take a while and use significant memory. Continue?`,
+            );
+            if (!proceed) return;
+          }
+          await runDownloadJob({
+            pipelineStages: [{ $match: {} }],
+            filename: `${col}.csv`,
+            filtered: false,
+            fetchCount: async () => {
+              if (pagination.totalCount.value !== null) return pagination.totalCount.value;
+              const r = await api.aggregate(col, [{ $count: 'total' }]);
+              return r.result?.[0]?.total ?? 0;
+            },
+            serializer: buildCsvSerializer({ dialect: { delimiter }, header, bom: false, columns }),
+          });
+        }}
+      />
     ));
   }
 
@@ -534,42 +544,51 @@ export default function DataPanel() {
     }
     const col = collection;
     openModal('Export CSV', () => (
-      <CsvExportOptions onDownload={async (opts) => {
-        // Pre-count for the progress total + >10k gate (cancellable).
-        downloadCancelRef.current = false;
-        error.value = null;
-        setDownloadState({ counting: true, filtered: true });
-        const ac = new AbortController();
-        downloadCountAbortRef.current = ac;
-        let filteredCount;
-        try {
-          const r = await api.aggregate(col, [...pipelineStages, { $count: 'total' }], { signal: ac.signal });
-          filteredCount = r.result?.[0]?.total ?? 0;
-        } catch (err) {
+      <CsvExportOptions
+        loadPreview={async () => {
+          const [keysRes, sampleRes] = await Promise.all([
+            api.aggregate(col, buildColumnDiscoveryPipeline(pipelineStages)),
+            api.aggregate(col, [...pipelineStages, { $limit: 10 }]),
+          ]);
+          return { columns: orderColumns(keysRes.result?.[0]?.keys ?? []), sample: sampleRes.result || [] };
+        }}
+        onDownload={async ({ delimiter, header, columns }) => {
+          // Pre-count for the progress total + >10k gate (cancellable).
+          downloadCancelRef.current = false;
+          error.value = null;
+          setDownloadState({ counting: true, filtered: true });
+          const ac = new AbortController();
+          downloadCountAbortRef.current = ac;
+          let filteredCount;
+          try {
+            const r = await api.aggregate(col, [...pipelineStages, { $count: 'total' }], { signal: ac.signal });
+            filteredCount = r.result?.[0]?.total ?? 0;
+          } catch (err) {
+            downloadCountAbortRef.current = null;
+            if (downloadCancelRef.current || err.name === 'AbortError') { setDownloadState(null); return; }
+            error.value = { message: `Cannot export filtered: ${err.message}` };
+            setDownloadState(null);
+            return;
+          }
           downloadCountAbortRef.current = null;
-          if (downloadCancelRef.current || err.name === 'AbortError') { setDownloadState(null); return; }
-          error.value = { message: `Cannot export filtered: ${err.message}` };
-          setDownloadState(null);
-          return;
-        }
-        downloadCountAbortRef.current = null;
-        if (downloadCancelRef.current) { setDownloadState(null); return; }
-        if (filteredCount > 10_000) {
-          setDownloadState(null);
-          const proceed = await confirmModal(
-            'Large export',
-            `This filter matches ${filteredCount.toLocaleString()} documents. Exporting may take a while and use significant memory. Continue?`,
-          );
-          if (!proceed) return;
-        }
-        await runDownloadJob({
-          pipelineStages,
-          filename: `${col}-filtered.csv`,
-          filtered: true,
-          fetchCount: async () => filteredCount,
-          serializer: buildCsvSerializer({ dialect: { delimiter: opts.delimiter }, header: opts.header, bom: opts.bom }),
-        });
-      }} />
+          if (downloadCancelRef.current) { setDownloadState(null); return; }
+          if (filteredCount > 10_000) {
+            setDownloadState(null);
+            const proceed = await confirmModal(
+              'Large export',
+              `This filter matches ${filteredCount.toLocaleString()} documents. Exporting may take a while and use significant memory. Continue?`,
+            );
+            if (!proceed) return;
+          }
+          await runDownloadJob({
+            pipelineStages,
+            filename: `${col}-filtered.csv`,
+            filtered: true,
+            fetchCount: async () => filteredCount,
+            serializer: buildCsvSerializer({ dialect: { delimiter }, header, bom: false, columns }),
+          });
+        }}
+      />
     ));
   }
 

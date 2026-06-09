@@ -11,11 +11,19 @@ function mount(node) {
 }
 
 describe('CsvPreview', () => {
-  it('renders typed cells: number unquoted, string quoted', () => {
+  it('renders typed cells: number unquoted, string as plain text (no surrounding quotes)', () => {
     const parsed = { columns: ['name', 'age'], docs: [{ name: 'Alice', age: 30 }], warnings: [], error: null };
     const root = mount(h(CsvPreview, { parsed }));
     expect(root.querySelector('.csv-cell-number').textContent).toBe('30');
-    expect(root.querySelector('.csv-cell-string').textContent).toBe('"Alice"');
+    expect(root.querySelector('.csv-cell-string').textContent).toBe('Alice');
+  });
+
+  it('renders an empty string as a muted (empty) marker, not a blank cell', () => {
+    const parsed = { columns: ['note'], docs: [{ note: '' }], warnings: [], error: null };
+    const root = mount(h(CsvPreview, { parsed }));
+    const cell = root.querySelector('.csv-cell-empty');
+    expect(cell).toBeTruthy();
+    expect(cell.textContent).toBe('(empty)');
   });
 
   it('renders null and omitted (missing) cells distinctly', () => {
@@ -68,10 +76,11 @@ describe('CsvImportWizard — configure', () => {
     Object.defineProperty(input, 'files', { value: [file], configurable: true });
     input.dispatchEvent(new Event('change', { bubbles: true }));
 
-    // Default opts: strings. age renders as a quoted string.
+    // Default opts: every value is a string, shown as plain text (no surrounding quotes).
     await waitFor(() => root.querySelector('[data-testid="csv-preview"]'));
     expect(root.querySelector('.csv-cell-number')).toBeNull();
-    expect(root.textContent).toContain('"30"');
+    expect(root.textContent).not.toContain('"30"');
+    expect([...root.querySelectorAll('.csv-cell-string')].map((s) => s.textContent)).toContain('30');
 
     // Toggle "Infer types": age becomes a number.
     root.querySelector('[data-testid="csv-infer"]').click();
@@ -141,22 +150,15 @@ describe('CsvImportWizard — toolbar & advanced', () => {
     expect(root.querySelectorAll('.csv-preview-table th').length).toBe(3);
   });
 
-  it('Custom delimiter reveals a char input and re-parses when typed', async () => {
+  it('offers only comma / semicolon / tab delimiters (no pipe, no custom)', async () => {
     const root = mount(h(CsvImportWizard, { onSuccess: () => {} }));
-    await loadFile(root, 'a|b|c\n1|2|3');           // default comma → 1 column
-    expect(root.querySelectorAll('.csv-preview-table th').length).toBe(1);
-
-    root.querySelector('[data-testid="csv-delim-custom"]').click();
-    await waitFor(() => root.querySelector('[data-testid="csv-delim-input"]'));
-    // Empty custom delimiter blocks Next.
-    expect(root.querySelector('[data-testid="csv-next"]').disabled).toBe(true);
-
-    const inp = root.querySelector('[data-testid="csv-delim-input"]');
-    inp.value = '|';
-    inp.dispatchEvent(new Event('input', { bubbles: true }));
-    await waitFor(() => root.querySelectorAll('.csv-preview-table th').length === 3);
-    expect(root.querySelectorAll('.csv-preview-table th').length).toBe(3);
-    expect(root.querySelector('[data-testid="csv-next"]').disabled).toBe(false);
+    await loadFile(root, 'a,b\n1,2');
+    expect(root.querySelector('[data-testid="csv-delim-comma"]')).toBeTruthy();
+    expect(root.querySelector('[data-testid="csv-delim-semicolon"]')).toBeTruthy();
+    expect(root.querySelector('[data-testid="csv-delim-tab"]')).toBeTruthy();
+    expect(root.querySelector('[data-testid="csv-delim-pipe"]')).toBeNull();
+    expect(root.querySelector('[data-testid="csv-delim-custom"]')).toBeNull();
+    expect(root.querySelector('[data-testid="csv-delim-input"]')).toBeNull();
   });
 });
 
@@ -180,5 +182,36 @@ describe('CsvPreview — legend', () => {
     const parsed = { columns: ['a'], docs: [{ a: '1' }], warnings: [], error: null };
     const root = mount(h(CsvPreview, { parsed }));
     expect(root.querySelector('.csv-preview-legend')).toBeTruthy();
+  });
+});
+
+describe('CsvImportWizard — trimmed Advanced options', () => {
+  async function openAdvanced(root) {
+    const input = root.querySelector('[data-testid="csv-file-input"]');
+    const file = new File(['a,b\n1,2'], 't.csv', { type: 'text/csv' });
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await waitFor(() => root.querySelector('[data-testid="csv-preview"]'));
+    root.querySelector('[data-testid="csv-advanced-toggle"]').click();
+  }
+
+  it('Advanced no longer offers Quote / Escape / Double-quote / Skip-empty-lines', async () => {
+    const root = mount(h(CsvImportWizard, { onSuccess: () => {} }));
+    await openAdvanced(root);
+    const adv = root.querySelector('[data-testid="csv-advanced"]');
+    expect(adv).toBeTruthy();
+    expect(adv.textContent).not.toMatch(/Quote/);        // removes Quote AND Double-quote
+    expect(adv.textContent).not.toMatch(/Escape/);
+    expect(adv.textContent).not.toMatch(/Skip empty/);
+    expect(root.querySelector('[data-testid="csv-doublequote"]')).toBeNull();
+    expect(root.querySelector('[data-testid="csv-skipempty"]')).toBeNull();
+  });
+
+  it('Advanced keeps Encoding / Empty-cell / Trim', async () => {
+    const root = mount(h(CsvImportWizard, { onSuccess: () => {} }));
+    await openAdvanced(root);
+    expect(root.querySelector('[data-testid="csv-encoding"]')).toBeTruthy();
+    expect(root.querySelector('[data-testid="csv-empty"]')).toBeTruthy();
+    expect(root.querySelector('[data-testid="csv-trim"]')).toBeTruthy();
   });
 });
