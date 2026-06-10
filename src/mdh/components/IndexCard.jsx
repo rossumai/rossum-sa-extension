@@ -4,7 +4,7 @@ import { useState } from 'preact/hooks';
 import { confirmModal } from './Modal.jsx';
 import JsonEditor from './JsonEditor.jsx';
 
-export default function IndexCard({ name, badges = [], definition, canDrop, onDrop, cardClass }) {
+export default function IndexCard({ name, badges = [], definition, canDrop, onDrop, cardClass, meta }) {
   const [expanded, setExpanded] = useState(true);
 
   function handleCopy(e) {
@@ -37,6 +37,7 @@ export default function IndexCard({ name, badges = [], definition, canDrop, onDr
             <span class={'index-badge' + (cls ? ' ' + cls : '')} style="margin-left:6px">{text}</span>
           ))}
         </span>
+        {meta && <span class="index-card-meta">{meta}</span>}
         <span class="record-actions">
           {definition && <button class="action-copy" onClick={handleCopy}>Copy</button>}
           {canDrop && onDrop && <button class="action-delete" onClick={handleDrop}>Del</button>}

@@ -23,6 +23,10 @@
   --danger-bg: #fef2f2;
   --danger-fg: #991b1b;
   --danger-border: #fecaca;
+  --warning-border: #fde68a;
+  --info-bg: #eaf1fd;
+  --info-fg: #1e40af;
+  --info-border: #c7daf8;
   --type-doc-bg: #e0f2fe;
   --type-doc-fg: #075985;
   --type-ann-bg: #fef3c7;
@@ -64,6 +68,10 @@
     --danger-bg: #2a1515;
     --danger-fg: #fca5a5;
     --danger-border: #4a2020;
+    --warning-border: #4a3a10;
+    --info-bg: #15233f;
+    --info-fg: #93b4f5;
+    --info-border: #294063;
     --type-doc-bg: #0c2535;
     --type-doc-fg: #7dd3fc;
     --type-ann-bg: #3a2f10;
@@ -259,6 +267,20 @@ body {
 }
 
 .error-banner > span { flex: 1; }
+
+/* Non-error operation notice — same shape/placement as .error-banner. */
+.op-notice-banner {
+  padding: 8px 16px; border-bottom: 1px solid var(--border);
+  font-size: 12px; display: flex; align-items: center; gap: 4px; position: relative;
+}
+.op-notice-banner > span { flex: 1; }
+.op-notice-banner.info { background: var(--info-bg); color: var(--info-fg); border-bottom-color: var(--info-border); }
+.op-notice-banner.warning { background: var(--warning-bg); color: var(--warning-fg); border-bottom-color: var(--warning-border); }
+.op-notice-banner .dismiss {
+  background: none; border: none; color: inherit; cursor: pointer;
+  font-size: 16px; padding: 0 4px; opacity: 0.6;
+}
+.op-notice-banner .dismiss:hover { opacity: 1; }
 
 .error-banner .dismiss {
   background: none; border: none; color: inherit; cursor: pointer;
@@ -1112,7 +1134,17 @@ body {
 .index-badge-unique { background: #7c3aed; color: #fff; }
 .index-badge-ready { background: var(--success-bg); color: var(--success-fg); }
 .index-badge-pending { background: var(--warning-bg); color: var(--warning-fg); }
+.index-badge-warning { background: var(--warning-bg); color: var(--warning-fg); }
 .index-badge-failed { background: var(--danger); color: #fff; }
+
+.index-card-meta {
+  font-size: 11px; color: var(--text-secondary);
+  white-space: nowrap; margin-right: 8px; font-variant-numeric: tabular-nums;
+}
+.panel-meta {
+  font-weight: 400; font-size: 11px; color: var(--text-secondary);
+  margin-left: 8px; font-variant-numeric: tabular-nums;
+}
 
 .record-card-failed {
   border-color: var(--danger);
@@ -1472,12 +1504,6 @@ body {
   font-family: var(--font-mono); font-size: 11px; line-height: 1.5;
   background: var(--bg-code); border: 1px solid var(--border); border-radius: var(--radius);
   padding: 8px 10px; color: var(--text-primary);
-}
-
-.op-status {
-  padding: 10px 16px; background: var(--bg-code); border: 1px solid var(--border);
-  border-radius: var(--radius); font-family: var(--font-mono); font-size: 11px;
-  display: flex; align-items: center; gap: 8px;
 }
 
 .op-status-badge {

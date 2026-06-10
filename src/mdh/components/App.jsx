@@ -4,6 +4,7 @@ import Sidebar from './Sidebar.jsx';
 import SidebarResizer from './SidebarResizer.jsx';
 import ConnectionBar from './ConnectionBar.jsx';
 import ErrorBanner from './ErrorBanner.jsx';
+import OpNoticeBanner from './OpNoticeBanner.jsx';
 import LoadingOverlay from './LoadingOverlay.jsx';
 import TabBar from './TabBar.jsx';
 import Modal from './Modal.jsx';
@@ -23,6 +24,7 @@ export default function App({ connected }) {
       <main class="main">
         <ConnectionBar connected={connected} />
         <ErrorBanner />
+        <OpNoticeBanner />
         <LoadingOverlay />
         <Modal />
         {activeView.value === 'operations' ? (

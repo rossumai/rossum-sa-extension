@@ -4,6 +4,8 @@ import { selectedCollection, activePanel, loading, error } from '../store.js';
 import { openModal, closeModal } from './Modal.jsx';
 import JsonEditor from './JsonEditor.jsx';
 import IndexCard from './IndexCard.jsx';
+import { toCreateIndexDefinition, classifyIndexType, redundantIndexNames, formatBytes } from '../indexDef.js';
+import useOperationStatus from '../hooks/useOperationStatus.js';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
 
@@ -11,13 +13,10 @@ function defaultTemplate() {
   return JSON.stringify({ indexName: 'my_index', keys: { field: 1 }, options: {} }, null, 2);
 }
 
-function parseOperationId(message) {
-  return message ? message.match(/[a-f0-9]{24}/i)?.[0] : null;
-}
-
 export default function IndexPanel() {
   const [indexes, setIndexes] = useState([]);
-  const [opStatus, setOpStatus] = useState(null);
+  const [stats, setStats] = useState(null);
+  const { track, clear } = useOperationStatus();
 
   async function loadIndexes() {
     const collection = selectedCollection.value;
@@ -40,7 +39,28 @@ export default function IndexPanel() {
     }
   }
 
-  useEffect(() => { loadIndexes(); }, [selectedCollection.value, activePanel.value]);
+  // Best-effort: per-index sizes + collection totals via $collStats. Never
+  // surfaces an error — size display is purely additive (and $collStats may be
+  // unavailable on some environments).
+  async function loadStats() {
+    const collection = selectedCollection.value;
+    if (!collection) return;
+    const cached = cache.get(collection, 'collStats');
+    if (cached !== null) { setStats(cached); return; }
+    try {
+      const res = await api.collectionStats(collection);
+      const s = res.result?.[0] || null;
+      cache.set(collection, 'collStats', s);
+      if (selectedCollection.value === collection) setStats(s);
+    } catch { /* size display is optional */ }
+  }
+
+  // Re-list indexes and refresh sizes — run once an async op actually finishes.
+  function reloadAll() { loadIndexes(); loadStats(); }
+
+  // Reset on collection/panel switch — including clearing any in-flight op poll
+  // so a previous collection's operation can't surface its result under another.
+  useEffect(() => { clear(); setStats(null); loadIndexes(); loadStats(); }, [selectedCollection.value, activePanel.value]);
 
   function openCreateModal() {
     const editorRef = { current: null };
@@ -65,11 +85,12 @@ export default function IndexPanel() {
           error.value = null;
           const res = await api.createIndex(selectedCollection.value, indexName, keys, opts || {});
           cache.invalidate(selectedCollection.value, 'indexes');
+          cache.invalidate(selectedCollection.value, 'collStats');
           loading.value = false;
           closeModal();
-          const opId = parseOperationId(res.message);
-          if (opId) setOpStatus({ operationId: opId, status: 'RUNNING', errorMessage: null });
-          await loadIndexes();
+          const opId = res.operationId;
+          if (opId) track(opId, { label: `Creating index "${indexName}"`, onFinished: reloadAll });
+          else reloadAll();
         } catch (err) {
           loading.value = false;
           if (hintRef.current) hintRef.current.textContent = err.message;
@@ -96,33 +117,32 @@ export default function IndexPanel() {
       error.value = null;
       const res = await api.dropIndex(selectedCollection.value, indexName);
       cache.invalidate(selectedCollection.value, 'indexes');
+      cache.invalidate(selectedCollection.value, 'collStats');
       loading.value = false;
-      const opId = parseOperationId(res.message);
-      if (opId) setOpStatus({ operationId: opId, status: 'RUNNING', errorMessage: null });
-      await loadIndexes();
+      const opId = res.operationId;
+      if (opId) track(opId, { label: `Dropping index "${indexName}"`, onFinished: reloadAll });
+      else reloadAll();
     } catch (err) {
       error.value = { message: err.message };
       loading.value = false;
     }
   }
 
-  async function checkStatus() {
-    if (!opStatus) return;
-    try {
-      const res = await api.checkOperationStatus(opStatus.operationId);
-      const op = res.result || {};
-      setOpStatus({ operationId: opStatus.operationId, status: op.status || 'UNKNOWN', errorMessage: op.error_message });
-    } catch (err) {
-      setOpStatus({ ...opStatus, status: 'ERROR', errorMessage: err.message });
-    }
-  }
+  const redundant = redundantIndexNames(indexes);
+  const indexSizes = stats?.indexSizes || {};
+  const metaLabel = stats ? [
+    stats.count != null ? `${stats.count.toLocaleString('en-US')} docs` : null,
+    stats.totalIndexSize != null ? formatBytes(stats.totalIndexSize) : null,
+  ].filter(Boolean).join(' \u00b7 ') : '';
 
   return (
     <div class="panel">
       <div class="toolbar">
-        <span style="flex:1;font-weight:500">Indexes</span>
+        <span style="flex:1;font-weight:500">
+          Indexes{metaLabel ? <span class="panel-meta">{metaLabel}</span> : null}
+        </span>
         <button class="btn btn-success btn-sm" onClick={openCreateModal}>+ Create</button>
-        <button class="icon-btn" title="Refresh" onClick={() => { cache.invalidate(selectedCollection.value, 'indexes'); loadIndexes(); }}>{'\u21bb'}</button>
+        <button class="icon-btn" title="Refresh" onClick={() => { cache.invalidate(selectedCollection.value, 'indexes'); cache.invalidate(selectedCollection.value, 'collStats'); loadIndexes(); loadStats(); }}>{'\u21bb'}</button>
       </div>
       <div class="index-list">
         {indexes.length === 0 ? (
@@ -136,23 +156,13 @@ export default function IndexPanel() {
           if (isObj && idx.unique) badges.push({ text: 'unique', cls: 'index-badge-unique' });
           if (isObj && idx.sparse) badges.push({ text: 'sparse' });
           if (isObj && idx.expireAfterSeconds != null) badges.push({ text: `TTL: ${idx.expireAfterSeconds}s` });
-          return <IndexCard name={name} badges={badges} definition={isObj ? idx : null} canDrop={!isDefault} onDrop={() => doDropIndex(name)} />;
+          const type = isObj ? classifyIndexType(idx.key) : null;
+          if (type && type !== 'single') badges.push({ text: type });
+          if (redundant.has(name)) badges.push({ text: 'redundant?', cls: 'index-badge-warning' });
+          const sizeMeta = formatBytes(indexSizes[name]);
+          return <IndexCard name={name} badges={badges} definition={isObj ? toCreateIndexDefinition(idx) : null} meta={sizeMeta || null} canDrop={!isDefault} onDrop={() => doDropIndex(name)} />;
         })}
       </div>
-      {opStatus && (
-        <div style="padding:8px 16px">
-          <div class="op-status">
-            <span class={`op-status-badge ${opStatus.status === 'FINISHED' ? 'finished' : opStatus.status === 'FAILED' ? 'failed' : 'running'}`}>
-              {opStatus.status.toLowerCase()}
-            </span>
-            <span>Operation: {opStatus.operationId}</span>
-            {opStatus.status !== 'FINISHED' && opStatus.status !== 'FAILED' && (
-              <button class="btn btn-sm op-check-btn" style="margin-left:auto" onClick={checkStatus}>Check Status</button>
-            )}
-            {opStatus.errorMessage && <span style="color:var(--danger);margin-left:8px">{opStatus.errorMessage}</span>}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

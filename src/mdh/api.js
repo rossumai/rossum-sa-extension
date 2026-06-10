@@ -55,7 +55,29 @@ async function post(path, body, { signal: externalSignal } = {}) {
   if (!res.ok) {
     throw apiError(data?.message || `API error ${res.status}`, res.status);
   }
+  // Async (202) endpoints return the operation id in the `content-location`
+  // header (a .../operation_status/<id> URL); the body `message` is empty on
+  // this Data Storage version. Surface it as `data.operationId` so callers can
+  // poll. Only attached when present, so ordinary responses are untouched.
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    const opId = operationIdFromResponse(res, data);
+    if (opId) data.operationId = opId;
+  }
   return data;
+}
+
+// Pull the async operation id from a response: the `content-location` header
+// (.../operation_status/<id>) is authoritative here; fall back to a 24-hex id
+// embedded in the body message for older/other environments.
+function operationIdFromResponse(res, data) {
+  const loc = res.headers?.get?.('content-location') || res.headers?.get?.('location') || '';
+  const fromHeader = loc.match(/\/operation_status\/([^/?#\s]+)/i)?.[1];
+  if (fromHeader) return fromHeader;
+  // Message fallback only for async-accept responses, so a stray 24-hex run in
+  // an ordinary response's message can't be mistaken for an operation id.
+  if (data?.code !== 'accept') return null;
+  const msg = typeof data.message === 'string' ? data.message : '';
+  return msg.match(/[a-f0-9]{24}/i)?.[0] || null;
 }
 
 async function get(path, { signal: externalSignal } = {}) {
@@ -172,6 +194,22 @@ export function bulkWrite(collectionName, operations) {
   return post('/data/bulk_write', { collectionName, operations });
 }
 
+// Per-collection storage stats via $collStats. Returns doc count + on-disk
+// sizes including a per-index `indexSizes` map (regular indexes only — Atlas
+// search indexes are not covered). $indexStats (usage) is NOT authorized.
+export function collectionStats(collectionName, { signal } = {}) {
+  return aggregate(collectionName, [
+    { $collStats: { storageStats: {} } },
+    { $project: {
+      count: '$storageStats.count',
+      size: '$storageStats.size',
+      storageSize: '$storageStats.storageSize',
+      totalIndexSize: '$storageStats.totalIndexSize',
+      indexSizes: '$storageStats.indexSizes',
+    } },
+  ], { signal });
+}
+
 export function listIndexes(collectionName, nameOnly = false, { signal } = {}) {
   return post('/indexes/list', { collectionName, nameOnly }, { signal });
 }
@@ -205,29 +243,43 @@ export function checkOperationStatus(operationId) {
   return get(`/api/v1/operation_status/${operationId}`);
 }
 
-// Async endpoints (drop collection, create/drop index, drop search index,
-// bulk_write) return 202 Accepted with the operation id embedded in the
-// response `message`. Extract the 24-hex id so callers can poll for completion.
-export function parseOperationId(message) {
-  return typeof message === 'string' ? (message.match(/[a-f0-9]{24}/i)?.[0] ?? null) : null;
-}
-
 // Poll an async operation until it reaches a terminal state. Resolves with the
 // Operation object on FINISHED; throws on FAILED (surfacing the server's
 // error_message) or once `timeoutMs` elapses. A 202 only means "accepted" — the
 // work runs in the background — so callers that must see the effect reflected
 // immediately afterwards (e.g. re-listing collections after a drop) have to
 // await this first.
+const MAX_POLL_ERRORS = 5;
+
 export async function waitForOperation(operationId, { intervalMs = 600, timeoutMs = 120_000, signal } = {}) {
   const start = Date.now();
+  let consecutiveErrors = 0;
   for (;;) {
     if (signal?.aborted) throw new Error('Operation polling aborted');
-    const res = await checkOperationStatus(operationId);
-    const op = res?.result || {};
+    let op;
+    try {
+      const res = await checkOperationStatus(operationId);
+      op = res?.result || {};
+      consecutiveErrors = 0;
+    } catch (err) {
+      // A transient poll failure (network blip, 30s GET timeout, expired session)
+      // does NOT mean the operation failed — the build is very likely still
+      // running. Tolerate a few in a row; only give up after MAX, tagged so
+      // callers render a neutral "couldn't confirm" state, not a red failure.
+      if (++consecutiveErrors >= MAX_POLL_ERRORS || Date.now() - start > timeoutMs) {
+        const e = new Error(`Could not check operation ${operationId} status: ${err.message}`);
+        e.pollUnavailable = true;
+        throw e;
+      }
+      await new Promise((resolve) => { setTimeout(resolve, intervalMs); });
+      continue;
+    }
     if (op.status === 'FINISHED') return op;
     if (op.status === 'FAILED') throw new Error(op.error_message || `Operation ${operationId} failed`);
     if (Date.now() - start > timeoutMs) {
-      throw new Error(`Operation ${operationId} did not finish within ${Math.round(timeoutMs / 1000)}s`);
+      const e = new Error(`Operation ${operationId} did not finish within ${Math.round(timeoutMs / 1000)}s`);
+      e.timedOut = true; // let callers render a "still running" state, not a red failure
+      throw e;
     }
     await new Promise((resolve) => { setTimeout(resolve, intervalMs); });
   }

@@ -33,16 +33,12 @@ beforeEach(() => {
   store.activeView.value = 'operations'; // avoid first-collection auto-select noise
   store.loading.value = false;
   store.error.value = null;
-  // parseOperationId behaves like the real implementation in these tests.
-  api.parseOperationId.mockImplementation(
-    (m) => (typeof m === 'string' ? m.match(/[a-f0-9]{24}/i)?.[0] ?? null : null),
-  );
 });
 
 describe('performDrop waits for the async drop before refreshing the sidebar', () => {
   it('removes the collection from the sidebar only after the drop operation finishes', async () => {
     let dropFinished = false;
-    api.dropCollection.mockResolvedValue({ code: 'accept', message: OP_MESSAGE });
+    api.dropCollection.mockResolvedValue({ code: 'accept', message: OP_MESSAGE, operationId: OP_ID });
     api.waitForOperation.mockImplementation(async () => {
       dropFinished = true; // the background drop completes here
       return { status: 'FINISHED' };
@@ -60,7 +56,7 @@ describe('performDrop waits for the async drop before refreshing the sidebar', (
   });
 
   it('surfaces an error and leaves the collection listed if the drop operation fails', async () => {
-    api.dropCollection.mockResolvedValue({ code: 'accept', message: OP_MESSAGE });
+    api.dropCollection.mockResolvedValue({ code: 'accept', message: OP_MESSAGE, operationId: OP_ID });
     api.waitForOperation.mockRejectedValue(new Error('drop failed: disk error'));
     api.listCollections.mockResolvedValue({ result: ['keep', 'doomed'] });
 
@@ -72,10 +68,22 @@ describe('performDrop waits for the async drop before refreshing the sidebar', (
     expect(store.loading.value).toBe(false);
   });
 
+  it('shows a soft "still running" message (not a hard failure) when the drop poll times out', async () => {
+    api.dropCollection.mockResolvedValue({ code: 'accept', message: OP_MESSAGE, operationId: OP_ID });
+    const timeout = new Error('Operation aaaaaaaaaaaaaaaaaaaaaaaa did not finish within 120s');
+    timeout.timedOut = true;
+    api.waitForOperation.mockRejectedValue(timeout);
+
+    await performDrop('doomed', null);
+
+    expect(store.error.value.message).toMatch(/still running/i);
+    expect(store.error.value.message).not.toMatch(/did not finish/);
+  });
+
   it('offers undo only after the drop has finished (no recreate-while-dropping race)', async () => {
     let undoVisibleDuringDrop = false;
     let dropFinished = false;
-    api.dropCollection.mockResolvedValue({ code: 'accept', message: OP_MESSAGE });
+    api.dropCollection.mockResolvedValue({ code: 'accept', message: OP_MESSAGE, operationId: OP_ID });
     api.waitForOperation.mockImplementation(async () => {
       if (undoToast.value) undoVisibleDuringDrop = true; // toast must not exist yet
       dropFinished = true;

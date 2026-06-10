@@ -98,7 +98,7 @@ async function performDrop(name, snapshot) {
     // Waiting also keeps the undo offer below from recreating the collection
     // while the background drop is still in flight (which would then delete it).
     const res = await api.dropCollection(name);
-    const opId = api.parseOperationId(res?.message);
+    const opId = res?.operationId;
     if (opId) await api.waitForOperation(opId);
     cache.invalidateAll();
     if (selectedCollection.value === name) selectedCollection.value = null;
@@ -125,7 +125,14 @@ async function performDrop(name, snapshot) {
       });
     }
   } catch (err) {
-    error.value = { message: err.message };
+    // A poll timeout / transient poll failure isn't a confirmed drop failure —
+    // the background drop may still complete. Surface a softer message rather
+    // than asserting the drop failed.
+    error.value = {
+      message: (err.timedOut || err.pollUnavailable)
+        ? `Drop of "${name}" is still running in the background — use Refresh to confirm.`
+        : err.message,
+    };
   } finally {
     loading.value = false;
   }

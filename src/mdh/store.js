@@ -15,6 +15,9 @@ export const activePanel = signal('data');
 export const activeView = signal('collection');
 export const loading = signal(false);
 export const error = signal(null);
+// Non-error operation notice (in-progress / inconclusive) shown as a top stripe.
+// Shape: { message: string, kind: 'info' | 'warning' } | null
+export const opNotice = signal(null);
 export const modalContent = signal(null);
 // Connection state for the Dataset Management app. null = not yet checked
 // (shell shows a connecting state), true/false after the healthz probe. The

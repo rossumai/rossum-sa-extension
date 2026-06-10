@@ -4,6 +4,8 @@ import { selectedCollection, activePanel, loading, error } from '../store.js';
 import { openModal, closeModal } from './Modal.jsx';
 import JsonEditor from './JsonEditor.jsx';
 import IndexCard from './IndexCard.jsx';
+import { toCreateSearchIndexDefinition } from '../searchIndexDef.js';
+import useOperationStatus from '../hooks/useOperationStatus.js';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
 
@@ -11,13 +13,9 @@ function defaultTemplate() {
   return JSON.stringify({ indexName: 'my_search_index', mappings: { dynamic: true } }, null, 2);
 }
 
-function parseOperationId(message) {
-  return message ? message.match(/[a-f0-9]{24}/i)?.[0] : null;
-}
-
 export default function SearchIndexPanel() {
   const [indexes, setIndexes] = useState([]);
-  const [opStatus, setOpStatus] = useState(null);
+  const { track, clear } = useOperationStatus();
 
   async function loadSearchIndexes() {
     const collection = selectedCollection.value;
@@ -40,7 +38,9 @@ export default function SearchIndexPanel() {
     }
   }
 
-  useEffect(() => { loadSearchIndexes(); }, [selectedCollection.value, activePanel.value]);
+  // Clear any in-flight op poll on collection/panel switch so a previous
+  // collection's operation can't surface its result here.
+  useEffect(() => { clear(); loadSearchIndexes(); }, [selectedCollection.value, activePanel.value]);
 
   function openCreateModal() {
     const editorRef = { current: null };
@@ -73,9 +73,9 @@ export default function SearchIndexPanel() {
           cache.invalidate(selectedCollection.value, 'searchIndexes');
           loading.value = false;
           closeModal();
-          const opId = parseOperationId(res.message);
-          if (opId) setOpStatus({ operationId: opId, status: 'RUNNING', errorMessage: null });
-          await loadSearchIndexes();
+          const opId = res.operationId;
+          if (opId) track(opId, { label: `Creating search index "${indexName}"`, onFinished: loadSearchIndexes });
+          else loadSearchIndexes();
         } catch (err) {
           loading.value = false;
           if (hintRef.current) hintRef.current.textContent = err.message;
@@ -103,23 +103,12 @@ export default function SearchIndexPanel() {
       const res = await api.dropSearchIndex(selectedCollection.value, indexName);
       cache.invalidate(selectedCollection.value, 'searchIndexes');
       loading.value = false;
-      const opId = parseOperationId(res.message);
-      if (opId) setOpStatus({ operationId: opId, status: 'RUNNING', errorMessage: null });
-      await loadSearchIndexes();
+      const opId = res.operationId;
+      if (opId) track(opId, { label: `Dropping search index "${indexName}"`, onFinished: loadSearchIndexes });
+      else loadSearchIndexes();
     } catch (err) {
       error.value = { message: err.message };
       loading.value = false;
-    }
-  }
-
-  async function checkStatus() {
-    if (!opStatus) return;
-    try {
-      const res = await api.checkOperationStatus(opStatus.operationId);
-      const op = res.result || {};
-      setOpStatus({ operationId: opStatus.operationId, status: op.status || 'UNKNOWN', errorMessage: op.error_message });
-    } catch (err) {
-      setOpStatus({ ...opStatus, status: 'ERROR', errorMessage: err.message });
     }
   }
 
@@ -146,23 +135,10 @@ export default function SearchIndexPanel() {
             badges.push({ text: idx.status.toLowerCase(), cls });
           }
           if (isObj && idx.type) badges.push({ text: idx.type });
-          return <IndexCard name={name} badges={badges} definition={isObj ? idx : null} canDrop onDrop={() => doDropSearchIndex(name)} cardClass={isFailed ? 'record-card-failed' : null} />;
+          if (isObj && idx.queryable === false) badges.push({ text: 'not queryable', cls: 'index-badge-warning' });
+          return <IndexCard name={name} badges={badges} definition={isObj ? toCreateSearchIndexDefinition(idx) : null} canDrop onDrop={() => doDropSearchIndex(name)} cardClass={isFailed ? 'record-card-failed' : null} />;
         })}
       </div>
-      {opStatus && (
-        <div style="padding:8px 16px">
-          <div class="op-status">
-            <span class={`op-status-badge ${opStatus.status === 'FINISHED' ? 'finished' : opStatus.status === 'FAILED' ? 'failed' : 'running'}`}>
-              {opStatus.status.toLowerCase()}
-            </span>
-            <span>Operation: {opStatus.operationId}</span>
-            {opStatus.status !== 'FINISHED' && opStatus.status !== 'FAILED' && (
-              <button class="btn btn-sm op-check-btn" style="margin-left:auto" onClick={checkStatus}>Check Status</button>
-            )}
-            {opStatus.errorMessage && <span style="color:var(--danger);margin-left:8px">{opStatus.errorMessage}</span>}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

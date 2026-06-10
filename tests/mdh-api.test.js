@@ -3,8 +3,9 @@ import * as api from '../src/mdh/api.js';
 
 let fetchMock;
 
-function ok(data) {
-  return { ok: true, status: 200, json: () => Promise.resolve(data) };
+function ok(data, headers = {}) {
+  const lower = Object.fromEntries(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v]));
+  return { ok: true, status: 200, headers: { get: (k) => lower[k.toLowerCase()] ?? null }, json: () => Promise.resolve(data) };
 }
 
 function err(status, data = null) {
@@ -60,6 +61,20 @@ describe('MDH API client', () => {
 
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body).toEqual({ collectionName: 'test_col', pipeline });
+  });
+
+  it('collectionStats runs a $collStats pipeline projecting sizes', async () => {
+    await api.collectionStats('PRODUCTS');
+    const url = fetchMock.mock.calls[0][0];
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(url).toBe('https://example.rossum.app/svc/data-storage/api/v1/data/aggregate');
+    expect(body.collectionName).toBe('PRODUCTS');
+    expect(body.pipeline[0]).toEqual({ $collStats: { storageStats: {} } });
+    expect(body.pipeline[1].$project).toMatchObject({
+      count: '$storageStats.count',
+      totalIndexSize: '$storageStats.totalIndexSize',
+      indexSizes: '$storageStats.indexSizes',
+    });
   });
 
   it('throws "Session expired" on 401', async () => {
@@ -179,13 +194,6 @@ describe('getOrgId', () => {
 });
 
 describe('async operation helpers', () => {
-  it('parseOperationId extracts a 24-hex operation id from the message', () => {
-    expect(api.parseOperationId('Accepted, operation 5f4e3d2c1b0a98765432abcd scheduled'))
-      .toBe('5f4e3d2c1b0a98765432abcd');
-    expect(api.parseOperationId('nothing here')).toBeNull();
-    expect(api.parseOperationId(undefined)).toBeNull();
-    expect(api.parseOperationId(null)).toBeNull();
-  });
 
   it('waitForOperation polls until the operation reaches FINISHED', async () => {
     fetchMock
@@ -209,6 +217,52 @@ describe('async operation helpers', () => {
     fetchMock.mockResolvedValue(ok({ result: { status: 'RUNNING' } }));
     await expect(api.waitForOperation('op1', { intervalMs: 1, timeoutMs: 5 }))
       .rejects.toThrow(/did not finish/);
+  });
+
+  it('tags the timeout error so callers can distinguish it from a real failure', async () => {
+    fetchMock.mockResolvedValue(ok({ result: { status: 'RUNNING' } }));
+    let caught;
+    try { await api.waitForOperation('op1', { intervalMs: 1, timeoutMs: 5 }); }
+    catch (e) { caught = e; }
+    expect(caught.timedOut).toBe(true);
+  });
+
+  it('waitForOperation tolerates a transient poll error and keeps polling', async () => {
+    fetchMock
+      .mockResolvedValueOnce(ok({ result: { status: 'RUNNING' } }))
+      .mockRejectedValueOnce(new Error('network blip')) // transient — must not abort the wait
+      .mockResolvedValueOnce(ok({ result: { status: 'FINISHED', _id: 'op1' } }));
+    const op = await api.waitForOperation('op1', { intervalMs: 1, timeoutMs: 1000 });
+    expect(op).toMatchObject({ status: 'FINISHED' });
+  });
+
+  it('gives up after repeated poll errors, tagged pollUnavailable (not a hard FAILED)', async () => {
+    fetchMock.mockRejectedValue(new Error('Request timed out after 30s'));
+    let caught;
+    try { await api.waitForOperation('op1', { intervalMs: 1, timeoutMs: 1000 }); }
+    catch (e) { caught = e; }
+    expect(caught.pollUnavailable).toBe(true);
+    expect(caught.timedOut).toBeUndefined();
+  });
+
+  it('does not mistake a 24-hex id in a non-accept response message for an operation id', async () => {
+    fetchMock.mockResolvedValue(ok({ code: 'ok', message: 'see aaaaaaaaaaaaaaaaaaaaaaaa', result: [] }));
+    const res = await api.aggregate('c', []);
+    expect(res.operationId).toBeUndefined();
+  });
+
+  it('surfaces the operation id from the content-location header (body message is empty)', async () => {
+    fetchMock.mockResolvedValue(ok({ code: 'accept', message: '' }, {
+      'content-location': 'https://x.rossum.app/svc/data-storage/api/v1/operation_status/bb7001c1-89f3-4c61-b29b-a074e5e6f026',
+    }));
+    const res = await api.createIndex('PRODUCTS', 'i', { a: 1 });
+    expect(res.operationId).toBe('bb7001c1-89f3-4c61-b29b-a074e5e6f026');
+  });
+
+  it('does not attach operationId to ordinary responses (no content-location, no id in message)', async () => {
+    fetchMock.mockResolvedValue(ok({ code: 'ok', result: [] }));
+    const res = await api.aggregate('c', []);
+    expect(res.operationId).toBeUndefined();
   });
 
   it('waitForOperation bails out immediately on an already-aborted signal', async () => {
