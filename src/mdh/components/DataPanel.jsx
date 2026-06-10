@@ -432,7 +432,7 @@ export default function DataPanel() {
     if (tc !== null && tc > 10_000) {
       const proceed = await confirmModal(
         'Large collection',
-        `This collection has ${tc.toLocaleString()} documents. Downloading may take a while and use significant memory. Continue?`,
+        `This collection has ${tc.toLocaleString()} documents. Downloading may take a while. Continue?`,
       );
       if (!proceed) return;
     }
@@ -496,7 +496,7 @@ export default function DataPanel() {
       setDownloadState(null);
       const proceed = await confirmModal(
         'Large download',
-        `This filter matches ${filteredCount.toLocaleString()} documents. Downloading may take a while and use significant memory. Continue?`,
+        `This filter matches ${filteredCount.toLocaleString()} documents. Downloading may take a while. Continue?`,
       );
       if (!proceed) return;
     }
@@ -512,7 +512,7 @@ export default function DataPanel() {
   async function downloadAllJsonl() {
     const tc = pagination.totalCount.value;
     if (tc !== null && tc > 10_000) {
-      const proceed = await confirmModal('Large collection', `This collection has ${tc.toLocaleString()} documents. Downloading may take a while and use significant memory. Continue?`);
+      const proceed = await confirmModal('Large collection', `This collection has ${tc.toLocaleString()} documents. Downloading may take a while. Continue?`);
       if (!proceed) return;
     }
     const col = collection;
@@ -562,7 +562,7 @@ export default function DataPanel() {
     if (downloadCancelRef.current) { setDownloadState(null); return; }
     if (filteredCount > 10_000) {
       setDownloadState(null);
-      const proceed = await confirmModal('Large download', `This filter matches ${filteredCount.toLocaleString()} documents. Downloading may take a while and use significant memory. Continue?`);
+      const proceed = await confirmModal('Large download', `This filter matches ${filteredCount.toLocaleString()} documents. Downloading may take a while. Continue?`);
       if (!proceed) return;
     }
     await runDownloadJob({
@@ -590,7 +590,7 @@ export default function DataPanel() {
           if (tc !== null && tc > 10_000) {
             const proceed = await confirmModal(
               'Large collection',
-              `This collection has ${tc.toLocaleString()} documents. Exporting may take a while and use significant memory. Continue?`,
+              `This collection has ${tc.toLocaleString()} documents. Exporting may take a while. Continue?`,
             );
             if (!proceed) return;
           }
@@ -656,7 +656,7 @@ export default function DataPanel() {
             setDownloadState(null);
             const proceed = await confirmModal(
               'Large export',
-              `This filter matches ${filteredCount.toLocaleString()} documents. Exporting may take a while and use significant memory. Continue?`,
+              `This filter matches ${filteredCount.toLocaleString()} documents. Exporting may take a while. Continue?`,
             );
             if (!proceed) return;
           }
@@ -683,7 +683,7 @@ export default function DataPanel() {
         onDownload={async ({ rootName, recordName }) => {
           const tc = pagination.totalCount.value;
           if (tc !== null && tc > 10_000) {
-            const proceed = await confirmModal('Large collection', `This collection has ${tc.toLocaleString()} documents. Exporting may take a while and use significant memory. Continue?`);
+            const proceed = await confirmModal('Large collection', `This collection has ${tc.toLocaleString()} documents. Exporting may take a while. Continue?`);
             if (!proceed) return;
           }
           await runDownloadJob({
@@ -742,7 +742,7 @@ export default function DataPanel() {
             setDownloadState(null);
             const proceed = await confirmModal(
               'Large export',
-              `This filter matches ${filteredCount.toLocaleString()} documents. Exporting may take a while and use significant memory. Continue?`,
+              `This filter matches ${filteredCount.toLocaleString()} documents. Exporting may take a while. Continue?`,
             );
             if (!proceed) return;
           }
