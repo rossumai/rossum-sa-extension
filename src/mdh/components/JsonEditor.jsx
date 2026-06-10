@@ -264,6 +264,21 @@ export default function JsonEditor({ value = '', onChange, onValidChange, mode =
     };
   }, []);
 
+  // Keep read-only editors in sync with their `value` prop. The same instance is
+  // reused (no key) when an index / search-index card body changes on a
+  // collection switch or a Refresh click, and the mount-only effect above never
+  // re-runs — so without this the body would stay stale. Gated on readOnly:
+  // editable editors treat `value` as a seed only (edits live in the view, read
+  // via editorRef), so syncing there would clobber user input on a re-render.
+  useEffect(() => {
+    if (!readOnly) return;
+    const view = viewRef.current;
+    if (!view) return;
+    const current = view.state.doc.toString();
+    if (value === current) return;
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: value } });
+  }, [value, readOnly]);
+
   useEffect(() => {
     if (editorRef) {
       editorRef.current = {
