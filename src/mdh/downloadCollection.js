@@ -74,6 +74,20 @@ export function buildXmlSerializer({ rootName = 'records', recordName = 'record'
   };
 }
 
+// NDJSON / JSON Lines serializer — one compact JSON object per line. Streams
+// incrementally like JSON/CSV; preserves EJSON shapes ($oid/$date) as literal JSON.
+export function buildNdjsonSerializer() {
+  return {
+    ext: 'jsonl',
+    mimeType: 'application/x-ndjson',
+    pickerTypes: [{ description: 'JSON Lines file', accept: { 'application/x-ndjson': ['.jsonl', '.ndjson'] } }],
+    preamble: () => '',
+    item: (doc) => JSON.stringify(doc),
+    separator: '\n',
+    postamble: () => '',
+  };
+}
+
 export async function downloadCollection(collectionName, opts = {}) {
   const {
     fetchCount = async () => 0,

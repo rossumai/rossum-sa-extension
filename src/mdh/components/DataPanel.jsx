@@ -23,7 +23,7 @@ import * as cache from '../cache.js';
 import { applySortToPipeline, applyFilterDeltaToPipeline, applySkipToPipeline, extractUIStateFromPipeline, stripPaginationStages } from '../pipelineOps.js';
 import { savePipelineState, getPipelineState } from '../pipelineState.js';
 import { saveLastPipeline } from '../lastPipeline.js';
-import { downloadCollection as runDownload, buildCsvSerializer, buildXmlSerializer } from '../downloadCollection.js';
+import { downloadCollection as runDownload, buildCsvSerializer, buildXmlSerializer, buildNdjsonSerializer } from '../downloadCollection.js';
 import { buildColumnDiscoveryPipeline, orderColumns } from '../csv.js';
 import CsvExportOptions from './CsvExportOptions.jsx';
 import XmlExportOptions from './XmlExportOptions.jsx';
@@ -395,10 +395,16 @@ export default function DataPanel() {
       downloadAllXml();
     } else if (action === 'download-filtered-xml') {
       downloadFilteredXml();
+    } else if (action === 'download-jsonl') {
+      downloadAllJsonl();
+    } else if (action === 'download-filtered-jsonl') {
+      downloadFilteredJsonl();
     } else if (action === 'insert') {
       openDataOperations('insert', invalidateAndRun, currentFields);
     } else if (action === 'insert-file') {
       openDataOperations('insert-file', invalidateAndRun, currentFields);
+    } else if (action === 'insert-jsonl-file') {
+      openDataOperations('insert-jsonl-file', invalidateAndRun, currentFields);
     } else if (action === 'insert-csv-file') {
       openDataOperations('insert-csv-file', invalidateAndRun, currentFields);
     } else if (action === 'insert-xlsx-file') {
@@ -500,6 +506,71 @@ export default function DataPanel() {
       filename: `${col}-filtered.json`,
       filtered: true,
       fetchCount: async () => filteredCount,
+    });
+  }
+
+  async function downloadAllJsonl() {
+    const tc = pagination.totalCount.value;
+    if (tc !== null && tc > 10_000) {
+      const proceed = await confirmModal('Large collection', `This collection has ${tc.toLocaleString()} documents. Downloading may take a while and use significant memory. Continue?`);
+      if (!proceed) return;
+    }
+    const col = collection;
+    await runDownloadJob({
+      pipelineStages: [{ $match: {} }],
+      filename: `${col}.jsonl`,
+      filtered: false,
+      fetchCount: async () => {
+        if (pagination.totalCount.value !== null) return pagination.totalCount.value;
+        const r = await api.aggregate(col, [{ $count: 'total' }]);
+        return r.result?.[0]?.total ?? 0;
+      },
+      serializer: buildNdjsonSerializer(),
+    });
+  }
+
+  async function downloadFilteredJsonl() {
+    if (!editorRef.current) return;
+    let pipelineStages;
+    try {
+      const text = pipeline.substitutePlaceholders(editorRef.current.getValue());
+      const parsed = JSON5.parse(text);
+      if (!Array.isArray(parsed)) throw new Error('pipeline must be a JSON array');
+      pipelineStages = stripPaginationStages(parsed);
+    } catch (err) {
+      error.value = { message: `Cannot download filtered: ${err.message}` };
+      return;
+    }
+    downloadCancelRef.current = false;
+    error.value = null;
+    setDownloadState({ counting: true, filtered: true });
+    const ac = new AbortController();
+    downloadCountAbortRef.current = ac;
+    const col = collection;
+    let filteredCount;
+    try {
+      const r = await api.aggregate(col, [...pipelineStages, { $count: 'total' }], { signal: ac.signal });
+      filteredCount = r.result?.[0]?.total ?? 0;
+    } catch (err) {
+      downloadCountAbortRef.current = null;
+      if (downloadCancelRef.current || err.name === 'AbortError') { setDownloadState(null); return; }
+      error.value = { message: `Cannot download filtered: ${err.message}` };
+      setDownloadState(null);
+      return;
+    }
+    downloadCountAbortRef.current = null;
+    if (downloadCancelRef.current) { setDownloadState(null); return; }
+    if (filteredCount > 10_000) {
+      setDownloadState(null);
+      const proceed = await confirmModal('Large download', `This filter matches ${filteredCount.toLocaleString()} documents. Downloading may take a while and use significant memory. Continue?`);
+      if (!proceed) return;
+    }
+    await runDownloadJob({
+      pipelineStages,
+      filename: `${col}-filtered.jsonl`,
+      filtered: true,
+      fetchCount: async () => filteredCount,
+      serializer: buildNdjsonSerializer(),
     });
   }
 

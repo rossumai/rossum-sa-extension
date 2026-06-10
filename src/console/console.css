@@ -727,8 +727,12 @@ body {
   position: absolute; top: -5px;
   background: var(--bg-card); border: 1px solid var(--border);
   border-radius: var(--radius); box-shadow: var(--shadow), 0 4px 12px rgba(0, 0, 0, 0.1);
-  min-width: 120px; z-index: 51; padding: 4px 0;
+  min-width: 150px; z-index: 51; padding: 4px 0;
 }
+/* Keep each format option (incl. its beta badge) on one line — the flyout grows
+   to fit rather than wrapping (it's positioned at left:100%, so shrink-to-fit
+   would otherwise collapse it). */
+.toolbar-submenu .toolbar-menu-item { white-space: nowrap; }
 .toolbar-submenu.is-right { left: 100%; }
 .toolbar-submenu.is-left { right: 100%; }
 

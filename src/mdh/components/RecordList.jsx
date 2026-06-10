@@ -262,6 +262,8 @@ function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh
             onFilteredCsv={() => onRefresh('download-filtered-csv')}
             onAllXml={() => onRefresh('download-xml')}
             onFilteredXml={() => onRefresh('download-filtered-xml')}
+            onAllJsonl={() => onRefresh('download-jsonl')}
+            onFilteredJsonl={() => onRefresh('download-filtered-jsonl')}
           />
         )}
         <BulkSplitButton onUpdate={onBulkUpdate} onDelete={onBulkDelete} />
@@ -271,6 +273,7 @@ function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh
           onMain={() => onRefresh('insert')}
           menuItems={[
             { label: 'From JSON file', onClick: () => onRefresh('insert-file') },
+            { label: 'From JSONL file', beta: true, onClick: () => onRefresh('insert-jsonl-file') },
             { label: 'From CSV file', beta: true, onClick: () => onRefresh('insert-csv-file') },
             { label: 'From Excel file', beta: true, onClick: () => onRefresh('insert-xlsx-file') },
             { label: 'From XML file', beta: true, onClick: () => onRefresh('insert-xml-file') },

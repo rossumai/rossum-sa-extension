@@ -46,7 +46,7 @@ describe('chooseSubmenuSide', () => {
 });
 
 describe('DownloadSplitButton', () => {
-  const handlers = () => ({ onAllJson: vi.fn(), onFilteredJson: vi.fn(), onAllCsv: vi.fn(), onFilteredCsv: vi.fn() });
+  const handlers = () => ({ onAllJson: vi.fn(), onFilteredJson: vi.fn(), onAllCsv: vi.fn(), onFilteredCsv: vi.fn(), onAllXml: vi.fn(), onFilteredXml: vi.fn(), onAllJsonl: vi.fn(), onFilteredJsonl: vi.fn() });
 
   it('renders a single "Download" toggle button when closed; no menu', () => {
     const root = mount(handlers());
@@ -115,6 +115,22 @@ describe('DownloadSplitButton', () => {
     root.querySelector('[data-testid="download-filtered-csv"]').click();
     await flush();
     expect(h4.onFilteredCsv).toHaveBeenCalledOnce();
+  });
+
+  it('offers a JSON Lines option that fires onAllJsonl', async () => {
+    const h2 = handlers();
+    const root = mount(h2);
+    root.querySelector('button').click();                                  // open menu
+    await flush();
+    root.querySelector('[data-testid="download-all"]').click();            // open flyout
+    await waitFor(
+      () => root.querySelector('[data-testid="download-all-jsonl"]') !== null,
+      'download-all-jsonl button',
+    );
+    const jsonl = root.querySelector('[data-testid="download-all-jsonl"]');
+    expect(jsonl.querySelector('.toolbar-menu-beta')).toBeTruthy();        // beta badge
+    jsonl.click();
+    expect(h2.onAllJsonl).toHaveBeenCalledTimes(1);
   });
 
   it('hovering the other parent switches the open flyout', async () => {

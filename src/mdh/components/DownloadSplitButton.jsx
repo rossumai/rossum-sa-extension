@@ -7,7 +7,7 @@ export function chooseSubmenuSide(menuRight, flyoutWidth, viewportWidth, margin 
   return menuRight + flyoutWidth + margin <= viewportWidth ? 'right' : 'left';
 }
 
-export default function DownloadSplitButton({ onAllJson, onFilteredJson, onAllCsv, onFilteredCsv, onAllXml, onFilteredXml }) {
+export default function DownloadSplitButton({ onAllJson, onFilteredJson, onAllCsv, onFilteredCsv, onAllXml, onFilteredXml, onAllJsonl, onFilteredJsonl }) {
   const [open, setOpen] = useState(false);
   const [submenu, setSubmenu] = useState(null); // 'all' | 'filtered' | null
   const [submenuSide, setSubmenuSide] = useState('right'); // 'right' | 'left'
@@ -48,8 +48,8 @@ export default function DownloadSplitButton({ onAllJson, onFilteredJson, onAllCs
   function choose(fn) { setOpen(false); setSubmenu(null); fn(); }
 
   const ITEMS = [
-    { key: 'all', label: 'Download all', json: onAllJson, csv: onAllCsv, xml: onAllXml },
-    { key: 'filtered', label: 'Download filtered', json: onFilteredJson, csv: onFilteredCsv, xml: onFilteredXml },
+    { key: 'all', label: 'Download all', json: onAllJson, csv: onAllCsv, xml: onAllXml, jsonl: onAllJsonl },
+    { key: 'filtered', label: 'Download filtered', json: onFilteredJson, csv: onFilteredCsv, xml: onFilteredXml, jsonl: onFilteredJsonl },
   ];
 
   return (
@@ -74,6 +74,8 @@ export default function DownloadSplitButton({ onAllJson, onFilteredJson, onAllCs
                 <div ref={flyoutRef} class={`toolbar-submenu is-${submenuSide}`} data-testid={`download-${it.key}-submenu`}>
                   <button class="toolbar-menu-item" data-testid={`download-${it.key}-json`}
                     onClick={() => choose(it.json)}>JSON</button>
+                  <button class="toolbar-menu-item" data-testid={`download-${it.key}-jsonl`}
+                    onClick={() => choose(it.jsonl)}>JSON Lines <span class="toolbar-menu-beta">beta</span></button>
                   <button class="toolbar-menu-item" data-testid={`download-${it.key}-csv`}
                     onClick={() => choose(it.csv)}>CSV <span class="toolbar-menu-beta">beta</span></button>
                   <button class="toolbar-menu-item" data-testid={`download-${it.key}-xml`}

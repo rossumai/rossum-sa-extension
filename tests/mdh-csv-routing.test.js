@@ -15,8 +15,13 @@ describe('openDataOperations CSV routing', () => {
     expect(node).toBeTruthy();
   });
 
-  it('still opens the JSON wizard for insert-file', () => {
+  it('opens the JSON wizard titled "Insert from JSON file" for insert-file', () => {
     openDataOperations('insert-file', () => {}, () => []);
-    expect(modalContent.value.title).toBe('Insert from File');
+    expect(modalContent.value.title).toBe('Insert from JSON file');
+  });
+
+  it('opens the JSONL wizard titled "Insert from JSONL file" for insert-jsonl-file', () => {
+    openDataOperations('insert-jsonl-file', () => {}, () => []);
+    expect(modalContent.value.title).toBe('Insert from JSONL file');
   });
 });

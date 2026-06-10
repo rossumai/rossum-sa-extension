@@ -74,13 +74,18 @@ export function openDataOperations(mode, onSuccess, fieldsFn) {
     ? 'Insert from Excel file'
     : op === 'insert-xml'
     ? 'Insert from XML file'
+    : op === 'insert-jsonl'
+    ? 'Insert from JSONL file'
+    : (op === 'insert' && isFile)
+    ? 'Insert from JSON file'
     : op.charAt(0).toUpperCase() + op.slice(1) + (isFile ? ' from File' : '');
 
   openModal(title, () => {
     if (op === 'insert-csv') return <CsvImportWizard onSuccess={onSuccess} />;
     if (op === 'insert-xlsx') return <XlsxImportWizard onSuccess={onSuccess} />;
     if (op === 'insert-xml') return <XmlImportWizard onSuccess={onSuccess} />;
-    if (op === 'insert' && isFile) return <InsertFileWizard onSuccess={onSuccess} />;
+    if (op === 'insert-jsonl') return <InsertFileWizard onSuccess={onSuccess} format="jsonl" />;
+    if (op === 'insert' && isFile) return <InsertFileWizard onSuccess={onSuccess} format="json" />;
     if (op === 'insert') return <InsertPanel isFile={false} onSuccess={onSuccess} fieldsFn={fieldsFn} />;
     if (op === 'update' && isFile) return <UpdatePanel onSuccess={onSuccess} fieldsFn={fieldsFn} />;
     if (op === 'replace' && isFile) return <ReplacePanel onSuccess={onSuccess} fieldsFn={fieldsFn} />;

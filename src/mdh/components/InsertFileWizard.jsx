@@ -9,6 +9,7 @@ import {
   runChunkedOverwrite,
 } from '../importFile.js';
 import { StageConfirm, StageImporting, StageDone } from './ImportStages.jsx';
+import { parseNdjson } from '../ndjson.js';
 
 // Multi-stage Import from JSON File flow:
 //
@@ -27,7 +28,7 @@ const STAGE = {
   DONE: 'done',
 };
 
-export default function InsertFileWizard({ onSuccess }) {
+export default function InsertFileWizard({ onSuccess, format = 'json' }) {
   const [stage, setStage] = useState(STAGE.PICK);
   const [fileMeta, setFileMeta] = useState(null);
   const [docs, setDocs] = useState(null);
@@ -36,6 +37,7 @@ export default function InsertFileWizard({ onSuccess }) {
   const [importProgress, setImportProgress] = useState(null);
   const [importResult, setImportResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [warnings, setWarnings] = useState([]);
 
   const abortRef = useRef(null);
 
@@ -43,19 +45,21 @@ export default function InsertFileWizard({ onSuccess }) {
 
   function handleFile(file) {
     setErrorMsg(null);
+    setWarnings([]);
     setFileMeta({ name: file.name, size: file.size });
     file.text().then((text) => {
       let parsed;
-      try { parsed = JSON.parse(text); }
-      catch (e) {
-        setErrorMsg(`Couldn't parse JSON: ${e.message}`);
-        return;
+      try {
+        parsed = JSON.parse(text);
+        if (!Array.isArray(parsed)) parsed = [parsed];
+      } catch (jsonErr) {
+        // Not a single JSON value — try JSON Lines (NDJSON).
+        const nd = parseNdjson(text);
+        if (nd.error) { setErrorMsg(`Couldn't parse as JSON or JSON Lines: ${jsonErr.message}`); return; }
+        parsed = nd.docs;
+        setWarnings(nd.warnings);
       }
-      if (!Array.isArray(parsed)) parsed = [parsed];
-      if (parsed.length === 0) {
-        setErrorMsg('File contains no documents');
-        return;
-      }
+      if (parsed.length === 0) { setErrorMsg('File contains no documents'); return; }
       setDocs(parsed);
       setStats(analyzeDocs(parsed));
       setStage(STAGE.CONFIRM);
@@ -109,18 +113,25 @@ export default function InsertFileWizard({ onSuccess }) {
 
   return (
     <div class="modal-body import-wizard">
-      {stage === STAGE.PICK && <StagePick onFile={handleFile} errorMsg={errorMsg} onCancel={closeModal} />}
+      {stage === STAGE.PICK && <StagePick onFile={handleFile} errorMsg={errorMsg} onCancel={closeModal} format={format} />}
 
       {stage === STAGE.CONFIRM && stats && (
-        <StageConfirm
-          fileMeta={fileMeta}
-          stats={stats}
-          mode={mode}
-          setMode={setMode}
-          errorMsg={errorMsg}
-          onImport={startImport}
-          onCancel={closeModal}
-        />
+        <Fragment>
+          {warnings.length > 0 && (
+            <div class="csv-preview" data-testid="import-warnings">
+              {warnings.map((w, i) => <div key={i} class="csv-warning">{'⚠'} {w}</div>)}
+            </div>
+          )}
+          <StageConfirm
+            fileMeta={fileMeta}
+            stats={stats}
+            mode={mode}
+            setMode={setMode}
+            errorMsg={errorMsg}
+            onImport={startImport}
+            onCancel={closeModal}
+          />
+        </Fragment>
       )}
 
       {stage === STAGE.IMPORTING && importProgress && (
@@ -136,19 +147,20 @@ export default function InsertFileWizard({ onSuccess }) {
 
 // ---- stage components ----
 
-function StagePick({ onFile, errorMsg, onCancel }) {
+function StagePick({ onFile, errorMsg, onCancel, format = 'json' }) {
   const inputRef = useRef(null);
   function pick(e) {
     const f = e.target.files?.[0];
     if (f) onFile(f);
   }
+  const isJsonl = format === 'jsonl';
   return (
     <Fragment>
-      <div class="modal-field-label">Select a JSON file with documents to insert:</div>
-      <input ref={inputRef} type="file" accept=".json,application/json" style="display:none" onChange={pick} />
+      <div class="modal-field-label">{isJsonl ? 'Select a JSONL file to insert:' : 'Select a JSON file with documents to insert:'}</div>
+      <input ref={inputRef} type="file" accept={isJsonl ? '.jsonl,.ndjson,application/x-ndjson' : '.json,application/json'} style="display:none" onChange={pick} />
       <div class="file-input-area" onClick={() => inputRef.current?.click()}>
-        <div class="file-input-label">Click to select a JSON file</div>
-        <div class="file-input-info" style="margin-top:4px">Array of documents, or a single document</div>
+        <div class="file-input-label">{isJsonl ? 'Click to select a JSONL file' : 'Click to select a JSON file'}</div>
+        <div class="file-input-info" style="margin-top:4px">{isJsonl ? 'One JSON object per line (.jsonl / .ndjson)' : 'JSON array, or a single document'}</div>
       </div>
       {errorMsg && <div class="input-hint" style="color:var(--danger)">{errorMsg}</div>}
       <div class="modal-actions">
