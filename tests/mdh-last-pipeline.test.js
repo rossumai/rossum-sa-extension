@@ -27,6 +27,7 @@ describe('lastPipeline persistence', () => {
     expect(store[lastPipelineKey()]).toEqual({
       pipelineText: '[{"$match":{"v":"{vendor}"}}]',
       variables: { vendor: 'ACME' },
+      placeholderTypes: {},
     });
   });
 
@@ -39,7 +40,7 @@ describe('lastPipeline persistence', () => {
 
   it('tolerates missing variables', () => {
     saveLastPipeline('[]');
-    expect(store[lastPipelineKey()]).toEqual({ pipelineText: '[]', variables: {} });
+    expect(store[lastPipelineKey()]).toEqual({ pipelineText: '[]', variables: {}, placeholderTypes: {} });
   });
 
   it('falls back to a domain-scoped key when org id is null', () => {
@@ -58,6 +59,7 @@ describe('bootPrefillFor', () => {
       collection: 'vendors',
       pipelineText: '[{"$limit":5}]',
       variables: { x: '1' },
+      placeholderTypes: {},
     });
   });
 
@@ -80,6 +82,7 @@ describe('bootPrefillFor', () => {
       collection: 'vendors',
       pipelineText: '[]',
       variables: {},
+      placeholderTypes: {},
     });
   });
 });

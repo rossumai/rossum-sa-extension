@@ -48,7 +48,7 @@ export default function DataPanel() {
   // that drives the Variables inputs and the Pipeline Debug — see
   // useEditorSnapshot. recomputeEditorState() is called on every editor edit and
   // on placeholder changes.
-  const [editorState, recomputeEditorState] = useEditorSnapshot(editorRef, pipeline.computeEditorState);
+  const [editorState, recomputeEditorState] = useEditorSnapshot(editorRef, pipeline.computeEditorStateWithTypes);
 
   const collection = selectedCollection.value;
 
@@ -95,9 +95,10 @@ export default function DataPanel() {
   async function runQuery() {
     if (!collection || !editorRef.current) return;
     const rawText = editorRef.current.getValue();
-    const result = await query.runQuery(collection, rawText, pipeline.substitutePlaceholders);
+    await pipeline.ensureFieldTypes(collection, pipeline.referencedFields(rawText));
+    const result = await query.runQuery(collection, rawText, pipeline.substituteWithTypes);
     if (result) {
-      addToHistory(collection, rawText, { ...pipeline.placeholderValues.value });
+      addToHistory(collection, rawText, { ...pipeline.placeholderValues.value }, { ...pipeline.placeholderTypes.value });
     }
   }
 
@@ -119,6 +120,7 @@ export default function DataPanel() {
     if (external && external.collection === collection) {
       pendingPipelineLoad.value = null;
       if (external.variables) pipeline.placeholderValues.value = { ...external.variables };
+      if (external.placeholderTypes) pipeline.placeholderTypes.value = { ...external.placeholderTypes };
       setTimeout(() => {
         if (!editorRef.current) return;
         pipeline.suppressSync.value = true;
@@ -133,6 +135,7 @@ export default function DataPanel() {
     if (pending) {
       pendingLoadRef.current = null;
       if (pending.variables) pipeline.placeholderValues.value = { ...pending.variables };
+      if (pending.placeholderTypes) pipeline.placeholderTypes.value = { ...pending.placeholderTypes };
       setTimeout(() => {
         if (!editorRef.current) return;
         pipeline.suppressSync.value = true;
@@ -148,6 +151,7 @@ export default function DataPanel() {
     if (saved) {
       skip.value = saved.skip || 0;
       if (saved.variables) pipeline.placeholderValues.value = { ...saved.variables };
+      if (saved.placeholderTypes) pipeline.placeholderTypes.value = { ...saved.placeholderTypes };
       setTimeout(() => {
         if (!editorRef.current) return;
         pipeline.suppressSync.value = true;
@@ -172,11 +176,18 @@ export default function DataPanel() {
     return () => { saveStateForCleanup(collection); };
   }, [collection]);
 
+  useEffect(() => {
+    if (!collection || !editorRef.current) return;
+    pipeline.ensureFieldTypes(collection, pipeline.referencedFields(editorState.text))
+      .then((changed) => { if (changed) recomputeEditorState(); });
+  }, [editorState.text, collection]);
+
   function saveStateForCleanup(col) {
     if (!editorRef.current) return;
     savePipelineState(col, {
       pipelineText: editorRef.current.getValue(),
       variables: { ...pipeline.placeholderValues.value },
+      placeholderTypes: { ...pipeline.placeholderTypes.value },
       skip: skip.value,
     });
   }
@@ -197,7 +208,7 @@ export default function DataPanel() {
     // Falls back to {} when the pipeline has no $match or is unparseable.
     if (!editorRef.current) return {};
     try {
-      const text = pipeline.substitutePlaceholders(editorRef.current.getValue());
+      const text = pipeline.substituteWithTypes(editorRef.current.getValue());
       const parsed = JSON5.parse(text);
       if (Array.isArray(parsed)) {
         const match = parsed.find((s) => s && typeof s === 'object' && s.$match);
@@ -318,7 +329,7 @@ export default function DataPanel() {
     clearTimeout(persistTimerRef.current);
     persistTimerRef.current = setTimeout(() => {
       if (!editorRef.current) return;
-      saveLastPipeline(editorRef.current.getValue(), pipeline.placeholderValues.value);
+      saveLastPipeline(editorRef.current.getValue(), pipeline.placeholderValues.value, pipeline.placeholderTypes.value);
     }, 400);
   }
 
@@ -338,16 +349,17 @@ export default function DataPanel() {
     }
   }
 
-  function handleLoadPipeline(pipelineText, col, variables) {
+  function handleLoadPipeline(pipelineText, col, variables, placeholderTypes) {
     if (col && col !== collection) {
       // Defer to the [collection] effect — it will apply the pipeline and variables
       // after reset() instead of racing the default path.
-      pendingLoadRef.current = { pipelineText, variables };
+      pendingLoadRef.current = { pipelineText, variables, placeholderTypes };
       selectedCollection.value = col;
       return;
     }
     if (selectionMode.value) selectionPipelineDirty.value = true;
     if (variables) pipeline.placeholderValues.value = { ...variables };
+    if (placeholderTypes) pipeline.placeholderTypes.value = { ...placeholderTypes };
     if (editorRef.current) {
       pipeline.suppressSync.value = true;
       editorRef.current.setValue(pipelineText);
@@ -427,6 +439,14 @@ export default function DataPanel() {
     handleSetPlaceholder._timer = setTimeout(runQuery, 400);
   }
 
+  function handleSetPlaceholderType(name, type) {
+    pipeline.setPlaceholderType(name, type);
+    persistLastPipeline();
+    recomputeEditorState();
+    clearTimeout(handleSetPlaceholder._timer);
+    handleSetPlaceholder._timer = setTimeout(runQuery, 400);
+  }
+
   async function downloadAll() {
     const tc = pagination.totalCount.value;
     if (tc !== null && tc > 10_000) {
@@ -455,7 +475,7 @@ export default function DataPanel() {
 
     let pipelineStages;
     try {
-      const text = pipeline.substitutePlaceholders(editorRef.current.getValue());
+      const text = pipeline.substituteWithTypes(editorRef.current.getValue());
       const parsed = JSON5.parse(text);
       if (!Array.isArray(parsed)) throw new Error('pipeline must be a JSON array');
       pipelineStages = stripPaginationStages(parsed);
@@ -533,7 +553,7 @@ export default function DataPanel() {
     if (!editorRef.current) return;
     let pipelineStages;
     try {
-      const text = pipeline.substitutePlaceholders(editorRef.current.getValue());
+      const text = pipeline.substituteWithTypes(editorRef.current.getValue());
       const parsed = JSON5.parse(text);
       if (!Array.isArray(parsed)) throw new Error('pipeline must be a JSON array');
       pipelineStages = stripPaginationStages(parsed);
@@ -614,7 +634,7 @@ export default function DataPanel() {
     if (!editorRef.current) return;
     let pipelineStages;
     try {
-      const text = pipeline.substitutePlaceholders(editorRef.current.getValue());
+      const text = pipeline.substituteWithTypes(editorRef.current.getValue());
       const parsed = JSON5.parse(text);
       if (!Array.isArray(parsed)) throw new Error('pipeline must be a JSON array');
       pipelineStages = stripPaginationStages(parsed);
@@ -706,7 +726,7 @@ export default function DataPanel() {
     if (!editorRef.current) return;
     let pipelineStages;
     try {
-      const text = pipeline.substitutePlaceholders(editorRef.current.getValue());
+      const text = pipeline.substituteWithTypes(editorRef.current.getValue());
       const parsed = JSON5.parse(text);
       if (!Array.isArray(parsed)) throw new Error('pipeline must be a JSON array');
       pipelineStages = stripPaginationStages(parsed);
@@ -847,8 +867,11 @@ export default function DataPanel() {
         <PlaceholderInputs
           names={placeholderNames}
           values={pipeline.placeholderValues.value}
+          types={pipeline.placeholderTypes.value}
           onSetValue={handleSetPlaceholder}
+          onSetType={handleSetPlaceholderType}
           onRunQuery={runQuery}
+          resolvedTypeFor={(name) => pipeline.resolvedTypeForName(name, editorState.fieldMap || {}, editorState.parsed != null)}
         />
         <PipelineDebug pipeline={editorState.parsed} />
       </div>

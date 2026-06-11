@@ -9,10 +9,14 @@ export function lastPipelineKey() {
 
 // Persist the current editor text + placeholder variables. Best-effort: a
 // storage hiccup must never break editing, so failures are swallowed.
-export function saveLastPipeline(pipelineText, variables) {
+export function saveLastPipeline(pipelineText, variables, placeholderTypes) {
   try {
     chrome.storage.local.set({
-      [lastPipelineKey()]: { pipelineText, variables: { ...(variables || {}) } },
+      [lastPipelineKey()]: {
+        pipelineText,
+        variables: { ...(variables || {}) },
+        placeholderTypes: { ...(placeholderTypes || {}) },
+      },
     });
   } catch { /* storage unavailable — non-fatal */ }
 }
@@ -29,5 +33,6 @@ export function bootPrefillFor(stored, selectedCollection, hasPendingPrefill) {
     collection: selectedCollection,
     pipelineText: stored.pipelineText,
     variables: { ...(stored.variables || {}) },
+    placeholderTypes: { ...(stored.placeholderTypes || {}) },
   };
 }

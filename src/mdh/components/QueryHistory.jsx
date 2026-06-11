@@ -26,20 +26,22 @@ function dedupKey(collection, pipeline) {
   return collection + '::' + normalized;
 }
 
-export async function addToHistory(collection, pipeline, variables) {
+export async function addToHistory(collection, pipeline, variables, placeholderTypes) {
   const queryHistory = await readList('queryHistory');
   const key = dedupKey(collection, pipeline);
   const filtered = queryHistory.filter((e) => dedupKey(e.collection, e.pipeline) !== key);
   const entry = { collection, pipeline, ts: Date.now() };
   if (variables && Object.keys(variables).length > 0) entry.variables = variables;
+  if (placeholderTypes && Object.keys(placeholderTypes).length > 0) entry.placeholderTypes = placeholderTypes;
   filtered.unshift(entry);
   await writeList('queryHistory', filtered.slice(0, MAX_HISTORY));
 }
 
-export async function saveQuery(collection, pipeline, name, variables) {
+export async function saveQuery(collection, pipeline, name, variables, placeholderTypes) {
   const savedQueries = await readList('savedQueries');
   const entry = { collection, pipeline, name, ts: Date.now() };
   if (variables && Object.keys(variables).length > 0) entry.variables = variables;
+  if (placeholderTypes && Object.keys(placeholderTypes).length > 0) entry.placeholderTypes = placeholderTypes;
   savedQueries.push(entry);
   await writeList('savedQueries', savedQueries);
 }
@@ -67,7 +69,7 @@ function formatTime(ts) {
 function QueryRow({ item, currentCollection, savedName, onLoad, onDismiss, showUnsave, onUnsave }) {
   return (
     <div class={'query-history-item' + (item.collection === currentCollection ? ' query-history-item-current' : '')}>
-      <div class="query-history-item-info" onClick={() => { onLoad(item.pipeline, item.collection, item.variables); onDismiss(); }}>
+      <div class="query-history-item-info" onClick={() => { onLoad(item.pipeline, item.collection, item.variables, item.placeholderTypes); onDismiss(); }}>
         <span class="query-history-collection">{item.collection}</span>
         {savedName && <span class="query-history-name">{savedName}</span>}
         <span class="query-history-time">{formatTime(item.ts)}</span>

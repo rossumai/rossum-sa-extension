@@ -2,6 +2,9 @@ import { useRef } from 'preact/hooks';
 import { signal } from '@preact/signals';
 import JSON5 from 'json5';
 import { skip } from '../store.js';
+import { VAR_RE, VAR_RE_G } from '../placeholderSyntax.js';
+import { mapPlaceholdersToFields } from '../placeholderFields.js';
+import { resolveFieldTypes, deriveResolvedType } from '../fieldTypes.js';
 
 // Scan for variables. A variable lives inside a JSON string literal, in one of
 // two forms — mirroring MDH's server-side substitution (see
@@ -17,9 +20,6 @@ import { skip } from '../store.js';
 // isn't valid JSON, so it never reaches substitution. Returns
 // [{ whole, name, modifier, arg, start, end }] in document order; for WHOLE the
 // span covers the surrounding quotes, for EMBEDDED only the `{...}` itself.
-const VAR_RE = /^\{\s*([a-zA-Z_]\w*)\s*(?:\|\s*([a-zA-Z_]+)(?:\s*\(\s*([^)]*?)\s*\))?\s*)?\}$/;
-const VAR_RE_G = /\{\s*([a-zA-Z_]\w*)\s*(?:\|\s*([a-zA-Z_]+)(?:\s*\(\s*([^)]*?)\s*\))?\s*)?\}/g;
-
 function scanPlaceholders(text) {
   const out = [];
   const n = text.length;
@@ -67,7 +67,7 @@ function scanPlaceholders(text) {
 // future fix; the immediate bug to fix is the parse-time crash on padded IDs.
 const JSON5_NUMBER_RE = /^-?(?:0|[1-9]\d*)(?:\.\d*)?(?:[eE][+-]?\d+)?$|^-?\.\d+(?:[eE][+-]?\d+)?$/;
 
-function isJson5NumberLiteral(val) {
+export function isJson5NumberLiteral(val) {
   return typeof val === 'string' && val !== '' && JSON5_NUMBER_RE.test(val);
 }
 
@@ -98,9 +98,20 @@ function applyModifier(val, modifier, arg) {
 // type-aware (number / bool / null) when there's no modifier and the value looks
 // like one, an array for `split`, otherwise a quoted string. (`"amount":
 // "{amount}"` + 5 → `"amount": 5`; `"{x | split(',')}"` + "a,b" → `["a","b"]`.)
-function renderWholeToken(val, modifier, arg) {
-  if (!modifier && (val === 'true' || val === 'false' || val === 'null')) return val;
-  if (!modifier && isJson5NumberLiteral(val)) return val;
+// When `resolvedType` is provided it overrides the value-based detection branch.
+function renderWholeToken(val, modifier, arg, resolvedType) {
+  if (!modifier) {
+    switch (resolvedType) {
+      case 'string':  return JSON.stringify(String(val));
+      case 'number':  return isJson5NumberLiteral(val) ? val : JSON.stringify(String(val));
+      case 'boolean': return (val === 'true' || val === 'false') ? val : JSON.stringify(String(val));
+      case 'null':    return 'null';
+      default: // undefined → today's value-based branch order, byte-identical
+        if (val === 'true' || val === 'false' || val === 'null') return val;
+        if (isJson5NumberLiteral(val)) return val;
+        return JSON.stringify(applyModifier(val, modifier, arg));
+    }
+  }
   return JSON.stringify(applyModifier(val, modifier, arg));
 }
 
@@ -131,9 +142,11 @@ export function usePipeline() {
       filterState: signal({}),
       placeholderValues: signal({}),
       suppressSync: signal(false),
+      placeholderTypes: signal({}),
+      fieldTypes: signal({}),
     };
   }
-  const { sortState, filterState, placeholderValues, suppressSync } = stateRef.current;
+  const { sortState, filterState, placeholderValues, suppressSync, placeholderTypes, fieldTypes } = stateRef.current;
 
   function buildPipelineFromUI() {
     const pipeline = [];
@@ -190,17 +203,15 @@ export function usePipeline() {
     return [...names];
   }
 
-  function substitutePlaceholders(text) {
+  function substitutePlaceholders(text, resolvedTypes = {}) {
     const matches = scanPlaceholders(text);
     if (matches.length === 0) return text;
     let result = '';
     let last = 0;
     for (const m of matches) {
       result += text.slice(last, m.start);
-      // An unfilled variable defaults to an empty string — a valid value, so the
-      // query still runs ("even empty string is a valid variable value").
       const val = m.name in placeholderValues.value ? placeholderValues.value[m.name] : '';
-      result += m.whole ? renderWholeToken(val, m.modifier, m.arg)
+      result += m.whole ? renderWholeToken(val, m.modifier, m.arg, resolvedTypes[m.name])
         : renderEmbeddedFragment(val, m.modifier, m.arg);
       last = m.end;
     }
@@ -212,19 +223,81 @@ export function usePipeline() {
     placeholderValues.value = { ...placeholderValues.value, [name]: value };
   }
 
+  function setPlaceholderType(name, type) {
+    const next = { ...placeholderTypes.value };
+    if (!type || type === 'auto') delete next[name];
+    else next[name] = type;
+    placeholderTypes.value = next;
+  }
+
+  // Build { name → primitive type } for the current editor text from the field
+  // mapping, resolved field types, and user overrides. Only `.type` is kept
+  // (undefined types are omitted → value-based for those names).
+  function buildResolvedTypes(text) {
+    const fieldMap = mapPlaceholdersToFields(text);
+    const ft = fieldTypes.value;
+    const pt = placeholderTypes.value;
+    const out = {};
+    for (const name of extractPlaceholders(text)) {
+      const d = deriveResolvedType(name, { override: pt[name], fieldMap, fieldTypes: ft, parsedOk: true });
+      if (d.type) out[name] = d.type;
+    }
+    return out;
+  }
+
+  function substituteWithTypes(text) {
+    return substitutePlaceholders(text, buildResolvedTypes(text));
+  }
+
+  function computeEditorStateWithTypes(text) {
+    return computeEditorState(text, buildResolvedTypes(text));
+  }
+
+  // Unique comparison fields referenced by the pipeline (skips ambiguous names).
+  function referencedFields(text) {
+    const fm = mapPlaceholdersToFields(text);
+    return [...new Set(Object.values(fm).filter((v) => v && v.field && !v.ambiguous).map((v) => v.field))];
+  }
+
+  // Resolve any not-yet-known field types into the fieldTypes signal. Returns
+  // true if it fetched something (so the caller can re-snapshot the debug view).
+  // `resolver` is injectable for tests; defaults to the live resolveFieldTypes.
+  async function ensureFieldTypes(collection, fields, resolver = resolveFieldTypes) {
+    if (!collection || !fields || fields.length === 0) return false;
+    const missing = fields.filter((f) => !(f in fieldTypes.value));
+    if (missing.length === 0) return false;
+    const resolved = await resolver(collection, missing);
+    fieldTypes.value = { ...fieldTypes.value, ...resolved };
+    return true;
+  }
+
+  // Resolved type info for one variable's UI, given the current fieldMap and
+  // whether the pipeline parsed (both come from the editor snapshot). `type` is
+  // the effective type (override wins); `autoType` is what Auto WOULD resolve to
+  // ignoring any manual override, so the "Auto (X)" label stays truthful.
+  function resolvedTypeForName(name, fieldMap, parsedOk) {
+    const override = placeholderTypes.value[name];
+    const effective = deriveResolvedType(name, { override, fieldMap, fieldTypes: fieldTypes.value, parsedOk });
+    const auto = override
+      ? deriveResolvedType(name, { override: undefined, fieldMap, fieldTypes: fieldTypes.value, parsedOk })
+      : effective;
+    return { ...effective, autoType: auto.type };
+  }
+
   // Snapshot the editor text for the UI that depends on it: the variable names
   // (Variables inputs) and the parsed pipeline (Pipeline Debug). Unfilled
   // variables substitute to an empty string, so the pipeline still parses and
   // the debug still renders before the user fills anything in.
-  function computeEditorState(text) {
+  function computeEditorState(text, resolvedTypes = {}) {
     const placeholders = extractPlaceholders(text);
-    const substituted = substitutePlaceholders(text);
+    const substituted = substitutePlaceholders(text, resolvedTypes);
     let parsed = null;
     try {
       const p = JSON5.parse(substituted);
       if (Array.isArray(p)) parsed = p;
     } catch { /* invalid JSON5 — leave parsed null */ }
-    return { placeholders, parsed };
+    const fieldMap = mapPlaceholdersToFields(text);
+    return { placeholders, parsed, fieldMap };
   }
 
   function reset() {
@@ -232,6 +305,8 @@ export function usePipeline() {
     filterState.value = {};
     placeholderValues.value = {};
     skip.value = 0;
+    placeholderTypes.value = {};
+    fieldTypes.value = {};
   }
 
   return {
@@ -249,5 +324,13 @@ export function usePipeline() {
     setPlaceholder,
     computeEditorState,
     reset,
+    placeholderTypes,
+    fieldTypes,
+    setPlaceholderType,
+    substituteWithTypes,
+    computeEditorStateWithTypes,
+    referencedFields,
+    ensureFieldTypes,
+    resolvedTypeForName,
   };
 }

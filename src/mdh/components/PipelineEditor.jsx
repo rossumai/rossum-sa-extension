@@ -81,9 +81,9 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
     updateSaveBtn();
   }
 
-  function loadFromPanel(pipeline, collection, variables) {
+  function loadFromPanel(pipeline, collection, variables, placeholderTypes) {
     setLibraryOpen(false);
-    onLoadPipeline(pipeline, collection, variables);
+    onLoadPipeline(pipeline, collection, variables, placeholderTypes);
   }
 
   return (
