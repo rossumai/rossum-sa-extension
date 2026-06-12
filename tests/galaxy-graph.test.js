@@ -65,7 +65,7 @@ const RAW = {
       id: 201, url: 'https://x/api/v1/hooks/201', name: 'Export',
       queues: ['https://x/api/v1/queues/100', 'https://x/api/v1/queues/101', 'https://x/api/v1/queues/777'],
       run_after: ['https://x/api/v1/hooks/200'],
-      type: 'function', active: false, events: ['annotation.exported'],
+      type: 'function', active: true, events: ['annotation.exported'],
     },
   ],
   engines: [
@@ -232,5 +232,108 @@ describe('buildGraph — additional coverage', () => {
     expect(has2('queue:1', 'hook:12', 'reference')).toBe(false);  // merge has run_after -> no queue edge
     expect(has2('hook:10', 'hook:12', 'runAfter')).toBe(true);    // both predecessors
     expect(has2('hook:11', 'hook:12', 'runAfter')).toBe(true);
+  });
+});
+
+describe('buildGraph — disabled hooks', () => {
+  const has = (g, s, t, kind) => g.links.some((l) => l.source === s && l.target === t && l.kind === kind);
+  const ids = (g) => g.nodes.map((n) => n.id);
+
+  it('does not render a disabled hook (no node)', () => {
+    const g = buildGraph({
+      organization: null, workspaces: [], engines: [],
+      queues: [{ id: 1, url: 'https://x/api/v1/queues/1', name: 'Q' }],
+      hooks: [
+        { id: 10, url: 'https://x/api/v1/hooks/10', name: 'On', queues: ['https://x/api/v1/queues/1'], run_after: [], active: true },
+        { id: 11, url: 'https://x/api/v1/hooks/11', name: 'Off', queues: ['https://x/api/v1/queues/1'], run_after: [], active: false },
+      ],
+    });
+    expect(ids(g)).toContain('hook:10');
+    expect(ids(g)).not.toContain('hook:11');
+  });
+
+  it('keeps a hook whose `active` field is absent (conservative)', () => {
+    const g = buildGraph({
+      organization: null, workspaces: [], engines: [], queues: [],
+      hooks: [{ id: 10, url: 'https://x/api/v1/hooks/10', name: 'Legacy', queues: [], run_after: [] }],
+    });
+    expect(ids(g)).toContain('hook:10');
+  });
+
+  it('bridges A -> B(disabled) -> C into A -> C', () => {
+    const g = buildGraph({
+      organization: null, workspaces: [], engines: [],
+      queues: [{ id: 1, url: 'https://x/api/v1/queues/1', name: 'Q' }],
+      hooks: [
+        { id: 10, url: 'https://x/api/v1/hooks/10', name: 'A', queues: ['https://x/api/v1/queues/1'], run_after: [], active: true },
+        { id: 11, url: 'https://x/api/v1/hooks/11', name: 'B', queues: ['https://x/api/v1/queues/1'], run_after: ['https://x/api/v1/hooks/10'], active: false },
+        { id: 12, url: 'https://x/api/v1/hooks/12', name: 'C', queues: ['https://x/api/v1/queues/1'], run_after: ['https://x/api/v1/hooks/11'], active: true },
+      ],
+    });
+    expect(ids(g)).not.toContain('hook:11');                       // B removed
+    expect(has(g, 'hook:10', 'hook:12', 'runAfter')).toBe(true);   // bridged A -> C
+    expect(has(g, 'hook:11', 'hook:12', 'runAfter')).toBe(false);  // no edge via removed B
+    // C has a real (bridged) predecessor, so it does NOT also anchor to its queue.
+    expect(has(g, 'queue:1', 'hook:12', 'reference')).toBe(false);
+    // A is a root, so it anchors to its queue (unchanged behavior).
+    expect(has(g, 'queue:1', 'hook:10', 'reference')).toBe(true);
+  });
+
+  it('bridges through a chain of two disabled hooks A -> B(dis) -> C(dis) -> D into A -> D', () => {
+    const g = buildGraph({
+      organization: null, workspaces: [], engines: [], queues: [],
+      hooks: [
+        { id: 10, url: 'https://x/api/v1/hooks/10', name: 'A', queues: [], run_after: [], active: true },
+        { id: 11, url: 'https://x/api/v1/hooks/11', name: 'B', queues: [], run_after: ['https://x/api/v1/hooks/10'], active: false },
+        { id: 12, url: 'https://x/api/v1/hooks/12', name: 'C', queues: [], run_after: ['https://x/api/v1/hooks/11'], active: false },
+        { id: 13, url: 'https://x/api/v1/hooks/13', name: 'D', queues: [], run_after: ['https://x/api/v1/hooks/12'], active: true },
+      ],
+    });
+    expect(ids(g)).not.toContain('hook:11');
+    expect(ids(g)).not.toContain('hook:12');
+    expect(has(g, 'hook:10', 'hook:13', 'runAfter')).toBe(true);
+  });
+
+  it('anchors an enabled successor of a disabled ROOT to its queue (no orphan)', () => {
+    const g = buildGraph({
+      organization: null, workspaces: [], engines: [],
+      queues: [{ id: 1, url: 'https://x/api/v1/queues/1', name: 'Q' }],
+      hooks: [
+        { id: 11, url: 'https://x/api/v1/hooks/11', name: 'B', queues: ['https://x/api/v1/queues/1'], run_after: [], active: false },
+        { id: 12, url: 'https://x/api/v1/hooks/12', name: 'C', queues: ['https://x/api/v1/queues/1'], run_after: ['https://x/api/v1/hooks/11'], active: true },
+      ],
+    });
+    expect(ids(g)).not.toContain('hook:11');
+    expect(has(g, 'queue:1', 'hook:12', 'reference')).toBe(true); // re-anchored, not floating
+  });
+
+  it('mixed predecessors: keeps the enabled one and bridges the disabled one', () => {
+    const g = buildGraph({
+      organization: null, workspaces: [], engines: [], queues: [],
+      hooks: [
+        { id: 10, url: 'https://x/api/v1/hooks/10', name: 'P', queues: [], run_after: [], active: true },
+        { id: 20, url: 'https://x/api/v1/hooks/20', name: 'X', queues: [], run_after: [], active: true },
+        { id: 11, url: 'https://x/api/v1/hooks/11', name: 'D', queues: [], run_after: ['https://x/api/v1/hooks/20'], active: false },
+        { id: 12, url: 'https://x/api/v1/hooks/12', name: 'C', queues: [],
+          run_after: ['https://x/api/v1/hooks/10', 'https://x/api/v1/hooks/11'], active: true },
+      ],
+    });
+    expect(has(g, 'hook:10', 'hook:12', 'runAfter')).toBe(true); // enabled predecessor kept
+    expect(has(g, 'hook:20', 'hook:12', 'runAfter')).toBe(true); // bridged through disabled D
+    expect(ids(g)).not.toContain('hook:11');
+  });
+
+  it('preserves today behavior: an enabled hook with a MISSING (non-disabled) predecessor still floats', () => {
+    const g = buildGraph({
+      organization: null, workspaces: [], engines: [],
+      queues: [{ id: 1, url: 'https://x/api/v1/queues/1', name: 'Q' }],
+      hooks: [
+        { id: 12, url: 'https://x/api/v1/hooks/12', name: 'C', queues: ['https://x/api/v1/queues/1'],
+          run_after: ['https://x/api/v1/hooks/999'], active: true },
+      ],
+    });
+    // predecessor 999 is absent (not disabled) -> no edge AND no queue anchor (unchanged).
+    expect(g.links.length).toBe(0);
+    expect(ids(g)).toContain('hook:12');
   });
 });

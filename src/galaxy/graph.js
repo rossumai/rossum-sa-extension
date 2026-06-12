@@ -92,6 +92,32 @@ export function buildGraph(raw) {
     links.push({ source: sourceId, target: targetId, kind });
   }
 
+  // Index every hook (including disabled ones) by id, for run_after bridging.
+  const hookById = new Map();
+  for (const hk of raw?.hooks || []) {
+    const k = hk.id ?? idFromUrl(hk.url);
+    if (k != null) hookById.set(String(k), hk);
+  }
+  const isDisabledHook = (id) => hookById.get(String(id))?.active === false;
+  // Resolve a hook's run_after predecessor ids, bridging THROUGH disabled hooks:
+  // a disabled predecessor is replaced by its own resolved predecessors,
+  // transitively. Enabled/unknown ids pass through. `visited` guards cycles.
+  function effectivePredIds(predIds, visited) {
+    const out = [];
+    for (const pid of predIds) {
+      const id = String(pid);
+      if (isDisabledHook(id)) {
+        if (visited.has(id)) continue;
+        visited.add(id);
+        const dhPreds = (hookById.get(id).run_after || []).map(idFromUrl).filter((x) => x != null);
+        for (const e of effectivePredIds(dhPreds, visited)) out.push(e);
+      } else {
+        out.push(id);
+      }
+    }
+    return out;
+  }
+
   // Organization (single root).
   const orgId = raw?.organization ? addNode('organization', raw.organization.id ?? idFromUrl(raw.organization.url), raw.organization.name, detailFor('organization', raw.organization)) : null;
 
@@ -113,8 +139,10 @@ export function buildGraph(raw) {
     const engId = idFromUrl(engUrl);
     if (engId) addNode('engine', engId, `Engine ${engId}`);
   }
-  // Hooks.
+  // Hooks. Disabled hooks (active === false) are not rendered; they stay in
+  // `hookById` only so run_after chains can bridge through them (below).
   for (const hk of raw?.hooks || []) {
+    if (hk.active === false) continue;
     addNode('hook', hk.id ?? idFromUrl(hk.url), hk.name, detailFor('hook', hk));
   }
 
@@ -138,19 +166,30 @@ export function buildGraph(raw) {
   // pipeline. Branching DAGs work: every root (empty run_after) anchors to its
   // queue(s); a hook with N predecessors gets N incoming runAfter edges.
   for (const hk of raw?.hooks || []) {
+    if (hk.active === false) continue; // disabled hooks render nothing
     const hkId = nodeId('hook', hk.id ?? idFromUrl(hk.url));
-    const runsAfter = hk.run_after || [];
-    if (runsAfter.length === 0) {
+    const anchorToQueues = () => {
       for (const qUrl of hk.queues || []) {
         const qRef = idFromUrl(qUrl);
         if (qRef) addLink(nodeId('queue', qRef), hkId, 'reference');
       }
-    } else {
-      for (const predUrl of runsAfter) {
-        const predRef = idFromUrl(predUrl);
-        if (predRef) addLink(nodeId('hook', predRef), hkId, 'runAfter'); // predecessor -> this hook
-      }
+    };
+    const directPredIds = (hk.run_after || []).map(idFromUrl).filter((x) => x != null);
+    if (directPredIds.length === 0) {
+      anchorToQueues(); // pipeline root
+      continue;
     }
+    // Bridge through any disabled predecessors, then link from the survivors.
+    const bridgedThroughDisabled = directPredIds.some(isDisabledHook);
+    let drewEdge = false;
+    for (const predId of effectivePredIds(directPredIds, new Set())) {
+      const predNode = nodeId('hook', predId);
+      if (present.has(predNode)) { addLink(predNode, hkId, 'runAfter'); drewEdge = true; } // predecessor -> this hook
+    }
+    // If bridging removed every predecessor, this hook is effectively a root —
+    // anchor it to its queue(s) so it does not float. Scoped to the bridge case,
+    // so a merely-missing predecessor keeps its existing (floating) behavior.
+    if (!drewEdge && bridgedThroughDisabled) anchorToQueues();
   }
 
   return { nodes, links };
