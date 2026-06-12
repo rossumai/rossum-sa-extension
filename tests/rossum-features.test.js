@@ -179,6 +179,29 @@ describe('resource-ids', () => {
     expect(badge.textContent).toBe('101');
   });
 
+  it('displays ID for AI engine tile (data-id attribute)', () => {
+    const el = document.createElement('div');
+    el.setAttribute('data-cy', 'engine-tile');
+    el.dataset.id = '777';
+    document.body.appendChild(el);
+
+    handleNode(el);
+
+    const badge = el.querySelector('.rossum-sa-extension-resource-id');
+    expect(badge).not.toBeNull();
+    expect(badge.textContent).toBe('777');
+  });
+
+  it('ignores engine tiles without data-id (dedicated/generic engines)', () => {
+    const el = document.createElement('div');
+    el.setAttribute('data-cy', 'engine-tile');
+    document.body.appendChild(el);
+
+    handleNode(el);
+
+    expect(el.querySelector('.rossum-sa-extension-resource-id')).toBeNull();
+  });
+
   it('displays ID for extension name (extracted from parent href)', () => {
     const anchor = document.createElement('a');
     anchor.setAttribute('href', '/extensions/my-extensions/333');
