@@ -336,4 +336,18 @@ describe('buildGraph — disabled hooks', () => {
     expect(g.links.length).toBe(0);
     expect(ids(g)).toContain('hook:12');
   });
+
+  it('queue "Hooks" count excludes disabled hooks', () => {
+    const g = buildGraph({
+      organization: null, workspaces: [], engines: [],
+      queues: [{ id: 1, url: 'https://x/api/v1/queues/1', name: 'Q',
+        hooks: ['https://x/api/v1/hooks/10', 'https://x/api/v1/hooks/11'] }],
+      hooks: [
+        { id: 10, url: 'https://x/api/v1/hooks/10', name: 'On', queues: ['https://x/api/v1/queues/1'], run_after: [], active: true },
+        { id: 11, url: 'https://x/api/v1/hooks/11', name: 'Off', queues: ['https://x/api/v1/queues/1'], run_after: [], active: false },
+      ],
+    });
+    const q = g.nodes.find((n) => n.id === 'queue:1');
+    expect(q.detail).toContainEqual(['Hooks', '1']); // only the enabled hook is counted
+  });
 });

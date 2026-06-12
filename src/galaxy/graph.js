@@ -36,7 +36,7 @@ function pairs(...rows) {
     .filter(([, v]) => v !== null && v !== undefined && v !== '')
     .map(([k, v]) => [k, String(v)]);
 }
-function detailFor(type, o) {
+function detailFor(type, o, isDisabledHook) {
   if (type === 'organization') return pairs(
     ['Workspaces', (o.workspaces || []).length],
     ['Users', (o.users || []).length],
@@ -51,7 +51,8 @@ function detailFor(type, o) {
     ['Status', o.status],
     ['Automation', o.automation_enabled ? (o.automation_level || 'on') : 'off'],
     ['Score threshold', o.default_score_threshold],
-    ['Hooks', (o.hooks || []).length],
+    // Count only hooks that are actually shown — disabled hooks are hidden.
+    ['Hooks', (o.hooks || []).filter((u) => !(isDisabledHook && isDisabledHook(idFromUrl(u)))).length],
     ['Schema', idFromUrl(o.schema)],
     ['Inbox', idFromUrl(o.inbox)],
   );
@@ -132,7 +133,7 @@ export function buildGraph(raw) {
   }
   // Queues (+ engines derived from queue refs as a fallback for any engine not in the list).
   for (const q of raw?.queues || []) {
-    addNode('queue', q.id ?? idFromUrl(q.url), q.name, detailFor('queue', q));
+    addNode('queue', q.id ?? idFromUrl(q.url), q.name, detailFor('queue', q, isDisabledHook));
     // Modern Rossum queues carry a unified `engine` field; older ones used
     // dedicated_engine / generic_engine (verified live: ferguson-dev uses `engine`).
     const engUrl = q.engine || q.dedicated_engine || q.generic_engine;
