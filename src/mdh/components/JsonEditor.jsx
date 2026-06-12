@@ -3,17 +3,20 @@ import { h } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { EditorView, basicSetup } from 'codemirror';
 import { EditorState } from '@codemirror/state';
-import { keymap } from '@codemirror/view';
-import { indentWithTab } from '@codemirror/commands';
+import { keymap, highlightSpecialChars, drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightActiveLine } from '@codemirror/view';
+import { indentWithTab, history, defaultKeymap, historyKeymap } from '@codemirror/commands';
 // We use the JavaScript grammar (a strict superset of JSON5) so that line and
 // block comments inside prefilled templates are tokenized as comments instead
 // of falling through as untagged text. JSON5.parse below still owns validation.
 import { javascript } from '@codemirror/lang-javascript';
 import { oneDark } from '@codemirror/theme-one-dark';
-import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
+import { syntaxHighlighting, HighlightStyle, defaultHighlightStyle, indentOnInput, bracketMatching, foldKeymap } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
-import { autocompletion } from '@codemirror/autocomplete';
+import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete';
+import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
+import { lintKeymap } from '@codemirror/lint';
 import JSON5 from 'json5';
+import { stageToggleGutter } from '../pipelineGutter.js';
 
 const darkQuery = typeof window !== 'undefined' && window.matchMedia
   ? window.matchMedia('(prefers-color-scheme: dark)')
@@ -50,6 +53,37 @@ const compactTheme = EditorView.theme({
   '.cm-content': { padding: '4px 0' },
   '&.cm-focused': { outline: 'none' },
 });
+
+// `basicSetup` minus the line-number and fold gutters. CodeMirror's docs say the
+// way to customize basicSetup is to copy its array literal and adjust it, so the
+// aggregate pipeline editor uses this: its only gutter is the stage enable/disable
+// toggle — reclaiming horizontal space and removing the section-collapse (fold)
+// button. CSS-hiding the gutters proved unreliable; not rendering them is robust.
+const aggregateSetup = [
+  highlightSpecialChars(),
+  history(),
+  drawSelection(),
+  dropCursor(),
+  EditorState.allowMultipleSelections.of(true),
+  indentOnInput(),
+  syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+  bracketMatching(),
+  closeBrackets(),
+  autocompletion(),
+  rectangularSelection(),
+  crosshairCursor(),
+  highlightActiveLine(),
+  highlightSelectionMatches(),
+  keymap.of([
+    ...closeBracketsKeymap,
+    ...defaultKeymap,
+    ...searchKeymap,
+    ...historyKeymap,
+    ...foldKeymap,
+    ...completionKeymap,
+    ...lintKeymap,
+  ]),
+];
 
 const QUERY_OPERATORS = [
   { label: '$eq', type: 'keyword', detail: 'Matches values equal to a value' },
@@ -177,15 +211,17 @@ function getCompletionSets(mode) {
   return [QUERY_OPERATORS, UPDATE_OPERATORS, AGGREGATION_STAGES, EXPRESSION_OPERATORS];
 }
 
-export default function JsonEditor({ value = '', onChange, onValidChange, mode = 'default', fields, compact = false, readOnly = false, onSubmit, editorRef, minHeight = '200px' }) {
+export default function JsonEditor({ value = '', onChange, onValidChange, onToggleStage, mode = 'default', fields, compact = false, readOnly = false, onSubmit, editorRef, minHeight = '200px' }) {
   const containerRef = useRef(null);
   const viewRef = useRef(null);
   const onChangeRef = useRef(onChange);
   const onValidChangeRef = useRef(onValidChange);
   const onSubmitRef = useRef(onSubmit);
+  const onToggleStageRef = useRef(onToggleStage);
   onChangeRef.current = onChange;
   onValidChangeRef.current = onValidChange;
   onSubmitRef.current = onSubmit;
+  onToggleStageRef.current = onToggleStage;
 
   useEffect(() => {
     const completionSets = getCompletionSets(mode);
@@ -202,12 +238,15 @@ export default function JsonEditor({ value = '', onChange, onValidChange, mode =
     let validChangeTimer = null;
 
     const extensions = [
-      basicSetup,
+      mode === 'aggregate' ? aggregateSetup : basicSetup,
       keymap.of(keymaps),
       javascript(),
       compact ? compactTheme : baseTheme,
       EditorView.lineWrapping,
       autocompletion({ override: [mongoCompletions(completionSets, fieldsFn)] }),
+      ...(mode === 'aggregate'
+        ? [stageToggleGutter((idx) => { if (onToggleStageRef.current) onToggleStageRef.current(idx); })]
+        : []),
       EditorView.updateListener.of((update) => {
         if (update.docChanged) {
           if (onChangeRef.current) onChangeRef.current();

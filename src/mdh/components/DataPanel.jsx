@@ -21,6 +21,7 @@ import { addToHistory } from './QueryHistory.jsx';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
 import { applySortToPipeline, applyFilterDeltaToPipeline, applySkipToPipeline, extractUIStateFromPipeline, stripPaginationStages } from '../pipelineOps.js';
+import { applyMutationToText, normalizeEffectivePipelineText, setStageDisabled, parseEntries } from '../pipelineComments.js';
 import { savePipelineState, getPipelineState } from '../pipelineState.js';
 import { saveLastPipeline } from '../lastPipeline.js';
 import { downloadCollection as runDownload, buildCsvSerializer, buildXmlSerializer, buildNdjsonSerializer } from '../downloadCollection.js';
@@ -78,17 +79,10 @@ export default function DataPanel() {
   // No-op when the editor holds invalid JSON/JSON5 so the user's WIP isn't discarded.
   function mutatePipelineText(mutator) {
     if (!editorRef.current) return;
-    let parsed;
-    try {
-      parsed = JSON5.parse(editorRef.current.getValue());
-      if (!Array.isArray(parsed)) return;
-    } catch {
-      return;
-    }
-    const next = parsed.map((s) => (s && typeof s === 'object' && !Array.isArray(s) ? { ...s } : s));
-    mutator(next);
+    const next = applyMutationToText(editorRef.current.getValue(), mutator);
+    if (next == null) return;
     pipeline.suppressSync.value = true;
-    editorRef.current.setValue(JSON.stringify(next, null, 2));
+    editorRef.current.setValue(next);
     setTimeout(() => { pipeline.suppressSync.value = false; }, 600);
   }
 
@@ -96,7 +90,11 @@ export default function DataPanel() {
     if (!collection || !editorRef.current) return;
     const rawText = editorRef.current.getValue();
     await pipeline.ensureFieldTypes(collection, pipeline.referencedFields(rawText));
-    const result = await query.runQuery(collection, rawText, pipeline.substituteWithTypes);
+    const result = await query.runQuery(
+      collection,
+      rawText,
+      (t) => normalizeEffectivePipelineText(pipeline.substituteWithTypes(t)),
+    );
     if (result) {
       addToHistory(collection, rawText, { ...pipeline.placeholderValues.value }, { ...pipeline.placeholderTypes.value });
     }
@@ -365,6 +363,19 @@ export default function DataPanel() {
       editorRef.current.setValue(pipelineText);
       setTimeout(() => { pipeline.suppressSync.value = false; runQuery(); }, 100);
     }
+  }
+
+  function handleToggleStage(entryIndex) {
+    if (!editorRef.current) return;
+    const text = editorRef.current.getValue();
+    const { entries, ok } = parseEntries(text);
+    if (!ok || entryIndex < 0 || entryIndex >= entries.length) return;
+    const next = setStageDisabled(text, entryIndex, !entries[entryIndex].disabled);
+    if (next === text) return;
+    if (selectionMode.value) selectionPipelineDirty.value = true;
+    pipeline.suppressSync.value = true;
+    editorRef.current.setValue(next);
+    setTimeout(() => { pipeline.suppressSync.value = false; runQuery(); }, 100);
   }
 
   function handleSort(field) {
@@ -863,6 +874,7 @@ export default function DataPanel() {
           onValidChange={handleValidChange}
           onLoadPipeline={handleLoadPipeline}
           onReset={handleReset}
+          onToggleStage={handleToggleStage}
         />
         <PlaceholderInputs
           names={placeholderNames}
@@ -873,7 +885,10 @@ export default function DataPanel() {
           onRunQuery={runQuery}
           resolvedTypeFor={(name) => pipeline.resolvedTypeForName(name, editorState.fieldMap || {}, editorState.parsed != null)}
         />
-        <PipelineDebug pipeline={editorState.parsed} />
+        <PipelineDebug
+          entries={parseEntries(pipeline.substituteWithTypes(editorState.text)).entries}
+          onToggleStage={handleToggleStage}
+        />
       </div>
       <div class="data-panel-resizer" onMouseDown={initPanelResize}></div>
       <div class="data-panel-right">

@@ -4,9 +4,9 @@ import { selectedCollection, records } from '../store.js';
 import { extractFieldNames } from './JsonEditor.jsx';
 import JsonEditor from './JsonEditor.jsx';
 import { LibraryPanel, saveQuery, unsaveQuery, isSaved } from './QueryHistory.jsx';
-import JSON5 from 'json5';
+import { beautifyText } from '../pipelineComments.js';
 
-export default function PipelineEditor({ editorRef, initialValue, onChange, onValidChange, onLoadPipeline, onReset }) {
+export default function PipelineEditor({ editorRef, initialValue, onChange, onValidChange, onLoadPipeline, onReset, onToggleStage }) {
   const [savedState, setSavedState] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [libraryTab, setLibraryTab] = useState('saved');
@@ -55,10 +55,8 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
 
   function beautify() {
     if (!editorRef.current) return;
-    try {
-      const parsed = JSON5.parse(editorRef.current.getValue());
-      editorRef.current.setValue(JSON.stringify(parsed, null, 2));
-    } catch { /* invalid JSON, ignore */ }
+    const out = beautifyText(editorRef.current.getValue());
+    if (out != null) editorRef.current.setValue(out);
   }
 
   async function handleSave() {
@@ -152,6 +150,7 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
           fields={fieldsFn}
           editorRef={editorRef}
           onChange={onChange}
+          onToggleStage={onToggleStage}
           onValidChange={() => {
             onValidChange();
             updateSaveBtn();

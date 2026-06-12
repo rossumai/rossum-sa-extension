@@ -8,6 +8,7 @@ import * as api from '../src/mdh/api.js';
 import PipelineDebug from '../src/mdh/components/PipelineDebug.jsx';
 import Modal from '../src/mdh/components/Modal.jsx';
 import { selectedCollection, modalContent } from '../src/mdh/store.js';
+import { stagesToEntries } from '../src/mdh/pipelineComments.js';
 
 // The 0th "input" row counts the whole collection via $collStats (instant
 // metadata count) — distinct from the per-stage prefix runs, which end with
@@ -22,7 +23,8 @@ function mount(props) {
   document.body.innerHTML = '';
   const root = document.createElement('div');
   document.body.appendChild(root);
-  render(h(PipelineDebug, props), root);
+  const entries = props.entries ?? stagesToEntries(props.pipeline);
+  render(h(PipelineDebug, { entries, onToggleStage: props.onToggleStage ?? (() => {}) }), root);
   return root;
 }
 
@@ -144,7 +146,10 @@ describe('PipelineDebug', () => {
     document.body.innerHTML = '';
     const root = document.createElement('div');
     document.body.appendChild(root);
-    render(h('div', null, h(PipelineDebug, { pipeline }), h(Modal, null)), root);
+    render(h('div', null,
+      h(PipelineDebug, { entries: stagesToEntries(pipeline), onToggleStage: () => {} }),
+      h(Modal, null),
+    ), root);
     await waitFor(() => root.querySelector('.pipeline-debug-input-row'), 'input row rendered');
 
     root.querySelector('.pipeline-debug-input-row').click();
@@ -275,5 +280,42 @@ describe('PipelineDebug', () => {
     const time = root.querySelector('.pipeline-debug-row:not(.pipeline-debug-input-row) .pipeline-debug-time');
     expect(time).not.toBeNull();
     expect(time.textContent).toMatch(/^\d+ms$/);
+  });
+});
+
+describe('PipelineDebug — disabled stages', () => {
+  it('renders a disabled row greyed, with no count request for it', async () => {
+    const entries = [
+      { disabled: false, stage: { $match: { x: 1 } } },
+      { disabled: true, stage: { $sort: { a: -1 } } },
+      { disabled: false, stage: { $limit: 50 } },
+    ];
+    api.aggregate.mockResolvedValue({ result: [{ n: 5 }] });
+
+    const root = mount({ entries });
+    // 2 active stage prefixes + 1 input ($collStats). The disabled stage adds none.
+    await waitFor(() => api.aggregate.mock.calls.length >= 3, 'active prefixes + input issued');
+
+    const stageCalls = api.aggregate.mock.calls.filter(isStageCountCall);
+    expect(stageCalls).toHaveLength(2); // NOT 3 — disabled stage is not counted
+    // No prefix request contains $sort (the disabled stage).
+    for (const [, pl] of stageCalls) {
+      expect(JSON.stringify(pl)).not.toContain('$sort');
+    }
+    expect(root.querySelector('.pipeline-debug-disabled')).not.toBeNull();
+  });
+
+  it('clicking a row toggle calls onToggleStage with the entry index', async () => {
+    const entries = [
+      { disabled: false, stage: { $match: {} } },
+      { disabled: false, stage: { $limit: 50 } },
+    ];
+    api.aggregate.mockResolvedValue({ result: [{ n: 1 }] });
+    const calls = [];
+    const root = mount({ entries, onToggleStage: (i) => calls.push(i) });
+    await waitFor(() => root.querySelectorAll('.pipeline-stage-toggle').length === 2, 'toggles rendered');
+
+    root.querySelectorAll('.pipeline-stage-toggle')[1].click();
+    expect(calls).toEqual([1]);
   });
 });

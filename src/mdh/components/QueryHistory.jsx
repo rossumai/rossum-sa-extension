@@ -2,6 +2,7 @@ import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import JSON5 from 'json5';
 import { selectedCollection, scopeSuffix } from '../store.js';
+import { parseEntries } from '../pipelineComments.js';
 
 const MAX_HISTORY = 30;
 
@@ -18,11 +19,16 @@ async function writeList(baseKey, list) {
 }
 
 // Normalize a pipeline string so cosmetic edits (whitespace, key order from
-// JSON5 reformatting) don't create duplicate entries. Falls back to the raw
-// string if parsing fails.
+// JSON5 reformatting) don't create duplicate entries. Includes disabled-stage
+// flags so a pipeline and its disabled-stage variant are stored separately.
+// Falls back to the raw string if parsing fails.
 function dedupKey(collection, pipeline) {
   let normalized = pipeline;
-  try { normalized = JSON.stringify(JSON5.parse(pipeline)); } catch { /* keep raw */ }
+  try {
+    const { entries, ok } = parseEntries(pipeline);
+    if (ok) normalized = JSON.stringify(entries.map((e) => ({ d: e.disabled ? 1 : 0, s: e.stage })));
+    else normalized = JSON.stringify(JSON5.parse(pipeline));
+  } catch { /* keep raw */ }
   return collection + '::' + normalized;
 }
 
