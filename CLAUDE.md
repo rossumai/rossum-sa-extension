@@ -141,10 +141,26 @@ Source `manifest.json` has a placeholder `"version": "0.0"` — never edit it ma
 
 ## Release Process
 
-1. `npm test` — must be fully green before packaging; fix any failures and re-run
-2. `npm run build`
-3. ZIP the `dist/` folder
-4. Upload via https://chrome.google.com/webstore/devconsole
+Releases are automated via the **Release** GitHub Actions workflow
+(`.github/workflows/release.yml`), triggered manually:
+
+1. Go to the repo's **Actions** tab → **Release** → **Run workflow** (on `master`).
+2. The `test` job runs `npm ci → npm run build → npm test`. If it fails, nothing
+   is published.
+3. On green tests, the `release` job rebuilds, zips `dist/`, and uploads +
+   publishes to the Chrome Web Store (public). Chrome review still applies
+   (usually days).
+
+One-time credential setup (Google Cloud OAuth + the five `CWS_*` GitHub secrets)
+is documented in [`docs/chrome-web-store-release.md`](docs/chrome-web-store-release.md).
+
+Notes:
+- The version is derived from the git commit count (see Versioning), so each new
+  commit yields a higher, valid version automatically. Re-running the workflow
+  from the **same commit** fails the upload (duplicate version) — advance a
+  commit to re-release.
+- The manual ZIP-and-upload via the Developer Dashboard is still available as a
+  fallback if the workflow is unavailable.
 
 ## Browser Automation
 

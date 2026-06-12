@@ -1,0 +1,56 @@
+name: Release
+
+# Manual-only: a maintainer clicks "Run workflow" in the Actions tab.
+# It builds, runs the tests, and — only if tests pass — uploads and
+# publishes the extension to the Chrome Web Store (public).
+on:
+  workflow_dispatch:
+
+# Never run two releases at once; don't cancel an in-flight publish.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # build.js derives the version from `git rev-list --count HEAD`;
+          # a shallow clone would make the count 1 and the version "0.1".
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
+  release:
+    needs: test            # only runs if the test job succeeds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history -> correct, monotonic version
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Package dist/ contents into extension.zip
+        # Zip the CONTENTS of dist/ so manifest.json lands at the archive
+        # root; zipping the dist/ folder itself would nest it and fail upload.
+        run: cd dist && zip -r ../extension.zip .
+      - name: Upload and publish to Chrome Web Store
+        # No subcommand => upload AND publish to public.
+        run: npx --yes chrome-webstore-upload-cli@4 --source extension.zip
+        env:
+          EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
