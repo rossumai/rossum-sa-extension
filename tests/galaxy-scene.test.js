@@ -30,6 +30,10 @@ const { captured, Vector2, Vector3, Color, hits } = vi.hoisted(() => {
       this.z = a.z + (b.z - a.z) * t;
       return this;
     }
+    distanceTo(v) {
+      const dx = this.x - v.x, dy = this.y - v.y, dz = this.z - v.z;
+      return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
   }
   class Color {
     constructor(r = 1, g = 1, b = 1) {
@@ -42,6 +46,7 @@ const { captured, Vector2, Vector3, Color, hits } = vi.hoisted(() => {
   return {
     captured: {
       rendererInstances: [],
+      cameraInstances: [],
       controlsInstances: [],
       simInstances: [],
       groupInstances: [],
@@ -67,7 +72,7 @@ vi.mock('three', () => {
     remove() {}
   }
   class PerspectiveCamera {
-    constructor() { this.position = new Vector3(); this.aspect = 1; this.fov = 60; }
+    constructor() { this.position = new Vector3(); this.aspect = 1; this.fov = 60; this.near = 0.1; this.far = 8000; captured.cameraInstances.push(this); }
     updateProjectionMatrix() {}
   }
   class WebGLRenderer {
@@ -174,7 +179,7 @@ vi.mock('d3-force-3d', () => {
   return { forceSimulation: () => makeSim(), forceManyBody, forceLink, forceCenter, forceX, forceY, forceZ };
 });
 
-import { createScene } from '../src/galaxy/scene.js';
+import { createScene, fogRange } from '../src/galaxy/scene.js';
 
 const SAMPLE = {
   nodes: [
@@ -536,5 +541,79 @@ describe('createScene (three.js + d3-force-3d)', () => {
     // runAfter (link 1): source vertex differs from target vertex -> gradient present
     const diff = Math.abs(arr[8] - arr[12]) + Math.abs(arr[9] - arr[13]) + Math.abs(arr[10] - arr[14]);
     expect(diff).toBeGreaterThan(0.01);
+  });
+
+  it('drives fog near/far from the live camera distance every frame (stays visible when zoomed out)', () => {
+    // Capture the scheduled frame so we can step the loop manually (the shared
+    // rafSpy returns a handle without invoking the callback).
+    let frameCb = null;
+    window.requestAnimationFrame.mockImplementation((cb) => { frameCb = cb; return 1; });
+    const c2 = document.createElement('div');
+    document.body.appendChild(c2);
+    const s2 = createScene(c2); // animate() runs once at construction, capturing the next frame
+
+    const sc = captured.sceneInstances[captured.sceneInstances.length - 1];
+    const ctrls = captured.controlsInstances[captured.controlsInstances.length - 1];
+
+    // The construction frame already applied fog from the initial camera distance
+    // (camera at (0,80,600), target at origin) — NOT the static Fog(1, 4000) default.
+    const distOrigin = Math.sqrt(80 * 80 + 600 * 600);
+    expect(sc.fog.near).toBeCloseTo(distOrigin, 1);
+    expect(sc.fog.far).toBeCloseTo(distOrigin + 1.5, 1); // fogRadius defaults to 1 before setData
+    const farBefore = sc.fog.far;
+
+    // "Zoom out": grow the camera->target distance, then step one frame.
+    ctrls.target.set(0, 0, -3000);
+    frameCb();
+
+    const distOut = Math.sqrt(80 * 80 + 3600 * 3600); // dz = 600 - (-3000)
+    expect(sc.fog.near).toBeCloseTo(distOut, 0);     // fog tracks the new distance
+    expect(sc.fog.far).toBeCloseTo(distOut + 1.5, 0);
+    expect(sc.fog.far).toBeGreaterThan(farBefore);   // never frozen -> never fades fully away
+
+    s2.destroy();
+    if (c2.parentNode) c2.parentNode.removeChild(c2);
+  });
+
+  it('fitToView caps zoom-out (maxDistance) and widens the camera far plane to fit', () => {
+    // Explicit positions so fitToView computes a real radius/distance (the mocked
+    // d3 sim does not assign node positions).
+    scene.setData({
+      nodes: [
+        { id: 'a', type: 'queue', rawId: '1', name: 'A', color: '#fff', val: 5, x: -100, y: 0, z: 0 },
+        { id: 'b', type: 'queue', rawId: '2', name: 'B', color: '#fff', val: 5, x: 100, y: 0, z: 0 },
+      ],
+      links: [],
+    });
+    const ctrls = captured.controlsInstances[captured.controlsInstances.length - 1];
+    const cam = captured.cameraInstances[captured.cameraInstances.length - 1];
+    // A finite, positive cap (so the orbit can no longer dolly out to infinity).
+    expect(Number.isFinite(ctrls.maxDistance)).toBe(true);
+    expect(ctrls.maxDistance).toBeGreaterThan(0);
+    // Far plane stays at least the original 8000 and always exceeds the cap (no hard clip).
+    expect(Number.isFinite(cam.far)).toBe(true);
+    expect(cam.far).toBeGreaterThanOrEqual(8000);
+    expect(cam.far).toBeGreaterThan(ctrls.maxDistance);
+  });
+});
+
+describe('fogRange', () => {
+  it('floors near at 1 for tiny distances', () => {
+    expect(fogRange(0.5, 10).near).toBe(1);
+    expect(fogRange(0, 10).near).toBe(1);
+  });
+  it('near equals the camera distance once past 1', () => {
+    expect(fogRange(500, 10).near).toBe(500);
+  });
+  it('far is the distance plus 1.5x the radius', () => {
+    expect(fogRange(500, 200).far).toBe(800); // 500 + 200*1.5
+    expect(fogRange(1000, 0).far).toBe(1000);
+  });
+  it('far is always beyond near for a positive radius', () => {
+    const r = fogRange(500, 200);
+    expect(r.far).toBeGreaterThan(r.near);
+  });
+  it('near grows monotonically with distance (the band follows the camera)', () => {
+    expect(fogRange(1000, 50).near).toBeGreaterThan(fogRange(400, 50).near);
   });
 });

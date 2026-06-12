@@ -50,6 +50,18 @@ const EDGE_HI_LIGHT = new THREE.Color(0.16, 0.21, 0.33); // strong ink — relev
 const EDGE_HI_DARK = new THREE.Color(0.86, 0.90, 1.0);   // ...and bright on a dark backdrop
 const EDGE_HI_AMT = 0.7; // how far relevant edges shift toward the highlight ink (keeps a hint of kind tint)
 
+// How many "fitted distances" the user may dolly out before the orbit stops.
+// Generous: the galaxy is still clearly visible (just small) at the limit.
+const MAX_ZOOM_OUT_FACTOR = 8;
+
+// Linear-fog near/far for a camera distance + scene radius. Pure + exported so the
+// depth-fade math is unit-testable without WebGL. Recomputed every frame (see
+// animate) from the LIVE camera distance, so the galaxy keeps the same relative fog
+// band at any zoom and never fades fully into the page background. `near` floors at 1.
+export function fogRange(dist, r) {
+  return { near: Math.max(1, dist), far: dist + r * 1.5 };
+}
+
 // Read a Console theme CSS custom property at runtime (so the scene matches the
 // page's light/dark backdrop). Falls back when unavailable (e.g. jsdom in tests).
 function cssVar(name, fallback) {
@@ -112,6 +124,7 @@ export function createScene(container) {
   let hoverCb = () => {}, clickCb = () => {};
   let raf = null, idleTimer = null;
   let focusTween = null;
+  let fogRadius = 1; // current scene radius; set by fitToView, read by applyFog each frame
   let pinnedId = null; // set by a click; freezes hover so the dim stays while rotating
   let downX = 0, downY = 0; // pointerdown position, to tell a real click from a rotate/pan drag
   const raycaster = new THREE.Raycaster();
@@ -160,7 +173,13 @@ export function createScene(container) {
     r += 60; // padding
     const fov = (camera.fov * Math.PI) / 180;
     const dist = r / Math.tan(fov / 2);
-    if (scene.fog) { scene.fog.near = Math.max(1, dist); scene.fog.far = dist + r * 1.5; }
+    // Remember the radius for the per-frame fog recompute (applyFog); cap how far
+    // the user can dolly out; and widen the camera far plane so the capped zoom
+    // never clips the galaxy out of the frustum. Fog itself is applied each frame.
+    fogRadius = r;
+    controls.maxDistance = dist * MAX_ZOOM_OUT_FACTOR;
+    const wantFar = Math.max(8000, controls.maxDistance + r * 2);
+    if (camera.far !== wantFar) { camera.far = wantFar; camera.updateProjectionMatrix(); }
     const center = new THREE.Vector3(cx, cy, cz);
     const dir = camera.position.clone().sub(controls.target).normalize();
     const toPos = center.clone().add(dir.multiplyScalar(dist));
@@ -364,10 +383,20 @@ export function createScene(container) {
     controls.target.lerpVectors(focusTween.fromTarget, focusTween.toTarget, e);
     if (focusTween.t >= 1) focusTween = null;
   }
+  // Recompute the depth fog from the LIVE camera distance so the galaxy keeps the
+  // same relative fog band at any zoom (never fades fully into the background).
+  function applyFog() {
+    if (!scene.fog) return;
+    const dist = camera.position.distanceTo(controls.target);
+    const { near, far } = fogRange(dist, fogRadius);
+    scene.fog.near = near;
+    scene.fog.far = far;
+  }
   function animate() {
     raf = requestAnimationFrame(animate);
     stepFocus();
     controls.update();
+    applyFog();
     syncPositions();
     renderer.render(scene, camera);
   }
