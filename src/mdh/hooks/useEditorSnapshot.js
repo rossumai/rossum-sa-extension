@@ -29,7 +29,21 @@ export function useEditorSnapshot(editorRef, computeFn) {
     }, DEBOUNCE_MS);
   }
 
-  useEffect(() => () => clearTimeout(timerRef.current), []);
+  // Seed the snapshot from the editor's content on mount. The editor's text isn't
+  // reactive, and a programmatic setValue that writes text byte-identical to what's
+  // already there fires no CodeMirror change event — the default-pipeline load does
+  // exactly this (DataPanel.syncPipeline writes the same default text the editor was
+  // created with; see editorDiff.computeMinimalChange returning null for equal
+  // strings). Without this seed nothing would ever call recompute() on that path, so
+  // editorState.text would stay '' and everything keyed off it (the Variables inputs,
+  // the Pipeline Debug) would never appear until the first real edit. Debounced like
+  // every other recompute, so it lands after the consumer's mount effects settle the
+  // initial text (no flash of stale default when a saved/external pipeline loads, and
+  // it no-ops harmlessly if the editor isn't mounted yet).
+  useEffect(() => {
+    recompute();
+    return () => clearTimeout(timerRef.current);
+  }, []);
 
   return [snapshot, recompute];
 }

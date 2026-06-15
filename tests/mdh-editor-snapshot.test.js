@@ -29,10 +29,40 @@ async function flushDebounce() {
   await new Promise((r) => setTimeout(r, 0));
 }
 
+// Poll for a condition instead of sleeping a fixed span. The mount-time seed
+// fires from a deferred effect (after paint) PLUS the 250ms debounce, so a fixed
+// wait races those under full-suite CPU contention.
+async function waitFor(condition, description = 'condition', timeoutMs = 2000) {
+  const start = Date.now();
+  for (;;) {
+    let ok = false;
+    try { ok = condition(); } catch { ok = false; }
+    if (ok) return;
+    if (Date.now() - start > timeoutMs) throw new Error(`Timeout waiting for ${description} after ${timeoutMs}ms`);
+    await new Promise((r) => setTimeout(r, 5));
+  }
+}
+
 describe('useEditorSnapshot', () => {
   it('starts with an empty snapshot', () => {
     const get = setup({ current: { getValue: () => '' } }, () => ({}));
     expect(get().snapshot).toEqual({ text: '', placeholders: [], parsed: null });
+  });
+
+  it('seeds the snapshot from the editor on mount, with no manual recompute()', async () => {
+    // A default-pipeline load can write text byte-identical to the editor's initial
+    // content (a no-op setValue that fires no CodeMirror change event), so nothing
+    // would ever call recompute(). Mounting alone must seed the snapshot, otherwise
+    // anything keyed off it (the Variables inputs, the Pipeline Debug) stays hidden.
+    const text = '[{"$match":{}},{"$limit":50}]';
+    const editorRef = { current: { getValue: () => text } };
+    const computeFn = () => ({ placeholders: [], parsed: [] });
+    const get = setup(editorRef, computeFn);
+
+    // Intentionally NO get().recompute() call — mounting alone must seed it.
+    await waitFor(() => get().snapshot.text === text, 'snapshot to seed from the editor on mount');
+
+    expect(get().snapshot.text).toBe(text);
   });
 
   it('updates the snapshot from editorRef + computeFn after the debounce', async () => {
