@@ -17,6 +17,7 @@ import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
 import { lintKeymap } from '@codemirror/lint';
 import JSON5 from 'json5';
 import { stageToggleGutter } from '../pipelineGutter.js';
+import { computeMinimalChange } from '../editorDiff.js';
 
 const darkQuery = typeof window !== 'undefined' && window.matchMedia
   ? window.matchMedia('(prefers-color-scheme: dark)')
@@ -322,7 +323,17 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
     if (editorRef) {
       editorRef.current = {
         getValue: () => viewRef.current.state.doc.toString(),
-        setValue: (v) => viewRef.current.dispatch({ changes: { from: 0, to: viewRef.current.state.doc.length, insert: v } }),
+        // Write back as a MINIMAL change (shared prefix/suffix kept) rather than a
+        // whole-document replace, so localized edits — a stage toggle, sort, filter
+        // or pagination tweak — don't reset the editor's scroll position to the top
+        // (a full replace collapses CodeMirror's scroll anchor to offset 0). See
+        // editorDiff.js. A genuinely different document still produces a large change
+        // and scrolls toward the top, as before.
+        setValue: (v) => {
+          const view = viewRef.current;
+          const change = computeMinimalChange(view.state.doc.toString(), v);
+          if (change) view.dispatch({ changes: change });
+        },
         isValid: () => { const t = viewRef.current.state.doc.toString().trim(); if (!t) return false; try { JSON5.parse(t); return true; } catch { return false; } },
         getParsed: () => JSON5.parse(viewRef.current.state.doc.toString()),
         getError: () => containerRef.current?.querySelector('.json-editor-error')?.textContent || '',
