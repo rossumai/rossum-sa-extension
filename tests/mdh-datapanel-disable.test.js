@@ -31,13 +31,50 @@ vi.mock('../src/mdh/components/RecordList.jsx', () => ({ default: () => h('div',
 vi.mock('../src/mdh/components/PipelineDebug.jsx', () => ({ default: () => h('div', { 'data-testid': 'debug' }) }));
 
 import * as api from '../src/mdh/api.js';
+import * as cache from '../src/mdh/cache.js';
 import DataPanel from '../src/mdh/components/DataPanel.jsx';
 import { selectedCollection, records } from '../src/mdh/store.js';
 
 async function tick() { await new Promise((r) => setTimeout(r, 0)); await new Promise((r) => setTimeout(r, 0)); }
 
+// Poll for a condition rather than sleeping a fixed span. DataPanel loads its
+// default pipeline from a setTimeout(50ms); under full-suite CPU load a fixed
+// near-zero wait lets that late write land *after* the test edits the editor,
+// clobbering the test's pipeline — the source of this file's intermittent
+// failures. Condition-based waits remove the race.
+async function waitFor(condition, description = 'condition', timeoutMs = 3000) {
+  const start = Date.now();
+  for (;;) {
+    let ok = false;
+    try { ok = condition(); } catch { ok = false; }
+    if (ok) return;
+    if (Date.now() - start > timeoutMs) throw new Error(`Timeout waiting for ${description} after ${timeoutMs}ms`);
+    await new Promise((r) => setTimeout(r, 5));
+  }
+}
+
+// Mount DataPanel and wait until its default-pipeline load has written the editor,
+// so subsequent edits aren't clobbered by that late write.
+async function mountDataPanel() {
+  const root = document.createElement('div');
+  document.body.appendChild(root);
+  render(h(DataPanel, null), root);
+  await waitFor(() => mock.text !== '', 'the default pipeline to load into the editor');
+  return root;
+}
+
+// Real query aggregations only (exclude the $count / $collStats probes).
+function queryAggregations() {
+  return api.aggregate.mock.calls
+    .filter(([, pl]) => Array.isArray(pl) && !pl.some((s) => s && s.$count) && !pl.some((s) => s && s.$collStats))
+    .map(([, pl]) => pl);
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
+  // Clean cache so every test takes the same default-load path deterministically
+  // (no cross-test cache state deciding whether the load runs a query).
+  cache.invalidateAll();
   api.aggregate.mockResolvedValue({ result: [{ n: 0 }] });
   if (api.listCollections) api.listCollections.mockResolvedValue({ result: [] });
   selectedCollection.value = 'vendors';
@@ -47,10 +84,7 @@ beforeEach(() => {
 
 describe('DataPanel — disable-stage wiring', () => {
   it('toggling a stage from the gutter callback comments it out in the editor', async () => {
-    const root = document.createElement('div');
-    document.body.appendChild(root);
-    render(h(DataPanel, null), root);
-    await tick();
+    await mountDataPanel();
 
     mock.text = '[\n  { "$match": {} },\n  { "$sort": { "a": -1 } },\n  { "$limit": 50 }\n]';
     mock.onToggleStage(1); // disable the $sort
@@ -61,10 +95,7 @@ describe('DataPanel — disable-stage wiring', () => {
   });
 
   it('toggling an already-disabled stage re-enables it (uncomments)', async () => {
-    const root = document.createElement('div');
-    document.body.appendChild(root);
-    render(h(DataPanel, null), root);
-    await tick();
+    await mountDataPanel();
 
     // entry 1 is the disabled $sort block.
     mock.text = '[\n  { "$match": {} },\n  /* @disabled-stage\n  { "$sort": { "a": -1 } } */\n  { "$limit": 50 }\n]';
@@ -76,31 +107,28 @@ describe('DataPanel — disable-stage wiring', () => {
   });
 
   it('runs [{ $match: {} }] when every stage is disabled', async () => {
-    const root = document.createElement('div');
-    document.body.appendChild(root);
-    render(h(DataPanel, null), root);
-    await tick();
-    api.aggregate.mockClear();
+    await mountDataPanel();
+    await tick();              // let the default-load query finish before clearing
+    api.aggregate.mockClear(); // drop the default-load aggregations
 
     mock.text = '[ /* @disabled-stage\n{ "$match": { "x": 1 } } */ ]';
-    mock.onValidChange(); // simulate a valid edit -> runQuery
-    await tick();
+    // onValidChange runs a query only once the default load's suppressSync window
+    // has elapsed; poll until the query lands so we never race that reset.
+    await waitFor(() => {
+      mock.onValidChange();
+      return queryAggregations().length > 0;
+    }, 'the all-disabled edit to run a query');
 
-    // The query aggregation (the call whose pipeline is NOT a $count/$collStats probe)
-    // must be [{ $match: {} }], never [].
-    const queryCalls = api.aggregate.mock.calls.filter(([, pl]) =>
-      Array.isArray(pl) && !pl.some((s) => s.$count) && !pl.some((s) => s.$collStats));
-    expect(queryCalls.length).toBeGreaterThan(0);
-    for (const [, pl] of queryCalls) {
+    // The query aggregation must be [{ $match: {} }], never [].
+    const calls = queryAggregations();
+    expect(calls.length).toBeGreaterThan(0);
+    for (const pl of calls) {
       expect(pl).toEqual([{ $match: {} }]);
     }
   });
 
   it('preserves a freehand comment through a stage toggle (minimal-edit wiring)', async () => {
-    const root = document.createElement('div');
-    document.body.appendChild(root);
-    render(h(DataPanel, null), root);
-    await tick();
+    await mountDataPanel();
 
     mock.text = '[\n  // only active vendors\n  { "$match": { "active": true } },\n  { "$skip": 0 },\n  { "$limit": 50 }\n]';
     mock.onToggleStage(1); // disable $skip via the same minimal-edit core that sort/filter use

@@ -111,7 +111,15 @@ describe('openBulkUpdate — filter mode', () => {
     await flush();
     rerender(root);
 
-    const input = root.querySelector('[data-testid="bulk-confirm-input"]');
+    // The confirm input mounts after the modal body's async render; poll for it
+    // (re-rendering each tick) rather than asserting after a fixed flush, which
+    // races the render under full-suite CPU load.
+    let input;
+    await vi.waitFor(() => {
+      rerender(root);
+      input = root.querySelector('[data-testid="bulk-confirm-input"]');
+      expect(input).not.toBeNull();
+    }, { timeout: 5000, interval: 20 });
     expect(input.placeholder).toBe('vendors');
   });
 });

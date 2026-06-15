@@ -10,6 +10,13 @@ function mount() {
   return root;
 }
 
+// These tests drive a REAL CodeMirror instance (no mocks), whose mount + gutter
+// computation can exceed vi.waitFor's 1s default under full-suite CPU contention
+// — the cause of intermittent "expected 0 to be 2" failures. Poll longer; the
+// condition still resolves the instant CodeMirror finishes, so passing runs are
+// not slowed.
+const waitForCM = (fn) => vi.waitFor(fn, { timeout: 5000, interval: 20 });
+
 // NOTE: The live gutter click test uses the jsdom fallback approach.
 // jsdom's getBoundingClientRect() always returns zeros, so CodeMirror's gutter
 // event handler cannot resolve the correct line from click coordinates. The
@@ -34,7 +41,7 @@ describe('JsonEditor aggregate gutter', () => {
     const value = '[\n  { "$match": {} },\n  { "$limit": 50 }\n]';
     render(h(JsonEditor, { mode: 'aggregate', value, onToggleStage: () => {} }), root);
 
-    await vi.waitFor(() => expect(root.querySelectorAll('.pipeline-stage-toggle').length).toBe(2));
+    await waitForCM(() => expect(root.querySelectorAll('.pipeline-stage-toggle').length).toBe(2));
     const markers = root.querySelectorAll('.pipeline-stage-toggle');
     expect(markers[0].type).toBe('checkbox');
     expect(markers[0].checked).toBe(true); // enabled = checked
@@ -46,7 +53,7 @@ describe('JsonEditor aggregate gutter', () => {
     const value = '[\n  { "$match": {} },\n  /* @disabled-stage\n  { "$limit": 50 } */\n]';
     render(h(JsonEditor, { mode: 'aggregate', value, onToggleStage: () => {} }), root);
 
-    await vi.waitFor(() => expect(root.querySelectorAll('.pipeline-stage-toggle').length).toBe(2));
+    await waitForCM(() => expect(root.querySelectorAll('.pipeline-stage-toggle').length).toBe(2));
     const markers = root.querySelectorAll('.pipeline-stage-toggle');
     expect(markers[0].checked).toBe(true);  // enabled
     expect(markers[1].checked).toBe(false); // disabled = unchecked
@@ -57,16 +64,16 @@ describe('JsonEditor aggregate gutter', () => {
     const root = mount();
     render(h(JsonEditor, { mode: 'query', value: '[ { "$match": {} } ]', onToggleStage: () => {} }), root);
     // Give the mount effect a beat; no aggregate gutter should appear.
-    await vi.waitFor(() => expect(root.querySelector('.cm-editor')).not.toBeNull());
+    await waitForCM(() => expect(root.querySelector('.cm-editor')).not.toBeNull());
     expect(root.querySelectorAll('.pipeline-stage-toggle').length).toBe(0);
   });
 
   it('does not add stage toggles when no onToggleStage prop', async () => {
     const root = mount();
     render(h(JsonEditor, { mode: 'aggregate', value: '[ { "$match": {} } ]' }), root);
-    await vi.waitFor(() => expect(root.querySelector('.cm-editor')).not.toBeNull());
+    await waitForCM(() => expect(root.querySelector('.cm-editor')).not.toBeNull());
     // gutter is only pushed when mode==='aggregate', regardless of onToggleStage
-    await vi.waitFor(() => expect(root.querySelectorAll('.pipeline-stage-toggle').length).toBe(1));
+    await waitForCM(() => expect(root.querySelectorAll('.pipeline-stage-toggle').length).toBe(1));
   });
 });
 
@@ -74,7 +81,7 @@ describe('JsonEditor gutters by mode', () => {
   it('aggregate mode renders NO line-number gutter and NO fold gutter', async () => {
     const root = mount();
     render(h(JsonEditor, { mode: 'aggregate', value: '[\n  { "$match": {} }\n]', onToggleStage: () => {} }), root);
-    await vi.waitFor(() => expect(root.querySelector('.pipeline-stage-toggle')).not.toBeNull());
+    await waitForCM(() => expect(root.querySelector('.pipeline-stage-toggle')).not.toBeNull());
     expect(root.querySelector('.cm-lineNumbers')).toBeNull();
     expect(root.querySelector('.cm-foldGutter')).toBeNull();
   });
@@ -82,7 +89,7 @@ describe('JsonEditor gutters by mode', () => {
   it('non-aggregate mode keeps the line-number + fold gutters (basicSetup)', async () => {
     const root = mount();
     render(h(JsonEditor, { mode: 'default', value: '[\n  { "$match": {} }\n]' }), root);
-    await vi.waitFor(() => expect(root.querySelector('.cm-editor')).not.toBeNull());
+    await waitForCM(() => expect(root.querySelector('.cm-editor')).not.toBeNull());
     expect(root.querySelector('.cm-lineNumbers')).not.toBeNull();
     expect(root.querySelector('.cm-foldGutter')).not.toBeNull();
   });
