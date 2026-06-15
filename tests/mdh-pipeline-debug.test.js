@@ -265,6 +265,34 @@ describe('PipelineDebug', () => {
     const inputTime = root.querySelector('.pipeline-debug-input-row .pipeline-debug-time');
     expect(inputTime).not.toBeNull();
     expect(inputTime.textContent).toMatch(/^\d+ms$/);
+
+    // Fast (sub-second) timings must NOT be flagged slow.
+    expect(root.querySelector('.pipeline-debug-time-slow')).toBeNull();
+  });
+
+  it('flags a stage timing as slow (orange) when its latency exceeds 1s', async () => {
+    const pipeline = [{ $match: {} }];
+    api.aggregate.mockResolvedValue({ result: [{ n: 1 }] });
+
+    // Force a measured latency well over the 1s threshold by advancing the clock
+    // by 5s on every read (t0 vs. resolve → a multi-second delta), deterministically.
+    const realNow = performance.now.bind(performance);
+    let t = 0;
+    performance.now = () => { t += 5000; return t; };
+    try {
+      const root = mount({ pipeline });
+      await waitFor(
+        () => root.querySelector('.pipeline-debug-row:not(.pipeline-debug-input-row) .pipeline-debug-time-slow'),
+        'a slow-flagged stage timing to render',
+      );
+      const slow = root.querySelector('.pipeline-debug-row:not(.pipeline-debug-input-row) .pipeline-debug-time-slow');
+      expect(slow).not.toBeNull();
+      // It is still the timing element, just additionally flagged.
+      expect(slow.classList.contains('pipeline-debug-time')).toBe(true);
+      expect(slow.textContent).toMatch(/^\d+ms$/);
+    } finally {
+      performance.now = realNow;
+    }
   });
 
   it('renders timing on error rows too (request still took time)', async () => {

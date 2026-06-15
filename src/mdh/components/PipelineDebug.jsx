@@ -6,6 +6,12 @@ import * as api from '../api.js';
 
 const DEBUG_PREVIEW_LIMIT = 5;
 
+// A stage/input whose measured end-to-end latency exceeds this is flagged slow
+// (the timing turns orange). Matches the threshold the record-list footer used
+// before the slow-query warning moved here from the footer.
+const SLOW_QUERY_MS = 1000;
+const timeCls = (ms) => 'pipeline-debug-time' + (ms > SLOW_QUERY_MS ? ' pipeline-debug-time-slow' : '');
+
 // Map a stage/input count result ({count} | {error} | undefined) to the count
 // cell's text + class. Shared by the per-stage rows and the 0th input row.
 function countCell(info) {
@@ -137,7 +143,7 @@ export default function PipelineDebug({ entries, onToggleStage }) {
           <span class="pipeline-debug-preview">all records (pipeline input)</span>
           <span class="pipeline-debug-arrow">{'→'}</span>
           <span class={inputCell.cls}>{inputCell.text}</span>
-          {inputInfo?.ms != null && (<span class="pipeline-debug-time" title={inputTimingTitle}>{inputInfo.ms}ms</span>)}
+          {inputInfo?.ms != null && (<span class={timeCls(inputInfo.ms)} title={inputTimingTitle}>{inputInfo.ms}ms</span>)}
         </div>
         {inputInfo?.error && (
           <div class="pipeline-debug-error-detail" onClick={(e) => e.stopPropagation()}>
@@ -193,7 +199,7 @@ export default function PipelineDebug({ entries, onToggleStage }) {
                 <span class="pipeline-debug-preview">{preview}</span>
                 <span class="pipeline-debug-arrow">{'→'}</span>
                 <span class={countCls}>{countText}</span>
-                {info?.ms != null && (<span class="pipeline-debug-time" title={timingTitle}>{info.ms}ms</span>)}
+                {info?.ms != null && (<span class={timeCls(info.ms)} title={timingTitle}>{info.ms}ms</span>)}
               </div>
             </StageTooltip>
             {info?.error && (

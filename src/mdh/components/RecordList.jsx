@@ -1,6 +1,6 @@
 import { h } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
-import { skip, limit, selectedCollection, selectionMode, selectedIds, selectionPipelineDirty } from '../store.js';
+import { skip, selectedCollection, selectionMode, selectedIds, selectionPipelineDirty } from '../store.js';
 import RecordCard from './RecordCard.jsx';
 import DownloadSplitButton from './DownloadSplitButton.jsx';
 import JSON5 from 'json5';
@@ -120,10 +120,11 @@ export default function RecordList({
   }
 
   const s = skip.value;
-  const l = limit.value;
-  let countText = records.length > 0 ? `Showing ${s + 1}\u2013${s + records.length}` : 'No records';
-  if (totalCount !== null) countText += ` of ${totalCount.toLocaleString()} in collection (unfiltered)`;
-  if (lastQueryMs) countText += ` \u00b7 ${lastQueryMs}ms`;
+  // The footer intentionally shows only "Showing X-Y". The total collection count
+  // and the query timing (plus the >1s slow-query warning) now live in the Aggregate
+  // Pipeline Debug, so `totalCount` / `lastQueryMs` are accepted (DataPanel still
+  // passes them) but no longer rendered here.
+  const countText = records.length > 0 ? `Showing ${s + 1}\u2013${s + records.length}` : 'No records';
 
   return (
     <div style="display:flex;flex-direction:column;flex:1;overflow:hidden">
@@ -179,8 +180,8 @@ export default function RecordList({
         ))}
       </div>
       <div class="pagination">
-        <span class={'record-count' + (lastQueryMs > 1000 ? ' record-count-slow' : '')} title="Total is the unfiltered collection size — it does not reflect the active pipeline filters">{countText}</span>
-        <span class="pagination-hint">Click key to sort {'\u00b7'} Click value to filter {'\u00b7'} {ALT_KEY}+click or hover to copy</span>
+        <span class="record-count">{countText}</span>
+        <span class="pagination-hint">Click key to sort {'\u00b7'} Click value to filter {'\u00b7'} {ALT_KEY}+click to copy</span>
         <div class="pagination-controls">
           <button disabled={!pagination.hasPrev()} onClick={() => onPageChange('prev')}>{'\u2190'} Prev</button>
           <span>Page {pagination.page()}</span>

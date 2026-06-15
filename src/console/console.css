@@ -499,6 +499,10 @@ body {
   cursor: help;
 }
 
+/* Slow query (>1s end-to-end for this prefix): warn in orange. Full opacity so
+   it stands out from the muted regular timings. */
+.pipeline-debug-time-slow { color: var(--warning); opacity: 1; font-weight: 600; }
+
 .pipeline-debug-total {
   opacity: 0.6; cursor: default;
   padding-left: 22px;
@@ -1081,8 +1085,6 @@ body {
 .pagination-controls button:disabled {
   color: var(--text-secondary); opacity: 0.4; cursor: default;
 }
-
-.record-count-slow { color: var(--warning); }
 
 .split-pane-label { font-size: 11px; color: var(--text-secondary); }
 
