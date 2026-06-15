@@ -2439,6 +2439,80 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
   opacity: 0.18;
 }
 
+/* ===== Overview "Charts" panel — storage treemap + docs×avg-size scatter =====
+   Data colors (blue→amber→red index-overhead scale) are fixed hex so they read
+   the same in light/dark; everything else uses theme tokens. */
+.overview-charts {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+}
+.overview-charts-body {
+  position: relative;
+  display: flex; flex-wrap: wrap; gap: 18px;
+  padding: 12px 14px 14px;
+}
+.oc-col { display: flex; flex-direction: column; min-width: 0; }
+.oc-col-map { flex: 1.45 1 360px; }
+.oc-col-scatter { flex: 1 1 260px; }
+.oc-label {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 7px; min-height: 24px;
+  font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.oc-label-soft { margin-left: 6px; font-weight: 400; letter-spacing: 0; text-transform: none; opacity: .8; }
+.oc-scale-toggle {
+  margin-left: auto; display: inline-flex;
+  border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+}
+.oc-scale-toggle button {
+  border: 0; background: var(--bg-card); color: var(--text-secondary);
+  font-size: 10px; padding: 3px 9px; cursor: pointer;
+}
+.oc-scale-toggle button + button { border-left: 1px solid var(--border); }
+.oc-scale-toggle button:hover { color: var(--text-primary); }
+.oc-scale-toggle button.is-active { background: var(--accent); color: #fff; }
+.oc-treemap { position: relative; width: 100%; }
+.oc-tile {
+  position: absolute; box-sizing: border-box;
+  padding: 5px 6px; overflow: hidden; border-radius: 4px;
+  border: 1px solid var(--bg-card);
+  color: #fff; cursor: pointer;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  outline: 0 solid transparent;
+}
+.oc-tile.is-other { background: var(--bg-hover); color: var(--text-secondary); cursor: default; }
+.oc-tile.is-hover { outline: 2px solid var(--text-primary); z-index: 2; }
+.oc-tile-name { font-size: 10px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.oc-tile-name.is-lg { font-size: 12px; }
+.oc-tile-sub { font-size: 9px; opacity: .85; }
+.oc-legend {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 9px; font-size: 9px; color: var(--text-secondary);
+}
+.oc-legend-bar {
+  flex: 1; height: 8px; border-radius: 4px;
+  background: linear-gradient(90deg, #4270db, #19b89a, #f5c518);
+}
+.oc-note { margin-top: 7px; font-size: 9px; line-height: 1.5; color: var(--text-secondary); }
+.oc-grid { stroke: var(--border); opacity: .35; }
+.oc-axis { stroke: var(--border); }
+.oc-tick { fill: var(--text-secondary); }
+.oc-scatter-dot { stroke: rgba(120, 124, 140, .55); stroke-width: 1; cursor: pointer; }
+.oc-scatter-dot.is-hover { stroke: var(--text-primary); stroke-width: 2; }
+.oc-placeholder {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-secondary); font-size: 12px; padding: 24px 0;
+}
+.oc-tooltip {
+  position: fixed; z-index: 1000; pointer-events: none;
+  background: #0f172a; color: #fff;
+  border-radius: 6px; padding: 7px 9px;
+  font-size: 10px; line-height: 1.5; white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
+}
+
 /* Undo toast — bottom-center, fixed, above modal-overlay (z=1000-ish);
    single instance, replaces previous on new operation. */
 .undo-toast {

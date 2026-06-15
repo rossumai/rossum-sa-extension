@@ -5,6 +5,7 @@ import * as api from '../api.js';
 import * as cache from '../cache.js';
 import { buildStoragePipeline, buildBatchStoragePipeline } from '../statsPipelines.js';
 import FlashOnChange from './FlashOnChange.jsx';
+import OverviewCharts from './OverviewCharts.jsx';
 
 const BATCH_SIZE = 50;
 const BATCH_CONCURRENCY = 3;
@@ -47,8 +48,8 @@ export default function OverviewPanel() {
   const cols = collections.value;
   const [data, setData] = useState({});
   const [loadingSet, setLoadingSet] = useState(new Set());
-  const [sortKey, setSortKey] = useState('name');
-  const [sortDir, setSortDir] = useState('asc');
+  const [sortKey, setSortKey] = useState('count');
+  const [sortDir, setSortDir] = useState('desc');
   const [reloadKey, setReloadKey] = useState(0);
   const abortRef = useRef(null);
 
@@ -292,6 +293,10 @@ export default function OverviewPanel() {
         )}
         <button class="icon-btn" title="Refresh" onClick={refresh}>{'\u21bb'}</button>
       </div>
+
+      {totalCount > 0 && (
+        <OverviewCharts rows={rows} settled={doneCount === totalCount} onOpen={openCollection} />
+      )}
 
       {loadingCount > 0 && totalCount > 0 && (
         <div class="stats-progress-track">
