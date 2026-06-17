@@ -168,8 +168,7 @@ export default function App({ tab }) {
     opener(tab, auth);
   };
 
-  const onDataStorage = () => fetchAuthAndOpen((tab, auth) => openConsoleTab(tab, auth, 'mdh'));
-  const onAuditLogs = () => fetchAuthAndOpen((tab, auth) => openConsoleTab(tab, auth, 'audit'));
+  const onRossumConsole = () => fetchAuthAndOpen((tab, auth) => openConsoleTab(tab, auth, 'mdh'));
 
   const onReloadTab = () => {
     chrome.tabs.reload(tab.id);
@@ -191,8 +190,8 @@ export default function App({ tab }) {
         <div class="brand-badge">SA</div>
         <span class="brand-name">Rossum SA</span>
         {site ? (
-          <button class="mdh-btn" onClick={onMasterDataHub}>
-            <span>Master Data Hub</span>
+          <button class="console-btn" onClick={onRossumConsole}>
+            <span>Rossum Console</span>
             <ExternalIcon />
           </button>
         ) : null}
@@ -310,12 +309,8 @@ export default function App({ tab }) {
               </div>
 
               <div class={`tools-row${dimClass('rossum')}`} data-context="rossum">
-                <button class="tool-btn" onClick={onDataStorage}>
-                  <span>Dataset Management</span>
-                  <ExternalIconSmall />
-                </button>
-                <button class="tool-btn" onClick={onAuditLogs}>
-                  <span>Audit Logs</span>
+                <button class="tool-btn" onClick={onMasterDataHub}>
+                  <span>Master Data Hub</span>
                   <ExternalIconSmall />
                 </button>
               </div>

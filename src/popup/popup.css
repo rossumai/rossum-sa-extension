@@ -262,9 +262,9 @@ body.popup-wide .mdh-card {
   letter-spacing: -0.3px;
 }
 
-/* ── MDH button (header) ───────────────────────── */
+/* ── Console button (header) ───────────────────── */
 
-.mdh-btn {
+.console-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -282,17 +282,17 @@ body.popup-wide .mdh-card {
   box-shadow: 0 1px 3px rgba(66, 112, 219, 0.25);
 }
 
-.mdh-btn:hover {
+.console-btn:hover {
   background: var(--accent-dim);
   box-shadow: 0 2px 6px rgba(66, 112, 219, 0.35);
 }
 
-.mdh-btn svg {
+.console-btn svg {
   opacity: 0.7;
   transition: opacity 0.15s, transform 0.15s;
 }
 
-.mdh-btn:hover svg {
+.console-btn:hover svg {
   opacity: 1;
   transform: translate(1px, -1px);
 }
@@ -981,11 +981,11 @@ body.popup-wide .mdh-card {
     border-color: #4a3a18;
   }
 
-  .mdh-btn {
+  .console-btn {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
   }
 
-  .mdh-btn:hover {
+  .console-btn:hover {
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
   }
 
