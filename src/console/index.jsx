@@ -16,12 +16,16 @@ import { initAudit } from '../audit/index.jsx';
 import * as galaxyApi from '../galaxy/api.js';
 import * as galaxyStore from '../galaxy/store.js';
 import { initGalaxy } from '../galaxy/index.jsx';
+import * as inspectorApi from '../inspector/api.js';
+import * as inspectorStore from '../inspector/store.js';
+import { initInspector } from '../inspector/index.jsx';
 
 const AUTH_TTL_MS = 24 * 60 * 60 * 1000;
 const TITLES = {
   mdh: 'Dataset Management — Rossum SA',
   audit: 'Audit Logs — Rossum SA',
   galaxy: 'Org Galaxy — Rossum SA',
+  inspector: 'Inspector — Rossum SA',
 };
 
 async function purgeStaleAuthEntries() {
@@ -43,6 +47,7 @@ function resolveAuthId() {
 let mdhInited = false;
 let auditInited = false;
 let galaxyInited = false;
+let inspectorInited = false;
 let pendingCtx = {};
 
 function ensureInited(app) {
@@ -60,6 +65,10 @@ function ensureInited(app) {
   if (app === 'galaxy' && !galaxyInited) {
     galaxyInited = true;
     return initGalaxy();
+  }
+  if (app === 'inspector' && !inspectorInited) {
+    inspectorInited = true;
+    return initInspector();
   }
   return Promise.resolve();
 }
@@ -100,6 +109,7 @@ async function boot() {
     mdhStore.connected.value = false;
     auditStore.connected.value = false;
     galaxyStore.connected.value = false;
+    inspectorStore.connected.value = false;
     render(<Console />, document.getElementById('app'));
     return;
   }
@@ -119,6 +129,17 @@ async function boot() {
   // generic "Connecting" placeholder while initGalaxy probes the session + loads.
   galaxyStore.connected.value = true;
   galaxyStore.loading.value = true;
+
+  inspectorStore.domain.value = domain;
+  inspectorStore.token.value = token;
+  inspectorApi.init(domain, token);
+  // Seed the annotation to inspect from a staging entry, else restore the one
+  // persisted on a prior inspect — so a Console page refresh keeps inspecting it.
+  const pendingAnn = entry?.pendingAnnotationId || inspectorStore.restoreAnnotationId();
+  if (pendingAnn) {
+    inspectorStore.annotationId.value = String(pendingAnn);
+    inspectorStore.persistAnnotationId(pendingAnn);
+  }
 
   effect(() => {
     chrome.storage.local.set({ consoleActiveApp: activeApp.value });

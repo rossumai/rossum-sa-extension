@@ -5,9 +5,11 @@ import Rail from './Rail.jsx';
 import MdhApp from '../../mdh/components/App.jsx';
 import AuditApp from '../../audit/components/App.jsx';
 import GalaxyApp from '../../galaxy/components/App.jsx';
+import InspectorApp from '../../inspector/components/App.jsx';
 import * as mdhStore from '../../mdh/store.js';
 import * as auditStore from '../../audit/store.js';
 import * as galaxyStore from '../../galaxy/store.js';
+import * as inspectorStore from '../../inspector/store.js';
 
 function Connecting() {
   return (
@@ -27,6 +29,9 @@ export default function Console() {
   } else if (app === 'galaxy') {
     const c = galaxyStore.connected.value;
     view = c === null ? <Connecting /> : <GalaxyApp connected={c} />;
+  } else if (app === 'inspector') {
+    const c = inspectorStore.connected.value;
+    view = c === null ? <Connecting /> : <InspectorApp connected={c} />;
   } else {
     const c = auditStore.connected.value;
     view = c === null ? <Connecting /> : <AuditApp connected={c} />;

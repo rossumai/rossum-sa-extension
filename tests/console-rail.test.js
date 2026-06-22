@@ -21,7 +21,26 @@ describe('Rail', () => {
 
   it('renders one button per app', () => {
     const root = mount();
-    expect(root.querySelectorAll('.app-rail-item').length).toBe(3);
+    expect(root.querySelectorAll('.app-rail-item').length).toBe(4);
+  });
+
+  it('renders the Inspector app button and switches to it on click', () => {
+    const root = mount();
+    const btn = [...root.querySelectorAll('.app-rail-item')]
+      .find((b) => b.getAttribute('title') === 'Annotation Inspector');
+    expect(btn).toBeTruthy();
+    btn.click();
+    expect(activeApp.value).toBe('inspector');
+  });
+
+  it('renders the Inspector as a muted (de-emphasized, bottom) rail item — and it is the last one', () => {
+    const root = mount();
+    const items = [...root.querySelectorAll('.app-rail-item')];
+    const inspector = items.find((b) => b.getAttribute('title') === 'Annotation Inspector');
+    expect(inspector.classList.contains('muted')).toBe(true);
+    expect(items[items.length - 1]).toBe(inspector); // last in the rail
+    // no other app is muted
+    expect(items.filter((b) => b.classList.contains('muted'))).toHaveLength(1);
   });
 
   it('renders the Galaxy app button and switches to it on click', () => {

@@ -3,7 +3,7 @@
 // unit-tested without chrome / DOM / sessionStorage.
 
 export function isValidApp(v) {
-  return v === 'mdh' || v === 'audit' || v === 'galaxy';
+  return v === 'mdh' || v === 'audit' || v === 'galaxy' || v === 'inspector';
 }
 
 // Which app to show on boot. Precedence: staging entry (a popup button click)

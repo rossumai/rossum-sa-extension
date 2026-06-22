@@ -29,10 +29,19 @@ const GALAXY_ICON = (
   </svg>
 );
 
+const INSPECTOR_ICON = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="11" cy="11" r="7" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </svg>
+);
+
 const APPS = [
   { id: 'mdh', label: 'Data', title: 'Dataset Management', icon: DATA_ICON },
   { id: 'audit', label: 'Audit', title: 'Audit Log Viewer', icon: AUDIT_ICON },
   { id: 'galaxy', label: 'Galaxy', title: 'Org Galaxy', icon: GALAXY_ICON, beta: true },
+  // muted: work-in-progress app — pushed to the bottom of the rail + dimmed.
+  { id: 'inspector', label: 'Inspector', title: 'Annotation Inspector', icon: INSPECTOR_ICON, beta: true, muted: true },
 ];
 
 export default function Rail() {
@@ -42,7 +51,7 @@ export default function Rail() {
       {APPS.map((a) => (
         <button
           type="button"
-          class={'app-rail-item' + (active === a.id ? ' active' : '')}
+          class={'app-rail-item' + (active === a.id ? ' active' : '') + (a.muted ? ' muted' : '')}
           title={a.title}
           aria-current={active === a.id ? 'page' : undefined}
           onClick={() => { activeApp.value = a.id; }}
