@@ -20,8 +20,10 @@ export function init() {
    the name overflow into adjacent space (graph: pushes the gear/squares
    buttons past the bubble border; users: name spills into the email column).
    The badge sits inside the cell at bottom-right or cell-overlay, so clipping
-   is fine. */
+   is fine. Engine tiles likewise only need the anchor — the badge sits inside
+   the tile at top-right. */
 [data-cy^="extension-cell-"],
+[data-cy="engine-tile"],
 [data-field="name"] {
   position: relative !important;
 }
@@ -206,6 +208,13 @@ export function handleNode(node) {
 
   // Rule manager tiles: data-id directly on the tile
   if (node.matches('[data-cy="rule-tile"]') && node.dataset.id) {
+    displayResourceId(node, node.dataset.id);
+  }
+
+  // Automation > AI engines: extraction and splitting/sorting engine tiles carry
+  // data-id directly. Dedicated/generic engine tiles render without
+  // data-cy/data-id (not clickable in the UI), so they get no badge.
+  if (node.matches('[data-cy="engine-tile"]') && node.dataset.id) {
     displayResourceId(node, node.dataset.id);
   }
 

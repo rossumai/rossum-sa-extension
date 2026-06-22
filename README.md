@@ -16,7 +16,7 @@ All features are configurable via the extension popup and can be toggled on or o
 ### Rossum
 
 - **Schema ID overlays** — displays `schema_id` on annotation fields (headers and line items)
-- **Resource ID overlays** — displays internal IDs on queues, hooks, extensions, labels, rules, and users (click to copy)
+- **Resource ID overlays** — displays internal IDs on queues, hooks, extensions, labels, rules, users, and AI engines (click to copy)
 - **Expand formulas** — automatically opens formula field source code
 - **Expand reasoning** — automatically opens reasoning field options
 - **Sidebar scroll lock** — prevents the annotation sidebar from auto-scrolling to the top
