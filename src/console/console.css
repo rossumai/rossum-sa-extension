@@ -2775,6 +2775,24 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .app-rail-item.muted:focus-visible,
 .app-rail-item.muted.active { opacity: 1; }
 
+/* Support/feedback: a utility link pinned to the rail bottom (the muted
+   Inspector's margin-top:auto pushes this last child down with it). Styled
+   like a rail item but deliberately NOT .app-rail-item so it isn't counted
+   as an app switcher. */
+.app-rail-support {
+  width: 60px;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 6px 0; border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.app-rail-support:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.app-rail-support .app-rail-label { font-size: 10px; font-weight: 600; }
+
 .app-rail-beta {
   position: absolute;
   top: 2px; right: 6px;            /* sits slightly over the top-right of the icon */

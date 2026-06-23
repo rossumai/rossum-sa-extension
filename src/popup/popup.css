@@ -996,7 +996,13 @@ body.popup-wide .mdh-card {
   color: var(--text-hint);
 }
 
-.handbook-link {
+.footer-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.footer-link {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1006,16 +1012,16 @@ body.popup-wide .mdh-card {
   transition: color 0.15s;
 }
 
-.handbook-link:hover {
+.footer-link:hover {
   color: var(--accent);
 }
 
-.handbook-link svg {
+.footer-link svg {
   opacity: 0.6;
   transition: opacity 0.15s, transform 0.15s;
 }
 
-.handbook-link:hover svg {
+.footer-link:hover svg {
   opacity: 1;
   transform: translate(1px, -1px);
 }

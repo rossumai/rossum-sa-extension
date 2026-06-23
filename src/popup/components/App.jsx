@@ -18,6 +18,10 @@ const STORAGE_TOGGLES = [
 // Each id is both the React state key and the page-side localStorage key.
 const PAGE_FLAG_TOGGLES = ['devFeaturesEnabled', 'devDebugEnabled'];
 
+// Chrome Web Store "Support" tab for this extension. The item id matches the
+// install link in README.md.
+const SUPPORT_URL = 'https://chromewebstore.google.com/detail/bljkbinljmhdbipklfcljongikhmnneh/support';
+
 function combineUrlWithCustomPath(originalUrl, customPath) {
   const match = originalUrl.match(/^https?:\/\/[^/?#]+/);
   if (!match) return originalUrl;
@@ -333,14 +337,25 @@ export default function App({ tab }) {
 
       <footer class="footer">
         <span class="version">{version}</span>
-        <a
-          href="https://solutionarchitecthandbook.mrtnzlml.com/"
-          target="_blank"
-          class="handbook-link"
-        >
-          SA Handbook
-          <ExternalIconSmall />
-        </a>
+        <span class="footer-links">
+          <a
+            href={SUPPORT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="footer-link"
+          >
+            Support & feedback
+            <ExternalIconSmall />
+          </a>
+          <a
+            href="https://solutionarchitecthandbook.mrtnzlml.com/"
+            target="_blank"
+            class="footer-link"
+          >
+            SA Handbook
+            <ExternalIconSmall />
+          </a>
+        </span>
       </footer>
     </Fragment>
   );
