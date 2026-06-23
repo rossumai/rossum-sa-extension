@@ -337,25 +337,15 @@ export default function App({ tab }) {
 
       <footer class="footer">
         <span class="version">{version}</span>
-        <span class="footer-links">
-          <a
-            href={SUPPORT_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="footer-link"
-          >
-            Support & feedback
-            <ExternalIconSmall />
-          </a>
-          <a
-            href="https://solutionarchitecthandbook.mrtnzlml.com/"
-            target="_blank"
-            class="footer-link"
-          >
-            SA Handbook
-            <ExternalIconSmall />
-          </a>
-        </span>
+        <a
+          href={SUPPORT_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="footer-link"
+        >
+          Support & feedback
+          <ExternalIconSmall />
+        </a>
       </footer>
     </Fragment>
   );

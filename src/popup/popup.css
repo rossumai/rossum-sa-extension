@@ -996,12 +996,6 @@ body.popup-wide .mdh-card {
   color: var(--text-hint);
 }
 
-.footer-links {
-  display: inline-flex;
-  align-items: center;
-  gap: 14px;
-}
-
 .footer-link {
   display: inline-flex;
   align-items: center;
