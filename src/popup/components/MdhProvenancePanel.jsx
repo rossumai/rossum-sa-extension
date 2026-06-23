@@ -32,6 +32,18 @@ function RefreshIcon() {
   );
 }
 
+function DocLookupIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2.75H7A2.25 2.25 0 0 0 4.75 5v14A2.25 2.25 0 0 0 7 21.25h10A2.25 2.25 0 0 0 19.25 19V8z" />
+      <path d="M14 2.75V8h5.25" />
+      <path d="M8.5 9.5h3" />
+      <path d="M8.5 13h7" />
+      <path d="M8.5 16.5h7" />
+    </svg>
+  );
+}
+
 export default function MdhProvenancePanel({ tab }) {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [state, setState] = useState({ kind: 'loading' });
@@ -66,8 +78,8 @@ export default function MdhProvenancePanel({ tab }) {
         setState({ kind: 'message', message: 'Not signed in to Rossum.', isError: true });
         return;
       }
-      if (!ctx.annotationId && !ctx.queueId) {
-        setState({ kind: 'message', message: 'Open a document or queue to see its MDH queries.' });
+      if (!ctx.annotationId) {
+        setState({ kind: 'empty' });
         return;
       }
 
@@ -239,7 +251,7 @@ export default function MdhProvenancePanel({ tab }) {
   return (
     <section class="card mdh-card" data-context="rossum">
       <h3 class="section-title">
-        <span>MDH on this screen</span>
+        <span>MDH on this screen <span class="beta-badge">beta</span></span>
         <button
           type="button"
           class="mdh-refresh-btn"
@@ -258,9 +270,19 @@ export default function MdhProvenancePanel({ tab }) {
           onInput={onFilterChange}
         />
       ) : null}
-      <div>
+      <div class="mdh-body">
         {state.kind === 'loading' ? (
           <p class="mdh-empty">Loading…</p>
+        ) : state.kind === 'empty' ? (
+          <div class="mdh-empty-state">
+            <span class="mdh-empty-icon"><DocLookupIcon /></span>
+            <p class="mdh-empty-title">Open a document</p>
+            <p class="mdh-empty-text">
+              This panel reveals the Master Data Hub lookups behind it — each hook's
+              match queries, with the document's own field values filled in, so you can
+              see exactly what matched, and why.
+            </p>
+          </div>
         ) : state.kind === 'message' ? (
           <p class={`mdh-empty${state.isError ? ' mdh-error' : ''}`}>{state.message}</p>
         ) : visibleEntries.length === 0 ? (

@@ -58,7 +58,7 @@ body.popup-wide {
 
 .content-row {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 0;
 }
 
@@ -75,7 +75,8 @@ body.popup-wide {
 }
 
 body.popup-wide .content-col-mdh {
-  display: block;
+  display: flex;
+  flex-direction: column;
 }
 
 .content-col-mdh::-webkit-scrollbar {
@@ -96,6 +97,9 @@ body.popup-wide .content-col-mdh {
 
 body.popup-wide .mdh-card {
   margin: 10px 0 0 14px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .hidden { display: none !important; }
@@ -297,6 +301,55 @@ body.popup-wide .mdh-card {
   transform: translate(1px, -1px);
 }
 
+/* ── Header action group + Master Data Hub button ─ */
+
+.header-actions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mdh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 6px;
+  color: var(--accent);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.2s;
+}
+
+.mdh-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  box-shadow: 0 2px 6px rgba(66, 112, 219, 0.15);
+}
+
+.mdh-btn svg {
+  opacity: 0.6;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.mdh-btn:hover svg {
+  opacity: 1;
+  transform: translate(1px, -1px);
+}
+
+.mdh-btn.dimmed {
+  opacity: 0.4;
+}
+
+.mdh-btn.dimmed:hover {
+  opacity: 0.7;
+}
+
 /* ── cards ─────────────────────────────────────── */
 
 .card {
@@ -477,58 +530,7 @@ body.popup-wide .mdh-card {
   margin-top: 0;
 }
 
-/* ── tools row ────────────────────────────────── */
-
-.tools-row {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 14px 2px;
-  transition: opacity 0.2s;
-}
-
-.tools-row.dimmed {
-  opacity: 0.4;
-}
-
-.tools-row.dimmed:hover {
-  opacity: 0.7;
-}
-
-.tool-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 8px 12px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-card);
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--accent);
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
-}
-
-.tool-btn:hover {
-  background: var(--bg-hover);
-  border-color: var(--accent);
-  box-shadow: 0 2px 6px rgba(66, 112, 219, 0.15);
-}
-
-.tool-btn svg {
-  margin-left: auto;
-  opacity: 0.5;
-  transition: opacity 0.15s, transform 0.15s;
-}
-
-.tool-btn:hover svg {
-  opacity: 1;
-  transform: translate(1px, -1px);
-}
+/* ── auth notice ──────────────────────────────── */
 
 .tool-notice {
   display: flex;
@@ -651,6 +653,52 @@ body.popup-wide .mdh-card {
 .mdh-error { color: #c0392b; }
 @media (prefers-color-scheme: dark) {
   .mdh-error { color: #f87171; }
+}
+
+/* ── MDH empty state (no document open) ────────── */
+
+.mdh-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.mdh-empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px 18px;
+}
+
+.mdh-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.mdh-empty-title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.mdh-empty-text {
+  margin: 0 auto;
+  max-width: 30ch;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text-hint);
 }
 
 .mdh-hook {
@@ -989,7 +1037,7 @@ body.popup-wide .mdh-card {
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
   }
 
-  .tool-btn:hover {
+  .mdh-btn:hover {
     box-shadow: 0 2px 6px rgba(91, 138, 240, 0.2);
   }
 

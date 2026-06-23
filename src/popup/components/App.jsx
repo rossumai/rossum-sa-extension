@@ -8,7 +8,6 @@ import { readAuthInfo, readPageFlag, togglePageFlag } from '../tab-readers.js';
 const STORAGE_TOGGLES = [
   'schemaAnnotationsEnabled',
   'resourceIdsEnabled',
-  'mdhProvenanceEnabled',
   'expandFormulasEnabled',
   'expandReasoningFieldsEnabled',
   'scrollLockEnabled',
@@ -124,7 +123,7 @@ export default function App({ tab }) {
     }
   }, [site]);
 
-  const showMdhPanel = site === 'rossum' && !!storageValues?.mdhProvenanceEnabled;
+  const showMdhPanel = site === 'rossum';
   useEffect(() => {
     document.body.classList.toggle('popup-wide', showMdhPanel);
   }, [showMdhPanel]);
@@ -132,7 +131,6 @@ export default function App({ tab }) {
   const setStorageToggle = async (key, value) => {
     setStorageValues((prev) => ({ ...prev, [key]: value }));
     await chrome.storage.local.set({ [key]: value });
-    if (key === 'mdhProvenanceEnabled') return; // popup-only; no tab reload
     chrome.tabs.reload(tab.id);
   };
 
@@ -190,10 +188,20 @@ export default function App({ tab }) {
         <div class="brand-badge">SA</div>
         <span class="brand-name">Rossum SA</span>
         {site ? (
-          <button class="console-btn" onClick={onRossumConsole}>
-            <span>Rossum Console</span>
-            <ExternalIcon />
-          </button>
+          <div class="header-actions">
+            <button
+              class={`mdh-btn${dimClass('rossum')}`}
+              onClick={onMasterDataHub}
+              title="Open Master Data Hub"
+            >
+              <span>Master Data Hub</span>
+              <ExternalIconSmall />
+            </button>
+            <button class="console-btn" onClick={onRossumConsole}>
+              <span>Rossum Console</span>
+              <ExternalIcon />
+            </button>
+          </div>
         ) : null}
       </header>
 
@@ -227,14 +235,6 @@ export default function App({ tab }) {
                     hint="Overlay IDs on queues, hooks, extensions, users"
                     checked={storageValues.resourceIdsEnabled}
                     onChange={(v) => setStorageToggle('resourceIdsEnabled', v)}
-                  />
-                  <Toggle
-                    id="mdhProvenanceEnabled"
-                    label="MDH provenance"
-                    beta
-                    hint="Show MDH match provenance for the current annotation"
-                    checked={storageValues.mdhProvenanceEnabled}
-                    onChange={(v) => setStorageToggle('mdhProvenanceEnabled', v)}
                   />
                 </div>
 
@@ -306,13 +306,6 @@ export default function App({ tab }) {
                     onChange={(v) => setStorageToggle('coupaFieldNamesEnabled', v)}
                   />
                 </section>
-              </div>
-
-              <div class={`tools-row${dimClass('rossum')}`} data-context="rossum">
-                <button class="tool-btn" onClick={onMasterDataHub}>
-                  <span>Master Data Hub</span>
-                  <ExternalIconSmall />
-                </button>
               </div>
 
               {authError ? (
