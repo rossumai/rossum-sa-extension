@@ -3478,3 +3478,60 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .record-table-nested { margin-top: 4px; }
 .record-table tbody tr.record-table-row-selected { background: var(--bg-hover); box-shadow: inset 2px 0 0 var(--accent); }
 .record-table-check { width: 1%; white-space: nowrap; text-align: center; }
+
+/* AI pipeline input (restored from d99e48c; engine swapped to /internal/llmchat) */
+.nl-search-row {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+.nl-search-wrapper { position: relative; }
+.nl-search-input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+.nl-search-input:focus { border-color: var(--accent); outline: none; }
+.nl-search-input:disabled { opacity: 0.6; cursor: default; }
+.nl-search-input::placeholder { color: var(--text-secondary); }
+.nl-search-input.loading {
+  border: 1.5px solid transparent;
+  padding: 3.5px 7.5px;
+  background:
+    linear-gradient(var(--bg-input), var(--bg-input)) padding-box,
+    conic-gradient(from var(--ai-angle), #8b5cf6, #ec4899, #f97316, #3b82f6, #22d3ee, #8b5cf6) border-box;
+  color: transparent;
+  box-shadow: 0 0 14px -4px rgba(139, 92, 246, 0.45);
+  animation: ai-border-spin 2.4s linear infinite;
+}
+.nl-search-input.loading::placeholder { color: transparent; }
+.nl-search-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 9.5px;
+  font-size: 11px;
+  font-style: italic;
+  font-weight: 500;
+  pointer-events: none;
+  background: linear-gradient(90deg, #8b5cf6, #ec4899, #f97316, #3b82f6, #22d3ee, #8b5cf6);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: ai-text-shimmer 3s linear infinite;
+}
+@property --ai-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+@keyframes ai-border-spin { to { --ai-angle: 360deg; } }
+@keyframes ai-text-shimmer { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+@media (prefers-reduced-motion: reduce) {
+  .nl-search-input.loading, .nl-search-loading { animation: none; }
+}

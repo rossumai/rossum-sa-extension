@@ -23,6 +23,9 @@ export const modalContent = signal(null);
 // (shell shows a connecting state), true/false after the healthz probe. The
 // shell passes this to <App connected={...}/>.
 export const connected = signal(null);
+// /api/v1/internal/llmchat reachable on this org (cheap probe at MDH init).
+// false until proven available → the AI pipeline input stays hidden by default.
+export const aiAvailable = signal(false);
 export const statsSummary = signal(null); // { collection, health, label } | null
 export const operations = signal([]);
 export const operationsLoaded = signal(false);

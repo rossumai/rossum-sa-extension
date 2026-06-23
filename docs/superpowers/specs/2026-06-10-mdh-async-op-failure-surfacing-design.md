@@ -97,7 +97,7 @@ export default function useOperationStatus() {
 - No new global error-banner bubbling; the op-status bar (existing red `failed`
   badge + message) is the surface.
 
-## Corrections (post-implementation, verified live on ferguson-dev)
+## Corrections (post-implementation, verified live on a customer dev org)
 
 - **Op id source:** the 202 response body `message` is **empty** on this Data
   Storage; the operation id (a UUID) is in the **`content-location` header**.

@@ -91,6 +91,19 @@ async function pollOperations() {
   }
 }
 
+// Resolve /llmchat availability for the org, caching the result per-org in
+// sessionStorage so a same-session reload doesn't re-probe. Returns a boolean;
+// never throws (probeLlmChat swallows errors → false).
+export async function resolveAiAvailability(orgKey) {
+  const key = `mdhAiAvailable_${orgKey}`;
+  let cached = null;
+  try { cached = sessionStorage.getItem(key); } catch {}
+  if (cached === 'true' || cached === 'false') return cached === 'true';
+  const available = await api.probeLlmChat();
+  try { sessionStorage.setItem(key, String(available)); } catch {}
+  return available;
+}
+
 // Post-auth setup for the Dataset Management app. The shell has already resolved
 // auth, set store.domain/token, and called api.init. This restores persisted
 // view state, applies any pipeline prefill, probes the connection, and registers
@@ -100,6 +113,12 @@ export async function initMdh({ pendingCollection, pendingPipeline, pendingVaria
   // in QueryHistory) are correct before any scoped read. Failure -> null -> the
   // domain-scoped fallback in scopeSuffix.
   store.orgId.value = await api.getOrgId();
+
+  // AI pipeline input: probe /llmchat availability without blocking boot. A hang
+  // or error simply leaves aiAvailable false (the input stays hidden).
+  resolveAiAvailability(store.orgId.value || store.domain.value)
+    .then((available) => { store.aiAvailable.value = available; })
+    .catch(() => {});
 
   const lpKey = lastPipelineKey();
   const stored = await chrome.storage.local.get([

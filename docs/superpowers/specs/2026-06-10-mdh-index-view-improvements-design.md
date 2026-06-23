@@ -7,7 +7,7 @@
 ## Problem / goal
 
 Three improvements to the regular Indexes view, all grounded in facts verified
-live on ferguson-dev.rossum.app (2026-06-10):
+live on a customer dev org (2026-06-10):
 
 1. **Copy-paste parity** with the search-index fix: Copy must emit a clean,
    create-ready definition that pastes straight into the Create Index modal.

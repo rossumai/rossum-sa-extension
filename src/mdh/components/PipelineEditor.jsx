@@ -1,10 +1,26 @@
 import { h } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
-import { selectedCollection, records, sampledFields } from '../store.js';
+import { selectedCollection, records, sampledFields, aiAvailable, error } from '../store.js';
 import { extractFieldNames } from './JsonEditor.jsx';
 import JsonEditor from './JsonEditor.jsx';
 import { LibraryPanel, saveQuery, unsaveQuery, isSaved } from './QueryHistory.jsx';
 import { beautifyText } from '../pipelineComments.js';
+import * as api from '../api.js';
+import { runAiPipeline } from '../aiPipelineLoop.js';
+import { prependAiComment, stripAiComment } from '../llmPipeline.js';
+import { getSchemaHints } from '../aiContext.js';
+
+// Whimsical, rotating loader labels shown while the AI works — MongoDB- and
+// Rossum-flavored gerunds (aggregation stages + document-AI / Master Data Hub).
+const LOADING_WORDS = [
+  'Aggregating', 'Unwinding arrays', 'Projecting fields', 'Matching documents',
+  'Grouping records', 'Bucketing values', 'Faceting the data', 'Sharding ideas',
+  'Indexing hunches', 'Pipelining stages', 'Coalescing results', 'Joining collections',
+  'Chasing cursors', 'Extracting meaning', 'Annotating fields', 'Consulting the Hub',
+  'Matching master data', 'Hydrating datasets', 'Reconciling line items',
+  'Scoring confidence', 'Parsing intent', 'Wrangling Mongo',
+];
+function randomWord() { return LOADING_WORDS[Math.floor(Math.random() * LOADING_WORDS.length)]; }
 
 export default function PipelineEditor({ editorRef, initialValue, onChange, onValidChange, onLoadPipeline, onReset, onToggleStage }) {
   const [savedState, setSavedState] = useState(false);
@@ -13,7 +29,23 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [popupPos, setPopupPos] = useState(null); // { top, left }
+  const [nlQuery, setNlQuery] = useState('');
+  const [nlLoading, setNlLoading] = useState(false);
+  const [nlWord, setNlWord] = useState('');
   const saveInputRef = useRef(null);
+  const nlInputRef = useRef(null);
+  const nlAbortRef = useRef(null);
+
+  // Abort any in-flight AI request when the editor unmounts.
+  useEffect(() => () => { if (nlAbortRef.current) nlAbortRef.current.abort(); }, []);
+
+  // Rotate the whimsical loader label while the AI is working.
+  useEffect(() => {
+    if (!nlLoading) return undefined;
+    setNlWord(randomWord());
+    const t = setInterval(() => setNlWord(randomWord()), 1300);
+    return () => clearInterval(t);
+  }, [nlLoading]);
 
   // Close the overflow menu when clicking outside it
   useEffect(() => {
@@ -60,6 +92,46 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
     if (!editorRef.current) return;
     const out = beautifyText(editorRef.current.getValue());
     if (out != null) editorRef.current.setValue(out);
+  }
+
+  async function handleNlSubmit() {
+    const q = nlQuery.trim();
+    if (!q || nlLoading || !editorRef.current) return;
+
+    const fields = fieldsFn();
+    const collection = selectedCollection.value;
+    // Strip any prior AI-request comment so it isn't re-sent as prompt context.
+    const currentPipeline = stripAiComment(editorRef.current.getValue()).trim();
+
+    if (nlAbortRef.current) nlAbortRef.current.abort();
+    const controller = new AbortController();
+    nlAbortRef.current = controller;
+
+    setNlLoading(true);
+    try {
+      // Schema hints (cached per collection): distinct low-card values + Atlas
+      // Search indexes + numeric-string fields. Degrades to no-ops on failure.
+      const hints = await getSchemaHints(api, collection, records.value).catch(() => ({}));
+      const { pipelineText } = await runAiPipeline({
+        api, request: q, fields, collection, currentPipeline,
+        // Seed the prompt with a few already-loaded docs so the model uses
+        // stored value forms (e.g. NET30 not "net 30") on the first try.
+        samples: (records.value || []).slice(0, 3),
+        knownValues: hints.knownValues,
+        numericStringFields: hints.numericStringFields,
+        searchIndexes: hints.searchIndexes,
+        signal: controller.signal,
+      });
+      // No status notice — the applied query and its execution are the feedback.
+      if (pipelineText) editorRef.current.setValue(prependAiComment(pipelineText, q));
+      setNlQuery('');
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      if (err.status === 403) { aiAvailable.value = false; return; } // gated mid-session → hide
+      error.value = { message: 'AI search failed: ' + err.message };
+    } finally {
+      setNlLoading(false);
+    }
   }
 
   async function handleSave() {
@@ -143,6 +215,26 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
               onLoad={loadFromPanel}
               onDismiss={() => setLibraryOpen(false)}
             />
+          </div>
+        </div>
+      )}
+      {aiAvailable.value && (
+        <div class="nl-search-row">
+          <div class="nl-search-wrapper">
+            <input
+              ref={nlInputRef}
+              class={'nl-search-input' + (nlLoading ? ' loading' : '')}
+              type="text"
+              placeholder="Describe a query in plain English..."
+              value={nlLoading ? '' : nlQuery}
+              disabled={nlLoading}
+              onInput={(e) => setNlQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleNlSubmit();
+                if (e.key === 'Escape') { setNlQuery(''); nlInputRef.current?.blur(); }
+              }}
+            />
+            {nlLoading && <div class="nl-search-loading">{`${nlWord || 'Aggregating'}…`}</div>}
           </div>
         </div>
       )}

@@ -135,7 +135,7 @@ export function buildGraph(raw) {
   for (const q of raw?.queues || []) {
     addNode('queue', q.id ?? idFromUrl(q.url), q.name, detailFor('queue', q, isDisabledHook));
     // Modern Rossum queues carry a unified `engine` field; older ones used
-    // dedicated_engine / generic_engine (verified live: ferguson-dev uses `engine`).
+    // dedicated_engine / generic_engine (verified live: a customer dev org uses `engine`).
     const engUrl = q.engine || q.dedicated_engine || q.generic_engine;
     const engId = idFromUrl(engUrl);
     if (engId) addNode('engine', engId, `Engine ${engId}`);

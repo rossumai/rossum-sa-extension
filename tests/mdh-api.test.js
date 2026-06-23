@@ -272,3 +272,51 @@ describe('async operation helpers', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+describe('llmChat', () => {
+  beforeEach(() => { api.init('https://acme.rossum.app', 'tok'); });
+
+  it('POSTs messages to the internal llmchat endpoint on baseDomain', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      ok({ messages: [{ role: 'user', content: 'q' }, { role: 'system', content: '[]' }] }),
+    );
+    const res = await api.llmChat([{ role: 'user', content: 'q' }]);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      'https://acme.rossum.app/api/v1/internal/llmchat',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ Authorization: 'Bearer tok', 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'q' }] }),
+      }),
+    );
+    expect(res.messages).toHaveLength(2);
+  });
+
+  it('throws an error carrying the HTTP status on 403', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(err(403, { detail: 'nope' }));
+    await expect(api.llmChat([{ role: 'user', content: 'q' }])).rejects.toMatchObject({ status: 403 });
+  });
+});
+
+describe('probeLlmChat', () => {
+  beforeEach(() => { api.init('https://acme.rossum.app', 'tok'); });
+
+  it('true when the endpoint replies 400 (messages required)', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(err(400, { messages: ['This field is required.'] }));
+    expect(await api.probeLlmChat()).toBe(true);
+  });
+  it('false when gated (403)', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(err(403, {}));
+    expect(await api.probeLlmChat()).toBe(false);
+  });
+  it('false on network error', async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('network'));
+    expect(await api.probeLlmChat()).toBe(false);
+  });
+  it('sends an empty body (never generation content)', async () => {
+    const f = vi.fn().mockResolvedValue(err(400, {}));
+    globalThis.fetch = f;
+    await api.probeLlmChat();
+    expect(f.mock.calls[0][1].body).toBe('{}');
+  });
+});

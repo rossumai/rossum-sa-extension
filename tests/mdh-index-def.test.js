@@ -8,7 +8,7 @@ import {
 
 describe('toCreateIndexDefinition', () => {
   it('turns the real listed sample into a clean create-ready definition', () => {
-    // Verbatim from a live /indexes/list response (ferguson-dev, PRODUCTS).
+    // Verbatim from a live /indexes/list response (a customer dev org, PRODUCTS).
     expect(toCreateIndexDefinition({ v: 2, key: { ALT1: 1 }, name: 'products_alt1_idx' }))
       .toEqual({ indexName: 'products_alt1_idx', keys: { ALT1: 1 } });
   });

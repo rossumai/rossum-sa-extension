@@ -1,3 +1,5 @@
+import { classifyProbe } from './llmPipeline.js';
+
 let serviceBase = '';
 let baseDomain = '';
 let authHeader = '';
@@ -135,6 +137,59 @@ export async function getOrgId() {
   } catch {
     clearTimeout(timer);
     return null;
+  }
+}
+
+// Rossum internal LLM chat. Per-org feature-flagged; verified live on
+// a customer dev org 2026-06-23. Uses baseDomain (the Rossum API), NOT serviceBase
+// (Data Storage). Input messages must be user-role only; the reply is the last
+// element of the returned `messages` array (its role comes back as "system").
+export async function llmChat(messages, { signal: externalSignal } = {}) {
+  const { signal, timer } = combinedSignal(externalSignal);
+  let res;
+  try {
+    res = await fetch(`${baseDomain}/api/v1/internal/llmchat`, {
+      method: 'POST',
+      headers: { Authorization: authHeader, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages }),
+      signal,
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') {
+      if (externalSignal?.aborted) throw err;
+      throw new Error('Request timed out after 30s');
+    }
+    throw err;
+  }
+  clearTimeout(timer);
+  if (res.status === 401) {
+    throw apiError('Session expired. Open a Rossum page and click Data Storage again to reconnect.', 401);
+  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw apiError(data?.detail || data?.message || `API error ${res.status}`, res.status);
+  }
+  return data;
+}
+
+// Cheap availability probe: POST {} → 400 ("messages required") when reachable/
+// enabled, 403/other when gated. No model generation. Never throws (mirrors
+// getOrgId): any error ⇒ unavailable.
+export async function probeLlmChat() {
+  const { signal, timer } = combinedSignal();
+  try {
+    const res = await fetch(`${baseDomain}/api/v1/internal/llmchat`, {
+      method: 'POST',
+      headers: { Authorization: authHeader, 'Content-Type': 'application/json' },
+      body: '{}',
+      signal,
+    });
+    clearTimeout(timer);
+    return classifyProbe(res.status);
+  } catch {
+    clearTimeout(timer);
+    return false;
   }
 }
 
