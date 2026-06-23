@@ -5,6 +5,9 @@ import {
   applySkipToPipeline,
   extractUIStateFromPipeline,
   stripPaginationStages,
+  pipelineReducesResultSet,
+  terminalWriteStage,
+  stripWriteStages,
 } from '../src/mdh/pipelineOps.js';
 
 describe('applySortToPipeline', () => {
@@ -271,5 +274,83 @@ describe('stripPaginationStages', () => {
     expect(() => stripPaginationStages(null)).toThrow();
     expect(() => stripPaginationStages({ $match: {} })).toThrow();
     expect(() => stripPaginationStages('not a pipeline')).toThrow();
+  });
+});
+
+describe('pipelineReducesResultSet', () => {
+  it('returns false for a plain full-collection browse', () => {
+    expect(pipelineReducesResultSet([{ $match: {} }, { $sort: { _id: -1 } }, { $skip: 0 }, { $limit: 50 }])).toBe(false);
+    expect(pipelineReducesResultSet([])).toBe(false);
+  });
+  it('returns true when $match has any key', () => {
+    expect(pipelineReducesResultSet([{ $match: { status: 'active' } }, { $limit: 50 }])).toBe(true);
+  });
+  it('returns true for any reducing/transforming stage', () => {
+    expect(pipelineReducesResultSet([{ $group: { _id: '$v' } }])).toBe(true);
+    expect(pipelineReducesResultSet([{ $match: {} }, { $unwind: '$items' }])).toBe(true);
+  });
+});
+
+describe('stripWriteStages', () => {
+  it('removes $out stages', () => {
+    expect(stripWriteStages([{ $match: {} }, { $out: 'archive' }])).toEqual([{ $match: {} }]);
+  });
+
+  it('removes $merge stages', () => {
+    expect(stripWriteStages([{ $group: { _id: '$x' } }, { $merge: { into: 'targetCol' } }])).toEqual([{ $group: { _id: '$x' } }]);
+  });
+
+  it('removes $out with an object value', () => {
+    expect(stripWriteStages([{ $match: {} }, { $out: { db: 'x', coll: 'archive' } }])).toEqual([{ $match: {} }]);
+  });
+
+  it('keeps $match/$group/$sort/etc. unchanged', () => {
+    const p = [{ $match: { x: 1 } }, { $sort: { _id: -1 } }, { $group: { _id: '$x' } }];
+    expect(stripWriteStages(p)).toEqual(p);
+  });
+
+  it('returns [] for an empty array', () => {
+    expect(stripWriteStages([])).toEqual([]);
+  });
+
+  it('returns [] for null/undefined', () => {
+    expect(stripWriteStages(null)).toEqual([]);
+    expect(stripWriteStages(undefined)).toEqual([]);
+  });
+
+  it('leaves a non-write pipeline unchanged (no-op)', () => {
+    const p = [{ $match: {} }, { $limit: 50 }];
+    expect(stripWriteStages(p)).toEqual(p);
+  });
+
+  it('strips $out/$merge even when they appear mid-pipeline', () => {
+    const p = [{ $match: {} }, { $out: 'x' }, { $sort: { _id: 1 } }];
+    expect(stripWriteStages(p)).toEqual([{ $match: {} }, { $sort: { _id: 1 } }]);
+  });
+
+  it('tolerates non-object entries in the pipeline', () => {
+    expect(stripWriteStages([null, { $match: {} }, { $out: 'x' }])).toEqual([null, { $match: {} }]);
+  });
+});
+
+describe('terminalWriteStage', () => {
+  it('returns null when the last stage is not a write', () => {
+    expect(terminalWriteStage([{ $match: {} }, { $sort: { _id: 1 } }])).toBeNull();
+    expect(terminalWriteStage([])).toBeNull();
+  });
+  it('detects $out with a string target', () => {
+    expect(terminalWriteStage([{ $match: {} }, { $out: 'archive' }])).toEqual({ op: '$out', target: 'archive' });
+  });
+  it('detects $out with an object target', () => {
+    expect(terminalWriteStage([{ $out: { db: 'x', coll: 'archive' } }])).toEqual({ op: '$out', target: 'archive' });
+  });
+  it('detects $merge with a string into', () => {
+    expect(terminalWriteStage([{ $merge: { into: 'targetCol' } }])).toEqual({ op: '$merge', target: 'targetCol' });
+  });
+  it('detects $merge with an object into', () => {
+    expect(terminalWriteStage([{ $merge: { into: { db: 'x', coll: 'targetCol' } } }])).toEqual({ op: '$merge', target: 'targetCol' });
+  });
+  it('only checks the LAST stage', () => {
+    expect(terminalWriteStage([{ $out: 'a' }, { $match: {} }])).toBeNull();
   });
 });

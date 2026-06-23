@@ -150,6 +150,13 @@ describe('extractFieldNames', () => {
     expect(extractFieldNames([{ a: 1, b: { c: 2 } }, { a: 1, d: 3 }]))
       .toEqual(['a', 'b', 'b.c', 'd']);
   });
+
+  it('descends one level into arrays of objects', () => {
+    const names = extractFieldNames([{ items: [{ sku: 'a', qty: 1 }], name: 'x' }]);
+    expect(names).toContain('name');
+    expect(names).toContain('items.sku');
+    expect(names).toContain('items.qty');
+  });
 });
 
 describe('aggregate completion source', () => {

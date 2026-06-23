@@ -7,6 +7,7 @@
 //
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { h, render } from 'preact';
+import { act } from 'preact/test-utils';
 
 globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
 globalThis.chrome = { storage: { local: { get: (k, cb) => cb && cb({}), set() {}, remove() {} } } };
@@ -43,6 +44,50 @@ beforeEach(() => {
   selectionMode.value = false;
   selectedIds.value = new Map();
   selectionPipelineDirty.value = false;
+});
+
+describe('RecordList view toggle', () => {
+  it('renders a View: dropdown button and switches to table view', async () => {
+    const root = renderList();
+    // No legacy .view-toggle
+    expect(root.querySelector('.view-toggle')).toBeNull();
+    // Find the View: dropdown button
+    const viewBtn = [...root.querySelectorAll('.dropdown-btn button')].find((b) => b.textContent.startsWith('View:'));
+    expect(viewBtn).not.toBeNull();
+    // Open the dropdown
+    await act(() => {
+      viewBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    // Find and click the Table menu item
+    const tableItem = [...root.querySelectorAll('.toolbar-menu-item')].find((b) => b.textContent.includes('Table'));
+    expect(tableItem).not.toBeNull();
+    await act(() => {
+      tableItem.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(root.querySelector('table.record-table')).not.toBeNull();
+  });
+
+  it('has no JSON option in the View: dropdown', async () => {
+    const root = renderList();
+    const viewBtn = [...root.querySelectorAll('.dropdown-btn button')].find((b) => b.textContent.startsWith('View:'));
+    await act(() => {
+      viewBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    const jsonItem = [...root.querySelectorAll('.toolbar-menu-item')].find((b) => b.textContent.includes('JSON'));
+    expect(jsonItem).toBeUndefined();
+  });
+
+  it('falls back to List when stored view is the legacy "json" value', async () => {
+    globalThis.chrome.storage.local.get = (keys, cb) => cb({ mdhResultsView: 'json' });
+    const root = renderList();
+    // Allow the useEffect to resolve
+    await act(() => {});
+    const viewBtn = [...root.querySelectorAll('.dropdown-btn button')].find((b) => b.textContent.startsWith('View:'));
+    expect(viewBtn.textContent).toContain('List');
+    expect(root.querySelector('table.record-table')).toBeNull();
+    // Restore default stub
+    globalThis.chrome.storage.local.get = (k, cb) => cb && cb({});
+  });
 });
 
 describe('RecordList footer', () => {

@@ -357,8 +357,13 @@ function collectKeys(obj, prefix, fields) {
   for (const key of Object.keys(obj)) {
     const path = prefix ? `${prefix}.${key}` : key;
     fields.add(path);
-    if (obj[key] && typeof obj[key] === 'object' && !Array.isArray(obj[key])) {
-      collectKeys(obj[key], path, fields);
+    const val = obj[key];
+    if (Array.isArray(val)) {
+      for (const el of val) {
+        if (el && typeof el === 'object' && !Array.isArray(el)) collectKeys(el, path, fields);
+      }
+    } else if (val && typeof val === 'object') {
+      collectKeys(val, path, fields);
     }
   }
 }

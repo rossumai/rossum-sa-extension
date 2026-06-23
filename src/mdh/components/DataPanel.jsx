@@ -1,6 +1,6 @@
 import { h } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { selectedCollection, records, skip, limit, loading, error, pendingPipelineLoad } from '../store.js';
+import { selectedCollection, records, skip, limit, loading, error, pendingPipelineLoad, sampledFields } from '../store.js';
 import { usePipeline } from '../hooks/usePipeline.js';
 import { useQuery } from '../hooks/useQuery.js';
 import { usePagination } from '../hooks/usePagination.js';
@@ -20,8 +20,9 @@ import { showUndo } from '../undo.js';
 import { addToHistory } from './QueryHistory.jsx';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
-import { applySortToPipeline, applyFilterDeltaToPipeline, applySkipToPipeline, extractUIStateFromPipeline, stripPaginationStages } from '../pipelineOps.js';
+import { applySortToPipeline, applyFilterDeltaToPipeline, applySkipToPipeline, extractUIStateFromPipeline, stripPaginationStages, pipelineReducesResultSet, terminalWriteStage } from '../pipelineOps.js';
 import { applyMutationToText, normalizeEffectivePipelineText, setStageDisabled, parseEntries } from '../pipelineComments.js';
+import { loadCollections } from './Sidebar.jsx';
 import { savePipelineState, getPipelineState } from '../pipelineState.js';
 import { saveLastPipeline } from '../lastPipeline.js';
 import { downloadCollection as runDownload, buildCsvSerializer, buildXmlSerializer, buildNdjsonSerializer } from '../downloadCollection.js';
@@ -29,7 +30,6 @@ import { buildColumnDiscoveryPipeline, orderColumns } from '../csv.js';
 import CsvExportOptions from './CsvExportOptions.jsx';
 import XmlExportOptions from './XmlExportOptions.jsx';
 import JSON5 from 'json5';
-
 export default function DataPanel() {
   const editorRef = useRef(null);
   const pipeline = usePipeline();
@@ -50,7 +50,6 @@ export default function DataPanel() {
   // useEditorSnapshot. recomputeEditorState() is called on every editor edit and
   // on placeholder changes.
   const [editorState, recomputeEditorState] = useEditorSnapshot(editorRef, pipeline.computeEditorStateWithTypes);
-
   const collection = selectedCollection.value;
 
   function buildInitialPipeline() {
@@ -86,9 +85,39 @@ export default function DataPanel() {
     setTimeout(() => { pipeline.suppressSync.value = false; }, 600);
   }
 
-  async function runQuery() {
+  async function runQuery(opts = {}) {
     if (!collection || !editorRef.current) return;
     const rawText = editorRef.current.getValue();
+    // Detect a terminal write stage from the LIVE editor text (not the debounced
+    // snapshot) so detection matches exactly what would run.
+    const liveStages = parseEntries(pipeline.substituteWithTypes(rawText)).entries
+      .filter((e) => !e.disabled)
+      .map((e) => e.stage);
+    const write = terminalWriteStage(liveStages);
+    if (write) {
+      // The query UI auto-runs on every edit. A write pipeline must NEVER run
+      // automatically — it executes only via the explicit "Run write pipeline"
+      // button (opts.explicitWrite), behind a confirmation.
+      if (!opts.explicitWrite) return;
+      confirmModal(
+        'Run write-stage pipeline?',
+        `This pipeline ends in ${write.op} and will write results into collection "${write.target}", which may overwrite existing data. Run it?`,
+        async () => {
+          await pipeline.ensureFieldTypes(collection, pipeline.referencedFields(rawText));
+          const result = await query.runQuery(
+            collection,
+            rawText,
+            (t) => normalizeEffectivePipelineText(pipeline.substituteWithTypes(t)),
+          );
+          if (result) {
+            addToHistory(collection, rawText, { ...pipeline.placeholderValues.value }, { ...pipeline.placeholderTypes.value });
+          }
+          cache.invalidateAll(); // a write may create/replace the target collection
+          loadCollections();
+        },
+      );
+      return;
+    }
     await pipeline.ensureFieldTypes(collection, pipeline.referencedFields(rawText));
     const result = await query.runQuery(
       collection,
@@ -107,6 +136,14 @@ export default function DataPanel() {
     selectedIds.value = new Map();
     selectionPipelineDirty.value = false;
     pipeline.reset();
+
+    sampledFields.value = [];
+    api.aggregate(collection, [{ $sample: { size: 200 } }])
+      .then((res) => {
+        if (selectedCollection.value !== collection) return; // stale guard
+        sampledFields.value = extractFieldNames(res.result || []);
+      })
+      .catch(() => { /* sampling is best-effort; fall back to loaded-record fields */ });
 
     const cachedCount = cache.get(collection, 'totalCount');
     if (cachedCount !== null) pagination.totalCount.value = cachedCount;
@@ -864,6 +901,12 @@ export default function DataPanel() {
     document.addEventListener('mouseup', onUp);
   }
 
+  const effectiveStages = parseEntries(pipeline.substituteWithTypes(editorState.text)).entries
+    .filter((e) => !e.disabled)
+    .map((e) => e.stage);
+  const resultsFiltered = pipelineReducesResultSet(effectiveStages);
+  const writeStage = terminalWriteStage(effectiveStages);
+
   return (
     <div class="panel" style="display:flex;flex-direction:row">
       <div class="data-panel-left" ref={leftRef}>
@@ -876,6 +919,16 @@ export default function DataPanel() {
           onReset={handleReset}
           onToggleStage={handleToggleStage}
         />
+        {writeStage && (
+          <div class="pipeline-write-banner">
+            <span class="pipeline-write-msg">
+              {'⚠'} This pipeline writes to <strong>{writeStage.target}</strong> ({writeStage.op}) and will not run automatically.
+            </span>
+            <button class="btn btn-sm btn-warning" onClick={() => runQuery({ explicitWrite: true })}>
+              Run write pipeline{'…'}
+            </button>
+          </div>
+        )}
         <PlaceholderInputs
           names={placeholderNames}
           values={pipeline.placeholderValues.value}
@@ -900,6 +953,7 @@ export default function DataPanel() {
           lastQueryMs={query.lastQueryMs.value}
           totalCount={pagination.totalCount.value}
           pagination={pagination}
+          filtered={resultsFiltered}
           onSort={handleSort}
           onFilter={handleFilter}
           onPageChange={(dir) => {

@@ -33,12 +33,13 @@ export function usePagination() {
     return skip.value > 0;
   }
 
-  function hasNext(recordCount) {
-    // Prefer the authoritative total when we know it — the record-count
-    // heuristic falsely reports a next page when the last page happens to be
-    // exactly `limit` records.
+  function hasNext(recordCount, filtered = false) {
+    // The $collStats total is the UNFILTERED collection size, so it is only a
+    // valid page bound for a full-collection browse. When the pipeline filters
+    // or reduces, fall back to the record-count heuristic — otherwise "Next"
+    // stays clickable into empty pages.
     const total = totalCount.value;
-    if (typeof total === 'number') return skip.value + limit.value < total;
+    if (!filtered && typeof total === 'number') return skip.value + limit.value < total;
     return recordCount >= limit.value;
   }
 

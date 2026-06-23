@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 import { selectedCollection } from '../store.js';
 import { openModal } from './Modal.jsx';
 import * as api from '../api.js';
+import { stripWriteStages } from '../pipelineOps.js';
 
 const DEBUG_PREVIEW_LIMIT = 5;
 
@@ -87,7 +88,7 @@ export default function PipelineDebug({ entries, onToggleStage }) {
     activeStages.forEach((_, i) => {
       const prefix = activeStages.slice(0, i + 1);
       const t0 = performance.now();
-      api.aggregate(collection, [...prefix, { $count: 'n' }], { signal: controller.signal })
+      api.aggregate(collection, [...stripWriteStages(prefix), { $count: 'n' }], { signal: controller.signal })
         .then((res) => {
           if (controller.signal.aborted) return;
           const n = res?.result?.[0]?.n ?? 0;
@@ -220,7 +221,7 @@ function StageInspector({ collection, prefix, stageIndex, stageKey, isInput }) {
   const [err, setErr] = useState(null);
 
   useEffect(() => {
-    api.aggregate(collection, [...prefix, { $limit: DEBUG_PREVIEW_LIMIT }])
+    api.aggregate(collection, [...stripWriteStages(prefix), { $limit: DEBUG_PREVIEW_LIMIT }])
       .then((res) => setDocs(res.result || []))
       .catch((e) => setErr({ message: e?.message || String(e), status: e?.status }));
   }, []);

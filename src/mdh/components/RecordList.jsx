@@ -1,8 +1,11 @@
 import { h } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { skip, selectedCollection, selectionMode, selectedIds, selectionPipelineDirty } from '../store.js';
+
 import RecordCard from './RecordCard.jsx';
+import RecordTable from './RecordTable.jsx';
 import DownloadSplitButton from './DownloadSplitButton.jsx';
+import { deriveColumns } from '../recordColumns.js';
 import JSON5 from 'json5';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
@@ -13,10 +16,11 @@ export default function RecordList({
   records, pipelineText, filterState, sortState, lastQueryMs, totalCount, pagination,
   onSort, onFilter, onPageChange, onEdit, onDelete, onRefresh, downloadState, onCancelDownload,
   onEnterSelectionMode, onExitSelectionMode, onBulkDelete, onBulkUpdate, onSelectPage, onClearSelection,
-  onViewSelected,
+  onViewSelected, filtered = false,
 }) {
   const [expandedSet, setExpandedSet] = useState(new Set([0]));
   const [expandAll, setExpandAll] = useState(false);
+  const [view, setView] = useState('list');
 
   const listRef = useRef(null);
   const [listWidth, setListWidth] = useState(0);
@@ -69,6 +73,13 @@ export default function RecordList({
     loadIndexes();
     return () => { cancelled = true; };
   }, [selectedCollection.value]);
+
+  useEffect(() => {
+    chrome.storage.local.get(['mdhResultsView'], ({ mdhResultsView }) => {
+      if (mdhResultsView === 'table') setView('table');
+    });
+  }, []);
+  function changeView(v) { setView(v); chrome.storage.local.set({ mdhResultsView: v }); }
 
   const charBudget = listWidth > 0
     ? Math.max(MIN_CHAR_BUDGET, Math.floor((listWidth - RESERVED_PX) / CHAR_WIDTH_PX))
@@ -149,6 +160,8 @@ export default function RecordList({
             onEnterSelectionMode={onEnterSelectionMode}
             onBulkDelete={onBulkDelete}
             onBulkUpdate={onBulkUpdate}
+            view={view}
+            changeView={changeView}
           />
         )}
       </div>
@@ -160,7 +173,17 @@ export default function RecordList({
       )}
       <div class="record-list" ref={listRef}>
         {emptyContent}
-        {records.map((record, i) => (
+        {records.length > 0 && view === 'table' && (
+          <RecordTable
+            records={records}
+            columns={deriveColumns(records)}
+            sortState={sortState}
+            filterState={filterState}
+            onSort={onSort}
+            onFilter={onFilter}
+          />
+        )}
+        {records.length > 0 && view === 'list' && records.map((record, i) => (
           <RecordCard
             key={i}
             record={record}
@@ -185,7 +208,7 @@ export default function RecordList({
         <div class="pagination-controls">
           <button disabled={!pagination.hasPrev()} onClick={() => onPageChange('prev')}>{'\u2190'} Prev</button>
           <span>Page {pagination.page()}</span>
-          <button disabled={!pagination.hasNext(records.length)} onClick={() => onPageChange('next')}>Next {'\u2192'}</button>
+          <button disabled={!pagination.hasNext(records.length, filtered)} onClick={() => onPageChange('next')}>Next {'\u2192'}</button>
         </div>
       </div>
     </div>
@@ -223,12 +246,13 @@ function SplitButton({ label, cls, onMain, menuItems = [] }) {
   );
 }
 
-function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh, onCancelDownload, onEnterSelectionMode, onBulkDelete, onBulkUpdate }) {
+function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh, onCancelDownload, onEnterSelectionMode, onBulkDelete, onBulkUpdate, view, changeView }) {
   return (
     <div style="display:contents">
       <div class="toolbar-group">
         <button class="btn btn-sm" onClick={onEnterSelectionMode}>Select</button>
         <button class="btn btn-sm" onClick={toggleExpandAll}>{allExpanded ? 'Collapse All' : 'Expand All'}</button>
+        <ViewAsButton view={view} changeView={changeView} />
       </div>
       <div style="flex:1"></div>
       <div class="toolbar-group">
@@ -281,6 +305,36 @@ function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh
           ]}
         />
       </div>
+    </div>
+  );
+}
+
+function ViewAsButton({ view, changeView }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onMouseDown(e) {
+      if (rootRef.current?.contains(e.target)) return;
+      setOpen(false);
+    }
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [open]);
+
+  const label = view === 'table' ? 'Table' : 'List';
+  return (
+    <div ref={rootRef} class="dropdown-btn">
+      <button class="btn btn-sm" onClick={(e) => { e.stopPropagation(); setOpen(!open); }} title="Change results view">
+        View: {label} {'▾'}
+      </button>
+      {open && (
+        <div class="toolbar-more-menu">
+          <button class="toolbar-menu-item" onClick={() => { setOpen(false); changeView('list'); }}>{view === 'list' ? '✓ List' : 'List'}</button>
+          <button class="toolbar-menu-item" onClick={() => { setOpen(false); changeView('table'); }}>{view === 'table' ? '✓ Table' : 'Table'}</button>
+        </div>
+      )}
     </div>
   );
 }

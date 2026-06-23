@@ -311,6 +311,53 @@ describe('PipelineDebug', () => {
   });
 });
 
+describe('PipelineDebug — write-stage safety', () => {
+  it('never passes $out or $merge to api.aggregate even when they appear in entries', async () => {
+    const entries = [
+      { disabled: false, stage: { $match: {} } },
+      { disabled: false, stage: { $out: 'archive' } },
+    ];
+    api.aggregate.mockResolvedValue({ result: [{ n: 3 }] });
+
+    mount({ entries });
+    // 2 active stage prefixes + 1 input ($collStats) run.
+    await waitFor(() => api.aggregate.mock.calls.length >= 3, 'all aggregations issued');
+
+    for (const call of api.aggregate.mock.calls) {
+      const pipeline = call[1];
+      if (!Array.isArray(pipeline)) continue;
+      for (const stage of pipeline) {
+        if (!stage || typeof stage !== 'object') continue;
+        const key = Object.keys(stage)[0];
+        expect(key).not.toBe('$out');
+        expect(key).not.toBe('$merge');
+      }
+    }
+  });
+
+  it('never passes $merge to api.aggregate', async () => {
+    const entries = [
+      { disabled: false, stage: { $group: { _id: '$x' } } },
+      { disabled: false, stage: { $merge: { into: 'targetCol' } } },
+    ];
+    api.aggregate.mockResolvedValue({ result: [{ n: 5 }] });
+
+    mount({ entries });
+    await waitFor(() => api.aggregate.mock.calls.length >= 3, 'all aggregations issued');
+
+    for (const call of api.aggregate.mock.calls) {
+      const pipeline = call[1];
+      if (!Array.isArray(pipeline)) continue;
+      for (const stage of pipeline) {
+        if (!stage || typeof stage !== 'object') continue;
+        const key = Object.keys(stage)[0];
+        expect(key).not.toBe('$out');
+        expect(key).not.toBe('$merge');
+      }
+    }
+  });
+});
+
 describe('PipelineDebug — disabled stages', () => {
   it('renders a disabled row greyed, with no count request for it', async () => {
     const entries = [

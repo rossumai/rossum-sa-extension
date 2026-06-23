@@ -1,7 +1,8 @@
 import { h } from 'preact';
 import { useState, useMemo, useEffect } from 'preact/hooks';
 import JsonTree, { countFields, AUTO_COLLAPSE_FIELD_THRESHOLD } from './JsonTree.jsx';
-import { selectionMode, selectedIds } from '../store.js';
+import { selectionMode } from '../store.js';
+import { recordIdKey, isRecordSelected, toggleRecordSelection } from '../recordSelection.js';
 import { recordSummary, MIN_CHAR_BUDGET, EMPTY_SENTINEL } from '../recordSummary.js';
 
 export default function RecordCard({
@@ -31,16 +32,12 @@ export default function RecordCard({
     setTreeKey((k) => k + 1);
   }, [record]);
 
-  const idKey = record._id?.$oid || String(record._id);
   const isSelectionMode = selectionMode.value;
-  const isSelected = isSelectionMode && selectedIds.value.has(idKey);
+  const isSelected = isSelectionMode && isRecordSelected(record);
 
   function toggleSelected(e) {
     e.stopPropagation();
-    const next = new Map(selectedIds.value);
-    if (next.has(idKey)) next.delete(idKey);
-    else next.set(idKey, record._id);
-    selectedIds.value = next;
+    toggleRecordSelection(record);
   }
 
   function handleCopy(e) {

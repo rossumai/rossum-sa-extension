@@ -91,7 +91,7 @@ Preact JSX. Detects current site (Rossum/NetSuite/Coupa) and dims irrelevant sec
 - Feature toggles: `schemaAnnotationsEnabled`, `expandFormulasEnabled`, `expandReasoningFieldsEnabled`, `scrollLockEnabled`, `resourceIdsEnabled`, `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled`
 - Console staging auth: `consoleAuth_<uuid>` (single-use, 24h TTL, removed on first read; carries `app` + optional DS pipeline prefill)
 - Console state: `consoleActiveApp`
-- MDH state: `mdhPipelineWidth`, `mdhUploadsColumnWidths`, `mdhActiveView`, `mdhSelectedCollection`, `mdhActivePanel`, `mdhOpsSearch`, `mdhOverviewChartsScale` (Overview Charts scale, shared by both charts: `linear`|`sqrt`|`log`)
+- MDH state: `mdhPipelineWidth`, `mdhUploadsColumnWidths`, `mdhActiveView`, `mdhSelectedCollection`, `mdhActivePanel`, `mdhOpsSearch`, `mdhOverviewChartsScale` (Overview Charts scale, shared by both charts: `linear`|`sqrt`|`log`), `mdhResultsView` (results view: `list`|`table`; legacy `json` reads as `list`)
 - Audit state: `auditActiveSource`, `auditFiltersBySource`
 - Galaxy state: none (no persisted state in v1)
 

@@ -102,6 +102,57 @@ export function extractUIStateFromPipeline(pipeline) {
   return { sorts, filters };
 }
 
+const BROWSE_STAGES = new Set(['$sort', '$skip', '$limit']);
+
+// True when the effective pipeline returns anything other than the whole
+// collection, so the unfiltered $collStats total is NOT a valid page bound.
+export function pipelineReducesResultSet(stages) {
+  for (const stage of stages || []) {
+    if (!stage || typeof stage !== 'object') continue;
+    const key = Object.keys(stage)[0];
+    if (key === '$match') {
+      if (stage.$match && Object.keys(stage.$match).length > 0) return true;
+      continue; // empty $match preserves all docs
+    }
+    if (!BROWSE_STAGES.has(key)) return true;
+  }
+  return false;
+}
+
+// Remove any `$out` or `$merge` stages from a pipeline, returning a new array.
+// Used by the debug panel so count/preview probes never execute a write.
+// Stripping is safe: the count entering a write stage equals the docs-that-
+// would-be-written, which is meaningful; non-write pipelines are unaffected.
+export function stripWriteStages(stages) {
+  return (stages || []).filter((s) => {
+    if (!s || typeof s !== 'object') return true;
+    const k = Object.keys(s)[0];
+    return k !== '$out' && k !== '$merge';
+  });
+}
+
+// Inspect the LAST stage of a pipeline to detect terminal write stages.
+// Returns `{ op, target }` when the last stage is `$out` or `$merge`; null otherwise.
+// `$out` target: string value, or `value.coll` / `value.collectionName`.
+// `$merge` target: `value.into` when a string, else `value.into.coll`.
+export function terminalWriteStage(stages) {
+  const list = stages || [];
+  const last = list[list.length - 1];
+  if (!last || typeof last !== 'object') return null;
+  const key = Object.keys(last)[0];
+  if (key === '$out') {
+    const v = last.$out;
+    const target = typeof v === 'string' ? v : (v?.coll || v?.collectionName || null);
+    return target ? { op: '$out', target } : { op: '$out', target: '(unknown)' };
+  }
+  if (key === '$merge') {
+    const into = last.$merge?.into;
+    const target = typeof into === 'string' ? into : (into?.coll || null);
+    return target ? { op: '$merge', target } : { op: '$merge', target: '(unknown)' };
+  }
+  return null;
+}
+
 // Drop the contiguous trailing run of `$skip` / `$limit` stages from a
 // pipeline, returning a new array. Mid-pipeline `$skip` / `$limit` stages
 // are preserved — they may be query-specific (e.g., a `$limit` cap before a

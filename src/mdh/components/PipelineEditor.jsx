@@ -1,6 +1,6 @@
 import { h } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
-import { selectedCollection, records } from '../store.js';
+import { selectedCollection, records, sampledFields } from '../store.js';
 import { extractFieldNames } from './JsonEditor.jsx';
 import JsonEditor from './JsonEditor.jsx';
 import { LibraryPanel, saveQuery, unsaveQuery, isSaved } from './QueryHistory.jsx';
@@ -42,7 +42,10 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
     };
   }, [showSaveInput]);
 
-  const fieldsFn = () => extractFieldNames(records.value);
+  const fieldsFn = () => {
+    const merged = new Set([...extractFieldNames(records.value), ...sampledFields.value]);
+    return [...merged].sort();
+  };
 
   async function updateSaveBtn() {
     const col = selectedCollection.value;

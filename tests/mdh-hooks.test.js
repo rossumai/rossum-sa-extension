@@ -404,6 +404,19 @@ describe('pagination (usePagination)', () => {
     expect(hook.totalCount.value).toBeNull();
   });
 
+  it('does not over-page into empty pages when the query is filtered', () => {
+    const hook = renderHook(usePagination);
+    hook.totalCount.value = 10000;      // unfiltered collection size
+    store.skip.value = 0;
+    store.limit.value = 50;
+    // Unfiltered: trust the total → there is a next page.
+    expect(hook.hasNext(50, false)).toBe(true);
+    // Filtered with fewer than a full page of results → no next page.
+    expect(hook.hasNext(30, true)).toBe(false);
+    // Filtered with a full page → heuristic allows a next page.
+    expect(hook.hasNext(50, true)).toBe(true);
+  });
+
   it('discards stale total count when collection changes during fetch', async () => {
     let resolveCount;
     api.aggregate.mockImplementation(() => new Promise((r) => { resolveCount = r; }));

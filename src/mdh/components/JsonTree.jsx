@@ -28,7 +28,7 @@ function writeClipboard(text) {
   }
 }
 
-function CopyButton({ getText, kind = 'value' }) {
+export function CopyButton({ getText, kind = 'value' }) {
   const [copied, setCopied] = useState(false);
 
   function handleClick(e) {

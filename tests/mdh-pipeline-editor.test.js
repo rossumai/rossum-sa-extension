@@ -41,3 +41,4 @@ describe('PipelineEditor Beautify', () => {
     expect(out).toContain('/* @disabled-stage');
   });
 });
+
