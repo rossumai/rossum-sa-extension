@@ -36,21 +36,6 @@ const INSPECTOR_ICON = (
   </svg>
 );
 
-const SUPPORT_ICON = (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="12" cy="12" r="10" />
-    <circle cx="12" cy="12" r="4" />
-    <line x1="4.93" y1="4.93" x2="9.17" y2="9.17" />
-    <line x1="14.83" y1="14.83" x2="19.07" y2="19.07" />
-    <line x1="14.83" y1="9.17" x2="19.07" y2="4.93" />
-    <line x1="4.93" y1="19.07" x2="9.17" y2="14.83" />
-  </svg>
-);
-
-// Chrome Web Store "Support" tab for this extension (item id matches the
-// install link in README.md).
-const SUPPORT_URL = 'https://chromewebstore.google.com/detail/bljkbinljmhdbipklfcljongikhmnneh/support';
-
 const APPS = [
   { id: 'mdh', label: 'Data', title: 'Dataset Management', icon: DATA_ICON },
   { id: 'audit', label: 'Audit', title: 'Audit Log Viewer', icon: AUDIT_ICON },
@@ -76,16 +61,6 @@ export default function Rail() {
           {a.beta && <span class="app-rail-beta">beta</span>}
         </button>
       ))}
-      <a
-        class="app-rail-support"
-        href={SUPPORT_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        title="Support & feedback"
-      >
-        <span class="app-rail-icon">{SUPPORT_ICON}</span>
-        <span class="app-rail-label">Support</span>
-      </a>
     </nav>
   );
 }

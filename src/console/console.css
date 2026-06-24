@@ -2768,30 +2768,12 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .app-rail-item.active .app-rail-icon { background: var(--accent); color: #fff; }
 
 /* muted: a work-in-progress app, pushed to the bottom of the rail and dimmed.
-   margin-top:auto pushes it (and anything after) to the bottom edge; opacity is
-   restored on hover/active/focus so it stays usable when intentionally reached. */
+   margin-top:auto pushes it to the bottom edge; opacity is restored on
+   hover/active/focus so it stays usable when intentionally reached. */
 .app-rail-item.muted { margin-top: auto; opacity: 0.2; transition: opacity 0.15s; }
 .app-rail-item.muted:hover,
 .app-rail-item.muted:focus-visible,
 .app-rail-item.muted.active { opacity: 1; }
-
-/* Support/feedback: a utility link pinned to the rail bottom (the muted
-   Inspector's margin-top:auto pushes this last child down with it). Styled
-   like a rail item but deliberately NOT .app-rail-item so it isn't counted
-   as an app switcher. */
-.app-rail-support {
-  width: 60px;
-  display: flex; flex-direction: column; align-items: center; gap: 5px;
-  padding: 6px 0; border-radius: var(--radius);
-  color: var(--text-secondary);
-  font-family: var(--font-sans);
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.app-rail-support:hover { background: var(--bg-hover); color: var(--text-primary); }
-
-.app-rail-support .app-rail-label { font-size: 10px; font-weight: 600; }
 
 .app-rail-beta {
   position: absolute;
