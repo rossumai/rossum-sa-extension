@@ -56,6 +56,20 @@ export const selectedIds = signal(new Map());
 // exactly, so any prior drift is resolved).
 export const selectionPipelineDirty = signal(false);
 
+// Results-pane view mode: 'list' | 'table' | 'stages'. A signal (not RecordList
+// local state) so the left Aggregate Pipeline Debug panel can switch the right
+// pane to the Stages debug view. Persisted as `mdhResultsView`.
+export const resultsView = signal('list');
+// When a stage row in the debug panel is clicked, the Stages view scrolls to and
+// briefly highlights that stage. `{ index }` (active-stage index, -1 = input) |
+// null. A fresh object each click so the same stage can be re-targeted.
+export const inspectTarget = signal(null);
+
+// Hovered Stages-view stage → draws a connector line to that stage in the pipeline
+// editor. `{ entryIndex, el }` (el = the hovered section element, re-measured on
+// scroll) | null. Cleared on mouse-leave.
+export const hoveredStage = signal(null);
+
 // Suffix that namespaces per-org client state (saved/recent/last queries) so it
 // isn't shared across projects. Prefers the org id; falls back to the origin so
 // the data is still per-project (never global) if the org id is unavailable.

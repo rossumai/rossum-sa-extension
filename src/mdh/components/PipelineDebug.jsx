@@ -1,11 +1,6 @@
 import { h } from 'preact';
-import { useState, useEffect, useRef } from 'preact/hooks';
 import { selectedCollection } from '../store.js';
-import { openModal } from './Modal.jsx';
-import * as api from '../api.js';
-import { stripWriteStages } from '../pipelineOps.js';
-
-const DEBUG_PREVIEW_LIMIT = 5;
+import useStageCounts from '../hooks/useStageCounts.js';
 
 // A stage/input whose measured end-to-end latency exceeds this is flagged slow
 // (the timing turns orange). Matches the threshold the record-list footer used
@@ -29,102 +24,17 @@ function countCell(info) {
   };
 }
 
-function StageTooltip({ stage, children }) {
-  const [show, setShow] = useState(false);
-  const rowRef = useRef(null);
-  const tipRef = useRef(null);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
-
-  function onEnter() {
-    const rect = rowRef.current?.getBoundingClientRect();
-    if (rect) setPos({ top: rect.top, left: rect.right + 8 });
-    setShow(true);
-  }
-
-  useEffect(() => {
-    if (!show || !tipRef.current) return;
-    const tip = tipRef.current;
-    const tipRect = tip.getBoundingClientRect();
-    let { top, left } = pos;
-    // If tooltip goes off-screen right, flip to left of the row
-    if (tipRect.right > window.innerWidth - 8) {
-      const rowRect = rowRef.current?.getBoundingClientRect();
-      if (rowRect) left = rowRect.left - tipRect.width - 8;
-    }
-    // If goes off bottom, shift up
-    if (tipRect.bottom > window.innerHeight - 8) {
-      top = Math.max(8, window.innerHeight - tipRect.height - 8);
-    }
-    if (top !== pos.top || left !== pos.left) setPos({ top, left });
-  }, [show, pos.top, pos.left]);
-
-  return (
-    <div ref={rowRef} onMouseEnter={onEnter} onMouseLeave={() => setShow(false)} style="position:relative">
-      {children}
-      {show && (
-        <div ref={tipRef} class="pipeline-debug-tooltip" style={`position:fixed;top:${pos.top}px;left:${pos.left}px`}>
-          <pre>{JSON.stringify(stage, null, 2)}</pre>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default function PipelineDebug({ entries, onToggleStage }) {
-  const [stageCounts, setStageCounts] = useState({});
-  const [inputInfo, setInputInfo] = useState(null);
+export default function PipelineDebug({ entries, onToggleStage, onInspectStage }) {
   const collection = selectedCollection.value;
 
   const list = Array.isArray(entries) ? entries : [];
   const activeStages = list.filter((e) => !e.disabled).map((e) => e.stage);
-  const activeKey = JSON.stringify(activeStages);
-
-  useEffect(() => {
-    if (!collection || activeStages.length === 0) { setStageCounts({}); setInputInfo(null); return; }
-    setStageCounts({});
-    setInputInfo(null);
-
-    const controller = new AbortController();
-    activeStages.forEach((_, i) => {
-      const prefix = activeStages.slice(0, i + 1);
-      const t0 = performance.now();
-      api.aggregate(collection, [...stripWriteStages(prefix), { $count: 'n' }], { signal: controller.signal })
-        .then((res) => {
-          if (controller.signal.aborted) return;
-          const n = res?.result?.[0]?.n ?? 0;
-          setStageCounts((prev) => ({ ...prev, [i]: { count: n, ms: Math.round(performance.now() - t0) } }));
-        })
-        .catch((err) => {
-          if (err?.name === 'AbortError' || controller.signal.aborted) return;
-          setStageCounts((prev) => ({
-            ...prev,
-            [i]: { error: { message: err?.message || String(err), status: err?.status }, ms: Math.round(performance.now() - t0) },
-          }));
-        });
-    });
-
-    const inputT0 = performance.now();
-    api.aggregate(collection, [{ $collStats: { count: {} } }, { $limit: 1 }], { signal: controller.signal })
-      .then((res) => {
-        if (controller.signal.aborted) return;
-        setInputInfo({ count: res?.result?.[0]?.count ?? 0, ms: Math.round(performance.now() - inputT0) });
-      })
-      .catch((err) => {
-        if (err?.name === 'AbortError' || controller.signal.aborted) return;
-        setInputInfo({ error: { message: err?.message || String(err), status: err?.status }, ms: Math.round(performance.now() - inputT0) });
-      });
-
-    return () => controller.abort();
-  }, [collection, activeKey]);
+  const { counts: stageCounts, inputInfo } = useStageCounts(collection, activeStages);
 
   if (list.length === 0) return null;
 
-  function inspectStage(prefix, displayNo, stageKey) {
-    openModal(`Stage ${displayNo}: ${stageKey}`, () => <StageInspector collection={collection} prefix={prefix} stageIndex={displayNo - 1} stageKey={stageKey} />);
-  }
-  function inspectInput() {
-    openModal('Input: all records', () => <StageInspector collection={collection} prefix={[]} stageIndex={-1} stageKey="input" isInput />);
-  }
+  function inspectStage(activeIndex) { if (onInspectStage) onInspectStage(activeIndex); }
+  function inspectInput() { if (onInspectStage) onInspectStage(-1); }
 
   const timingTitle = 'End-to-end latency for the prefix up to this stage (network + server + contention with parallel debug requests). Cumulative — not per-stage MongoDB executor time. Data Storage does not expose explain output.';
   const inputTimingTitle = 'End-to-end latency of the $collStats document count for the whole collection (network + server). This is a metadata count, so it is typically near-instant — not a measure of how long a full scan would take.';
@@ -188,21 +98,18 @@ export default function PipelineDebug({ entries, onToggleStage }) {
         const myDisplayNo = displayNo;
         const info = stageCounts[myActiveIdx];
         const { text: countText, cls: countCls } = countCell(info);
-        const prefix = activeStages.slice(0, myActiveIdx + 1);
 
         return (
           <div class="pipeline-debug-stage-wrap" key={entryIndex}>
-            <StageTooltip stage={stage}>
-              <div class="pipeline-debug-row" onClick={() => inspectStage(prefix, myDisplayNo, stageKey)}>
-                {toggle}
-                <span class="pipeline-debug-num">{myDisplayNo}.</span>
-                <span class="pipeline-debug-stage">{stageKey}</span>
-                <span class="pipeline-debug-preview">{preview}</span>
-                <span class="pipeline-debug-arrow">{'→'}</span>
-                <span class={countCls}>{countText}</span>
-                {info?.ms != null && (<span class={timeCls(info.ms)} title={timingTitle}>{info.ms}ms</span>)}
-              </div>
-            </StageTooltip>
+            <div class="pipeline-debug-row" onClick={() => inspectStage(myActiveIdx)}>
+              {toggle}
+              <span class="pipeline-debug-num">{myDisplayNo}.</span>
+              <span class="pipeline-debug-stage">{stageKey}</span>
+              <span class="pipeline-debug-preview">{preview}</span>
+              <span class="pipeline-debug-arrow">{'→'}</span>
+              <span class={countCls}>{countText}</span>
+              {info?.ms != null && (<span class={timeCls(info.ms)} title={timingTitle}>{info.ms}ms</span>)}
+            </div>
             {info?.error && (
               <div class="pipeline-debug-error-detail" onClick={(e) => e.stopPropagation()}>
                 <div class="pipeline-debug-error-msg">{info.error.message}</div>
@@ -212,44 +119,6 @@ export default function PipelineDebug({ entries, onToggleStage }) {
           </div>
         );
       })}
-    </div>
-  );
-}
-
-function StageInspector({ collection, prefix, stageIndex, stageKey, isInput }) {
-  const [docs, setDocs] = useState(null);
-  const [err, setErr] = useState(null);
-
-  useEffect(() => {
-    api.aggregate(collection, [...stripWriteStages(prefix), { $limit: DEBUG_PREVIEW_LIMIT }])
-      .then((res) => setDocs(res.result || []))
-      .catch((e) => setErr({ message: e?.message || String(e), status: e?.status }));
-  }, []);
-
-  return (
-    <div class="modal-body">
-      <div class="pipeline-inspect-info">
-        {isInput
-          ? `Showing first ${DEBUG_PREVIEW_LIMIT} documents from the collection (before any stage)`
-          : `Showing first ${DEBUG_PREVIEW_LIMIT} documents after stage ${stageIndex + 1} (${stageKey})`}
-      </div>
-      {err && (
-        <span style="color:var(--danger)">
-          {err.status ? `HTTP ${err.status}: ` : 'Error: '}{err.message}
-        </span>
-      )}
-      {docs && docs.length === 0 && <span style="color:var(--text-secondary)">{isInput ? 'This collection is empty' : 'No documents at this stage'}</span>}
-      {docs && docs.length > 0 && (
-        <div class="sample-cards">
-          {docs.map((doc, i) => (
-            <div class="sample-card">
-              <div class="sample-card-header">Document {i + 1}</div>
-              <pre class="sample-card-body">{JSON.stringify(doc, null, 2)}</pre>
-            </div>
-          ))}
-        </div>
-      )}
-      {!docs && !err && 'Loading…'}
     </div>
   );
 }

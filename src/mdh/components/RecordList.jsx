@@ -1,9 +1,10 @@
 import { h } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
-import { skip, selectedCollection, selectionMode, selectedIds, selectionPipelineDirty } from '../store.js';
+import { skip, selectedCollection, selectionMode, selectedIds, selectionPipelineDirty, resultsView, inspectTarget } from '../store.js';
 
 import RecordCard from './RecordCard.jsx';
 import RecordTable from './RecordTable.jsx';
+import StagesView from './StagesView.jsx';
 import DownloadSplitButton from './DownloadSplitButton.jsx';
 import { deriveColumns } from '../recordColumns.js';
 import JSON5 from 'json5';
@@ -16,11 +17,11 @@ export default function RecordList({
   records, pipelineText, filterState, sortState, lastQueryMs, totalCount, pagination,
   onSort, onFilter, onPageChange, onEdit, onDelete, onRefresh, downloadState, onCancelDownload,
   onEnterSelectionMode, onExitSelectionMode, onBulkDelete, onBulkUpdate, onSelectPage, onClearSelection,
-  onViewSelected, filtered = false,
+  onViewSelected, filtered = false, entries, onToggleStage,
 }) {
   const [expandedSet, setExpandedSet] = useState(new Set([0]));
   const [expandAll, setExpandAll] = useState(false);
-  const [view, setView] = useState('list');
+  const view = resultsView.value;
 
   const listRef = useRef(null);
   const [listWidth, setListWidth] = useState(0);
@@ -76,10 +77,14 @@ export default function RecordList({
 
   useEffect(() => {
     chrome.storage.local.get(['mdhResultsView'], ({ mdhResultsView }) => {
-      if (mdhResultsView === 'table') setView('table');
+      if (mdhResultsView === 'table' || mdhResultsView === 'stages') resultsView.value = mdhResultsView;
     });
   }, []);
-  function changeView(v) { setView(v); chrome.storage.local.set({ mdhResultsView: v }); }
+  function changeView(v) {
+    resultsView.value = v;
+    inspectTarget.value = null; // a manual view switch isn't a "jump to stage"
+    chrome.storage.local.set({ mdhResultsView: v });
+  }
 
   const charBudget = listWidth > 0
     ? Math.max(MIN_CHAR_BUDGET, Math.floor((listWidth - RESERVED_PX) / CHAR_WIDTH_PX))
@@ -171,46 +176,57 @@ export default function RecordList({
           <button class="btn-link" onClick={onViewSelected}>View selected only</button>
         </div>
       )}
-      <div class="record-list" ref={listRef}>
-        {emptyContent}
-        {records.length > 0 && view === 'table' && (
-          <RecordTable
-            records={records}
-            columns={deriveColumns(records)}
-            sortState={sortState}
-            filterState={filterState}
-            onSort={onSort}
-            onFilter={onFilter}
-          />
-        )}
-        {records.length > 0 && view === 'list' && records.map((record, i) => (
-          <RecordCard
-            key={i}
-            record={record}
-            index={i}
-            expanded={expandAll || expandedSet.has(i)}
-            onToggle={toggleExpand}
-            onCopy={() => {}}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            sortState={sortState}
-            filterState={filterState}
-            onSort={onSort}
-            onFilter={onFilter}
-            charBudget={charBudget}
-            indexes={indexes}
-          />
-        ))}
-      </div>
-      <div class="pagination">
-        <span class="record-count">{countText}</span>
-        <span class="pagination-hint">Click key to sort {'\u00b7'} Click value to filter {'\u00b7'} {ALT_KEY}+click to copy</span>
-        <div class="pagination-controls">
-          <button disabled={!pagination.hasPrev()} onClick={() => onPageChange('prev')}>{'\u2190'} Prev</button>
-          <span>Page {pagination.page()}</span>
-          <button disabled={!pagination.hasNext(records.length, filtered)} onClick={() => onPageChange('next')}>Next {'\u2192'}</button>
+      {view === 'stages' ? (
+        <StagesView
+          collection={selectedCollection.value}
+          entries={entries}
+          onToggleStage={onToggleStage}
+          inspectTarget={inspectTarget.value}
+        />
+      ) : (
+        <div class="record-list" ref={listRef}>
+          {emptyContent}
+          {records.length > 0 && view === 'table' && (
+            <RecordTable
+              records={records}
+              columns={deriveColumns(records)}
+              sortState={sortState}
+              filterState={filterState}
+              onSort={onSort}
+              onFilter={onFilter}
+            />
+          )}
+          {records.length > 0 && view === 'list' && records.map((record, i) => (
+            <RecordCard
+              key={i}
+              record={record}
+              index={i}
+              expanded={expandAll || expandedSet.has(i)}
+              onToggle={toggleExpand}
+              onCopy={() => {}}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              sortState={sortState}
+              filterState={filterState}
+              onSort={onSort}
+              onFilter={onFilter}
+              charBudget={charBudget}
+              indexes={indexes}
+            />
+          ))}
         </div>
-      </div>
+      )}
+      {view !== 'stages' && (
+        <div class="pagination">
+          <span class="record-count">{countText}</span>
+          <span class="pagination-hint">Click key to sort {'\u00b7'} Click value to filter {'\u00b7'} {ALT_KEY}+click to copy</span>
+          <div class="pagination-controls">
+            <button disabled={!pagination.hasPrev()} onClick={() => onPageChange('prev')}>{'\u2190'} Prev</button>
+            <span>Page {pagination.page()}</span>
+            <button disabled={!pagination.hasNext(records.length, filtered)} onClick={() => onPageChange('next')}>Next {'\u2192'}</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -246,16 +262,27 @@ function SplitButton({ label, cls, onMain, menuItems = [] }) {
   );
 }
 
+const STAGES_DISABLED_TITLE = 'Unavailable in the Stages view — switch to List or Table to use this.';
+
 function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh, onCancelDownload, onEnterSelectionMode, onBulkDelete, onBulkUpdate, view, changeView }) {
+  // In the Stages view the record-list actions don't apply — keep them visible but
+  // greyed/inert (so the toolbar doesn't collapse), with a tooltip explaining why,
+  // and leave the View switch live. The disabling lives on the group wrappers (so
+  // the tooltip can show on hover); the View switch stays outside them.
+  const recordsDisabled = view === 'stages';
+  const disabledTitle = recordsDisabled ? STAGES_DISABLED_TITLE : undefined;
+  const disabledAttr = recordsDisabled ? 'true' : undefined;
   return (
     <div style="display:contents">
       <div class="toolbar-group">
-        <button class="btn btn-sm" onClick={onEnterSelectionMode}>Select</button>
-        <button class="btn btn-sm" onClick={toggleExpandAll}>{allExpanded ? 'Collapse All' : 'Expand All'}</button>
-        <ViewAsButton view={view} changeView={changeView} />
+        <span class={'toolbar-group' + (recordsDisabled ? ' toolbar-group-disabled' : '')} title={disabledTitle} aria-disabled={disabledAttr}>
+          <button class="btn btn-sm" onClick={onEnterSelectionMode}>Select</button>
+          <button class="btn btn-sm" onClick={toggleExpandAll}>{allExpanded ? 'Collapse All' : 'Expand All'}</button>
+        </span>
+        <ViewSwitch view={view} changeView={changeView} />
       </div>
       <div style="flex:1"></div>
-      <div class="toolbar-group">
+      <div class={'toolbar-group' + (recordsDisabled ? ' toolbar-group-disabled' : '')} title={disabledTitle} aria-disabled={disabledAttr}>
         {downloadState ? (
           <span class="download-progress">
             <span class="download-progress-text">
@@ -309,32 +336,26 @@ function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh
   );
 }
 
-function ViewAsButton({ view, changeView }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef(null);
+const VIEW_OPTIONS = [
+  { value: 'list', label: 'List' },
+  { value: 'table', label: 'Table' },
+  { value: 'stages', label: 'Stages' },
+];
 
-  useEffect(() => {
-    if (!open) return;
-    function onMouseDown(e) {
-      if (rootRef.current?.contains(e.target)) return;
-      setOpen(false);
-    }
-    document.addEventListener('mousedown', onMouseDown);
-    return () => document.removeEventListener('mousedown', onMouseDown);
-  }, [open]);
-
-  const label = view === 'table' ? 'Table' : 'List';
+// Segmented results-view switch: List / Table / Stages, one click to switch
+// (replaces the old "View: ▾" dropdown that took two clicks).
+function ViewSwitch({ view, changeView }) {
   return (
-    <div ref={rootRef} class="dropdown-btn">
-      <button class="btn btn-sm" onClick={(e) => { e.stopPropagation(); setOpen(!open); }} title="Change results view">
-        View: {label} {'▾'}
-      </button>
-      {open && (
-        <div class="toolbar-more-menu">
-          <button class="toolbar-menu-item" onClick={() => { setOpen(false); changeView('list'); }}>{view === 'list' ? '✓ List' : 'List'}</button>
-          <button class="toolbar-menu-item" onClick={() => { setOpen(false); changeView('table'); }}>{view === 'table' ? '✓ Table' : 'Table'}</button>
-        </div>
-      )}
+    <div class="view-seg" role="group" title="Results view">
+      {VIEW_OPTIONS.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          class={'view-seg-opt' + (view === o.value ? ' on' : '')}
+          aria-pressed={view === o.value}
+          onClick={() => changeView(o.value)}
+        >{o.label}</button>
+      ))}
     </div>
   );
 }

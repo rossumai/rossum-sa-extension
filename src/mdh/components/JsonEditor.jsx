@@ -17,6 +17,8 @@ import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
 import { lintKeymap } from '@codemirror/lint';
 import JSON5 from 'json5';
 import { stageToggleGutter } from '../pipelineGutter.js';
+import { stageLineRanges, activeStageIndexAtOffset } from '../pipelineComments.js';
+import { operatorColonOffset } from '../stageLink.js';
 import { computeMinimalChange } from '../editorDiff.js';
 import { makeCompletionSource } from '../pipelineCompletions.js';
 // Re-exported for PipelineEditor.jsx / DataPanel.jsx, which import it from here.
@@ -90,17 +92,20 @@ const aggregateSetup = [
 ];
 
 
-export default function JsonEditor({ value = '', onChange, onValidChange, onToggleStage, mode = 'default', fields, compact = false, readOnly = false, onSubmit, editorRef, minHeight = '200px' }) {
+export default function JsonEditor({ value = '', onChange, onValidChange, onToggleStage, onCursorStage, mode = 'default', fields, compact = false, readOnly = false, onSubmit, editorRef, minHeight = '200px' }) {
   const containerRef = useRef(null);
   const viewRef = useRef(null);
   const onChangeRef = useRef(onChange);
   const onValidChangeRef = useRef(onValidChange);
   const onSubmitRef = useRef(onSubmit);
   const onToggleStageRef = useRef(onToggleStage);
+  const onCursorStageRef = useRef(onCursorStage);
+  const lastCursorStageRef = useRef(null);
   onChangeRef.current = onChange;
   onValidChangeRef.current = onValidChange;
   onSubmitRef.current = onSubmit;
   onToggleStageRef.current = onToggleStage;
+  onCursorStageRef.current = onCursorStage;
 
   useEffect(() => {
     const fieldsFn = typeof fields === 'function' ? fields : null;
@@ -143,6 +148,18 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
             } catch (e) {
               if (errorEl) { errorEl.textContent = e.message; containerRef.current.classList.add('json-editor-invalid'); }
             }
+          }
+        }
+        // Aggregate mode: report which stage the cursor is in (active-stage index,
+        // deduped to changes) so the Stages view can follow the cursor.
+        if (update.selectionSet && mode === 'aggregate' && onCursorStageRef.current) {
+          const found = activeStageIndexAtOffset(
+            stageLineRanges(update.state.doc.toString()),
+            update.state.selection.main.head,
+          );
+          if (found != null && found !== lastCursorStageRef.current) {
+            lastCursorStageRef.current = found;
+            onCursorStageRef.current(found);
           }
         }
       }),
@@ -216,6 +233,40 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
         getError: () => containerRef.current?.querySelector('.json-editor-error')?.textContent || '',
         focus: () => viewRef.current.focus(),
         refresh: () => viewRef.current.requestMeasure(),
+        // Scroll the given top-level stage's code into view (used once when a
+        // Stages-view stage is hovered, so the connector line has an anchor).
+        revealStage: (entryIndex) => {
+          const view = viewRef.current;
+          if (!view) return;
+          const r = stageLineRanges(view.state.doc.toString())[entryIndex];
+          if (!r) return;
+          const lineNo = Math.min(r.lineStart, view.state.doc.lines);
+          view.dispatch({ effects: EditorView.scrollIntoView(view.state.doc.line(lineNo).from, { y: 'center' }) });
+        },
+        // Viewport rect of the position just AFTER the stage's opening `{`, plus
+        // `hEnd` — the x just past the stage operator ($match/$limit/…), i.e. after
+        // the first ':' on the line — so the connector's first horizontal can run
+        // past the operator. null when the line isn't rendered (scrolled out).
+        // Measure only — no scroll.
+        stageScreenRect: (entryIndex) => {
+          const view = viewRef.current;
+          if (!view) return null;
+          const text = view.state.doc.toString();
+          const r = stageLineRanges(text)[entryIndex];
+          if (!r) return null;
+          const braceOff = r.start; // the stage's actual '{' — may sit mid-line, e.g. "},{"
+          const c = view.coordsAtPos(braceOff + 1); // just after the '{'
+          if (!c) return null;
+          let hEnd = c.left; // fallback: no extension past the operator
+          // The operator's ':' is the first ':' after the '{' — usually on the next
+          // line, since stages are pretty-printed. Extend the horizontal past it.
+          const colon = operatorColonOffset(text, braceOff, r.end);
+          if (colon !== -1) {
+            const hc = view.coordsAtPos(colon + 1);
+            if (hc) hEnd = hc.left;
+          }
+          return { top: c.top, bottom: c.bottom, left: c.left, right: c.right, hEnd };
+        },
       };
     }
   }, [editorRef]);

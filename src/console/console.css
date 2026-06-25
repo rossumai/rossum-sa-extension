@@ -541,29 +541,8 @@ body {
   font-style: italic;
 }
 
-.pipeline-debug-tooltip {
-  position: fixed; z-index: 300;
-  background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: var(--radius); box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-  padding: 8px 10px; max-width: 420px; max-height: 300px; overflow: auto;
-  pointer-events: none;
-}
-
-.pipeline-debug-tooltip pre {
-  margin: 0; font-family: var(--font-mono); font-size: 11px;
-  line-height: 1.5; color: var(--text-code); white-space: pre-wrap;
-  word-break: break-word;
-}
-
-/* ── Pipeline inspect modal ──────────────────── */
-
-.pipeline-inspect-info {
-  font-size: 11px; color: var(--text-secondary);
-  font-family: var(--font-mono); margin-bottom: 8px;
-}
-
-/* Horizontal carousel of full-JSON document samples. Used by BulkDelete,
-   BulkUpdate, and the pipeline-stage inspector. Cards are fixed-width so
+/* Horizontal carousel of full-JSON document samples. Used by BulkDelete and
+   BulkUpdate. Cards are fixed-width so
    side-by-side reading is comfortable; the row scrolls horizontally when
    there are more samples than fit, and each card scrolls vertically when a
    single document's JSON is taller than the card. */
@@ -677,6 +656,24 @@ body {
 }
 
 .toolbar-group { display: flex; gap: 4px; align-items: center; }
+/* A toolbar group shown but inert (e.g. record actions while in the Stages view). */
+/* A toolbar group shown but inert (e.g. record actions while in the Stages view).
+   pointer-events go on the CHILDREN so the group itself still catches hover and can
+   show its `title` tooltip explaining why the actions are unavailable. */
+.toolbar-group-disabled { opacity: 0.5; cursor: not-allowed; }
+.toolbar-group-disabled > * { pointer-events: none; }
+
+/* Segmented results-view switch (List / Table / Stages) — one click to switch. */
+.view-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.view-seg-opt {
+  padding: 4px 9px; font-size: 11px; font-family: inherit; line-height: 1.4;
+  border: none; border-right: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text-primary); cursor: pointer;
+}
+.view-seg-opt:last-child { border-right: none; }
+.view-seg-opt:hover { background: var(--bg-hover); }
+.view-seg-opt.on { background: var(--accent); color: #fff; }
+.view-seg-opt.on:hover { background: var(--accent); }
 
 .toolbar-label { font-size: 11px; color: var(--text-secondary); flex-shrink: 0; width: 60px; }
 
@@ -915,6 +912,10 @@ body {
   border-color: var(--accent);
 }
 
+/* Read-only key (Stages view): same look as an interactive key, but inert. */
+.json-tree-key-static { cursor: default; }
+.json-tree-key-static:hover { background: none; border-color: transparent; }
+
 .json-tree-key-asc {
   background: var(--success) !important;
   color: #fff !important;
@@ -969,6 +970,7 @@ body {
   cursor: pointer;
   font-family: inherit;
   font-size: inherit;
+  text-align: left; /* <button> defaults to center — keep long wrapped values left-aligned */
   transition: background 0.1s, border-color 0.1s;
 }
 
@@ -1013,7 +1015,11 @@ body {
    until the row is hovered, briefly turns green when the value has been
    copied. */
 .json-tree-copy-btn {
-  display: none;
+  /* Always laid out (reserves its slot) but hidden until the row is hovered, so
+     revealing it never reflows / re-wraps the value next to it ("jumps"). */
+  display: inline-flex;
+  align-items: center;
+  visibility: hidden;
   background: none;
   border: 1px solid transparent;
   border-radius: 3px;
@@ -1029,8 +1035,7 @@ body {
 }
 
 .json-tree-row:hover > .json-tree-copy-btn {
-  display: inline-flex;
-  align-items: center;
+  visibility: visible;
 }
 
 .json-tree-copy-btn:hover {
@@ -1041,7 +1046,7 @@ body {
 }
 
 .json-tree-copy-btn-success {
-  display: inline-flex !important;
+  visibility: visible !important; /* stay shown briefly after copy, even off-hover */
   align-items: center;
   opacity: 1 !important;
   background: var(--bg-hover) !important;
@@ -1439,6 +1444,95 @@ body {
    hero preview table, so give this modal more room than the default 800px cap.
    width:90vw (from .modal-card) still caps it on narrow screens. */
 .modal-card:has(.csv-import-wizard), .modal-card:has(.xlsx-import-wizard) { max-width: 1040px; }
+
+/* ── In-view "Stages" debug view (a RecordList results-view mode) ──────────── */
+/* Fills the right results pane; the editor stays visible (no modal/overlay).
+   overscroll-behavior: none prevents BOTH the rubber-band bounce and scroll-
+   chaining on the nested scroll regions (contain only stops chaining, not the
+   local bounce). */
+.pipeline-inspect {
+  display: flex; flex-direction: column; flex: 1; min-height: 0;
+  /* Shared width for the stage-definition column AND each record card, so the
+     query box lines up with the records below/beside it. */
+  --stage-card-w: 300px;
+}
+.pipeline-inspect-scroll {
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: none;
+  padding: 12px 14px 16px; display: flex; flex-direction: column; gap: 14px;
+}
+.pipeline-inspect-section {
+  border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+  height: 360px; flex-shrink: 0; display: flex; flex-direction: column;
+  transition: border-color 0.12s;
+}
+.pipeline-inspect-section-head {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 8px 10px; background: var(--bg-hover);
+  font-family: var(--font-mono); font-size: 12px;
+}
+.pipeline-inspect-num { color: var(--text-secondary); }
+.pipeline-inspect-key { color: var(--accent); font-weight: 600; }
+.pipeline-inspect-count { margin-left: auto; font-weight: 600; color: var(--success); }
+.pipeline-inspect-zero { color: var(--danger); }
+.pipeline-inspect-time { color: var(--text-secondary); opacity: 0.7; min-width: 46px; text-align: right; }
+.pipeline-inspect-time-slow { color: var(--warning); opacity: 1; font-weight: 600; }
+/* Records span the full section width (the per-stage query box was removed —
+   hover a stage to draw a connector line to its code in the pipeline editor). */
+.pipeline-inspect-body {
+  display: grid; grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr); gap: 10px; padding: 10px;
+  flex: 1; min-height: 0;
+}
+/* Records sit side-by-side as fixed-width cards (stages stay stacked above).
+   The row scrolls horizontally when there are more docs than fit; each card
+   scrolls vertically when its JSON is taller than the row. */
+/* The records row scrolls horizontally; a vertical wheel passes through to the
+   stage list. overscroll-behavior-x: none (NOT the all-axes shorthand) stops the
+   horizontal rubber-band without blocking vertical scroll-chaining. A record
+   taller than the stage band scrolls within itself (max-height + overflow-y:
+   auto) and, once at its top/bottom, chains the wheel up to the list (default
+   overscroll-behavior on the card = chaining). A record that fits chains
+   immediately, so the list always scrolls when there's nothing left to scroll. */
+.pipeline-inspect-output {
+  display: flex; flex-direction: row; gap: 8px; align-items: flex-start;
+  overflow-x: auto; overflow-y: hidden; min-width: 0; min-height: 0;
+  padding-bottom: 4px; overscroll-behavior-x: none;
+}
+.pipeline-inspect-output > .record-card {
+  flex: 0 0 var(--stage-card-w); max-width: var(--stage-card-w);
+  max-height: 100%; overflow-y: auto;
+}
+.pipeline-inspect-disabled { opacity: 0.55; height: auto; }
+.pipeline-inspect-disabled-badge {
+  margin-left: auto; font-size: 10px; color: var(--text-secondary); font-style: italic;
+}
+.pipeline-inspect-error {
+  color: var(--danger); font-family: var(--font-mono); font-size: 11px;
+  white-space: pre-wrap; word-break: break-word; max-width: 100%;
+}
+.pipeline-inspect-empty, .pipeline-inspect-loading {
+  color: var(--text-secondary); font-size: 12px; font-style: italic;
+}
+.pipeline-inspect-highlight { animation: pipeline-inspect-flash 1.5s ease-out; }
+/* Tint the body + turn the section's own border accent (not an inset shadow,
+   which the header's opaque background would paint over) so the highlight wraps
+   the header too. */
+@keyframes pipeline-inspect-flash {
+  0%, 55% { border-color: var(--accent); background: var(--accent-bg); }
+  100% { border-color: var(--border); background: transparent; }
+}
+/* Hovering a stage in the Stages view draws a connector to its code in the editor;
+   the section's border turns accent (wraps the header, unlike an inset shadow). */
+.pipeline-inspect-section:hover { border-color: var(--accent); }
+.stage-link-overlay {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 60;
+}
+.stage-link-line {
+  fill: none; stroke: var(--accent); stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round; opacity: 0.9;
+}
+.stage-link-dot { fill: var(--accent); }
 
 /* Segmented pill group */
 .csv-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }

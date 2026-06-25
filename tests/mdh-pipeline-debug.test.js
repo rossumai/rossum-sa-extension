@@ -1,13 +1,12 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { h, render } from 'preact';
 
 vi.mock('../src/mdh/api.js');
 
 import * as api from '../src/mdh/api.js';
 import PipelineDebug from '../src/mdh/components/PipelineDebug.jsx';
-import Modal from '../src/mdh/components/Modal.jsx';
-import { selectedCollection, modalContent } from '../src/mdh/store.js';
+import { selectedCollection } from '../src/mdh/store.js';
 import { stagesToEntries } from '../src/mdh/pipelineComments.js';
 
 // The 0th "input" row counts the whole collection via $collStats (instant
@@ -19,13 +18,18 @@ const isStageCountCall = (call) => {
   return Array.isArray(pl) && JSON.stringify(pl[pl.length - 1]) === JSON.stringify({ $count: 'n' });
 };
 
+let currentRoot = null;
 function mount(props) {
   document.body.innerHTML = '';
-  const root = document.createElement('div');
-  document.body.appendChild(root);
+  currentRoot = document.createElement('div');
+  document.body.appendChild(currentRoot);
   const entries = props.entries ?? stagesToEntries(props.pipeline);
-  render(h(PipelineDebug, { entries, onToggleStage: props.onToggleStage ?? (() => {}) }), root);
-  return root;
+  render(h(PipelineDebug, {
+    entries,
+    onToggleStage: props.onToggleStage ?? (() => {}),
+    onInspectStage: props.onInspectStage ?? (() => {}),
+  }), currentRoot);
+  return currentRoot;
 }
 
 // Poll for the actual condition instead of guessing a fixed delay. PipelineDebug
@@ -50,10 +54,17 @@ const stageCountCells = (root) =>
   [...root.querySelectorAll('.pipeline-debug-row:not(.pipeline-debug-input-row) .pipeline-debug-count')]
     .map((el) => el.textContent);
 
+// Unmount the previous tree before the next test clears mocks, so a prior test's
+// deferred useStageCounts effect (scheduled after paint) cannot fire late and
+// consume the next test's mockResolvedValueOnce values.
+afterEach(() => {
+  if (currentRoot) { render(null, currentRoot); currentRoot = null; }
+  document.body.innerHTML = '';
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
   selectedCollection.value = 'vendors';
-  modalContent.value = null;
 });
 
 describe('PipelineDebug', () => {
@@ -133,36 +144,24 @@ describe('PipelineDebug', () => {
     expect(stageCounts[0]).toContain('0');
   });
 
-  it('clicking the 0th row previews the first raw documents (before any stage)', async () => {
-    const pipeline = [{ $match: { vendor: 'NOPE' } }];
-    api.aggregate.mockImplementation((col, pl) => {
-      if (pl[0]?.$collStats) return Promise.resolve({ result: [{ count: 3 }] });
-      if (JSON.stringify(pl) === JSON.stringify([{ $limit: 5 }])) {
-        return Promise.resolve({ result: [{ _id: '1', vendor: 'ACME' }] });
-      }
-      return Promise.resolve({ result: [{ n: 0 }] });
-    });
-
-    document.body.innerHTML = '';
-    const root = document.createElement('div');
-    document.body.appendChild(root);
-    render(h('div', null,
-      h(PipelineDebug, { entries: stagesToEntries(pipeline), onToggleStage: () => {} }),
-      h(Modal, null),
-    ), root);
+  it('clicking the 0th (input) row calls onInspectStage(-1)', async () => {
+    api.aggregate.mockResolvedValue({ result: [{ n: 0 }] });
+    const inspected = [];
+    const root = mount({ pipeline: [{ $match: { vendor: 'NOPE' } }], onInspectStage: (i) => inspected.push(i) });
     await waitFor(() => root.querySelector('.pipeline-debug-input-row'), 'input row rendered');
 
     root.querySelector('.pipeline-debug-input-row').click();
-    // Clicking opens a modal that mounts StageInspector, whose effect fetches the
-    // preview ([{ $limit: 5 }]) and commits it — wait for that to land.
-    await waitFor(() => document.body.textContent.includes('ACME'), 'input preview docs to render');
+    expect(inspected).toEqual([-1]);
+  });
 
-    // The inspector previews the raw collection: empty prefix + $limit, no $match.
-    expect(api.aggregate.mock.calls.some(
-      (c) => JSON.stringify(c[1]) === JSON.stringify([{ $limit: 5 }]),
-    )).toBe(true);
-    expect(document.body.textContent).toContain('ACME');
-    expect(document.body.textContent).toMatch(/before any stage/i);
+  it('clicking a stage row calls onInspectStage with its active index', async () => {
+    api.aggregate.mockResolvedValue({ result: [{ n: 1 }] });
+    const inspected = [];
+    const root = mount({ pipeline: [{ $match: {} }, { $sort: { _id: 1 } }], onInspectStage: (i) => inspected.push(i) });
+    await waitFor(() => root.querySelectorAll('.pipeline-debug-row:not(.pipeline-debug-input-row)').length === 2, 'stage rows rendered');
+
+    root.querySelectorAll('.pipeline-debug-row:not(.pipeline-debug-input-row)')[1].click();
+    expect(inspected).toEqual([1]);
   });
 
   it('renders per-stage counts when all requests succeed', async () => {

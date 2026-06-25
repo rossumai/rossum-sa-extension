@@ -315,7 +315,22 @@ export function stageLineRanges(text) {
   return segments.map((s, idx) => ({
     entryIndex: idx,
     disabled: s.kind === 'disabled',
+    start: s.start, // char offset of the stage's '{' (active) — may sit mid-line, e.g. "},{"
+    end: s.end,     // char offset just past the stage's closing '}'
     lineStart: lineAt(s.start),
     lineEnd: lineAt(s.end - 1),
   }));
+}
+
+// Which ACTIVE-stage index (0-based, skipping disabled stages) the char `offset`
+// falls in, or null when it's in a disabled stage or outside all stages. `ranges`
+// is the output of stageLineRanges(). Used to follow the editor cursor → the
+// matching stage in the Stages view.
+export function activeStageIndexAtOffset(ranges, offset) {
+  let active = -1;
+  for (const r of ranges) {
+    if (!r.disabled) active += 1;
+    if (offset >= r.start && offset < r.end) return r.disabled ? null : active;
+  }
+  return null;
 }

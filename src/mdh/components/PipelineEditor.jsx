@@ -22,7 +22,7 @@ const LOADING_WORDS = [
 ];
 function randomWord() { return LOADING_WORDS[Math.floor(Math.random() * LOADING_WORDS.length)]; }
 
-export default function PipelineEditor({ editorRef, initialValue, onChange, onValidChange, onLoadPipeline, onReset, onToggleStage }) {
+export default function PipelineEditor({ editorRef, initialValue, onChange, onValidChange, onLoadPipeline, onReset, onToggleStage, onCursorStage }) {
   const [savedState, setSavedState] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [libraryTab, setLibraryTab] = useState('saved');
@@ -246,6 +246,7 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
           editorRef={editorRef}
           onChange={onChange}
           onToggleStage={onToggleStage}
+          onCursorStage={onCursorStage}
           onValidChange={() => {
             onValidChange();
             updateSaveBtn();

@@ -19,6 +19,7 @@ export default function RecordCard({
   onFilter,
   charBudget,
   indexes,
+  readOnly = false,
 }) {
   const fieldCount = useMemo(() => countFields(record), [record]);
   const isLarge = fieldCount > AUTO_COLLAPSE_FIELD_THRESHOLD;
@@ -32,7 +33,7 @@ export default function RecordCard({
     setTreeKey((k) => k + 1);
   }, [record]);
 
-  const isSelectionMode = selectionMode.value;
+  const isSelectionMode = !readOnly && selectionMode.value;
   const isSelected = isSelectionMode && isRecordSelected(record);
 
   function toggleSelected(e) {
@@ -85,10 +86,10 @@ export default function RecordCard({
             >{allExpanded ? 'Collapse' : 'Expand'}</button>
           )}
           <button class="action-copy" title="Copy record as JSON" onClick={handleCopy}>Copy</button>
-          {!isSelectionMode && (
+          {!isSelectionMode && !readOnly && (
             <button class="action-edit" title="Edit with update expression" onClick={() => onEdit(record)}>Edit</button>
           )}
-          {!isSelectionMode && (
+          {!isSelectionMode && !readOnly && (
             <button class="action-delete" title="Delete this record" onClick={() => onDelete(record, index)}>Del</button>
           )}
         </span>
@@ -104,6 +105,7 @@ export default function RecordCard({
             filterState={filterState}
             onSort={onSort}
             onFilter={onFilter}
+            readOnly={readOnly}
           />
         </div>
       )}

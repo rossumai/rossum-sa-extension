@@ -10,11 +10,12 @@ import PipelineEditor from './PipelineEditor.jsx';
 import PlaceholderInputs from './PlaceholderInputs.jsx';
 import PipelineDebug from './PipelineDebug.jsx';
 import RecordList from './RecordList.jsx';
+import StageLinkOverlay from './StageLinkOverlay.jsx';
 import { openRecordEditor } from './RecordEditor.jsx';
 import { openDataOperations } from './DataOperations.jsx';
 import { openBulkDelete } from './BulkDelete.jsx';
 import { openBulkUpdate } from './BulkUpdate.jsx';
-import { selectionMode, selectedIds, selectionPipelineDirty } from '../store.js';
+import { selectionMode, selectedIds, selectionPipelineDirty, resultsView, inspectTarget } from '../store.js';
 import { confirmModal, openModal } from './Modal.jsx';
 import { showUndo } from '../undo.js';
 import { addToHistory } from './QueryHistory.jsx';
@@ -36,6 +37,7 @@ export default function DataPanel() {
   const query = useQuery();
   const pagination = usePagination();
   const leftRef = useRef(null);
+  const panelRef = useRef(null);
   const [downloadState, setDownloadState] = useState(null); // null | { count, total, filtered?, counting?, cancelled?, done? }
   const downloadCancelRef = useRef(false);
   const downloadCountAbortRef = useRef(null); // AbortController for the pre-flight count of filtered downloads
@@ -413,6 +415,21 @@ export default function DataPanel() {
     pipeline.suppressSync.value = true;
     editorRef.current.setValue(next);
     setTimeout(() => { pipeline.suppressSync.value = false; runQuery(); }, 100);
+  }
+
+  // A debug-panel row click switches the right pane to the Stages view and
+  // targets that stage for scroll + highlight. `index` is the active-stage
+  // index (-1 = input). A fresh object re-fires the highlight on each click.
+  function handleInspectStage(index) {
+    resultsView.value = 'stages';
+    inspectTarget.value = { index };
+    chrome.storage.local.set({ mdhResultsView: 'stages' });
+  }
+
+  // While the Stages view is open, follow the pipeline-editor cursor: scroll to
+  // the stage it sits in. (No-op in List/Table — doesn't force the view to switch.)
+  function handleCursorStage(activeIndex) {
+    if (resultsView.value === 'stages') inspectTarget.value = { index: activeIndex };
   }
 
   function handleSort(field) {
@@ -901,14 +918,15 @@ export default function DataPanel() {
     document.addEventListener('mouseup', onUp);
   }
 
-  const effectiveStages = parseEntries(pipeline.substituteWithTypes(editorState.text)).entries
+  const debugEntries = parseEntries(pipeline.substituteWithTypes(editorState.text)).entries;
+  const effectiveStages = debugEntries
     .filter((e) => !e.disabled)
     .map((e) => e.stage);
   const resultsFiltered = pipelineReducesResultSet(effectiveStages);
   const writeStage = terminalWriteStage(effectiveStages);
 
   return (
-    <div class="panel" style="display:flex;flex-direction:row">
+    <div class="panel" style="display:flex;flex-direction:row" ref={panelRef}>
       <div class="data-panel-left" ref={leftRef}>
         <PipelineEditor
           editorRef={editorRef}
@@ -918,6 +936,7 @@ export default function DataPanel() {
           onLoadPipeline={handleLoadPipeline}
           onReset={handleReset}
           onToggleStage={handleToggleStage}
+          onCursorStage={handleCursorStage}
         />
         {writeStage && (
           <div class="pipeline-write-banner">
@@ -939,8 +958,9 @@ export default function DataPanel() {
           resolvedTypeFor={(name) => pipeline.resolvedTypeForName(name, editorState.fieldMap || {}, editorState.parsed != null)}
         />
         <PipelineDebug
-          entries={parseEntries(pipeline.substituteWithTypes(editorState.text)).entries}
+          entries={debugEntries}
           onToggleStage={handleToggleStage}
+          onInspectStage={handleInspectStage}
         />
       </div>
       <div class="data-panel-resizer" onMouseDown={initPanelResize}></div>
@@ -954,6 +974,8 @@ export default function DataPanel() {
           totalCount={pagination.totalCount.value}
           pagination={pagination}
           filtered={resultsFiltered}
+          entries={debugEntries}
+          onToggleStage={handleToggleStage}
           onSort={handleSort}
           onFilter={handleFilter}
           onPageChange={(dir) => {
@@ -997,6 +1019,7 @@ export default function DataPanel() {
           onViewSelected={handleViewSelected}
         />
       </div>
+      <StageLinkOverlay editorRef={editorRef} panelRef={panelRef} />
     </div>
   );
 }

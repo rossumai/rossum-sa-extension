@@ -80,6 +80,7 @@ import {
   normalizeEffectivePipelineText,
   beautifyText,
   stageLineRanges,
+  activeStageIndexAtOffset,
 } from '../src/mdh/pipelineComments.js';
 import { applySortToPipeline, applyFilterDeltaToPipeline, applySkipToPipeline } from '../src/mdh/pipelineOps.js';
 import JSON5 from 'json5';
@@ -316,14 +317,29 @@ describe('stageLineRanges', () => {
   it('returns 1-based line spans + entryIndex + disabled flag per top-level stage', () => {
     const text = '[\n  { "$match": {} },\n  /* @disabled-stage\n  { "$sort": { "a": -1 } } */\n  { "$limit": 50 }\n]';
     const ranges = stageLineRanges(text);
-    expect(ranges).toEqual([
+    expect(ranges).toMatchObject([
       { entryIndex: 0, disabled: false, lineStart: 2, lineEnd: 2 },
       { entryIndex: 1, disabled: true, lineStart: 3, lineEnd: 4 },
       { entryIndex: 2, disabled: false, lineStart: 5, lineEnd: 5 },
     ]);
+    // Char offsets bound each stage: an active stage's `start` is its '{'.
+    expect(text[ranges[0].start]).toBe('{');
+    expect(text.slice(ranges[2].start, ranges[2].end)).toContain('$limit');
   });
   it('returns [] for invalid text', () => {
     expect(stageLineRanges('[ {')).toEqual([]);
+  });
+});
+
+describe('activeStageIndexAtOffset', () => {
+  it('maps a char offset to the active-stage index, skipping disabled stages', () => {
+    const text = '[\n  { "$match": {} },\n  /* @disabled-stage\n  { "$sort": { "a": -1 } } */\n  { "$limit": 50 }\n]';
+    const ranges = stageLineRanges(text);
+    // ranges: [0] active $match, [1] disabled $sort, [2] active $limit.
+    expect(activeStageIndexAtOffset(ranges, ranges[0].start + 1)).toBe(0); // inside $match → active 0
+    expect(activeStageIndexAtOffset(ranges, ranges[1].start + 1)).toBeNull(); // inside the disabled stage
+    expect(activeStageIndexAtOffset(ranges, ranges[2].start + 1)).toBe(1); // inside $limit → active 1 (disabled skipped)
+    expect(activeStageIndexAtOffset(ranges, 0)).toBeNull(); // the '[' — outside any stage
   });
 });
 

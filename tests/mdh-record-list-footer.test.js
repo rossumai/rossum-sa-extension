@@ -15,9 +15,10 @@ globalThis.chrome = { storage: { local: { get: (k, cb) => cb && cb({}), set() {}
 vi.mock('../src/mdh/api.js');
 vi.mock('../src/mdh/components/RecordCard.jsx', () => ({ default: () => h('div', { class: 'record-card-stub' }) }));
 vi.mock('../src/mdh/components/DownloadSplitButton.jsx', () => ({ default: () => h('div') }));
+vi.mock('../src/mdh/components/StagesView.jsx', () => ({ default: () => h('div', { class: 'stages-view-stub' }) }));
 
 import RecordList from '../src/mdh/components/RecordList.jsx';
-import { skip, limit, selectedCollection, selectionMode, selectedIds, selectionPipelineDirty } from '../src/mdh/store.js';
+import { skip, limit, selectedCollection, selectionMode, selectedIds, selectionPipelineDirty, resultsView, inspectTarget } from '../src/mdh/store.js';
 
 const pagination = { hasPrev: () => false, hasNext: () => false, page: () => 1 };
 
@@ -44,49 +45,79 @@ beforeEach(() => {
   selectionMode.value = false;
   selectedIds.value = new Map();
   selectionPipelineDirty.value = false;
+  resultsView.value = 'list';
+  inspectTarget.value = null;
 });
 
-describe('RecordList view toggle', () => {
-  it('renders a View: dropdown button and switches to table view', async () => {
+describe('RecordList view switch', () => {
+  it('renders a 3-way segmented switch and switches to Table in one click', async () => {
     const root = renderList();
-    // No legacy .view-toggle
     expect(root.querySelector('.view-toggle')).toBeNull();
-    // Find the View: dropdown button
-    const viewBtn = [...root.querySelectorAll('.dropdown-btn button')].find((b) => b.textContent.startsWith('View:'));
-    expect(viewBtn).not.toBeNull();
-    // Open the dropdown
-    await act(() => {
-      viewBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-    // Find and click the Table menu item
-    const tableItem = [...root.querySelectorAll('.toolbar-menu-item')].find((b) => b.textContent.includes('Table'));
-    expect(tableItem).not.toBeNull();
-    await act(() => {
-      tableItem.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
+    const seg = root.querySelector('.view-seg');
+    expect(seg).not.toBeNull();
+    const tableOpt = [...seg.querySelectorAll('.view-seg-opt')].find((b) => b.textContent.trim() === 'Table');
+    expect(tableOpt).toBeTruthy();
+    // One click switches — no dropdown to open first.
+    await act(() => { tableOpt.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
     expect(root.querySelector('table.record-table')).not.toBeNull();
   });
 
-  it('has no JSON option in the View: dropdown', async () => {
+  it('offers exactly List / Table / Stages (no JSON)', () => {
     const root = renderList();
-    const viewBtn = [...root.querySelectorAll('.dropdown-btn button')].find((b) => b.textContent.startsWith('View:'));
-    await act(() => {
-      viewBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-    const jsonItem = [...root.querySelectorAll('.toolbar-menu-item')].find((b) => b.textContent.includes('JSON'));
-    expect(jsonItem).toBeUndefined();
+    const labels = [...root.querySelectorAll('.view-seg-opt')].map((b) => b.textContent.trim());
+    expect(labels).toEqual(['List', 'Table', 'Stages']);
   });
 
-  it('falls back to List when stored view is the legacy "json" value', async () => {
+  it('marks the active view and falls back to List for the legacy "json" value', async () => {
     globalThis.chrome.storage.local.get = (keys, cb) => cb({ mdhResultsView: 'json' });
     const root = renderList();
-    // Allow the useEffect to resolve
     await act(() => {});
-    const viewBtn = [...root.querySelectorAll('.dropdown-btn button')].find((b) => b.textContent.startsWith('View:'));
-    expect(viewBtn.textContent).toContain('List');
+    const active = root.querySelector('.view-seg-opt.on');
+    expect(active).toBeTruthy();
+    expect(active.textContent.trim()).toBe('List');
     expect(root.querySelector('table.record-table')).toBeNull();
-    // Restore default stub
     globalThis.chrome.storage.local.get = (k, cb) => cb && cb({});
+  });
+});
+
+describe('RecordList — stages view', () => {
+  it('renders StagesView (not records) and hides pagination when view=stages', () => {
+    resultsView.value = 'stages';
+    const root = renderList({ entries: [{ disabled: false, stage: { $match: {} } }], onToggleStage() {} });
+    expect(root.querySelector('.stages-view-stub')).not.toBeNull();
+    expect(root.querySelector('.record-list')).toBeNull();
+    expect(root.querySelector('.pagination')).toBeNull();
+  });
+
+  it('switches to the Stages view in one click via the segmented switch', async () => {
+    const root = renderList();
+    const stagesOpt = [...root.querySelectorAll('.view-seg-opt')].find((b) => b.textContent.trim() === 'Stages');
+    expect(stagesOpt).toBeTruthy();
+    await act(() => { stagesOpt.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    expect(resultsView.value).toBe('stages');
+    expect(root.querySelector('.stages-view-stub')).not.toBeNull();
+  });
+
+  it('shows record-action buttons present-but-disabled in stages view, with an explanatory tooltip; View stays enabled', () => {
+    resultsView.value = 'stages';
+    const root = renderList({ entries: [{ disabled: false, stage: { $match: {} } }], onToggleStage() {} });
+    // Select + Expand All are still rendered, inside a greyed/inert group (not removed).
+    const selectBtn = [...root.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Select');
+    expect(selectBtn).toBeTruthy();
+    expect(selectBtn.closest('.toolbar-group-disabled')).not.toBeNull();
+    const expandBtn = [...root.querySelectorAll('button')].find((b) => /Expand All|Collapse All/.test(b.textContent));
+    expect(expandBtn).toBeTruthy();
+    expect(expandBtn.closest('.toolbar-group-disabled')).not.toBeNull();
+    // Every disabled group carries a tooltip (title) explaining why it's disabled.
+    const disabledGroups = [...root.querySelectorAll('.toolbar-group-disabled')];
+    expect(disabledGroups.length).toBeGreaterThanOrEqual(2); // Select/Expand group + Download/Bulk/Insert group
+    for (const g of disabledGroups) {
+      expect((g.getAttribute('title') || '').toLowerCase()).toContain('stages view');
+    }
+    // The View switch stays enabled (not inside a disabled group).
+    const stagesOpt = [...root.querySelectorAll('.view-seg-opt')].find((b) => b.textContent.trim() === 'Stages');
+    expect(stagesOpt).toBeTruthy();
+    expect(stagesOpt.closest('.toolbar-group-disabled')).toBeNull();
   });
 });
 
