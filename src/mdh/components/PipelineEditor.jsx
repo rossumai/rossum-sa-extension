@@ -9,18 +9,7 @@ import * as api from '../api.js';
 import { runAiPipeline } from '../aiPipelineLoop.js';
 import { prependAiComment, stripAiComment } from '../llmPipeline.js';
 import { getSchemaHints } from '../aiContext.js';
-
-// Whimsical, rotating loader labels shown while the AI works — MongoDB- and
-// Rossum-flavored gerunds (aggregation stages + document-AI / Master Data Hub).
-const LOADING_WORDS = [
-  'Aggregating', 'Unwinding arrays', 'Projecting fields', 'Matching documents',
-  'Grouping records', 'Bucketing values', 'Faceting the data', 'Sharding ideas',
-  'Indexing hunches', 'Pipelining stages', 'Coalescing results', 'Joining collections',
-  'Chasing cursors', 'Extracting meaning', 'Annotating fields', 'Consulting the Hub',
-  'Matching master data', 'Hydrating datasets', 'Reconciling line items',
-  'Scoring confidence', 'Parsing intent', 'Wrangling Mongo',
-];
-function randomWord() { return LOADING_WORDS[Math.floor(Math.random() * LOADING_WORDS.length)]; }
+import AiRunTrace from './AiRunTrace.jsx';
 
 export default function PipelineEditor({ editorRef, initialValue, onChange, onValidChange, onLoadPipeline, onReset, onToggleStage, onCursorStage }) {
   const [savedState, setSavedState] = useState(false);
@@ -31,21 +20,14 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
   const [popupPos, setPopupPos] = useState(null); // { top, left }
   const [nlQuery, setNlQuery] = useState('');
   const [nlLoading, setNlLoading] = useState(false);
-  const [nlWord, setNlWord] = useState('');
+  const [nlPhase, setNlPhase] = useState(''); // live progress label from the AI loop
+  const [aiTrace, setAiTrace] = useState(null);
   const saveInputRef = useRef(null);
   const nlInputRef = useRef(null);
   const nlAbortRef = useRef(null);
 
   // Abort any in-flight AI request when the editor unmounts.
   useEffect(() => () => { if (nlAbortRef.current) nlAbortRef.current.abort(); }, []);
-
-  // Rotate the whimsical loader label while the AI is working.
-  useEffect(() => {
-    if (!nlLoading) return undefined;
-    setNlWord(randomWord());
-    const t = setInterval(() => setNlWord(randomWord()), 1300);
-    return () => clearInterval(t);
-  }, [nlLoading]);
 
   // Close the overflow menu when clicking outside it
   useEffect(() => {
@@ -86,7 +68,7 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
     setSavedState(saved);
   }
 
-  useEffect(() => { updateSaveBtn(); }, [selectedCollection.value]);
+  useEffect(() => { updateSaveBtn(); setAiTrace(null); }, [selectedCollection.value]);
 
   function beautify() {
     if (!editorRef.current) return;
@@ -95,35 +77,34 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
   }
 
   async function handleNlSubmit() {
-    const q = nlQuery.trim();
+    // Read from DOM ref as well so the submit works even when the keydown fires
+    // in the same synchronous tick as the preceding input event (before Preact
+    // has flushed the state update from onInput).
+    const q = (nlInputRef.current?.value ?? nlQuery).trim();
     if (!q || nlLoading || !editorRef.current) return;
 
     const fields = fieldsFn();
     const collection = selectedCollection.value;
-    // Strip any prior AI-request comment so it isn't re-sent as prompt context.
     const currentPipeline = stripAiComment(editorRef.current.getValue()).trim();
 
     if (nlAbortRef.current) nlAbortRef.current.abort();
     const controller = new AbortController();
     nlAbortRef.current = controller;
 
+    setAiTrace(null);
+    setNlPhase('Reading collection…'); // real work: the schema-hints fetch precedes the loop
     setNlLoading(true);
     try {
-      // Schema hints (cached per collection): distinct low-card values + Atlas
-      // Search indexes + numeric-string fields. Degrades to no-ops on failure.
       const hints = await getSchemaHints(api, collection, records.value).catch(() => ({}));
-      const { pipelineText } = await runAiPipeline({
+      const { pipelineText, trace } = await runAiPipeline({
         api, request: q, fields, collection, currentPipeline,
-        // Seed the prompt with a few already-loaded docs so the model uses
-        // stored value forms (e.g. NET30 not "net 30") on the first try.
         samples: (records.value || []).slice(0, 3),
-        knownValues: hints.knownValues,
-        numericStringFields: hints.numericStringFields,
-        searchIndexes: hints.searchIndexes,
+        ...hints,
         signal: controller.signal,
+        onPhase: setNlPhase,
       });
-      // No status notice — the applied query and its execution are the feedback.
       if (pipelineText) editorRef.current.setValue(prependAiComment(pipelineText, q));
+      if (trace) setAiTrace(trace);
       setNlQuery('');
     } catch (err) {
       if (err.name === 'AbortError') return;
@@ -131,6 +112,7 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
       error.value = { message: 'AI search failed: ' + err.message };
     } finally {
       setNlLoading(false);
+      setNlPhase('');
     }
   }
 
@@ -234,10 +216,11 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
                 if (e.key === 'Escape') { setNlQuery(''); nlInputRef.current?.blur(); }
               }}
             />
-            {nlLoading && <div class="nl-search-loading">{`${nlWord || 'Aggregating'}…`}</div>}
+            {nlLoading && <div class="nl-search-loading">{`${nlPhase || 'Working'}…`}</div>}
           </div>
         </div>
       )}
+      {aiAvailable.value && !nlLoading && aiTrace && <AiRunTrace trace={aiTrace} />}
       <div style="display:flex;flex:1;min-height:0">
         <JsonEditor
           value={initialValue}

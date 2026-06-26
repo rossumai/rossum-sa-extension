@@ -1448,6 +1448,8 @@ body {
    hero preview table, so give this modal more room than the default 800px cap.
    width:90vw (from .modal-card) still caps it on narrow screens. */
 .modal-card:has(.csv-import-wizard), .modal-card:has(.xlsx-import-wizard) { max-width: 1040px; }
+/* AI run-trace detail modal — a touch wider so candidate pipelines breathe. */
+.modal-card:has(.ai-trace-body) { max-width: 900px; }
 
 /* ── In-view "Stages" debug view (a RecordList results-view mode) ──────────── */
 /* Fills the right results pane; the editor stays visible (no modal/overlay).
@@ -3639,3 +3641,76 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 @media (prefers-reduced-motion: reduce) {
   .nl-search-input.loading, .nl-search-loading { animation: none; }
 }
+
+/* AI run trace — expandable transparency for the AI pipeline input */
+.ai-trace { font-size: 11px; border-bottom: 1px solid var(--border); }
+.ai-trace-bar {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 4px 2px; background: none; border: none; cursor: pointer;
+  color: var(--text-secondary); font-family: var(--font-sans); font-size: 11px; text-align: left;
+}
+.ai-trace-bar:hover { color: var(--text-primary); }
+.ai-trace-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+.ai-trace-dot-ok { background: var(--success); }
+.ai-trace-dot-warn { background: var(--warning); }
+.ai-trace-dot-err { background: var(--danger); }
+.ai-trace-dot-muted { background: var(--text-secondary); }
+.ai-trace-summary { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-trace-tag {
+  flex: 0 0 auto; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.03em;
+  padding: 1px 5px; border-radius: 8px; background: var(--warning-bg); color: var(--warning-fg);
+}
+.ai-trace-chevron { flex: 0 0 auto; color: var(--text-secondary); }
+.ai-trace-body { padding: 6px 2px 4px; display: flex; flex-direction: column; }
+.ai-trace-ask-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-secondary); font-weight: 600; }
+.ai-trace-ask-text { font-size: 14px; line-height: 1.4; margin: 2px 0 10px; color: var(--text-primary); }
+.ai-trace-outcome { display: flex; align-items: center; gap: 8px; padding: 8px 11px; border-radius: var(--radius); font-size: 12.5px; font-weight: 550; }
+.ai-trace-outcome-ic { flex: 0 0 auto; }
+.ai-trace-outcome-text { min-width: 0; }
+.ai-trace-outcome-ok { background: var(--success-bg); color: var(--success-fg); }
+.ai-trace-outcome-warn { background: var(--warning-bg); color: var(--warning-fg); }
+.ai-trace-outcome-bad { background: var(--danger-bg); color: var(--danger-fg); }
+.ai-trace-outcome-neutral { background: var(--bg-code); color: var(--text-secondary); }
+.ai-trace-outcome-tag { margin-left: auto; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; opacity: 0.8; }
+.ai-trace-steps { margin: 14px 0 4px; display: flex; flex-direction: column; }
+.ai-trace-stepc { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding-bottom: 14px; }
+.ai-trace-stepc:last-child { padding-bottom: 0; }
+.ai-trace-rail { display: flex; flex-direction: column; align-items: center; }
+.ai-trace-node { width: 20px; height: 20px; border-radius: 50%; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 700; border: 2px solid var(--border); background: var(--bg-card); color: var(--text-secondary); }
+.ai-trace-node-write { border-color: var(--accent); color: var(--accent); }
+.ai-trace-node-check { border-color: var(--accent); background: var(--accent); color: #fff; }
+.ai-trace-node-refine { border-color: var(--warning); color: var(--warning); }
+.ai-trace-connector { flex: 1 1 auto; width: 2px; background: var(--border); margin: 2px 0; }
+.ai-trace-stepbody { min-width: 0; padding-top: 1px; }
+.ai-trace-row1 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ai-trace-action { font-size: 12.5px; font-weight: 600; color: var(--text-primary); }
+.ai-trace-approach { font-size: 10px; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 20px; padding: 1px 8px; background: var(--bg-code); }
+.ai-trace-chip { font-size: 10px; font-weight: 650; border-radius: 20px; padding: 1px 9px; margin-left: auto; white-space: nowrap; }
+.ai-trace-chip-ok { background: var(--success-bg); color: var(--success-fg); }
+.ai-trace-chip-warn { background: var(--warning-bg); color: var(--warning-fg); }
+.ai-trace-chip-bad { background: var(--danger-bg); color: var(--danger-fg); }
+.ai-trace-chip-neutral { background: var(--bg-code); color: var(--text-secondary); }
+.ai-trace-note { font-size: 11.5px; color: var(--text-secondary); margin-top: 3px; line-height: 1.45; }
+.ai-trace-why { font-size: 11.5px; color: var(--text-secondary); margin-top: 4px; line-height: 1.45; }
+.ai-trace-disc { margin-top: 6px; }
+.ai-trace-disc > summary { font-size: 11px; color: var(--accent); cursor: pointer; list-style: none; width: fit-content; }
+.ai-trace-disc > summary::-webkit-details-marker { display: none; }
+.ai-trace-disc > summary::before { content: '▸'; font-size: 9px; margin-right: 4px; display: inline-block; }
+.ai-trace-disc[open] > summary::before { content: '▾'; }
+.ai-trace-disc > summary:hover { text-decoration: underline; }
+.ai-trace-query { margin: 6px 0 0; padding: 7px 9px; background: var(--bg-code); border-radius: var(--radius); overflow-x: auto; max-height: 160px; font-family: var(--font-mono); font-size: 10.5px; line-height: 1.5; white-space: pre; color: var(--text-primary); }
+.ai-trace-results { margin-top: 6px; border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; }
+.ai-trace-rows { border-collapse: collapse; width: 100%; font-family: var(--font-mono); font-size: 10px; }
+.ai-trace-rows th { text-align: left; background: var(--bg-code); color: var(--text-secondary); font-weight: 600; padding: 4px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.ai-trace-rows td { padding: 4px 8px; border-bottom: 1px solid var(--border); color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.ai-trace-rows tr:last-child td { border-bottom: none; }
+.ai-trace-context { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
+.ai-trace-context-k { color: var(--text-primary); font-weight: 600; }
+.ai-trace-glossary { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px; }
+.ai-trace-glossary > summary { font-size: 11px; color: var(--text-secondary); cursor: pointer; font-weight: 600; list-style: none; }
+.ai-trace-glossary > summary::-webkit-details-marker { display: none; }
+.ai-trace-glossary > summary::before { content: '▸'; font-size: 9px; margin-right: 5px; display: inline-block; }
+.ai-trace-glossary[open] > summary::before { content: '▾'; }
+.ai-trace-terms { margin: 8px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; font-size: 11px; line-height: 1.45; }
+.ai-trace-terms dt { color: var(--text-primary); font-weight: 600; white-space: nowrap; }
+.ai-trace-terms dd { margin: 0; color: var(--text-secondary); }

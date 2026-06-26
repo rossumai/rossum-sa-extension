@@ -43,3 +43,28 @@ describe('getSchemaHints', () => {
     expect(h.numericStringFields).toContain('vendorId');
   });
 });
+
+describe('richer hints', () => {
+  it('returns client-side field types and array paths without a collection', async () => {
+    const api = fakeApi();
+    const recs = [{ amount: 5, name: 'A', line_items: [{ sku: 'X' }] }];
+    const h = await getSchemaHints(api, null, recs);
+    expect(h.fieldTypes).toEqual({ amount: 'number', name: 'string', line_items: 'array' });
+    expect(h.arrayPaths).toEqual(['line_items[].sku']);
+    expect(api.aggregate).not.toHaveBeenCalled();
+  });
+  it('reads top-values and numeric ranges out of the single $facet', async () => {
+    // 'name' has 2 distinct in the sample → low-card → kv (knownValues).
+    // Force a high-card field by giving it >25 distinct in the sample.
+    const recs = Array.from({ length: 30 }, (_, i) => ({ country: `C${i % 28}`, amount: i }));
+    const api = fakeApi({
+      facet: {
+        country: [{ _id: 'US', n: 50 }, { _id: 'DE', n: 20 }],          // tv__country
+        amount: [{ _id: null, min: 0, max: 999 }],                       // rg__amount
+      },
+    });
+    const h = await getSchemaHints(api, 'C', recs);
+    expect(h.topValues.country).toEqual({ values: ['US', 'DE'], more: 0 });
+    expect(h.ranges.amount).toEqual({ min: 0, max: 999 });
+  });
+});
