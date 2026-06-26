@@ -122,7 +122,8 @@ export async function initMdh({ pendingCollection, pendingPipeline, pendingVaria
 
   const lpKey = lastPipelineKey();
   const stored = await chrome.storage.local.get([
-    'mdhActiveView', 'mdhSelectedCollection', 'mdhActivePanel', 'mdhOpsSearch', lpKey,
+    'mdhActiveView', 'mdhSelectedCollection', 'mdhActivePanel', 'mdhOpsSearch',
+    'mdhStagesAutoscroll', 'mdhStagesSampleSize', lpKey,
   ]);
 
   if (stored.mdhActiveView === 'operations' || stored.mdhActiveView === 'overview') {
@@ -136,6 +137,12 @@ export async function initMdh({ pendingCollection, pendingPipeline, pendingVaria
   }
   if (typeof stored.mdhOpsSearch === 'string') {
     store.opsSearch.value = stored.mdhOpsSearch;
+  }
+  if (typeof stored.mdhStagesAutoscroll === 'boolean') {
+    store.stagesAutoscroll.value = stored.mdhStagesAutoscroll;
+  }
+  if (stored.mdhStagesSampleSize != null) {
+    store.stagesSampleSize.value = store.coerceStageSampleSize(stored.mdhStagesSampleSize);
   }
 
   if (pendingCollection) {
@@ -190,6 +197,12 @@ export async function initMdh({ pendingCollection, pendingPipeline, pendingVaria
   });
   effect(() => {
     chrome.storage.local.set({ mdhActivePanel: store.activePanel.value });
+  });
+  effect(() => {
+    chrome.storage.local.set({ mdhStagesAutoscroll: store.stagesAutoscroll.value });
+  });
+  effect(() => {
+    chrome.storage.local.set({ mdhStagesSampleSize: store.stagesSampleSize.value });
   });
   effect(() => {
     chrome.storage.local.set({ mdhOpsSearch: store.opsSearch.value });

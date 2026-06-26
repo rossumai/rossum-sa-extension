@@ -819,6 +819,10 @@ body {
 
 .record-card-header:hover { background: var(--bg-hover); }
 
+/* A non-collapsible card (Stages view) has an inert header — no collapse cursor/hover. */
+.record-card-static .record-card-header { cursor: default; }
+.record-card-static .record-card-header:hover { background: transparent; }
+
 .record-chevron {
   font-size: 9px;
   color: var(--text-secondary);
@@ -1456,6 +1460,16 @@ body {
      query box lines up with the records below/beside it. */
   --stage-card-w: 300px;
 }
+/* Options strip pinned at the top of the Stages pane (records-per-stage + auto-scroll). */
+.pipeline-inspect-opts {
+  display: flex; align-items: center; gap: 18px; flex-shrink: 0;
+  padding: 8px 14px; border-bottom: 1px solid var(--border);
+  background: var(--bg-card); font-size: 12px;
+}
+.pipeline-inspect-opt { display: flex; align-items: center; gap: 8px; }
+.pipeline-inspect-opt-label { color: var(--text-secondary); }
+.pipeline-inspect-autoscroll { cursor: pointer; user-select: none; }
+.pipeline-inspect-autoscroll input { cursor: pointer; margin: 0; }
 .pipeline-inspect-scroll {
   flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: none;
   padding: 12px 14px 16px; display: flex; flex-direction: column; gap: 14px;
@@ -1472,6 +1486,8 @@ body {
 }
 .pipeline-inspect-num { color: var(--text-secondary); }
 .pipeline-inspect-key { color: var(--accent); font-weight: 600; }
+/* Muted caption that explains a stage (used on stage 0 / input). */
+.pipeline-inspect-hint { color: var(--text-secondary); font-style: italic; opacity: 0.85; }
 .pipeline-inspect-count { margin-left: auto; font-weight: 600; color: var(--success); }
 .pipeline-inspect-zero { color: var(--danger); }
 .pipeline-inspect-time { color: var(--text-secondary); opacity: 0.7; min-width: 46px; text-align: right; }
@@ -1494,14 +1510,19 @@ body {
    overscroll-behavior on the card = chaining). A record that fits chains
    immediately, so the list always scrolls when there's nothing left to scroll. */
 .pipeline-inspect-output {
-  display: flex; flex-direction: row; gap: 8px; align-items: flex-start;
+  display: flex; flex-direction: row; gap: 8px; align-items: stretch;
   overflow-x: auto; overflow-y: hidden; min-width: 0; min-height: 0;
   padding-bottom: 4px; overscroll-behavior-x: none;
 }
+/* Cards fill the section height even when the record is short: the card becomes a
+   flex column (header pinned) whose body grows to fill the row and scrolls when the
+   JSON is taller than the row. Collapsed cards (header only) hug the top instead. */
 .pipeline-inspect-output > .record-card {
   flex: 0 0 var(--stage-card-w); max-width: var(--stage-card-w);
-  max-height: 100%; overflow-y: auto;
+  margin: 0; display: flex; flex-direction: column; overflow: hidden;
 }
+.pipeline-inspect-output > .record-card:not(.record-card-expanded) { align-self: flex-start; }
+.pipeline-inspect-output > .record-card > .record-card-body { flex: 1; min-height: 0; overflow-y: auto; }
 .pipeline-inspect-disabled { opacity: 0.55; height: auto; }
 .pipeline-inspect-disabled-badge {
   margin-left: auto; font-size: 10px; color: var(--text-secondary); font-style: italic;
@@ -1530,7 +1551,8 @@ body {
 }
 .stage-link-line {
   fill: none; stroke: var(--accent); stroke-width: 2;
-  stroke-linecap: round; stroke-linejoin: round; opacity: 0.9;
+  stroke-linecap: butt; stroke-linejoin: round; opacity: 0.7;
+  stroke-dasharray: 6 4; /* dashed so the connector reads as a subtle guide line */
 }
 .stage-link-dot { fill: var(--accent); }
 
@@ -3527,6 +3549,12 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 /* Record table view */
 .record-table-wrap { width: 100%; overflow: auto; }
 .record-table { table-layout: fixed; min-width: 100%; border-collapse: collapse; font-size: 12.5px; }
+/* Once a column has been manually resized, stop stretching to fill the wrap so the
+   declared <col> widths are authoritative and dragging tracks the cursor 1:1 (without
+   this, min-width:100% redistributes freed space across all columns and the dragged
+   column overshoots). The table then sizes to its columns: scrolls when wider than the
+   wrap, leaves a trailing gap when narrower (standard resizable-grid behavior). */
+.record-table.is-resized { min-width: 0; width: max-content; }
 .record-table thead th { position: sticky; top: 0; background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 6px 10px; text-align: left; font-weight: normal; white-space: nowrap; cursor: pointer; user-select: none; }
 .record-table thead th:hover { background: var(--bg-hover); }
 .record-table tbody tr:nth-child(even) { background: var(--bg-sidebar); }

@@ -15,7 +15,7 @@ import { openRecordEditor } from './RecordEditor.jsx';
 import { openDataOperations } from './DataOperations.jsx';
 import { openBulkDelete } from './BulkDelete.jsx';
 import { openBulkUpdate } from './BulkUpdate.jsx';
-import { selectionMode, selectedIds, selectionPipelineDirty, resultsView, inspectTarget } from '../store.js';
+import { selectionMode, selectedIds, selectionPipelineDirty, resultsView, inspectTarget, stagesAutoscroll } from '../store.js';
 import { confirmModal, openModal } from './Modal.jsx';
 import { showUndo } from '../undo.js';
 import { addToHistory } from './QueryHistory.jsx';
@@ -428,8 +428,10 @@ export default function DataPanel() {
 
   // While the Stages view is open, follow the pipeline-editor cursor: scroll to
   // the stage it sits in. (No-op in List/Table — doesn't force the view to switch.)
+  // Gated on the Stages "Auto-scroll" option; the explicit debug-panel click jump
+  // (handleInspectStage) is unaffected and always scrolls.
   function handleCursorStage(activeIndex) {
-    if (resultsView.value === 'stages') inspectTarget.value = { index: activeIndex };
+    if (resultsView.value === 'stages' && stagesAutoscroll.value) inspectTarget.value = { index: activeIndex };
   }
 
   function handleSort(field) {

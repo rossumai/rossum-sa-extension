@@ -48,10 +48,35 @@ export default function RecordTable({ records, columns, sortState, filterState, 
   function startColResize(col, e) {
     e.preventDefault();
     e.stopPropagation();
-    const th = e.currentTarget.closest('th');
-    const startX = e.clientX;
-    const startW = colWidthsRef.current[col] || (th ? Math.round(th.getBoundingClientRect().width) : DEFAULT_COL_WIDTH);
     const handle = e.currentTarget;
+    const th = handle.closest('th');
+
+    // On the FIRST resize, freeze every column to its current rendered width and
+    // switch the table out of stretch mode (the `is-resized` class drops the
+    // `min-width:100%` that fills the container). Until now the table stretched its
+    // columns to fill the wrap, so a column's rendered width was much larger than its
+    // declared (180px default) width. Reading startW from that stretched render — while
+    // the other columns kept their small declared width — made the browser redistribute
+    // the freed space across all columns, so the dragged column leapt far past the
+    // cursor. Freezing every column to its rendered width makes declared == rendered,
+    // so the drag tracks the cursor 1:1 (verified in a browser repro).
+    let widths = colWidthsRef.current;
+    if (widths[col] == null) {
+      const headRow = th && th.closest('tr');
+      const ths = headRow ? headRow.querySelectorAll('th.record-table-th') : null;
+      const frozen = { ...widths };
+      columns.forEach((c, idx) => {
+        if (frozen[c] != null) return;
+        const el = ths && ths[idx];
+        frozen[c] = el ? Math.round(el.getBoundingClientRect().width) : DEFAULT_COL_WIDTH;
+      });
+      widths = frozen;
+      colWidthsRef.current = widths;
+      setColWidths(widths);
+    }
+
+    const startX = e.clientX;
+    const startW = widths[col];
     handle.classList.add('dragging');
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
@@ -132,7 +157,7 @@ export default function RecordTable({ records, columns, sortState, filterState, 
 
   return (
     <div class="record-table-wrap" style="overflow:auto">
-      <table class="record-table">
+      <table class={'record-table' + (Object.keys(colWidths).length ? ' is-resized' : '')}>
         <colgroup>
           {selecting && <col style="width:36px" />}
           {columns.map((col) => (

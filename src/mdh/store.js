@@ -70,6 +70,21 @@ export const inspectTarget = signal(null);
 // scroll) | null. Cleared on mouse-leave.
 export const hoveredStage = signal(null);
 
+// Stages-view options (persisted as mdhStagesAutoscroll / mdhStagesSampleSize).
+// `stagesAutoscroll` toggles the automatic scroll-syncing between the pipeline
+// editor and the Stages view (editor-follows-hover + Stages-follows-cursor); the
+// explicit debug-panel click jump always works regardless. `stagesSampleSize` is
+// how many sample records each stage shows (and fetches per stage). Defaults
+// reproduce the prior behavior exactly (autoscroll on, 10 records).
+export const STAGE_SAMPLE_SIZES = [10, 25, 50];
+export const stagesAutoscroll = signal(true);
+export const stagesSampleSize = signal(10);
+// Coerce a stored/unknown value to one of the allowed sample sizes (default 10).
+export function coerceStageSampleSize(v) {
+  const n = typeof v === 'number' ? v : parseInt(v, 10);
+  return STAGE_SAMPLE_SIZES.includes(n) ? n : 10;
+}
+
 // Suffix that namespaces per-org client state (saved/recent/last queries) so it
 // isn't shared across projects. Prefers the org id; falls back to the origin so
 // the data is still per-project (never global) if the org id is unavailable.

@@ -20,6 +20,7 @@ export default function RecordCard({
   charBudget,
   indexes,
   readOnly = false,
+  collapsible = true,
 }) {
   const fieldCount = useMemo(() => countFields(record), [record]);
   const isLarge = fieldCount > AUTO_COLLAPSE_FIELD_THRESHOLD;
@@ -59,12 +60,17 @@ export default function RecordCard({
   const summary = recordSummary(record, budget, { indexes });
   const isEmpty = summary === EMPTY_SENTINEL;
   const allExpanded = collapseDepth === Infinity;
+  // When not collapsible (e.g. the Stages view), the card is permanently open: the
+  // body always shows and the header is inert (no chevron, no collapse-on-click).
+  const showBody = collapsible ? expanded : true;
 
   return (
     <div class={'record-card'
-      + (expanded ? ' record-card-expanded' : '')
+      + (showBody ? ' record-card-expanded' : '')
+      + (collapsible ? '' : ' record-card-static')
       + (isSelected ? ' record-card-selected' : '')}>
-      <div class="record-card-header" onClick={(e) => { if (!e.target.closest('.record-actions')) onToggle(index); }}>
+      <div class="record-card-header"
+        onClick={collapsible ? (e) => { if (!e.target.closest('.record-actions')) onToggle(index); } : undefined}>
         {isSelectionMode && (
           <input
             type="checkbox"
@@ -75,10 +81,10 @@ export default function RecordCard({
             aria-label="Select record"
           />
         )}
-        <span class="record-chevron">{expanded ? '\u25BC' : '\u25B6'}</span>
+        {collapsible && <span class="record-chevron">{showBody ? '\u25BC' : '\u25B6'}</span>}
         <span class={'record-summary' + (isEmpty ? ' record-summary-empty' : '')}>{summary}</span>
         <span class="record-actions">
-          {expanded && isLarge && (
+          {showBody && isLarge && (
             <button
               class="action-toggle-all"
               title={allExpanded ? 'Collapse nested fields' : 'Expand all nested fields'}
@@ -94,7 +100,7 @@ export default function RecordCard({
           )}
         </span>
       </div>
-      {expanded && (
+      {showBody && (
         <div class="record-card-body">
           <JsonTree
             key={treeKey}

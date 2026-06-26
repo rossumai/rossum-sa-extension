@@ -1,6 +1,6 @@
 import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
-import { hoveredStage } from '../store.js';
+import { hoveredStage, stagesAutoscroll } from '../store.js';
 import { computeStageLink } from '../stageLink.js';
 
 // SVG connector drawn over the data panel: from the hovered Stages-view section to
@@ -14,7 +14,10 @@ export default function StageLinkOverlay({ editorRef, panelRef }) {
 
   useEffect(() => {
     if (!hv) { setPts(null); return; }
-    editorRef.current?.revealStage?.(hv.entryIndex); // scroll the stage into view once
+    // Auto-scroll the editor to the hovered stage — only when the option is on.
+    // With it off the connector still draws whenever the stage is already visible
+    // (stageScreenRect returns null when off-screen, so the line simply hides).
+    if (stagesAutoscroll.value) editorRef.current?.revealStage?.(hv.entryIndex);
 
     let raf = 0;
     const recompute = () => {
