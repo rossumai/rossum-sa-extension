@@ -3,6 +3,13 @@ export const TOP_VALUES = 5;
 export const MAX_DEPTH = 3;
 export const MAX_FIELDS = 50;
 
+// Normalized (lowercase, whitespace-trimmed) placeholder tokens that masquerade
+// as real string data. Single source of truth for sentinel detection.
+export const SENTINEL_STRINGS = [
+  'null', 'none', 'nan', 'undefined', 'nil',
+  'n/a', 'na', 'tbd', 'unknown', '-', '--', '.',
+];
+
 export function encKey(field) { return field.replace(/\./g, '__DOT__'); }
 
 function fieldsOnly(fields) {
@@ -180,6 +187,20 @@ export function buildStringAnalysisPipeline(fields) {
   return [fieldsOnly(fields), { $facet: facet }];
 }
 
+export function buildSentinelStringsPipeline(fields) {
+  const facet = {};
+  for (const f of fields) {
+    facet[encKey(f)] = [
+      { $match: { $expr: { $eq: [{ $type: `$${f}` }, 'string'] } } },
+      { $project: { __n: { $toLower: { $trim: { input: `$${f}` } } } } },
+      { $match: { __n: { $in: SENTINEL_STRINGS } } },
+      { $group: { _id: '$__n', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ];
+  }
+  return [fieldsOnly(fields), { $facet: facet }];
+}
+
 export function buildNumericStatsPipeline(fields) {
   const facet = {};
   for (const f of fields) {
@@ -241,7 +262,7 @@ export function buildSchemaConsistencyPipeline() {
 export const STATS_CHECKS = [
   'coverage', 'empties', 'types', 'distribution',
   'cardinality', 'strings', 'numeric', 'dates', 'schema',
-  'storage', 'docSize',
+  'storage', 'docSize', 'sentinels',
 ];
 
 export function buildAllPipelines(fields) {
@@ -257,5 +278,6 @@ export function buildAllPipelines(fields) {
     schema: buildSchemaConsistencyPipeline(),
     storage: buildStoragePipeline(),
     docSize: buildDocSizePipeline(),
+    sentinels: buildSentinelStringsPipeline(fields),
   };
 }

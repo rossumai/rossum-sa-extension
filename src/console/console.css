@@ -2411,6 +2411,30 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
   opacity: 0.75;
 }
 
+/* ── Suspicious Values (sentinel strings) ───────── */
+
+.stats-sentinel-list {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.stats-sentinel-row {
+  display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap;
+}
+.stats-sentinel-field {
+  min-width: 140px; flex-shrink: 0;
+}
+.stats-sentinel-tokens {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline;
+}
+.stats-sentinel-token {
+  display: inline-flex; align-items: baseline; gap: 4px;
+}
+.stats-sentinel-token:not(:first-child)::before {
+  content: '\00b7'; color: var(--text-secondary); margin-right: 4px;
+}
+.stats-sentinel-count {
+  font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums;
+}
+
 /* ── Stats Visual Enhancements ──────────────────── */
 
 @keyframes stats-section-enter {

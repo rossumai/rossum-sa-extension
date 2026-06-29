@@ -9,15 +9,18 @@ import { encKey } from './statsPipelines.js';
 import * as cache from './cache.js';
 import { statsSummary } from './store.js';
 
-export function computeHealthScore(coverage, empties, types, strings, schemaShapes, fields) {
+export function computeHealthScore(coverage, empties, types, strings, schemaShapes, fields, sentinels = null) {
   if (!coverage || !fields.length) return null;
 
   // Coverage: average field coverage percentage (0–100)
   const avgCoverage = coverage.reduce((sum, c) => sum + c.pct, 0) / coverage.length;
 
-  // Emptiness: ratio of fields with no empty/null/missing issues (0–100)
-  const emptyFieldCount = empties ? empties.length : 0;
-  const emptinessScore = ((fields.length - emptyFieldCount) / fields.length) * 100;
+  // Emptiness: ratio of fields with no empty/null/missing/sentinel-string issues (0–100).
+  // A field counts as "unclean" if it appears in empties OR carries sentinel strings.
+  const affected = new Set();
+  for (const e of (empties || [])) affected.add(e.field);
+  for (const s of (sentinels || [])) affected.add(s.field);
+  const emptinessScore = ((fields.length - affected.size) / fields.length) * 100;
 
   // Type consistency: ratio of fields with a single type (0–100)
   const inconsistentCount = types ? types.length : 0;
@@ -67,6 +70,7 @@ export function transformStatsResults(rawCache, fields) {
     types: rawCache.types ? transformTypes(rawCache.types, fields) : null,
     strings: rawCache.strings ? transformStrings(rawCache.strings, fields) : null,
     schemaShapes: rawCache.schema ? transformSchema(rawCache.schema) : null,
+    sentinels: rawCache.sentinels ? transformSentinels(rawCache.sentinels, fields) : null,
   };
 }
 
@@ -129,6 +133,18 @@ function transformStrings(raw, fields) {
     .filter((x) => x.count > 0);
 }
 
+function transformSentinels(raw, fields) {
+  const r = raw.result?.[0] || {};
+  return fields
+    .map((f) => {
+      const buckets = r[encKey(f)] || [];
+      const values = buckets.map((b) => ({ value: b._id, count: b.count }));
+      const total = values.reduce((s, v) => s + v.count, 0);
+      return { field: f, total, values };
+    })
+    .filter((x) => x.total > 0);
+}
+
 function transformSchema(raw) {
   return (raw.result || []).map((r) => ({
     fieldCount: r._id,
@@ -154,6 +170,7 @@ export function updateStatsSummary(collection) {
     types: cache.get(collection, 'stats_types'),
     strings: cache.get(collection, 'stats_strings'),
     schema: cache.get(collection, 'stats_schema'),
+    sentinels: cache.get(collection, 'stats_sentinels'), // optional — penalty only when present
   };
   const t = transformStatsResults(rawCache, fields);
   if (t.coverage === null || t.empties === null || t.types === null
@@ -161,7 +178,9 @@ export function updateStatsSummary(collection) {
     statsSummary.value = null;
     return;
   }
-  const health = computeHealthScore(t.coverage, t.empties, t.types, t.strings, t.schemaShapes, fields);
+  const health = computeHealthScore(
+    t.coverage, t.empties, t.types, t.strings, t.schemaShapes, fields, t.sentinels,
+  );
   if (health === null) {
     statsSummary.value = null;
     return;

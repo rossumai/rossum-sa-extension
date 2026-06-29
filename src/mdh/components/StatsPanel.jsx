@@ -147,6 +147,7 @@ export default function StatsPanel() {
   const [numericStats, setNumericStats] = useState(null);
   const [dateRanges, setDateRanges] = useState(null);
   const [schemaShapes, setSchemaShapes] = useState(null);
+  const [sentinels, setSentinels] = useState(null);
   const [storage, setStorage] = useState(null);
   const [docSize, setDocSize] = useState(null);
   const [fields, setFields] = useState([]);
@@ -154,7 +155,7 @@ export default function StatsPanel() {
   const [discovering, setDiscovering] = useState(false);
   const runIdRef = useRef(0);
 
-  const SECTION_ORDER = ['overview', 'distribution', 'coverage', 'schema', 'cardinality', 'strings', 'numeric', 'dates'];
+  const SECTION_ORDER = ['overview', 'distribution', 'coverage', 'sentinels', 'schema', 'cardinality', 'strings', 'numeric', 'dates'];
 
   function setStatus(key, value) {
     setStatuses((prev) => ({ ...prev, [key]: value }));
@@ -175,6 +176,7 @@ export default function StatsPanel() {
     setNumericStats(null);
     setDateRanges(null);
     setSchemaShapes(null);
+    setSentinels(null);
     setStorage(null);
     setDocSize(null);
     setFields([]);
@@ -244,6 +246,7 @@ export default function StatsPanel() {
         types: (res) => setTypes(transformStatsResults({ types: res }, discoveredFields).types),
         strings: (res) => setStringAnalysis(transformStatsResults({ strings: res }, discoveredFields).strings),
         schema: (res) => setSchemaShapes(transformStatsResults({ schema: res }, discoveredFields).schemaShapes),
+        sentinels: (res) => setSentinels(transformStatsResults({ sentinels: res }, discoveredFields).sentinels),
         cardinality: (res) => {
           const r = res.result?.[0] || {};
           setCardinality(discoveredFields.map((f) => ({
@@ -391,7 +394,7 @@ export default function StatsPanel() {
 
         {/* Overview + Health */}
         {overview && (() => {
-          const health = computeHealthScore(coverage, empties, types, stringAnalysis, schemaShapes, fields);
+          const health = computeHealthScore(coverage, empties, types, stringAnalysis, schemaShapes, fields, sentinels);
           return (
             <Section title="Overview" status={statuses.overview}>
               <div class="stats-note">
@@ -533,6 +536,37 @@ export default function StatsPanel() {
                 })}
               </tbody>
             </table>
+          </Section>
+        )}
+
+        {/* Suspicious Values (sentinel placeholder strings) */}
+        {sentinels && canShow('sentinels') && (
+          <Section title="Suspicious Values" status={statuses.sentinels}>
+            <div class="stats-note">
+              Fields containing placeholder text that masquerades as data {'—'} values
+              like "null", "N/A", or "-" (matched case-insensitively, whitespace-trimmed).
+              These pass the coverage check because they are real strings, but they usually
+              mean the value is actually missing.
+            </div>
+            {sentinels.length === 0 ? (
+              <div class="stats-ok">No suspicious placeholder strings found</div>
+            ) : (
+              <div class="stats-sentinel-list">
+                {sentinels.map((s) => (
+                  <div class="stats-sentinel-row">
+                    <span class="stats-sentinel-field"><FieldName path={s.field} /></span>
+                    <span class="stats-sentinel-tokens">
+                      {s.values.map((v) => (
+                        <span class="stats-sentinel-token">
+                          <span class="stats-dist-special">{v.value}</span>
+                          <span class="stats-sentinel-count">{'×'}{v.count.toLocaleString()}</span>
+                        </span>
+                      ))}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </Section>
         )}
 

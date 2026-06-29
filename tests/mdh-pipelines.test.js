@@ -13,6 +13,9 @@ import {
   buildSchemaConsistencyPipeline,
   buildOverviewPipeline,
   buildAllPipelines,
+  buildSentinelStringsPipeline,
+  SENTINEL_STRINGS,
+  STATS_CHECKS,
   MAX_FIELDS,
   TOP_VALUES,
 } from '../src/mdh/statsPipelines.js';
@@ -173,11 +176,50 @@ describe('pipeline builders', () => {
     expect(p[p.length - 1]).toEqual({ $limit: 20 });
   });
 
-  it('buildAllPipelines returns all 11 pipeline types', () => {
+  it('SENTINEL_STRINGS is the broad placeholder set in normalized form', () => {
+    expect(SENTINEL_STRINGS).toEqual(
+      expect.arrayContaining([
+        'null', 'none', 'nan', 'undefined', 'nil',
+        'n/a', 'na', 'tbd', 'unknown', '-', '--', '.',
+      ]),
+    );
+    expect(SENTINEL_STRINGS).toHaveLength(12);
+    // every token is already lowercase + trimmed
+    for (const s of SENTINEL_STRINGS) expect(s).toBe(s.toLowerCase().trim());
+  });
+
+  it('buildSentinelStringsPipeline facets per field and matches normalized sentinels', () => {
+    const p = buildSentinelStringsPipeline(fields);
+    expect(p).toHaveLength(2);
+    expect(p[0]).toHaveProperty('$project');
+    expect(p[1]).toHaveProperty('$facet');
+    expect(p[1].$facet).toHaveProperty('name');
+    expect(p[1].$facet).toHaveProperty('address__DOT__city');
+
+    const stages = p[1].$facet.name;
+    // 1) string-type guard
+    expect(stages[0].$match).toEqual({ $expr: { $eq: [{ $type: '$name' }, 'string'] } });
+    // 2) normalize (lowercase + trim)
+    const proj = stages.find((s) => s.$project && s.$project.__n);
+    expect(proj.$project.__n).toEqual({ $toLower: { $trim: { input: '$name' } } });
+    // 3) keep only sentinel tokens
+    const inMatch = stages.find((s) => s.$match && s.$match.__n);
+    expect(inMatch.$match.__n).toEqual({ $in: SENTINEL_STRINGS });
+    // 4) group by normalized token, sorted by count desc
+    const group = stages.find((s) => s.$group);
+    expect(group.$group._id).toBe('$__n');
+    expect(group.$group.count).toEqual({ $sum: 1 });
+  });
+
+  it('STATS_CHECKS includes sentinels', () => {
+    expect(STATS_CHECKS).toContain('sentinels');
+  });
+
+  it('buildAllPipelines returns all 12 pipeline types', () => {
     const all = buildAllPipelines(fields);
     expect(Object.keys(all).sort()).toEqual([
       'cardinality', 'coverage', 'dates', 'distribution', 'docSize',
-      'empties', 'numeric', 'schema', 'storage', 'strings', 'types',
+      'empties', 'numeric', 'schema', 'sentinels', 'storage', 'strings', 'types',
     ]);
     for (const pipeline of Object.values(all)) {
       expect(Array.isArray(pipeline)).toBe(true);

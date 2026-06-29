@@ -63,8 +63,8 @@ describe('prefetch system', () => {
     await prefetchForPanel('test_col', 'stats');
 
     expect(cache.get('test_col', 'statsFields')).toEqual(['age', 'name']);
-    // 1 sample query + 11 stat pipelines = 12 aggregate calls
-    expect(api.aggregate).toHaveBeenCalledTimes(12);
+    // 1 sample query + 12 stat pipelines = 13 aggregate calls
+    expect(api.aggregate).toHaveBeenCalledTimes(13);
     // Stat results should be cached
     expect(cache.get('test_col', 'stats_coverage')).toEqual({ result: [] });
     expect(cache.get('test_col', 'stats_types')).toEqual({ result: [] });

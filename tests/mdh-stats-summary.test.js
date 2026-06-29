@@ -55,6 +55,28 @@ describe('computeHealthScore', () => {
     expect(computeHealthScore(perfectCoverage, empties, [], [], [{ fieldCount: 4 }], fields)).toBe(96);
   });
 
+  it('penalizes sentinel-string fields like empties', () => {
+    // 1 of 4 fields has sentinel strings, none empty → emptinessScore = 75
+    // score = 100*0.25 + 100*0.20 + 75*0.15 + 100*0.20 + 100*0.20 = 96.25 → 96
+    const sentinels = [{ field: 'a', total: 5, values: [{ value: 'null', count: 5 }] }];
+    expect(computeHealthScore(perfectCoverage, [], [], [], [{ fieldCount: 4 }], fields, sentinels)).toBe(96);
+  });
+
+  it('counts a field with both empties and sentinels only once', () => {
+    const empties = [{ field: 'a', nullCount: 1, missingCount: 0, emptyCount: 0 }];
+    const sentinels = [{ field: 'a', total: 5, values: [{ value: 'null', count: 5 }] }];
+    // still only field 'a' affected → emptinessScore = 75 → 96
+    expect(computeHealthScore(perfectCoverage, empties, [], [], [{ fieldCount: 4 }], fields, sentinels)).toBe(96);
+  });
+
+  it('omitting sentinels reproduces the pre-feature score (backward compat)', () => {
+    const empties = [{ field: 'a', nullCount: 5, missingCount: 0, emptyCount: 0 }];
+    const withNull = computeHealthScore(perfectCoverage, empties, [], [], [{ fieldCount: 4 }], fields, null);
+    const sixArg = computeHealthScore(perfectCoverage, empties, [], [], [{ fieldCount: 4 }], fields);
+    expect(withNull).toBe(sixArg);
+    expect(sixArg).toBe(96);
+  });
+
   it('whitespace score is 100 when there are no string fields', () => {
     // strings array is all count=0 → stringFields = 0 → wsScore = 100
     const strings = fields.map((f) => ({ field: f, count: 0, leading: 0, trailing: 0 }));
@@ -190,6 +212,36 @@ describe('transformStatsResults', () => {
     ]);
   });
 
+  it('transformSentinels rolls up buckets per field and filters clean fields', () => {
+    const raw = {
+      sentinels: {
+        result: [{
+          [encKey('vendor')]: [{ _id: 'null', count: 1204 }],
+          [encKey('status')]: [{ _id: 'n/a', count: 89 }, { _id: 'none', count: 12 }],
+          [encKey('clean')]: [],
+        }],
+      },
+    };
+    const out = transformStatsResults(raw, ['vendor', 'status', 'clean']);
+    expect(out.sentinels).toEqual([
+      { field: 'vendor', total: 1204, values: [{ value: 'null', count: 1204 }] },
+      { field: 'status', total: 101, values: [{ value: 'n/a', count: 89 }, { value: 'none', count: 12 }] },
+    ]);
+  });
+
+  it('transformStatsResults.sentinels is null when its raw input is missing', () => {
+    const raw = {
+      coverage: { result: [{ _total: 10, [`f_${encKey('name')}`]: 10, [`f_${encKey('age')}`]: 10 }] },
+      empties: { result: [{}] },
+      types: { result: [{}] },
+      strings: { result: [{}] },
+      schema: { result: [] },
+      // no sentinels key
+    };
+    const out = transformStatsResults(raw, fields);
+    expect(out.sentinels).toBeNull();
+  });
+
   it('returns null for each piece whose raw input is missing', () => {
     // Simulates a partial failure where `types` errored during prefetch
     // but other checks succeeded. Consumers render the resolved pieces
@@ -278,6 +330,31 @@ describe('updateStatsSummary', () => {
     //   score = 75 * 0.25 + 100 * 0.20 + 50 * 0.15 + 100 * 0.20 + 100 * 0.20
     //         = 18.75 + 20 + 7.5 + 20 + 20 = 86.25 → rounds to 86 → "Good"
     expect(statsSummary.value).toEqual({ collection: col, health: 86, label: 'Good' });
+  });
+
+  it('applies the sentinel penalty when stats_sentinels is seeded', () => {
+    const col = 'col_sent';
+    cache.set(col, 'statsFields', ['name', 'age']);
+    cache.set(col, 'stats_coverage', {
+      result: [{ _total: 100, [`f_${encKey('name')}`]: 100, [`f_${encKey('age')}`]: 100 }],
+    });
+    cache.set(col, 'stats_empties', { result: [{}] });
+    cache.set(col, 'stats_types', { result: [{}] });
+    cache.set(col, 'stats_strings', { result: [{}] });
+    cache.set(col, 'stats_schema', { result: [{ _id: 2, count: 100, sampleFields: ['name', 'age'] }] });
+    // "age" is 100 % the literal string "null" → counts as present in coverage,
+    // but is flagged as a sentinel field.
+    cache.set(col, 'stats_sentinels', { result: [{ [encKey('age')]: [{ _id: 'null', count: 100 }] }] });
+    updateStatsSummary(col);
+    // avgCoverage=100, emptinessScore=(2-1)/2*100=50, typeScore=100, wsScore=100, schemaScore=100
+    // score = 100*0.25 + 100*0.20 + 50*0.15 + 100*0.20 + 100*0.20 = 92.5 → 93
+    expect(statsSummary.value).toEqual({ collection: col, health: 93, label: 'Excellent' });
+  });
+
+  it('leaves the summary unchanged when stats_sentinels is absent (backward compat)', () => {
+    seedCleanCollection('col1'); // no stats_sentinels
+    updateStatsSummary('col1');
+    expect(statsSummary.value).toEqual({ collection: 'col1', health: 100, label: 'Excellent' });
   });
 
   it('leaves signal null when fields array is empty', () => {
