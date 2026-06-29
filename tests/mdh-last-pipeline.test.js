@@ -21,33 +21,40 @@ import { lastPipelineKey, saveLastPipeline, bootPrefillFor } from '../src/mdh/la
 import { orgId, domain } from '../src/mdh/store.js';
 
 describe('lastPipeline persistence', () => {
-  it('writes text + variables under the org-scoped key', () => {
-    saveLastPipeline('[{"$match":{"v":"{vendor}"}}]', { vendor: 'ACME' });
-    expect(lastPipelineKey()).toBe('mdhLastPipeline::org:7');
-    expect(store[lastPipelineKey()]).toEqual({
+  it('writes text + variables under the org+collection-scoped key', () => {
+    saveLastPipeline('vendors', '[{"$match":{"v":"{vendor}"}}]', { vendor: 'ACME' });
+    expect(lastPipelineKey('vendors')).toBe('mdhLastPipeline::org:7::vendors');
+    expect(store[lastPipelineKey('vendors')]).toEqual({
       pipelineText: '[{"$match":{"v":"{vendor}"}}]',
       variables: { vendor: 'ACME' },
       placeholderTypes: {},
     });
   });
 
+  it('keys different collections separately', () => {
+    saveLastPipeline('vendors', '[{"$limit":1}]');
+    saveLastPipeline('items', '[{"$limit":2}]');
+    expect(store['mdhLastPipeline::org:7::vendors'].pipelineText).toBe('[{"$limit":1}]');
+    expect(store['mdhLastPipeline::org:7::items'].pipelineText).toBe('[{"$limit":2}]');
+  });
+
   it('copies variables (later mutation of the source does not leak in)', () => {
     const vars = { a: '1' };
-    saveLastPipeline('[]', vars);
+    saveLastPipeline('vendors', '[]', vars);
     vars.a = 'mutated';
-    expect(store[lastPipelineKey()].variables).toEqual({ a: '1' });
+    expect(store[lastPipelineKey('vendors')].variables).toEqual({ a: '1' });
   });
 
   it('tolerates missing variables', () => {
-    saveLastPipeline('[]');
-    expect(store[lastPipelineKey()]).toEqual({ pipelineText: '[]', variables: {}, placeholderTypes: {} });
+    saveLastPipeline('vendors', '[]');
+    expect(store[lastPipelineKey('vendors')]).toEqual({ pipelineText: '[]', variables: {}, placeholderTypes: {} });
   });
 
   it('falls back to a domain-scoped key when org id is null', () => {
     orgId.value = null;
-    saveLastPipeline('[]');
-    expect(lastPipelineKey()).toBe('mdhLastPipeline::domain:https://x.rossum.app');
-    expect(store['mdhLastPipeline::domain:https://x.rossum.app']).toBeTruthy();
+    saveLastPipeline('vendors', '[]');
+    expect(lastPipelineKey('vendors')).toBe('mdhLastPipeline::domain:https://x.rossum.app::vendors');
+    expect(store['mdhLastPipeline::domain:https://x.rossum.app::vendors']).toBeTruthy();
   });
 });
 

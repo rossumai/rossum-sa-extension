@@ -4,6 +4,7 @@ import * as store from './store.js';
 import { activeApp } from '../console/store.js';
 import { prefetchForPanel, prefetchAll } from './prefetch.js';
 import { lastPipelineKey, bootPrefillFor } from './lastPipeline.js';
+import { resolveTabState, writeTabState } from '../console/tabState.js';
 
 const POLL_DELAY_VISIBLE = 5_000;
 const POLL_DELAY_HIDDEN = 60_000;
@@ -120,23 +121,29 @@ export async function initMdh({ pendingCollection, pendingPipeline, pendingVaria
     .then((available) => { store.aiAvailable.value = available; })
     .catch(() => {});
 
-  const lpKey = lastPipelineKey();
   const stored = await chrome.storage.local.get([
     'mdhActiveView', 'mdhSelectedCollection', 'mdhActivePanel', 'mdhOpsSearch',
-    'mdhStagesAutoscroll', 'mdhStagesSampleSize', lpKey,
+    'mdhStagesAutoscroll', 'mdhStagesSampleSize',
   ]);
 
-  if (stored.mdhActiveView === 'operations' || stored.mdhActiveView === 'overview') {
-    store.activeView.value = stored.mdhActiveView;
+  // Navigation state is per-tab: prefer this tab's sessionStorage, fall back to
+  // the chrome.storage.local seed (already in `stored`). Stages options stay global.
+  const tab = resolveTabState(
+    ['mdhActiveView', 'mdhSelectedCollection', 'mdhActivePanel', 'mdhOpsSearch'],
+    stored,
+  );
+
+  if (tab.mdhActiveView === 'operations' || tab.mdhActiveView === 'overview') {
+    store.activeView.value = tab.mdhActiveView;
   }
-  if (stored.mdhSelectedCollection) {
-    store.selectedCollection.value = stored.mdhSelectedCollection;
+  if (tab.mdhSelectedCollection) {
+    store.selectedCollection.value = tab.mdhSelectedCollection;
   }
-  if (stored.mdhActivePanel) {
-    store.activePanel.value = stored.mdhActivePanel;
+  if (tab.mdhActivePanel) {
+    store.activePanel.value = tab.mdhActivePanel;
   }
-  if (typeof stored.mdhOpsSearch === 'string') {
-    store.opsSearch.value = stored.mdhOpsSearch;
+  if (typeof tab.mdhOpsSearch === 'string') {
+    store.opsSearch.value = tab.mdhOpsSearch;
   }
   if (typeof stored.mdhStagesAutoscroll === 'boolean') {
     store.stagesAutoscroll.value = stored.mdhStagesAutoscroll;
@@ -158,8 +165,12 @@ export async function initMdh({ pendingCollection, pendingPipeline, pendingVaria
     }
   }
 
+  // The last pipeline is keyed per-collection, so resolve the collection first
+  // (including any pendingCollection override above), then fetch that key.
+  const lpKey = lastPipelineKey(store.selectedCollection.value);
+  const lpStored = await chrome.storage.local.get(lpKey);
   const restoredPipeline = bootPrefillFor(
-    stored[lpKey],
+    lpStored[lpKey],
     store.selectedCollection.value,
     !!store.pendingPipelineLoad.value,
   );
@@ -189,14 +200,14 @@ export async function initMdh({ pendingCollection, pendingPipeline, pendingVaria
   }
 
   effect(() => {
-    chrome.storage.local.set({ mdhActiveView: store.activeView.value });
+    writeTabState('mdhActiveView', store.activeView.value);
   });
   effect(() => {
     const v = store.selectedCollection.value;
-    if (v) chrome.storage.local.set({ mdhSelectedCollection: v });
+    if (v) writeTabState('mdhSelectedCollection', v);
   });
   effect(() => {
-    chrome.storage.local.set({ mdhActivePanel: store.activePanel.value });
+    writeTabState('mdhActivePanel', store.activePanel.value);
   });
   effect(() => {
     chrome.storage.local.set({ mdhStagesAutoscroll: store.stagesAutoscroll.value });
@@ -205,7 +216,7 @@ export async function initMdh({ pendingCollection, pendingPipeline, pendingVaria
     chrome.storage.local.set({ mdhStagesSampleSize: store.stagesSampleSize.value });
   });
   effect(() => {
-    chrome.storage.local.set({ mdhOpsSearch: store.opsSearch.value });
+    writeTabState('mdhOpsSearch', store.opsSearch.value);
   });
 
   let bgController = null;

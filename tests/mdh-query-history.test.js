@@ -81,3 +81,27 @@ describe('QueryHistory dedup is disable-aware', () => {
     expect(await isSaved('vendors', withDisabled)).toBe(true);
   });
 });
+
+describe('QueryHistory write serialization', () => {
+  function stubSlowStorage() {
+    const data = {};
+    globalThis.chrome = {
+      storage: { local: {
+        get: (key) => new Promise((r) => setTimeout(() => r(key in data ? { [key]: data[key] } : {}), 5)),
+        set: (obj) => new Promise((r) => setTimeout(() => { Object.assign(data, obj); r(); }, 5)),
+        remove: (key) => new Promise((r) => setTimeout(() => { delete data[key]; r(); }, 5)),
+      }, sync: { get: () => Promise.resolve({}), remove: () => Promise.resolve() } },
+    };
+    return data;
+  }
+
+  it('does not lose entries when two addToHistory calls overlap', async () => {
+    const data = stubSlowStorage();
+    orgId.value = 1; domain.value = 'https://x.rossum.app';
+    await Promise.all([
+      addToHistory('vendors', '[{"$limit":1}]', {}),
+      addToHistory('vendors', '[{"$limit":2}]', {}),
+    ]);
+    expect(data['queryHistory::org:1']).toHaveLength(2);
+  });
+});

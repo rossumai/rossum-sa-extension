@@ -18,6 +18,17 @@ async function writeList(baseKey, list) {
   await chrome.storage.local.set({ [key]: list });
 }
 
+// All history/saved writes are read-modify-write on a per-org array. Run them
+// through a per-tab promise chain so overlapping writes within this tab can't
+// lose an entry. (Cross-tab simultaneous writes remain a low-probability,
+// accepted residual — see docs/superpowers/specs/2026-06-29-mdh-multitab-hardening-design.md.)
+let writeChain = Promise.resolve();
+function serialize(task) {
+  const run = writeChain.then(task, task); // run regardless of the prior outcome
+  writeChain = run.catch(() => {});
+  return run;
+}
+
 // Normalize a pipeline string so cosmetic edits (whitespace, key order from
 // JSON5 reformatting) don't create duplicate entries. Includes disabled-stage
 // flags so a pipeline and its disabled-stage variant are stored separately.
@@ -33,29 +44,35 @@ function dedupKey(collection, pipeline) {
 }
 
 export async function addToHistory(collection, pipeline, variables, placeholderTypes) {
-  const queryHistory = await readList('queryHistory');
-  const key = dedupKey(collection, pipeline);
-  const filtered = queryHistory.filter((e) => dedupKey(e.collection, e.pipeline) !== key);
-  const entry = { collection, pipeline, ts: Date.now() };
-  if (variables && Object.keys(variables).length > 0) entry.variables = variables;
-  if (placeholderTypes && Object.keys(placeholderTypes).length > 0) entry.placeholderTypes = placeholderTypes;
-  filtered.unshift(entry);
-  await writeList('queryHistory', filtered.slice(0, MAX_HISTORY));
+  return serialize(async () => {
+    const queryHistory = await readList('queryHistory');
+    const key = dedupKey(collection, pipeline);
+    const filtered = queryHistory.filter((e) => dedupKey(e.collection, e.pipeline) !== key);
+    const entry = { collection, pipeline, ts: Date.now() };
+    if (variables && Object.keys(variables).length > 0) entry.variables = variables;
+    if (placeholderTypes && Object.keys(placeholderTypes).length > 0) entry.placeholderTypes = placeholderTypes;
+    filtered.unshift(entry);
+    await writeList('queryHistory', filtered.slice(0, MAX_HISTORY));
+  });
 }
 
 export async function saveQuery(collection, pipeline, name, variables, placeholderTypes) {
-  const savedQueries = await readList('savedQueries');
-  const entry = { collection, pipeline, name, ts: Date.now() };
-  if (variables && Object.keys(variables).length > 0) entry.variables = variables;
-  if (placeholderTypes && Object.keys(placeholderTypes).length > 0) entry.placeholderTypes = placeholderTypes;
-  savedQueries.push(entry);
-  await writeList('savedQueries', savedQueries);
+  return serialize(async () => {
+    const savedQueries = await readList('savedQueries');
+    const entry = { collection, pipeline, name, ts: Date.now() };
+    if (variables && Object.keys(variables).length > 0) entry.variables = variables;
+    if (placeholderTypes && Object.keys(placeholderTypes).length > 0) entry.placeholderTypes = placeholderTypes;
+    savedQueries.push(entry);
+    await writeList('savedQueries', savedQueries);
+  });
 }
 
 export async function unsaveQuery(collection, pipeline) {
-  const savedQueries = await readList('savedQueries');
-  const key = dedupKey(collection, pipeline);
-  await writeList('savedQueries', savedQueries.filter((q) => dedupKey(q.collection, q.pipeline) !== key));
+  return serialize(async () => {
+    const savedQueries = await readList('savedQueries');
+    const key = dedupKey(collection, pipeline);
+    await writeList('savedQueries', savedQueries.filter((q) => dedupKey(q.collection, q.pipeline) !== key));
+  });
 }
 
 export async function isSaved(collection, pipeline) {

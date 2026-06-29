@@ -1,18 +1,19 @@
 import { scopeSuffix } from './store.js';
 
-// Per-organization key for the most recent Data-panel pipeline (editor text +
-// placeholder variables): a reload restores the query and projects don't share
-// it. scopeSuffix prefers the org id, falling back to the origin.
-export function lastPipelineKey() {
-  return `mdhLastPipeline::${scopeSuffix()}`;
+// Per-organization, per-collection key for the most recent Data-panel pipeline
+// (editor text + placeholder variables): a reload restores the query for that
+// collection, and neither projects nor collections share it. scopeSuffix prefers
+// the org id, falling back to the origin; the collection is the final segment.
+export function lastPipelineKey(collection) {
+  return `mdhLastPipeline::${scopeSuffix()}::${collection || ''}`;
 }
 
-// Persist the current editor text + placeholder variables. Best-effort: a
-// storage hiccup must never break editing, so failures are swallowed.
-export function saveLastPipeline(pipelineText, variables, placeholderTypes) {
+// Persist the current editor text + placeholder variables for a specific
+// collection. Best-effort: a storage hiccup must never break editing.
+export function saveLastPipeline(collection, pipelineText, variables, placeholderTypes) {
   try {
     chrome.storage.local.set({
-      [lastPipelineKey()]: {
+      [lastPipelineKey(collection)]: {
         pipelineText,
         variables: { ...(variables || {}) },
         placeholderTypes: { ...(placeholderTypes || {}) },

@@ -366,7 +366,7 @@ export default function DataPanel() {
     clearTimeout(persistTimerRef.current);
     persistTimerRef.current = setTimeout(() => {
       if (!editorRef.current) return;
-      saveLastPipeline(editorRef.current.getValue(), pipeline.placeholderValues.value, pipeline.placeholderTypes.value);
+      saveLastPipeline(collection, editorRef.current.getValue(), pipeline.placeholderValues.value, pipeline.placeholderTypes.value);
     }, 400);
   }
 

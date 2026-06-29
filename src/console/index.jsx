@@ -6,6 +6,7 @@ import {
   resolveBootAuth,
   computeStaleAuthRemovals,
 } from './boot.js';
+import { resolveTabState, writeTabState } from './tabState.js';
 import Console from './components/Console.jsx';
 import * as mdhApi from '../mdh/api.js';
 import * as mdhStore from '../mdh/store.js';
@@ -100,7 +101,8 @@ async function boot() {
     sessionStorage.setItem('consoleDomain', domain);
   }
 
-  const initial = pickInitialApp({ stagingApp, persistedApp: stored.consoleActiveApp });
+  const persistedApp = resolveTabState(['consoleActiveApp'], stored).consoleActiveApp;
+  const initial = pickInitialApp({ stagingApp, persistedApp });
   activeApp.value = initial;
 
   if (!token || !domain) {
@@ -142,7 +144,7 @@ async function boot() {
   }
 
   effect(() => {
-    chrome.storage.local.set({ consoleActiveApp: activeApp.value });
+    writeTabState('consoleActiveApp', activeApp.value);
   });
   effect(() => {
     document.title = TITLES[activeApp.value] || 'Rossum SA';
