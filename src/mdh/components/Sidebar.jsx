@@ -6,6 +6,7 @@ import * as api from '../api.js';
 import * as cache from '../cache.js';
 import { showUndo } from '../undo.js';
 import { UNDO_LIMIT } from '../bulkOps.js';
+import { openCollectionTab } from '../openCollectionTab.js';
 
 async function loadCollections() {
   try {
@@ -305,7 +306,17 @@ export default function Sidebar() {
             class={'collection-item'
               + (name === selected && activeView.value === 'collection' ? ' active' : '')
               + (menuOpenFor === name ? ' menu-open' : '')}
-            onClick={() => selectCollection(name)}
+            onClick={(e) => {
+              if (e.metaKey || e.ctrlKey) { e.preventDefault(); openCollectionTab(name); }
+              else selectCollection(name);
+            }}
+            onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); openCollectionTab(name); } }}
+            onMouseDown={(e) => { if (e.button === 1) e.preventDefault(); }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setMenuPos({ top: e.clientY, left: e.clientX });
+              setMenuOpenFor(name);
+            }}
           >
             <span class="collection-item-name" title={name}>{name}</span>
             <span class="collection-item-actions">
@@ -323,8 +334,12 @@ export default function Sidebar() {
         <div
           ref={menuRef}
           class="collection-action-menu"
-          style={`position:fixed;top:${menuPos.top}px;right:${menuPos.right}px`}
+          style={`position:fixed;top:${menuPos.top}px;` + (menuPos.left != null ? `left:${menuPos.left}px` : `right:${menuPos.right}px`)}
         >
+          <button
+            class="toolbar-menu-item"
+            onClick={() => { const n = menuOpenFor; setMenuOpenFor(null); openCollectionTab(n); }}
+          >Open in new tab {'↗'}</button>
           <button
             class="toolbar-menu-item"
             onClick={() => { const n = menuOpenFor; setMenuOpenFor(null); navigator.clipboard.writeText(n); }}
