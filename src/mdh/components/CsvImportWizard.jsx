@@ -5,6 +5,7 @@ import { closeModal } from './Modal.jsx';
 import { analyzeDocs, dedupeById, runChunkedInsert, runChunkedOverwrite } from '../importFile.js';
 import { StageConfirm, StageImporting, StageDone, formatBytes } from './ImportStages.jsx';
 import { parseCsv } from '../csv.js';
+import FileDropArea from './FileDropArea.jsx';
 
 // Multi-stage "Insert from CSV file" flow:
 //
@@ -113,7 +114,7 @@ export default function CsvImportWizard({ onSuccess }) {
 
   return (
     <div class="modal-body import-wizard csv-import-wizard">
-      {stage === STAGE.PICK && <CsvStagePick onFile={handleFile} errorMsg={errorMsg} onCancel={closeModal} />}
+      {stage === STAGE.PICK && <CsvStagePick onFile={handleFile} onReject={setErrorMsg} errorMsg={errorMsg} onCancel={closeModal} />}
 
       {stage === STAGE.CONFIGURE && (
         <CsvStageConfigure
@@ -149,20 +150,14 @@ export default function CsvImportWizard({ onSuccess }) {
   );
 }
 
-function CsvStagePick({ onFile, errorMsg, onCancel }) {
-  const inputRef = useRef(null);
-  function pick(e) {
-    const f = e.target.files?.[0];
-    if (f) onFile(f);
-  }
+function CsvStagePick({ onFile, onReject, errorMsg, onCancel }) {
   return (
     <Fragment>
       <div class="modal-field-label">Select a CSV file to insert: <span class="toolbar-menu-beta">beta</span></div>
-      <input ref={inputRef} type="file" accept=".csv,text/csv" style="display:none" onChange={pick} data-testid="csv-file-input" />
-      <div class="file-input-area" onClick={() => inputRef.current?.click()}>
+      <FileDropArea accept=".csv,text/csv" onFile={onFile} onReject={onReject} inputTestid="csv-file-input">
         <div class="file-input-label">Click to select a CSV file</div>
         <div class="file-input-info" style="margin-top:4px">Each row becomes one document in the selected collection</div>
-      </div>
+      </FileDropArea>
       {errorMsg && <div class="input-hint" style="color:var(--danger)">{errorMsg}</div>}
       <div class="modal-actions">
         <button class="btn btn-secondary" onClick={onCancel}>Cancel</button>

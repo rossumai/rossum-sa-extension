@@ -6,6 +6,7 @@ import { analyzeDocs, dedupeById, runChunkedInsert, runChunkedOverwrite } from '
 import { StageConfirm, StageImporting, StageDone, formatBytes } from './ImportStages.jsx';
 import { Toggle } from './CsvImportWizard.jsx';
 import { parseXml } from '../xml.js';
+import FileDropArea from './FileDropArea.jsx';
 
 const STAGE = { PICK: 'pick', CONFIGURE: 'configure', CONFIRM: 'confirm', IMPORTING: 'importing', DONE: 'done' };
 const DEFAULT_OPTS = { recordKey: null, inferTypes: false };
@@ -67,7 +68,7 @@ export default function XmlImportWizard({ onSuccess }) {
 
   return (
     <div class="modal-body import-wizard xml-import-wizard">
-      {stage === STAGE.PICK && <XmlStagePick onFile={handleFile} errorMsg={errorMsg} onCancel={closeModal} />}
+      {stage === STAGE.PICK && <XmlStagePick onFile={handleFile} onReject={setErrorMsg} errorMsg={errorMsg} onCancel={closeModal} />}
       {stage === STAGE.CONFIGURE && <XmlStageConfigure fileMeta={fileMeta} opts={opts} setOpt={setOpt} parsed={parsed} onNext={handleNext} onCancel={closeModal} />}
       {stage === STAGE.CONFIRM && stats && <StageConfirm fileMeta={fileMeta} stats={stats} mode={mode} setMode={setMode} errorMsg={errorMsg} onImport={startImport} onCancel={closeModal} />}
       {stage === STAGE.IMPORTING && importProgress && <StageImporting progress={importProgress} mode={mode} onCancel={() => abortRef.current?.abort()} />}
@@ -76,17 +77,14 @@ export default function XmlImportWizard({ onSuccess }) {
   );
 }
 
-function XmlStagePick({ onFile, errorMsg, onCancel }) {
-  const inputRef = useRef(null);
-  function pick(e) { const f = e.target.files?.[0]; if (f) onFile(f); }
+function XmlStagePick({ onFile, onReject, errorMsg, onCancel }) {
   return (
     <Fragment>
       <div class="modal-field-label">Select an XML file to insert: <span class="toolbar-menu-beta">beta</span></div>
-      <input ref={inputRef} type="file" accept=".xml,text/xml,application/xml" style="display:none" onChange={pick} data-testid="xml-file-input" />
-      <div class="file-input-area" onClick={() => inputRef.current?.click()}>
+      <FileDropArea accept=".xml,text/xml,application/xml" onFile={onFile} onReject={onReject} inputTestid="xml-file-input">
         <div class="file-input-label">Click to select an XML file</div>
         <div class="file-input-info" style="margin-top:4px">Each repeating element becomes one document.</div>
-      </div>
+      </FileDropArea>
       {errorMsg && <div class="input-hint" style="color:var(--danger)">{errorMsg}</div>}
       <div class="modal-actions"><button class="btn btn-secondary" onClick={onCancel}>Cancel</button></div>
     </Fragment>

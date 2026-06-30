@@ -1,4 +1,4 @@
-import { h } from 'preact';
+import { h, Fragment } from 'preact';
 import { useState, useRef } from 'preact/hooks';
 import { selectedCollection, loading, error } from '../store.js';
 import { openModal, closeModal } from './Modal.jsx';
@@ -7,37 +7,38 @@ import InsertFileWizard from './InsertFileWizard.jsx';
 import CsvImportWizard from './CsvImportWizard.jsx';
 import XlsxImportWizard from './XlsxImportWizard.jsx';
 import XmlImportWizard from './XmlImportWizard.jsx';
+import FileDropArea from './FileDropArea.jsx';
 import * as api from '../api.js';
 
-function FileInput({ onParsed }) {
+export function FileInput({ onParsed }) {
   const [fileName, setFileName] = useState(null);
   const [docCount, setDocCount] = useState(0);
-  const parsedRef = useRef(null);
+  const [errorMsg, setErrorMsg] = useState(null);
 
-  function handleFileChange(e) {
-    const file = e.target.files[0];
-    if (!file) return;
+  function readFile(file) {
+    setErrorMsg(null);
     file.text().then((text) => {
       let parsed = JSON.parse(text);
       if (!Array.isArray(parsed)) parsed = [parsed];
-      parsedRef.current = parsed;
       setFileName(file.name);
       setDocCount(parsed.length);
       if (onParsed) onParsed(parsed);
     }).catch((err) => {
-      setFileName('Error: ' + err.message);
-      parsedRef.current = null;
+      setFileName(null);
+      setDocCount(0);
+      setErrorMsg('Error: ' + err.message);
+      if (onParsed) onParsed(null);
     });
   }
 
   return (
-    <div class="file-input-area">
-      <input type="file" accept=".json" style="display:none" onChange={handleFileChange} ref={(el) => { if (el) el._fileInput = el; }} />
-      <div class="file-input-label" onClick={(e) => { e.currentTarget.previousSibling.click(); }}>
-        {fileName || 'Click to select a JSON file'}
-      </div>
-      {fileName && docCount > 0 && <div class="file-input-info">{docCount} document{docCount !== 1 ? 's' : ''}</div>}
-    </div>
+    <Fragment>
+      <FileDropArea accept=".json" onFile={readFile} onReject={setErrorMsg}>
+        <div class="file-input-label">{fileName || 'Click to select a JSON file'}</div>
+        {fileName && docCount > 0 && <div class="file-input-info">{docCount} document{docCount !== 1 ? 's' : ''}</div>}
+      </FileDropArea>
+      {errorMsg && <div class="input-hint" style="color:var(--danger)">{errorMsg}</div>}
+    </Fragment>
   );
 }
 

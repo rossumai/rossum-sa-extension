@@ -6,6 +6,7 @@ import { analyzeDocs, dedupeById, runChunkedInsert, runChunkedOverwrite } from '
 import { StageConfirm, StageImporting, StageDone, formatBytes } from './ImportStages.jsx';
 import { Segmented, Toggle, CsvPreview } from './CsvImportWizard.jsx';
 import { parseXlsx } from '../xlsx.js';
+import FileDropArea from './FileDropArea.jsx';
 
 const STAGE = { PICK: 'pick', CONFIGURE: 'configure', CONFIRM: 'confirm', IMPORTING: 'importing', DONE: 'done' };
 const DEFAULT_OPTS = { sheet: null, hasHeader: true, emptyMode: 'null' };
@@ -87,7 +88,7 @@ export default function XlsxImportWizard({ onSuccess }) {
 
   return (
     <div class="modal-body import-wizard xlsx-import-wizard">
-      {stage === STAGE.PICK && <XlsxStagePick onFile={handleFile} errorMsg={errorMsg} onCancel={closeModal} />}
+      {stage === STAGE.PICK && <XlsxStagePick onFile={handleFile} onReject={setErrorMsg} errorMsg={errorMsg} onCancel={closeModal} />}
       {stage === STAGE.CONFIGURE && (
         <XlsxStageConfigure fileMeta={fileMeta} opts={opts} setOpt={setOpt} parsed={parsed} parsing={parsing} onNext={handleNext} onCancel={closeModal} />
       )}
@@ -104,17 +105,14 @@ export default function XlsxImportWizard({ onSuccess }) {
   );
 }
 
-function XlsxStagePick({ onFile, errorMsg, onCancel }) {
-  const inputRef = useRef(null);
-  function pick(e) { const f = e.target.files?.[0]; if (f) onFile(f); }
+function XlsxStagePick({ onFile, onReject, errorMsg, onCancel }) {
   return (
     <Fragment>
       <div class="modal-field-label">Select an Excel file to insert: <span class="toolbar-menu-beta">beta</span></div>
-      <input ref={inputRef} type="file" accept=".xlsx" style="display:none" onChange={pick} data-testid="xlsx-file-input" />
-      <div class="file-input-area" onClick={() => inputRef.current?.click()}>
+      <FileDropArea accept=".xlsx" onFile={onFile} onReject={onReject} inputTestid="xlsx-file-input">
         <div class="file-input-label">Click to select an Excel (.xlsx) file</div>
         <div class="file-input-info" style="margin-top:4px">Each row becomes one document. Date cells import as their Excel serial number.</div>
-      </div>
+      </FileDropArea>
       {errorMsg && <div class="input-hint" style="color:var(--danger)">{errorMsg}</div>}
       <div class="modal-actions"><button class="btn btn-secondary" onClick={onCancel}>Cancel</button></div>
     </Fragment>

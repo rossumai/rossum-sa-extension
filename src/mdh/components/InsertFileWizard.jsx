@@ -10,6 +10,7 @@ import {
 } from '../importFile.js';
 import { StageConfirm, StageImporting, StageDone } from './ImportStages.jsx';
 import { parseNdjson } from '../ndjson.js';
+import FileDropArea from './FileDropArea.jsx';
 
 // Multi-stage Import from JSON File flow:
 //
@@ -113,7 +114,7 @@ export default function InsertFileWizard({ onSuccess, format = 'json' }) {
 
   return (
     <div class="modal-body import-wizard">
-      {stage === STAGE.PICK && <StagePick onFile={handleFile} errorMsg={errorMsg} onCancel={closeModal} format={format} />}
+      {stage === STAGE.PICK && <StagePick onFile={handleFile} onReject={setErrorMsg} errorMsg={errorMsg} onCancel={closeModal} format={format} />}
 
       {stage === STAGE.CONFIRM && stats && (
         <Fragment>
@@ -147,21 +148,19 @@ export default function InsertFileWizard({ onSuccess, format = 'json' }) {
 
 // ---- stage components ----
 
-function StagePick({ onFile, errorMsg, onCancel, format = 'json' }) {
-  const inputRef = useRef(null);
-  function pick(e) {
-    const f = e.target.files?.[0];
-    if (f) onFile(f);
-  }
+function StagePick({ onFile, onReject, errorMsg, onCancel, format = 'json' }) {
   const isJsonl = format === 'jsonl';
   return (
     <Fragment>
       <div class="modal-field-label">{isJsonl ? 'Select a JSONL file to insert:' : 'Select a JSON file with documents to insert:'}</div>
-      <input ref={inputRef} type="file" accept={isJsonl ? '.jsonl,.ndjson,application/x-ndjson' : '.json,application/json'} style="display:none" onChange={pick} />
-      <div class="file-input-area" onClick={() => inputRef.current?.click()}>
+      <FileDropArea
+        accept={isJsonl ? '.jsonl,.ndjson,application/x-ndjson' : '.json,application/json'}
+        onFile={onFile}
+        onReject={onReject}
+      >
         <div class="file-input-label">{isJsonl ? 'Click to select a JSONL file' : 'Click to select a JSON file'}</div>
         <div class="file-input-info" style="margin-top:4px">{isJsonl ? 'One JSON object per line (.jsonl / .ndjson)' : 'JSON array, or a single document'}</div>
-      </div>
+      </FileDropArea>
       {errorMsg && <div class="input-hint" style="color:var(--danger)">{errorMsg}</div>}
       <div class="modal-actions">
         <button class="btn btn-secondary" onClick={onCancel}>Cancel</button>

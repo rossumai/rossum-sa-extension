@@ -163,7 +163,12 @@ export default function Modal() {
   if (!modal) return null;
 
   return (
-    <div class="modal-overlay visible" onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}>
+    <div
+      class="modal-overlay visible"
+      onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => e.preventDefault()}
+    >
       <div
         class="modal-card"
         role="dialog"

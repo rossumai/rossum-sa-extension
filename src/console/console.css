@@ -1317,6 +1317,11 @@ body {
 }
 
 .file-input-area:hover { border-color: var(--accent); }
+.file-input-area.drag-over {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
 
 .file-input-label {
   font-size: 12px; color: var(--text-secondary); cursor: pointer;
