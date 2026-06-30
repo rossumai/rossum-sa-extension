@@ -26,10 +26,12 @@ import { applyMutationToText, normalizeEffectivePipelineText, setStageDisabled, 
 import { loadCollections } from './Sidebar.jsx';
 import { savePipelineState, getPipelineState } from '../pipelineState.js';
 import { saveLastPipeline } from '../lastPipeline.js';
-import { downloadCollection as runDownload, buildCsvSerializer, buildXmlSerializer, buildNdjsonSerializer } from '../downloadCollection.js';
-import { buildColumnDiscoveryPipeline, orderColumns } from '../csv.js';
+import { downloadCollection as runDownload, buildCsvSerializer, buildXmlSerializer, buildNdjsonSerializer, buildXlsxSerializer } from '../downloadCollection.js';
+import { buildColumnDiscoveryPipeline } from '../csv.js';
+import { orderExportColumns } from '../recordColumns.js';
 import CsvExportOptions from './CsvExportOptions.jsx';
 import XmlExportOptions from './XmlExportOptions.jsx';
+import XlsxExportOptions from './XlsxExportOptions.jsx';
 import JSON5 from 'json5';
 export default function DataPanel() {
   const editorRef = useRef(null);
@@ -478,6 +480,10 @@ export default function DataPanel() {
       downloadAllJsonl();
     } else if (action === 'download-filtered-jsonl') {
       downloadFilteredJsonl();
+    } else if (action === 'download-xlsx') {
+      downloadAllXlsx();
+    } else if (action === 'download-filtered-xlsx') {
+      downloadFilteredXlsx();
     } else if (action === 'insert') {
       openDataOperations('insert', invalidateAndRun, currentFields);
     } else if (action === 'insert-file') {
@@ -670,7 +676,7 @@ export default function DataPanel() {
             api.aggregate(col, buildColumnDiscoveryPipeline([{ $match: {} }])),
             api.aggregate(col, [{ $match: {} }, { $limit: 10 }]),
           ]);
-          return { columns: orderColumns(keysRes.result?.[0]?.keys ?? []), sample: sampleRes.result || [] };
+          return { columns: orderExportColumns(records.value, keysRes.result?.[0]?.keys ?? []), sample: sampleRes.result || [] };
         }}
         onDownload={async ({ delimiter, header, columns }) => {
           const tc = pagination.totalCount.value;
@@ -717,7 +723,7 @@ export default function DataPanel() {
             api.aggregate(col, buildColumnDiscoveryPipeline(pipelineStages)),
             api.aggregate(col, [...pipelineStages, { $limit: 10 }]),
           ]);
-          return { columns: orderColumns(keysRes.result?.[0]?.keys ?? []), sample: sampleRes.result || [] };
+          return { columns: orderExportColumns(records.value, keysRes.result?.[0]?.keys ?? []), sample: sampleRes.result || [] };
         }}
         onDownload={async ({ delimiter, header, columns }) => {
           // Pre-count for the progress total + >10k gate (cancellable).
@@ -839,6 +845,97 @@ export default function DataPanel() {
             filtered: true,
             fetchCount: async () => filteredCount,
             serializer: buildXmlSerializer({ rootName, recordName }),
+          });
+        }}
+      />
+    ));
+  }
+
+  function downloadAllXlsx() {
+    const col = collection;
+    openModal('Export Excel', () => (
+      <XlsxExportOptions
+        loadPreview={async () => {
+          const [keysRes, sampleRes] = await Promise.all([
+            api.aggregate(col, buildColumnDiscoveryPipeline([{ $match: {} }])),
+            api.aggregate(col, [{ $match: {} }, { $limit: 10 }]),
+          ]);
+          return { columns: orderExportColumns(records.value, keysRes.result?.[0]?.keys ?? []), sample: sampleRes.result || [] };
+        }}
+        onDownload={async ({ sheetName, header, columns }) => {
+          const tc = pagination.totalCount.value;
+          if (tc !== null && tc > 10_000) {
+            const proceed = await confirmModal('Large collection', `This collection has ${tc.toLocaleString()} documents. Exporting may take a while. Continue?`);
+            if (!proceed) return;
+          }
+          await runDownloadJob({
+            pipelineStages: [{ $match: {} }],
+            filename: `${col}.xlsx`,
+            filtered: false,
+            fetchCount: async () => {
+              if (pagination.totalCount.value !== null) return pagination.totalCount.value;
+              const r = await api.aggregate(col, [{ $count: 'total' }]);
+              return r.result?.[0]?.total ?? 0;
+            },
+            serializer: buildXlsxSerializer({ sheetName, header, columns }),
+          });
+        }}
+      />
+    ));
+  }
+
+  function downloadFilteredXlsx() {
+    if (!editorRef.current) return;
+    let pipelineStages;
+    try {
+      const text = pipeline.substituteWithTypes(editorRef.current.getValue());
+      const parsed = JSON5.parse(text);
+      if (!Array.isArray(parsed)) throw new Error('pipeline must be a JSON array');
+      pipelineStages = stripPaginationStages(parsed);
+    } catch (err) {
+      error.value = { message: `Cannot export filtered: ${err.message}` };
+      return;
+    }
+    const col = collection;
+    openModal('Export Excel', () => (
+      <XlsxExportOptions
+        loadPreview={async () => {
+          const [keysRes, sampleRes] = await Promise.all([
+            api.aggregate(col, buildColumnDiscoveryPipeline(pipelineStages)),
+            api.aggregate(col, [...pipelineStages, { $limit: 10 }]),
+          ]);
+          return { columns: orderExportColumns(records.value, keysRes.result?.[0]?.keys ?? []), sample: sampleRes.result || [] };
+        }}
+        onDownload={async ({ sheetName, header, columns }) => {
+          downloadCancelRef.current = false;
+          error.value = null;
+          setDownloadState({ counting: true, filtered: true });
+          const ac = new AbortController();
+          downloadCountAbortRef.current = ac;
+          let filteredCount;
+          try {
+            const r = await api.aggregate(col, [...pipelineStages, { $count: 'total' }], { signal: ac.signal });
+            filteredCount = r.result?.[0]?.total ?? 0;
+          } catch (err) {
+            downloadCountAbortRef.current = null;
+            if (downloadCancelRef.current || err.name === 'AbortError') { setDownloadState(null); return; }
+            error.value = { message: `Cannot export filtered: ${err.message}` };
+            setDownloadState(null);
+            return;
+          }
+          downloadCountAbortRef.current = null;
+          if (downloadCancelRef.current) { setDownloadState(null); return; }
+          if (filteredCount > 10_000) {
+            setDownloadState(null);
+            const proceed = await confirmModal('Large export', `This filter matches ${filteredCount.toLocaleString()} documents. Exporting may take a while. Continue?`);
+            if (!proceed) return;
+          }
+          await runDownloadJob({
+            pipelineStages,
+            filename: `${col}-filtered.xlsx`,
+            filtered: true,
+            fetchCount: async () => filteredCount,
+            serializer: buildXlsxSerializer({ sheetName, header, columns }),
           });
         }}
       />

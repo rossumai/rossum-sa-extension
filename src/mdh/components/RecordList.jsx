@@ -316,6 +316,8 @@ function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh
             onFilteredXml={() => onRefresh('download-filtered-xml')}
             onAllJsonl={() => onRefresh('download-jsonl')}
             onFilteredJsonl={() => onRefresh('download-filtered-jsonl')}
+            onAllXlsx={() => onRefresh('download-xlsx')}
+            onFilteredXlsx={() => onRefresh('download-filtered-xlsx')}
           />
         )}
         <BulkSplitButton onUpdate={onBulkUpdate} onDelete={onBulkDelete} />

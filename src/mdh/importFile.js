@@ -88,13 +88,34 @@ export function analyzeDocs(docs) {
   return stats;
 }
 
+// A string that is exactly 24 hex chars is the canonical MongoDB ObjectId form.
+const OBJECTID_RE = /^[0-9a-fA-F]{24}$/;
+
+// Normalize a document's `_id` so an ObjectId-looking string imports as a real
+// MongoDB ObjectId. A 24-hex-char string `_id` becomes EJSON `{$oid: <hex>}`,
+// which the Data Storage API parses into a BSON ObjectId on insert (the same
+// EJSON-on-input path the $in conflict probe relies on). Everything else is left
+// as-is: non-hex string keys (e.g. "US", a SKU) stay strings, numeric and
+// already-`{$oid}` ids are untouched, and a doc without `_id` is unchanged.
+// Returns a shallow copy only when it coerces; never mutates the input.
+export function normalizeDocId(doc) {
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc)) return doc;
+  if (typeof doc._id === 'string' && OBJECTID_RE.test(doc._id)) {
+    return { ...doc, _id: { $oid: doc._id } };
+  }
+  return doc;
+}
+
 // Keep only the first occurrence of each _id; documents without _id pass
-// through unchanged (the server assigns ObjectIds).
+// through unchanged (the server assigns ObjectIds). Also normalizes
+// ObjectId-looking string _ids to {$oid} (see normalizeDocId) so the dedup keys
+// on — and the insert/overwrite write — real ObjectIds.
 export function dedupeById(docs) {
   const seen = new Set();
   const kept = [];
   let dropped = 0;
-  for (const d of docs) {
+  for (const raw of docs) {
+    const d = normalizeDocId(raw);
     if (hasOwn(d, '_id')) {
       const k = stableKey(d._id);
       if (seen.has(k)) { dropped++; continue; }

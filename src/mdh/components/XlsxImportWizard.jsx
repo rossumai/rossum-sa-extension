@@ -9,8 +9,9 @@ import { parseXlsx } from '../xlsx.js';
 import FileDropArea from './FileDropArea.jsx';
 
 const STAGE = { PICK: 'pick', CONFIGURE: 'configure', CONFIRM: 'confirm', IMPORTING: 'importing', DONE: 'done' };
-const DEFAULT_OPTS = { sheet: null, hasHeader: true, emptyMode: 'null' };
+const DEFAULT_OPTS = { sheet: null, hasHeader: true, emptyMode: 'null', trim: false };
 const EMPTY_SEG = [
+  { value: 'empty', label: '""', title: 'Empty string' },
   { value: 'null', label: 'null', title: 'JSON null' },
   { value: 'omit', label: 'omit', title: 'Drop the field' },
 ];
@@ -37,11 +38,11 @@ export default function XlsxImportWizard({ onSuccess }) {
     if (!buffer) return undefined;
     const token = ++parseToken.current;
     setParsing(true);
-    parseXlsx(buffer, { sheet: opts.sheet, hasHeader: opts.hasHeader, emptyMode: opts.emptyMode })
+    parseXlsx(buffer, { sheet: opts.sheet, hasHeader: opts.hasHeader, emptyMode: opts.emptyMode, trim: opts.trim })
       .then((res) => { if (token === parseToken.current) { setParsed(res); setParsing(false); } })
       .catch((err) => { if (token === parseToken.current) { setParsed({ docs: [], columns: [], warnings: [], error: { message: err.message }, sheets: [] }); setParsing(false); } });
     return undefined;
-  }, [buffer, opts.sheet, opts.hasHeader, opts.emptyMode]);
+  }, [buffer, opts.sheet, opts.hasHeader, opts.emptyMode, opts.trim]);
 
   const setOpt = (k, v) => setOpts((o) => ({ ...o, [k]: v }));
 
@@ -111,7 +112,7 @@ function XlsxStagePick({ onFile, onReject, errorMsg, onCancel }) {
       <div class="modal-field-label">Select an Excel file to insert: <span class="toolbar-menu-beta">beta</span></div>
       <FileDropArea accept=".xlsx" onFile={onFile} onReject={onReject} inputTestid="xlsx-file-input">
         <div class="file-input-label">Click to select an Excel (.xlsx) file</div>
-        <div class="file-input-info" style="margin-top:4px">Each row becomes one document. Date cells import as their Excel serial number.</div>
+        <div class="file-input-info" style="margin-top:4px">Each row becomes one document. Date cells import as dates.</div>
       </FileDropArea>
       {errorMsg && <div class="input-hint" style="color:var(--danger)">{errorMsg}</div>}
       <div class="modal-actions"><button class="btn btn-secondary" onClick={onCancel}>Cancel</button></div>
@@ -152,8 +153,11 @@ function XlsxStageConfigure({ fileMeta, opts, setOpt, parsed, parsing, onNext, o
           <span class="csv-tb-k" title="What an empty cell becomes.">Empty cell {'→'}</span>
           <Segmented value={opts.emptyMode} options={EMPTY_SEG} testid="xlsx-empty" ariaLabel="Empty cell" onChange={(v) => setOpt('emptyMode', v)} />
         </span>
+        <span class="csv-tb-item">
+          <span class="csv-tb-k" title="Strip leading/trailing whitespace around text cells.">Trim values</span>
+          <Toggle checked={opts.trim} onChange={(v) => setOpt('trim', v)} testid="xlsx-trim" title="Strip surrounding whitespace from text cells." />
+        </span>
       </div>
-      <div class="csv-opt-hint">Excel date cells import as their underlying serial number.</div>
 
       {parsing && !parsed
         ? <div class="csv-preview-empty">Reading{'…'}</div>

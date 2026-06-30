@@ -5,6 +5,7 @@ import { closeModal } from './Modal.jsx';
 import { analyzeDocs, dedupeById, runChunkedInsert, runChunkedOverwrite } from '../importFile.js';
 import { StageConfirm, StageImporting, StageDone, formatBytes } from './ImportStages.jsx';
 import { parseCsv } from '../csv.js';
+import { getEjsonType, formatEjsonValue } from '../displayValue.js';
 import FileDropArea from './FileDropArea.jsx';
 
 // Multi-stage "Insert from CSV file" flow:
@@ -370,5 +371,11 @@ function PreviewValue({ value, present }) {
   if (typeof value === 'number') return <span class="csv-cell-number">{String(value)}</span>;
   if (typeof value === 'boolean') return <span class="csv-cell-bool">{String(value)}</span>;
   if (value === '') return <span class="csv-cell-empty" title="empty string">(empty)</span>;
+  // Objects (e.g. an Excel date cell parsed to EJSON {$date}, or {$oid}) — render
+  // their human form so the value is visible instead of a blank cell.
+  if (typeof value === 'object') {
+    const ejson = getEjsonType(value);
+    return <span class="csv-cell-string">{ejson ? formatEjsonValue(value, ejson) : JSON.stringify(value)}</span>;
+  }
   return <span class="csv-cell-string">{value}</span>;
 }

@@ -62,3 +62,20 @@ describe('toolbar menu beta badge', () => {
     expect(root.textContent).toContain('From Excel file');
   });
 });
+
+describe('XlsxImportWizard parity options', () => {
+  it('exposes an empty-string option, a Trim toggle, and drops the serial-number hint', async () => {
+    const root = mount(h(XlsxImportWizard, { onSuccess: () => {} }));
+    const input = root.querySelector('[data-testid="xlsx-file-input"]');
+    Object.defineProperty(input, 'files', { value: [fixtureFile()], configurable: true });
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+
+    await waitFor(() => root.querySelector('[data-testid="csv-preview"]'));   // CONFIGURE stage
+
+    const empty = root.querySelector('[data-testid="xlsx-empty"]');
+    expect(empty).toBeTruthy();
+    expect(empty.textContent).toContain('""');                                // empty-string option
+    expect(root.querySelector('[data-testid="xlsx-trim"]')).toBeTruthy();     // Trim toggle
+    expect(root.textContent.toLowerCase()).not.toContain('serial number');    // stale hint removed
+  });
+});

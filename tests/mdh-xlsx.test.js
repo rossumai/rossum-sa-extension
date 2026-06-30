@@ -159,3 +159,33 @@ describe('parseXlsx', () => {
     expect(r.docs).toEqual([]);
   });
 });
+
+import { readStyles, readWorkbook as readWb, rowsToDocs as xlsxRowsToDocs } from '../src/mdh/xlsx.js';
+
+describe('readStyles', () => {
+  it('flags cellXfs entries whose numFmt is a date', () => {
+    const xml = '<styleSheet><numFmts><numFmt numFmtId="164" formatCode="yyyy-mm-dd"/></numFmts>' +
+      '<cellXfs count="3"><xf numFmtId="0"/><xf numFmtId="14"/><xf numFmtId="164"/></cellXfs></styleSheet>';
+    expect(readStyles(xml)).toEqual([false, true, true]);
+  });
+});
+
+describe('readWorkbook date1904', () => {
+  const WB = (pr) => `<workbook xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${pr}<sheets><sheet name="A" r:id="rId1"/></sheets></workbook>`;
+  it('reads the date1904 flag', () => {
+    expect(readWb(WB('<workbookPr date1904="1"/>')).date1904).toBe(true);
+    expect(readWb(WB('')).date1904).toBe(false);
+  });
+});
+
+describe('rowsToDocs emptyMode/trim (xlsx)', () => {
+  it("supports emptyMode 'empty'", () => {
+    const { docs } = xlsxRowsToDocs([['a', 'b'], ['x', undefined]], { hasHeader: true, emptyMode: 'empty' });
+    expect(docs[0]).toEqual({ a: 'x', b: '' });
+  });
+  it('trims string cells when trim:true, leaving non-strings untouched', () => {
+    const { docs } = xlsxRowsToDocs([['a'], ['  hi  '], [42]], { hasHeader: true, trim: true });
+    expect(docs[0]).toEqual({ a: 'hi' });
+    expect(docs[1]).toEqual({ a: 42 });
+  });
+});

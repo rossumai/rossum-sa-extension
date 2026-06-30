@@ -7,7 +7,7 @@ export function chooseSubmenuSide(menuRight, flyoutWidth, viewportWidth, margin 
   return menuRight + flyoutWidth + margin <= viewportWidth ? 'right' : 'left';
 }
 
-export default function DownloadSplitButton({ onAllJson, onFilteredJson, onAllCsv, onFilteredCsv, onAllXml, onFilteredXml, onAllJsonl, onFilteredJsonl }) {
+export default function DownloadSplitButton({ onAllJson, onFilteredJson, onAllCsv, onFilteredCsv, onAllXml, onFilteredXml, onAllJsonl, onFilteredJsonl, onAllXlsx, onFilteredXlsx }) {
   const [open, setOpen] = useState(false);
   const [submenu, setSubmenu] = useState(null); // 'all' | 'filtered' | null
   const [submenuSide, setSubmenuSide] = useState('right'); // 'right' | 'left'
@@ -48,8 +48,8 @@ export default function DownloadSplitButton({ onAllJson, onFilteredJson, onAllCs
   function choose(fn) { setOpen(false); setSubmenu(null); fn(); }
 
   const ITEMS = [
-    { key: 'all', label: 'Download all', json: onAllJson, csv: onAllCsv, xml: onAllXml, jsonl: onAllJsonl },
-    { key: 'filtered', label: 'Download filtered', json: onFilteredJson, csv: onFilteredCsv, xml: onFilteredXml, jsonl: onFilteredJsonl },
+    { key: 'all', label: 'Download all', json: onAllJson, csv: onAllCsv, xml: onAllXml, jsonl: onAllJsonl, xlsx: onAllXlsx },
+    { key: 'filtered', label: 'Download filtered', json: onFilteredJson, csv: onFilteredCsv, xml: onFilteredXml, jsonl: onFilteredJsonl, xlsx: onFilteredXlsx },
   ];
 
   return (
@@ -78,6 +78,8 @@ export default function DownloadSplitButton({ onAllJson, onFilteredJson, onAllCs
                     onClick={() => choose(it.jsonl)}>JSON Lines <span class="toolbar-menu-beta">beta</span></button>
                   <button class="toolbar-menu-item" data-testid={`download-${it.key}-csv`}
                     onClick={() => choose(it.csv)}>CSV <span class="toolbar-menu-beta">beta</span></button>
+                  <button class="toolbar-menu-item" data-testid={`download-${it.key}-xlsx`}
+                    onClick={() => choose(it.xlsx)}>Excel <span class="toolbar-menu-beta">beta</span></button>
                   <button class="toolbar-menu-item" data-testid={`download-${it.key}-xml`}
                     onClick={() => choose(it.xml)}>XML <span class="toolbar-menu-beta">beta</span></button>
                 </div>

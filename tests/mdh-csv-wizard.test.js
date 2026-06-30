@@ -215,3 +215,18 @@ describe('CsvImportWizard — trimmed Advanced options', () => {
     expect(root.querySelector('[data-testid="csv-trim"]')).toBeTruthy();
   });
 });
+
+import { CsvPreview as CsvPreviewForDates } from '../src/mdh/components/CsvImportWizard.jsx';
+
+describe('CsvPreview renders EJSON object values (e.g. Excel date cells)', () => {
+  it('shows an EJSON {$date} as its ISO string, not a blank cell', () => {
+    const root = document.createElement('div');
+    render(h(CsvPreviewForDates, { parsed: { columns: ['joined'], docs: [{ joined: { $date: '2024-01-01T00:00:00.000Z' } }], warnings: [] } }), root);
+    expect(root.querySelector('tbody td').textContent).toContain('2024-01-01T00:00:00.000Z');
+  });
+  it('shows an EJSON {$oid} as its hex string', () => {
+    const root = document.createElement('div');
+    render(h(CsvPreviewForDates, { parsed: { columns: ['_id'], docs: [{ _id: { $oid: 'abc123' } }], warnings: [] } }), root);
+    expect(root.querySelector('tbody td').textContent).toBe('abc123');
+  });
+});

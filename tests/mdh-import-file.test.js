@@ -5,6 +5,7 @@ import * as api from '../src/mdh/api.js';
 import {
   analyzeDocs,
   dedupeById,
+  normalizeDocId,
   runChunkedInsert,
   runChunkedOverwrite,
   stableKey,
@@ -73,7 +74,42 @@ describe('analyzeDocs', () => {
   });
 });
 
+describe('normalizeDocId', () => {
+  it('coerces a 24-hex-char string _id to an EJSON {$oid}', () => {
+    expect(normalizeDocId({ _id: '69c65a799ec46e786beb4c5a', n: 1 }))
+      .toEqual({ _id: { $oid: '69c65a799ec46e786beb4c5a' }, n: 1 });
+  });
+  it('accepts uppercase hex', () => {
+    expect(normalizeDocId({ _id: 'AABBCCDDEEFF00112233445A' }))
+      .toEqual({ _id: { $oid: 'AABBCCDDEEFF00112233445A' } });
+  });
+  it('leaves non-ObjectId string _ids untouched (real string keys stay strings)', () => {
+    expect(normalizeDocId({ _id: 'US', n: 1 })).toEqual({ _id: 'US', n: 1 });
+    expect(normalizeDocId({ _id: 'SKU-12345' })).toEqual({ _id: 'SKU-12345' });
+    expect(normalizeDocId({ _id: 'zzz65a799ec46e786beb4c5a' })).toEqual({ _id: 'zzz65a799ec46e786beb4c5a' }); // 24 chars, non-hex
+    expect(normalizeDocId({ _id: '69c65a799ec46e786beb4c5' })).toEqual({ _id: '69c65a799ec46e786beb4c5' }); // 23 chars
+  });
+  it('leaves numeric, object, and missing _ids untouched', () => {
+    expect(normalizeDocId({ _id: 42 })).toEqual({ _id: 42 });
+    expect(normalizeDocId({ _id: { $oid: 'abc' } })).toEqual({ _id: { $oid: 'abc' } });
+    expect(normalizeDocId({ name: 'x' })).toEqual({ name: 'x' });
+  });
+  it('returns non-objects unchanged and does not mutate the input', () => {
+    expect(normalizeDocId(null)).toBe(null);
+    const doc = { _id: '69c65a799ec46e786beb4c5a' };
+    const out = normalizeDocId(doc);
+    expect(doc._id).toBe('69c65a799ec46e786beb4c5a'); // original untouched
+    expect(out).not.toBe(doc);
+  });
+});
+
 describe('dedupeById', () => {
+  it('coerces ObjectId-looking string _ids to {$oid} in the kept docs', () => {
+    const hex = '69c65a799ec46e786beb4c5a';
+    const { kept } = dedupeById([{ _id: hex, n: 1 }, { _id: 'plain', n: 2 }]);
+    expect(kept).toEqual([{ _id: { $oid: hex }, n: 1 }, { _id: 'plain', n: 2 }]);
+  });
+
   it('keeps the first occurrence of each _id and reports dropped count', () => {
     const { kept, dropped } = dedupeById([
       { _id: 'a', v: 1 },

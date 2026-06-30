@@ -5,6 +5,8 @@
 // cells arrive as their raw Excel serial number (no styles.xml). Produces the same
 // shape as csv.js's parseCsv so the whole import tail is reused unchanged.
 
+import { isDateFormat, serialToDate } from './xlsxDates.js';
+
 // 'A1' -> 0, 'B' -> 1, 'AA10' -> 26. Reads the leading A–Z run only.
 export function colToIndex(ref) {
   let n = 0;
@@ -20,7 +22,7 @@ const isEmpty = (v) => v === undefined || v === null || v === '';
 
 // Pure: 2-D typed rows -> { docs, columns, warnings }. No type inference, no trim
 // (cells are already natively typed); 0 and false are NOT treated as empty.
-export function rowsToDocs(rows, { hasHeader = true, emptyMode = 'null' } = {}) {
+export function rowsToDocs(rows, { hasHeader = true, emptyMode = 'null', trim = false } = {}) {
   const warnings = [];
   const dataRows = rows.filter((r) => !r.every(isEmpty));
   if (dataRows.length === 0) return { docs: [], columns: [], warnings };
@@ -54,8 +56,9 @@ export function rowsToDocs(rows, { hasHeader = true, emptyMode = 'null' } = {}) 
   const docs = body.map((r) => {
     const doc = {};
     for (let i = 0; i < header.length; i++) {
-      const v = r[i];
-      if (isEmpty(v)) { if (emptyMode !== 'omit') doc[header[i]] = null; }
+      let v = r[i];
+      if (trim && typeof v === 'string') v = v.trim();
+      if (isEmpty(v)) { if (emptyMode !== 'omit') doc[header[i]] = emptyMode === 'empty' ? '' : null; }
       else doc[header[i]] = v;
     }
     return doc;
@@ -78,7 +81,27 @@ export function readWorkbook(xmlString) {
     name: el.getAttribute('name') || '',
     rid: el.getAttribute('r:id') || el.getAttributeNS(RELS_NS, 'id') || '',
   }));
-  return { sheets };
+  const pr = doc.getElementsByTagName('workbookPr')[0];
+  const d = pr ? (pr.getAttribute('date1904') || '') : '';
+  const date1904 = d === '1' || d === 'true';
+  return { sheets, date1904 };
+}
+
+// Parse styles.xml -> per-cellXfs-index boolean "is a date format". Each cell's
+// `s` attribute indexes cellXfs; we resolve its numFmtId against the builtin
+// date set + any custom <numFmt> codes.
+export function readStyles(xmlString) {
+  const doc = parseXml(xmlString);
+  const customFmt = new Map();
+  for (const nf of doc.getElementsByTagName('numFmt')) {
+    customFmt.set(Number(nf.getAttribute('numFmtId')), nf.getAttribute('formatCode') || '');
+  }
+  const cellXfs = doc.getElementsByTagName('cellXfs')[0];
+  if (!cellXfs) return [];
+  return [...cellXfs.getElementsByTagName('xf')].map((xf) => {
+    const id = Number(xf.getAttribute('numFmtId') || 0);
+    return isDateFormat(id, customFmt.get(id));
+  });
 }
 
 export function readRels(xmlString) {
@@ -95,7 +118,7 @@ export function readSharedStrings(xmlString) {
     [...si.getElementsByTagName('t')].map((t) => t.textContent).join(''));
 }
 
-export function readSheet(xmlString, sharedStrings) {
+export function readSheet(xmlString, sharedStrings, { styleIsDate = [], date1904 = false } = {}) {
   const doc = parseXml(xmlString);
   const rows = [];
   for (const row of doc.getElementsByTagName('row')) {
@@ -118,7 +141,13 @@ export function readSheet(xmlString, sharedStrings) {
         else if (t === 'str') value = raw;
         else if (t === 'd') value = raw;          // ISO date string (rare) — kept as-is
         else if (t === 'e') value = null;         // error cell
-        else value = Number(raw);                 // number (incl. date serials)
+        else {
+          // number (incl. date serials) — convert to {$date} when the cell's
+          // style is a date number-format.
+          const num = Number(raw);
+          const s = Number(c.getAttribute('s') || 0);
+          value = styleIsDate[s] ? { $date: serialToDate(num, { date1904 }).toISOString() } : num;
+        }
       }
       cells[idx] = value;
     }
@@ -184,12 +213,12 @@ export async function unzip(arrayBuffer) {
 
 const textOf = (u8) => new TextDecoder().decode(u8);
 
-export async function parseXlsx(arrayBuffer, { sheet, hasHeader = true, emptyMode = 'null' } = {}) {
+export async function parseXlsx(arrayBuffer, { sheet, hasHeader = true, emptyMode = 'null', trim = false } = {}) {
   try {
     const files = await unzip(arrayBuffer);
     const wbBytes = files.get('xl/workbook.xml');
     if (!wbBytes) throw new Error('Not a valid .xlsx workbook (missing xl/workbook.xml).');
-    const { sheets: defs } = readWorkbook(textOf(wbBytes));
+    const { sheets: defs, date1904 } = readWorkbook(textOf(wbBytes));
     if (defs.length === 0) throw new Error('Workbook has no sheets.');
     const sheets = defs.map((s) => s.name);
 
@@ -206,9 +235,11 @@ export async function parseXlsx(arrayBuffer, { sheet, hasHeader = true, emptyMod
 
     const ssBytes = files.get('xl/sharedStrings.xml');
     const shared = ssBytes ? readSharedStrings(textOf(ssBytes)) : [];
+    const stylesBytes = files.get('xl/styles.xml');
+    const styleIsDate = stylesBytes ? readStyles(textOf(stylesBytes)) : [];
 
-    const rows = readSheet(textOf(sheetBytes), shared);
-    const { docs, columns, warnings } = rowsToDocs(rows, { hasHeader, emptyMode });
+    const rows = readSheet(textOf(sheetBytes), shared, { styleIsDate, date1904 });
+    const { docs, columns, warnings } = rowsToDocs(rows, { hasHeader, emptyMode, trim });
     return { docs, columns, warnings, error: null, sheets };
   } catch (err) {
     return { docs: [], columns: [], warnings: [], error: { message: err.message }, sheets: [] };

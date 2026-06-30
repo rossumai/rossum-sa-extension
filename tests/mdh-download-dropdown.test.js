@@ -46,7 +46,7 @@ describe('chooseSubmenuSide', () => {
 });
 
 describe('DownloadSplitButton', () => {
-  const handlers = () => ({ onAllJson: vi.fn(), onFilteredJson: vi.fn(), onAllCsv: vi.fn(), onFilteredCsv: vi.fn(), onAllXml: vi.fn(), onFilteredXml: vi.fn(), onAllJsonl: vi.fn(), onFilteredJsonl: vi.fn() });
+  const handlers = () => ({ onAllJson: vi.fn(), onFilteredJson: vi.fn(), onAllCsv: vi.fn(), onFilteredCsv: vi.fn(), onAllXml: vi.fn(), onFilteredXml: vi.fn(), onAllJsonl: vi.fn(), onFilteredJsonl: vi.fn(), onAllXlsx: vi.fn(), onFilteredXlsx: vi.fn() });
 
   it('renders a single "Download" toggle button when closed; no menu', () => {
     const root = mount(handlers());
@@ -131,6 +131,34 @@ describe('DownloadSplitButton', () => {
     expect(jsonl.querySelector('.toolbar-menu-beta')).toBeTruthy();        // beta badge
     jsonl.click();
     expect(h2.onAllJsonl).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers an Excel option that fires onAllXlsx (beta) and onFilteredXlsx', async () => {
+    const h2 = handlers();
+    const root = mount(h2);
+    root.querySelector('button').click();
+    await flush();
+    root.querySelector('[data-testid="download-all"]').click();
+    await waitFor(
+      () => root.querySelector('[data-testid="download-all-xlsx"]') !== null,
+      'download-all-xlsx button',
+    );
+    const xlsx = root.querySelector('[data-testid="download-all-xlsx"]');
+    expect(xlsx.textContent).toContain('Excel');
+    expect(xlsx.querySelector('.toolbar-menu-beta')).toBeTruthy();
+    xlsx.click();
+    expect(h2.onAllXlsx).toHaveBeenCalledTimes(1);
+
+    const root2 = mount(h2);
+    root2.querySelector('button').click();
+    await flush();
+    root2.querySelector('[data-testid="download-filtered"]').click();
+    await waitFor(
+      () => root2.querySelector('[data-testid="download-filtered-xlsx"]') !== null,
+      'download-filtered-xlsx button',
+    );
+    root2.querySelector('[data-testid="download-filtered-xlsx"]').click();
+    expect(h2.onFilteredXlsx).toHaveBeenCalledTimes(1);
   });
 
   it('hovering the other parent switches the open flyout', async () => {

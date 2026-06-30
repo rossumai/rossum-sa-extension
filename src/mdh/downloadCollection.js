@@ -2,6 +2,10 @@ import * as api from './api.js';
 import { csvHeader, csvRow, orderColumns, buildColumnDiscoveryPipeline } from './csv.js';
 import { docToXml, toXmlName } from './xml.js';
 
+// Streamed binary serializer for .xlsx — re-exported so callers (DataPanel) get
+// every serializer factory from one module.
+export { buildXlsxSerializer } from './xlsxWrite.js';
+
 // Streamed export of a collection's documents, format-agnostic via a pluggable
 // serializer. The streaming engine (sliding-window workers, in-order flush,
 // buffer-room backpressure, cancellation, FS-Access-vs-Blob) is unchanged from
@@ -154,9 +158,12 @@ export async function downloadCollection(collectionName, opts = {}) {
     let workerError = null;
     const bufferWaiters = [];
 
-    async function writeChunk(text) {
-      if (writer) await writer.write(text);
-      else parts.push(text);
+    // Chunk may be a string (text serializers) or a Uint8Array (binary
+    // serializers, e.g. xlsx). FS-Access write() and Blob both accept bytes.
+    const isBinary = serializer.binary === true;
+    async function writeChunk(chunk) {
+      if (writer) await writer.write(chunk);
+      else parts.push(chunk);
     }
     function wakeOneWaiter() { const r = bufferWaiters.shift(); if (r) r(); }
     function wakeAllWaiters() { while (bufferWaiters.length > 0) bufferWaiters.shift()(); }
@@ -166,13 +173,18 @@ export async function downloadCollection(collectionName, opts = {}) {
         while (pending.has(nextWriteIdx)) {
           const docs = pending.get(nextWriteIdx);
           pending.delete(nextWriteIdx);
-          let buf = '';
-          for (const doc of docs) {
-            if (docsWritten > 0) buf += serializer.separator;
-            buf += serializer.item(doc);
-            docsWritten++;
+          if (isBinary) {
+            await serializer.writeDocs(docs, writeChunk);
+            docsWritten += docs.length;
+          } else {
+            let buf = '';
+            for (const doc of docs) {
+              if (docsWritten > 0) buf += serializer.separator;
+              buf += serializer.item(doc);
+              docsWritten++;
+            }
+            if (buf) await writeChunk(buf);
           }
-          if (buf) await writeChunk(buf);
           nextWriteIdx++;
           wakeOneWaiter();
         }
@@ -210,7 +222,8 @@ export async function downloadCollection(collectionName, opts = {}) {
       }
     }
 
-    await writeChunk(serializer.preamble());
+    if (isBinary) await serializer.start(writeChunk, { collectionName, pipelineStages });
+    else await writeChunk(serializer.preamble());
 
     const workers = Array.from(
       { length: Math.min(concurrency, offsets.length) },
@@ -226,7 +239,8 @@ export async function downloadCollection(collectionName, opts = {}) {
       return { fetched, cancelled: true, streamed: !!writer };
     }
 
-    await writeChunk(serializer.postamble());
+    if (isBinary) await serializer.finish(writeChunk);
+    else await writeChunk(serializer.postamble());
 
     if (writer) {
       await writer.close();
