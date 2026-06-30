@@ -30,3 +30,14 @@ if (typeof window !== 'undefined' && window.Range) {
     window.Range.prototype.getBoundingClientRect = () => ({ ...ZERO_RECT });
   }
 }
+
+// jsdom does not implement ResizeObserver. RecordTable observes its wrap to keep
+// the computed filler (last) column sized to the pane. A no-op stub lets the
+// component mount under jsdom (layout-dependent behavior is verified in-browser).
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}

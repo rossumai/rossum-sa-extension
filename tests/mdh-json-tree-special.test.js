@@ -16,6 +16,33 @@ function mount(data, extra = {}) {
 
 afterEach(() => { document.body.innerHTML = ''; });
 
+describe('JsonTree compact type tags', () => {
+  it('renders an EJSON value with the shared compact value-type-tag (short + title), not the full-word badge', () => {
+    const root = mount({ _id: { $oid: 'aaaaaaaaaaaaaaaaaaaaaaaa' } });
+    expect(root.querySelector('.json-tree-badge')).toBeNull();
+    const tag = root.querySelector('.value-type-tag');
+    expect(tag).not.toBeNull();
+    expect(tag.textContent).toBe('oid');
+    expect(tag.getAttribute('title')).toBe('ObjectId');
+    expect(tag.classList.contains('json-tree-value-oid')).toBe(true);
+    expect(root.textContent).toContain('aaaaaaaaaaaaaaaaaaaaaaaa');
+    // In the list view the tag is shown AFTER the value.
+    const row = tag.closest('.json-tree-row');
+    const kids = [...row.children];
+    const valIdx = kids.findIndex((k) => k.classList.contains('json-tree-value'));
+    const tagIdx = kids.findIndex((k) => k.classList.contains('value-type-tag'));
+    expect(valIdx).toBeGreaterThanOrEqual(0);
+    expect(tagIdx).toBeGreaterThan(valIdx);
+  });
+
+  it('uses the num tag for numeric EJSON types', () => {
+    const root = mount({ n: { $numberDecimal: '1.50' } });
+    const tag = root.querySelector('.value-type-tag');
+    expect(tag.textContent).toBe('num');
+    expect(tag.getAttribute('title')).toBe('Decimal');
+  });
+});
+
 describe('JsonTree special-character reveal', () => {
   it('reveals a special char in a string value', () => {
     const root = mount({ name: 'a\u00a0b' });

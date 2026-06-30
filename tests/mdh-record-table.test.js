@@ -165,14 +165,14 @@ describe('RecordTable', () => {
     expect(colgroup.querySelectorAll('col').length).toBe(3);
   });
 
-  it('renders a col-resizer span in each column header', () => {
+  it('renders a col-resizer in every header except the last (the filler column)', () => {
     const root = renderTable();
     const ths = root.querySelectorAll('thead th');
-    // 3 data columns — each should have a .col-resizer
+    // 3 data columns; the last column is the auto-fill filler and is not resizable.
     expect(ths.length).toBe(3);
-    for (const th of ths) {
-      expect(th.querySelector('.col-resizer')).not.toBeNull();
-    }
+    expect(ths[0].querySelector('.col-resizer')).not.toBeNull();
+    expect(ths[1].querySelector('.col-resizer')).not.toBeNull();
+    expect(ths[2].querySelector('.col-resizer')).toBeNull();
   });
 
   // --- Filtered value highlight ---
@@ -191,8 +191,8 @@ describe('RecordTable', () => {
     expect(idValueSpan.classList.contains('json-tree-value-filtered')).toBe(false);
   });
 
-  // --- EJSON badge rendering ---
-  it('renders ObjectId and Date cells with json-tree-badge and correct labels', async () => {
+  // --- EJSON compact type tags ---
+  it('renders ObjectId and Date cells with compact type tags (not the full-word badge)', async () => {
     let root;
     await act(() => {
       root = renderTable({
@@ -201,14 +201,28 @@ describe('RecordTable', () => {
         sortState: {}, filterState: {},
       });
     });
-    const badges = root.querySelectorAll('.json-tree-badge');
-    const badgeTexts = Array.from(badges).map((b) => b.textContent);
-    expect(badgeTexts).toContain('ObjectId');
-    expect(badgeTexts).toContain('Date');
-    // The formatted ObjectId value (hex string) should appear
+    // Table uses the shared compact .value-type-tag, not the wide .json-tree-badge.
+    expect(root.querySelector('.json-tree-badge')).toBeNull();
+    const tags = root.querySelectorAll('.value-type-tag');
+    const tagTexts = Array.from(tags).map((t) => t.textContent);
+    expect(tagTexts).toContain('oid');
+    expect(tagTexts).toContain('date');
+    // The tag keeps the type color class and exposes the full type name on hover.
+    const oidTag = Array.from(tags).find((t) => t.textContent === 'oid');
+    expect(oidTag.classList.contains('json-tree-value-oid')).toBe(true);
+    expect(oidTag.getAttribute('title')).toBe('ObjectId');
+    const dateTag = Array.from(tags).find((t) => t.textContent === 'date');
+    expect(dateTag.getAttribute('title')).toBe('Date');
+    // The formatted values still render.
     expect(root.textContent).toContain('aaaaaaaaaaaaaaaaaaaaaaaa');
-    // The ISO date value should appear
     expect(root.textContent).toContain('2020-01-01T00:00:00.000Z');
+    // The tag is shown AFTER the value in the table too.
+    const idCell = root.querySelectorAll('tbody td')[0];
+    const kids = [...idCell.querySelector('.record-table-cell-inner').children];
+    const valIdx = kids.findIndex((k) => k.classList.contains('record-table-value'));
+    const tagIdx = kids.findIndex((k) => k.classList.contains('value-type-tag'));
+    expect(valIdx).toBeGreaterThanOrEqual(0);
+    expect(tagIdx).toBeGreaterThan(valIdx);
   });
 
   // --- Copy button per cell ---
@@ -299,12 +313,54 @@ describe('RecordTable', () => {
     expect(span.getAttribute('title')).toBe('U+00A0 NO-BREAK SPACE');
   });
 
-  it('leaves a clean string cell untouched and still truncates long values', () => {
+  it('does not hard-truncate medium strings — column width + CSS ellipsis govern visible length', () => {
     const root = renderTable({
-      records: [{ _id: '1', name: 'z'.repeat(25) }],
+      records: [{ _id: '1', name: 'z'.repeat(50) }],
       columns: ['_id', 'name'],
     });
     expect(root.querySelectorAll('.mdh-special').length).toBe(0);
-    expect(root.textContent).toContain('z'.repeat(20) + '...');
+    // The full 50 chars are in the DOM (no JS 20-char cap); CSS clips visually.
+    expect(root.textContent).toContain('z'.repeat(50));
+    expect(root.textContent).not.toContain('z'.repeat(20) + '...');
+  });
+
+  // --- Special / typed scalar value rendering (Table view) ---
+  it('renders null with the null color class', () => {
+    const root = renderTable({ records: [{ _id: '1', val: null }], columns: ['_id', 'val'] });
+    const cell = root.querySelectorAll('tbody td')[1];
+    const span = cell.querySelector('.record-table-value.json-tree-value-null');
+    expect(span).not.toBeNull();
+    expect(span.textContent).toBe('null');
+  });
+
+  it('renders a missing field as an em dash, not the string "undefined"', () => {
+    const root = renderTable({
+      records: [{ _id: '1', name: 'Alice' }, { _id: '2' }],
+      columns: ['_id', 'name'],
+    });
+    const secondRowNameCell = root.querySelectorAll('tbody tr')[1].querySelectorAll('td')[1];
+    expect(secondRowNameCell.textContent).toBe('—');
+    expect(secondRowNameCell.textContent).not.toContain('undefined');
+    expect(secondRowNameCell.querySelector('[title="field omitted"]')).not.toBeNull();
+    // Nothing to copy for a missing field.
+    expect(secondRowNameCell.querySelector('.json-tree-copy-btn')).toBeNull();
+  });
+
+  it('renders an empty string as (empty) in the null style', () => {
+    const root = renderTable({ records: [{ _id: '1', val: '' }], columns: ['_id', 'val'] });
+    const cell = root.querySelectorAll('tbody td')[1];
+    const span = cell.querySelector('.record-table-value.json-tree-value-null');
+    expect(span).not.toBeNull();
+    expect(span.textContent).toBe('(empty)');
+  });
+
+  it('colors plain numbers and booleans by type', () => {
+    const root = renderTable({
+      records: [{ _id: '1', n: 42, b: true }],
+      columns: ['_id', 'n', 'b'],
+    });
+    const tds = root.querySelectorAll('tbody td');
+    expect(tds[1].querySelector('.record-table-value.json-tree-value-number').textContent).toBe('42');
+    expect(tds[2].querySelector('.record-table-value.json-tree-value-bool').textContent).toBe('true');
   });
 });

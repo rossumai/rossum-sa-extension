@@ -134,8 +134,7 @@ function JsonTreeRow({ fieldKey, value, fullPath, depth, collapseDepth, sortStat
     return (
       <div class="json-tree-row">
         {keyEl}
-        <span class="json-tree-sep">:</span>
-        <span class={'json-tree-badge ' + info.css}>{info.label}</span>
+        <span class="json-tree-sep">: </span>
         {readOnly
           ? <span class={'json-tree-value ' + info.css}>{formatted}</span>
           : (
@@ -147,6 +146,7 @@ function JsonTreeRow({ fieldKey, value, fullPath, depth, collapseDepth, sortStat
               onClick={(e) => handleValueClick(e, copyText)}
             >{formatted}</button>
           )}
+        <span class={'value-type-tag ' + info.css} title={info.label}>{info.short}</span>
         <CopyButton getText={() => copyText} kind="value" />
       </div>
     );

@@ -25,6 +25,31 @@ describe('getEjsonType', () => {
     expect(getEjsonType({ $date: { $numberLong: '1700000000000' } })).toBe('$date');
   });
 
+  it('every EJSON type has a non-empty short tag and a label', () => {
+    for (const [key, info] of Object.entries(EJSON_TYPES)) {
+      expect(typeof info.label, key).toBe('string');
+      expect(info.label.length, key).toBeGreaterThan(0);
+      expect(typeof info.short, key).toBe('string');
+      expect(info.short.length, key).toBeGreaterThan(0);
+      // tags are meant to be compact + lowercase
+      expect(info.short, key).toBe(info.short.toLowerCase());
+      expect(info.short.length, key).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it('uses the agreed compact tags', () => {
+    expect(EJSON_TYPES.$oid.short).toBe('oid');
+    expect(EJSON_TYPES.$date.short).toBe('date');
+    expect(EJSON_TYPES.$timestamp.short).toBe('ts');
+    expect(EJSON_TYPES.$binary.short).toBe('bin');
+    expect(EJSON_TYPES.$regex.short).toBe('re');
+    // numeric subtypes fold to "num"
+    expect(EJSON_TYPES.$numberLong.short).toBe('num');
+    expect(EJSON_TYPES.$numberInt.short).toBe('num');
+    expect(EJSON_TYPES.$numberDouble.short).toBe('num');
+    expect(EJSON_TYPES.$numberDecimal.short).toBe('num');
+  });
+
   it('returns null for plain objects that happen to have $-prefixed keys mixed with others', () => {
     expect(getEjsonType({ $oid: 'x', extra: 1 })).toBeNull();
     expect(getEjsonType({ foo: 1, bar: 2 })).toBeNull();

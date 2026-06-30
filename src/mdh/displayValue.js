@@ -3,16 +3,20 @@
 // recordSummary (collapsed preview). Kept as a plain .js module so it can
 // be imported by tests without a JSX loader.
 
+// `label` = full type name (JsonTree badge, tooltips). `short` = compact
+// lowercase tag for the dense Table view (RecordTable). Numeric subtypes share
+// the `num` tag — the value + color already read as a number; the precise BSON
+// subtype stays available via `label` (shown as the tag's tooltip).
 export const EJSON_TYPES = {
-  $oid: { label: 'ObjectId', css: 'json-tree-value-oid' },
-  $date: { label: 'Date', css: 'json-tree-value-date' },
-  $numberLong: { label: 'Long', css: 'json-tree-value-number' },
-  $numberInt: { label: 'Int', css: 'json-tree-value-number' },
-  $numberDouble: { label: 'Double', css: 'json-tree-value-number' },
-  $numberDecimal: { label: 'Decimal', css: 'json-tree-value-number' },
-  $binary: { label: 'Binary', css: 'json-tree-value-null' },
-  $regex: { label: 'Regex', css: 'json-tree-value-string' },
-  $timestamp: { label: 'Timestamp', css: 'json-tree-value-date' },
+  $oid: { label: 'ObjectId', short: 'oid', css: 'json-tree-value-oid' },
+  $date: { label: 'Date', short: 'date', css: 'json-tree-value-date' },
+  $numberLong: { label: 'Long', short: 'num', css: 'json-tree-value-number' },
+  $numberInt: { label: 'Int', short: 'num', css: 'json-tree-value-number' },
+  $numberDouble: { label: 'Double', short: 'num', css: 'json-tree-value-number' },
+  $numberDecimal: { label: 'Decimal', short: 'num', css: 'json-tree-value-number' },
+  $binary: { label: 'Binary', short: 'bin', css: 'json-tree-value-null' },
+  $regex: { label: 'Regex', short: 're', css: 'json-tree-value-string' },
+  $timestamp: { label: 'Timestamp', short: 'ts', css: 'json-tree-value-date' },
 };
 
 export function getEjsonType(value) {
