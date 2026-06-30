@@ -15,6 +15,7 @@
   --danger-hover: #aa2222;
   --success: #22883e;
   --warning: #b45309;
+  --mdh-special-bidi: #7c3aed;
   --success-hover: #1a6e32;
   --success-bg: #d1fae5;
   --success-fg: #065f46;
@@ -60,6 +61,7 @@
     --danger-hover: #ff6666;
     --success: #34d058;
     --warning: #f59e0b;
+    --mdh-special-bidi: #a78bfa;
     --success-hover: #2ea44f;
     --success-bg: #0a3020;
     --success-fg: #34d058;
@@ -3863,3 +3865,26 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
   .stats-tchip.is-num { background: rgba(34, 136, 62, .18); color: #6ee7a0; border-color: rgba(34, 136, 62, .4); }
   .stats-tchip.is-date { background: rgba(91, 33, 182, .25); color: #c4b5fd; border-color: rgba(91, 33, 182, .5); }
 }
+
+/* Special / invisible character markers in record values (specialChars.js). */
+.mdh-special {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 0 4px;
+  margin: 0 1px;
+  border-radius: 3px;
+  /* abbreviation label (e.g. "NBSP") — small, bold, slightly tracked */
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  vertical-align: baseline;
+  cursor: help;
+  /* tint derived from the category color set via `color` below, matching the
+     existing .json-tree-badge pattern */
+  background: color-mix(in srgb, currentColor 16%, transparent);
+}
+.mdh-special-space      { color: var(--warning); }
+.mdh-special-zero-width { color: var(--danger); }
+.mdh-special-control    { color: var(--accent); }
+.mdh-special-bidi       { color: var(--mdh-special-bidi); }

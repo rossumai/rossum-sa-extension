@@ -2,6 +2,7 @@ import { h } from 'preact';
 import { useState } from 'preact/hooks';
 import { EJSON_TYPES, getEjsonType, formatEjsonValue, displayValue, copyTextFor } from '../displayValue.js';
 import { ALT_KEY } from '../platform.js';
+import SpecialText from './SpecialText.jsx';
 
 export { displayValue };
 
@@ -201,7 +202,11 @@ function JsonTreeRow({ fieldKey, value, fullPath, depth, collapseDepth, sortStat
               return (
                 <div class="json-tree-row">
                   <span class="json-tree-array-index">[{ai}]</span>
-                  <span class="json-tree-value">{JSON.stringify(item)}</span>
+                  <span class="json-tree-value">
+                    {typeof item === 'string'
+                      ? <SpecialText value={item} quote />
+                      : JSON.stringify(item)}
+                  </span>
                   <CopyButton getText={() => copyTextFor(item)} kind="value" />
                 </div>
               );
@@ -221,7 +226,9 @@ function JsonTreeRow({ fieldKey, value, fullPath, depth, collapseDepth, sortStat
   if (filtered) valCls += ' json-tree-value-filtered';
   if (flash === 'value') valCls += ' json-tree-flash';
 
-  const display = value === null ? 'null' : typeof value === 'string' ? `"${value}"` : String(value);
+  const isString = typeof value === 'string';
+  const display = value === null ? 'null' : isString ? null : String(value);
+  const valueContent = isString ? <SpecialText value={value} quote /> : display;
   const copyText = copyTextFor(value);
 
   return (
@@ -229,13 +236,13 @@ function JsonTreeRow({ fieldKey, value, fullPath, depth, collapseDepth, sortStat
       {keyEl}
       <span class="json-tree-sep">: </span>
       {readOnly
-        ? <span class={'json-tree-value' + colorCls}>{display}</span>
+        ? <span class={'json-tree-value' + colorCls}>{valueContent}</span>
         : (
           <button
             class={valCls}
             title={filtered ? `Filtering by ${fullPath} — click to remove filter (${ALT_KEY}+click to copy)` : `Click to filter: ${fullPath} = ${JSON.stringify(value)} — ${ALT_KEY}+click to copy`}
             onClick={(e) => handleValueClick(e, copyText)}
-          >{display}</button>
+          >{valueContent}</button>
         )}
       <CopyButton getText={() => copyText} kind="value" />
     </div>

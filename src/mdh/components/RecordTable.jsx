@@ -4,6 +4,7 @@ import { displayValue, getEjsonType, formatEjsonValue, EJSON_TYPES, copyTextFor 
 import { selectionMode } from '../store.js';
 import { isRecordSelected, toggleRecordSelection } from '../recordSelection.js';
 import JsonTree, { CopyButton } from './JsonTree.jsx';
+import SpecialText from './SpecialText.jsx';
 
 const DEFAULT_COL_WIDTH = 180;
 const MIN_COL_WIDTH = 60;
@@ -148,7 +149,11 @@ export default function RecordTable({ records, columns, sortState, filterState, 
         onClick={() => onFilter(col, value)}
         title={filtered ? `Filtering by ${col} — click to remove` : `Click to filter by ${col}`}>
         <div class="record-table-cell-inner">
-          <span class={'record-table-value' + (filtered ? ' json-tree-value-filtered' : '')}>{displayValue(value)}</span>
+          <span class={'record-table-value' + (filtered ? ' json-tree-value-filtered' : '')}>
+            {typeof value === 'string'
+              ? <SpecialText value={value} quote limit={20} />
+              : displayValue(value)}
+          </span>
           <CopyButton getText={() => copyTextFor(value)} kind="value" />
         </div>
       </td>

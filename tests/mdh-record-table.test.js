@@ -288,4 +288,23 @@ describe('RecordTable', () => {
     });
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(JSON.stringify([{ sku: 'x' }], null, 2));
   });
+
+  it('reveals a special character in a string cell', () => {
+    const root = renderTable({
+      records: [{ _id: '1', name: 'a\u00a0b' }],
+      columns: ['_id', 'name'],
+    });
+    const span = root.querySelector('.mdh-special.mdh-special-space');
+    expect(span).not.toBeNull();
+    expect(span.getAttribute('title')).toBe('U+00A0 NO-BREAK SPACE');
+  });
+
+  it('leaves a clean string cell untouched and still truncates long values', () => {
+    const root = renderTable({
+      records: [{ _id: '1', name: 'z'.repeat(25) }],
+      columns: ['_id', 'name'],
+    });
+    expect(root.querySelectorAll('.mdh-special').length).toBe(0);
+    expect(root.textContent).toContain('z'.repeat(20) + '...');
+  });
 });
