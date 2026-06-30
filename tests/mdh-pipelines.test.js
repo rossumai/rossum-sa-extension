@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   discoverFields,
+  discoverFieldsWithTotal,
   encKey,
   buildFieldCoveragePipeline,
   buildEmptyValuesPipeline,
@@ -61,6 +62,25 @@ describe('field discovery', () => {
     for (let i = 0; i < 60; i++) doc[`field_${String(i).padStart(3, '0')}`] = i;
     const fields = discoverFields([doc]);
     expect(fields).toHaveLength(MAX_FIELDS);
+  });
+
+  it('keeps the MOST COMMON fields (by doc frequency) when over MAX_FIELDS', () => {
+    const common = {};
+    for (let i = 0; i < MAX_FIELDS; i++) common[`common_${String(i).padStart(2, '0')}`] = i;
+    // common fields appear in BOTH docs (freq 2); rare fields in only one (freq 1).
+    const { fields, total } = discoverFieldsWithTotal([
+      { ...common, rare_x: 1, rare_y: 2 },
+      { ...common, rare_z: 3 },
+    ]);
+    expect(total).toBe(MAX_FIELDS + 3);
+    expect(fields).toHaveLength(MAX_FIELDS);
+    expect(fields).toContain('common_00');
+    expect(fields).toContain(`common_${String(MAX_FIELDS - 1).padStart(2, '0')}`);
+    expect(fields).not.toContain('rare_x');
+    expect(fields).not.toContain('rare_y');
+    expect(fields).not.toContain('rare_z');
+    // returned list is alphabetical
+    expect([...fields].sort()).toEqual(fields);
   });
 
   it('returns sorted field names', () => {

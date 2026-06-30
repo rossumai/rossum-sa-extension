@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { computeHealthScore, healthLabel, transformStatsResults, updateStatsSummary } from '../src/mdh/statsSummary.js';
+import { computeHealthScore, healthComponents, healthLabel, transformStatsResults, updateStatsSummary } from '../src/mdh/statsSummary.js';
 import { encKey } from '../src/mdh/statsPipelines.js';
 import * as cache from '../src/mdh/cache.js';
 import { statsSummary } from '../src/mdh/store.js';
@@ -81,6 +81,47 @@ describe('computeHealthScore', () => {
     // strings array is all count=0 → stringFields = 0 → wsScore = 100
     const strings = fields.map((f) => ({ field: f, count: 0, leading: 0, trailing: 0 }));
     expect(computeHealthScore(perfectCoverage, [], [], strings, [{ fieldCount: 4 }], fields)).toBe(100);
+  });
+});
+
+describe('healthComponents', () => {
+  const fields = ['a', 'b', 'c', 'd'];
+  const coverage = [
+    { field: 'a', pct: 100 }, { field: 'b', pct: 90 },
+    { field: 'c', pct: 80 }, { field: 'd', pct: 100 },
+  ];
+  const empties = [{ field: 'b', nullCount: 0, missingCount: 10, emptyCount: 0 }];
+  const types = [{ field: 'c', types: [{ _id: 'string', count: 5 }, { _id: 'int', count: 3 }] }];
+  const strings = [
+    { field: 'a', count: 100, leading: 0, trailing: 4 },
+    { field: 'd', count: 100, leading: 0, trailing: 0 },
+  ];
+  const schemaShapes = [{ fieldCount: 4, docCount: 100 }];
+  const sentinels = [{ field: 'a', total: 9, values: [{ value: 'n/a', count: 9 }] }];
+
+  it('returns the five 0-100 sub-scores', () => {
+    const c = healthComponents(coverage, empties, types, strings, schemaShapes, fields, sentinels);
+    expect(c.fieldCoverage).toBeCloseTo((100 + 90 + 80 + 100) / 4); // 92.5
+    expect(c.typeConsistency).toBeCloseTo((4 - 1) / 4 * 100);       // 75
+    expect(c.valueCompleteness).toBeCloseTo((4 - 2) / 4 * 100);     // b(empty)+a(sentinel) → 50
+    expect(c.whitespace).toBeCloseTo((2 - 1) / 2 * 100);            // 50
+    expect(c.schema).toBe(100);
+  });
+
+  it('weighted sum equals computeHealthScore for several fixtures', () => {
+    const cases = [
+      [coverage, empties, types, strings, schemaShapes, fields, sentinels],
+      [coverage, [], [], strings, schemaShapes, fields, null],
+      [coverage, empties, types, null, [{ fieldCount: 4, docCount: 50 }, { fieldCount: 3, docCount: 50 }], fields, []],
+    ];
+    for (const args of cases) {
+      const c = healthComponents(...args);
+      const expected = Math.round(
+        c.fieldCoverage * 0.25 + c.typeConsistency * 0.20 +
+        c.valueCompleteness * 0.15 + c.whitespace * 0.20 + c.schema * 0.20,
+      );
+      expect(computeHealthScore(...args)).toBe(expected);
+    }
   });
 });
 
@@ -171,6 +212,25 @@ describe('transformStatsResults', () => {
         ],
       },
     ]);
+  });
+
+  it('does NOT flag a field whose only "mix" is BSON numeric subtypes (int+double)', () => {
+    const raw = {
+      coverage: { result: [{ _total: 10 }] },
+      empties: { result: [{}] },
+      types: {
+        result: [{
+          [encKey('amount')]: [
+            { _id: 'int', count: 4 },
+            { _id: 'double', count: 6 },
+          ],
+        }],
+      },
+      strings: { result: [{}] },
+      schema: { result: [] },
+    };
+    const out = transformStatsResults(raw, ['amount']);
+    expect(out.types).toEqual([]); // int+double collapse to one logical "number"
   });
 
   it('filters strings to only fields with count > 0 and rounds avgLen', () => {

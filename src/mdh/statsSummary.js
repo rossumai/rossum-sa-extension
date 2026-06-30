@@ -6,46 +6,54 @@
 // was renamed to `strings` to reflect what the caller passes.
 
 import { encKey } from './statsPipelines.js';
+import { friendlyType } from './statsView.js';
 import * as cache from './cache.js';
 import { statsSummary } from './store.js';
 
-export function computeHealthScore(coverage, empties, types, strings, schemaShapes, fields, sentinels = null) {
-  if (!coverage || !fields.length) return null;
+// Five 0-100 health sub-scores. Extracted from computeHealthScore so the Stats
+// dashboard can render the breakdown and the score stays a single source of truth.
+export function healthComponents(coverage, empties, types, strings, schemaShapes, fields, sentinels = null) {
+  const n = fields.length;
 
-  // Coverage: average field coverage percentage (0–100)
-  const avgCoverage = coverage.reduce((sum, c) => sum + c.pct, 0) / coverage.length;
+  // Field coverage: average per-field present %.
+  const fieldCoverage = coverage.reduce((sum, c) => sum + c.pct, 0) / coverage.length;
 
-  // Emptiness: ratio of fields with no empty/null/missing/sentinel-string issues (0–100).
-  // A field counts as "unclean" if it appears in empties OR carries sentinel strings.
+  // Value completeness: share of fields with no null/empty/missing AND no sentinel strings.
   const affected = new Set();
   for (const e of (empties || [])) affected.add(e.field);
   for (const s of (sentinels || [])) affected.add(s.field);
-  const emptinessScore = ((fields.length - affected.size) / fields.length) * 100;
+  const valueCompleteness = ((n - affected.size) / n) * 100;
 
-  // Type consistency: ratio of fields with a single type (0–100)
+  // Type consistency: share of fields with a single type.
   const inconsistentCount = types ? types.length : 0;
-  const typeScore = ((fields.length - inconsistentCount) / fields.length) * 100;
+  const typeConsistency = ((n - inconsistentCount) / n) * 100;
 
-  // String-field cleanliness: ratio of string fields without leading/trailing whitespace (0–100)
-  let wsScore = 100;
+  // Whitespace cleanliness: share of string fields without leading/trailing ws.
+  let whitespace = 100;
   if (strings) {
     const wsFields = strings.filter((w) => w.leading > 0 || w.trailing > 0).length;
     const stringFields = strings.filter((w) => w.count > 0).length;
-    wsScore = stringFields > 0 ? ((stringFields - wsFields) / stringFields) * 100 : 100;
+    whitespace = stringFields > 0 ? ((stringFields - wsFields) / stringFields) * 100 : 100;
   }
 
-  // Schema consistency: 100 if one shape, degrades with more (0–100)
-  let schemaScore = 100;
+  // Schema consistency: 100 for one shape, degrades 20 per extra shape.
+  let schema = 100;
   if (schemaShapes && schemaShapes.length > 1) {
-    schemaScore = Math.max(0, 100 - (schemaShapes.length - 1) * 20);
+    schema = Math.max(0, 100 - (schemaShapes.length - 1) * 20);
   }
 
+  return { fieldCoverage, typeConsistency, valueCompleteness, whitespace, schema };
+}
+
+export function computeHealthScore(coverage, empties, types, strings, schemaShapes, fields, sentinels = null) {
+  if (!coverage || !fields.length) return null;
+  const c = healthComponents(coverage, empties, types, strings, schemaShapes, fields, sentinels);
   return Math.round(
-    avgCoverage * 0.25 +
-    typeScore * 0.20 +
-    emptinessScore * 0.15 +
-    wsScore * 0.20 +
-    schemaScore * 0.20,
+    c.fieldCoverage * 0.25 +
+    c.typeConsistency * 0.20 +
+    c.valueCompleteness * 0.15 +
+    c.whitespace * 0.20 +
+    c.schema * 0.20,
   );
 }
 
@@ -111,7 +119,10 @@ function transformTypes(raw, fields) {
       field: f,
       types: (r[encKey(f)] || []).filter((e) => e._id !== 'missing'),
     }))
-    .filter((x) => x.types.length > 1);
+    // Count DISTINCT LOGICAL types: int/long/double/decimal all collapse to
+    // "number", so a field with mixed BSON numeric subtypes is not flagged as
+    // type-inconsistent (consistent with fieldTypeSummary and the card chip).
+    .filter((x) => new Set(x.types.map((e) => friendlyType(e._id))).size > 1);
 }
 
 function transformStrings(raw, fields) {

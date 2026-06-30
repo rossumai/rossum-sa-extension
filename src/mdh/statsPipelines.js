@@ -1,5 +1,8 @@
 export const FIELD_DISCOVERY_SIZE = 200;
-export const TOP_VALUES = 5;
+// Top distinct values fetched per field for the distribution. Cards show a
+// height-budget-driven count (up to 8 when there's no mini chart and no issue
+// messages, fewer otherwise), so fetch 8.
+export const TOP_VALUES = 8;
 export const MAX_DEPTH = 3;
 export const MAX_FIELDS = 50;
 
@@ -18,8 +21,11 @@ function fieldsOnly(fields) {
   return { $project: p };
 }
 
-export function discoverFields(docs) {
-  const fields = new Set();
+// Distinct leaf field paths discovered in the sample (uncapped, deduped,
+// sorted), plus how many sampled documents each appears in (`counts`) so the
+// cap can keep the most common fields.
+function allDiscoveredFields(docs) {
+  const counts = new Map();
   function walk(obj, prefix, depth) {
     if (depth > MAX_DEPTH) return;
     for (const key of Object.keys(obj)) {
@@ -29,19 +35,38 @@ export function discoverFields(docs) {
       if (val !== null && typeof val === 'object' && !Array.isArray(val) && !(val.$oid || val.$date)) {
         walk(val, path, depth + 1);
       } else {
-        fields.add(path);
+        counts.set(path, (counts.get(path) || 0) + 1);
       }
     }
   }
   for (const doc of docs) walk(doc, '', 0);
-  const sorted = [...fields].sort();
+  const sorted = [...counts.keys()].sort();
   // Remove parent fields that have child paths (e.g. "line_items" when
   // "line_items.item_amount" also exists) to avoid $project path collisions.
   const deduped = sorted.filter((f, i) => {
     const next = sorted[i + 1];
     return !next || !next.startsWith(f + '.');
   });
-  return deduped.length > MAX_FIELDS ? deduped.slice(0, MAX_FIELDS) : deduped;
+  return { deduped, counts };
+}
+
+// Discovered fields capped at MAX_FIELDS, plus the uncapped `total` so callers
+// can be transparent when not every field is analyzed. When more than MAX_FIELDS
+// exist, the MOST COMMON (by document frequency in the sample) are kept; the
+// returned list is always alphabetical for stable display.
+export function discoverFieldsWithTotal(docs) {
+  const { deduped, counts } = allDiscoveredFields(docs);
+  const total = deduped.length;
+  if (total <= MAX_FIELDS) return { fields: deduped, total };
+  const fields = [...deduped]
+    .sort((a, b) => (counts.get(b) - counts.get(a)) || a.localeCompare(b))
+    .slice(0, MAX_FIELDS)
+    .sort();
+  return { fields, total };
+}
+
+export function discoverFields(docs) {
+  return discoverFieldsWithTotal(docs).fields;
 }
 
 export function buildOverviewPipeline() {

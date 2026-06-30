@@ -1,7 +1,7 @@
 import * as api from './api.js';
 import * as cache from './cache.js';
 import * as store from './store.js';
-import { FIELD_DISCOVERY_SIZE, discoverFields, STATS_CHECKS, buildAllPipelines } from './statsPipelines.js';
+import { FIELD_DISCOVERY_SIZE, discoverFieldsWithTotal, STATS_CHECKS, buildAllPipelines } from './statsPipelines.js';
 import { updateStatsSummary } from './statsSummary.js';
 
 function isAbort(err) {
@@ -64,8 +64,12 @@ async function prefetchStats(collection, signal) {
         { signal },
       );
       if (signal?.aborted) return;
-      fields = discoverFields(sample.result || []);
-      if (fields.length > 0) cache.set(collection, 'statsFields', fields);
+      const discovered = discoverFieldsWithTotal(sample.result || []);
+      fields = discovered.fields;
+      if (fields.length > 0) {
+        cache.set(collection, 'statsFields', fields);
+        cache.set(collection, 'statsFieldsTotal', discovered.total);
+      }
     } catch (err) { if (!isAbort(err)) return; return; }
   }
   if (!fields || fields.length === 0 || signal?.aborted) return;

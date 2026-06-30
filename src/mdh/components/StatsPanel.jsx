@@ -1,203 +1,58 @@
-import { h, Fragment } from 'preact';
+import { h } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { selectedCollection, activePanel, error, statsSummary } from '../store.js';
 import {
-  computeHealthScore, healthLabel, transformStatsResults, updateStatsSummary,
+  computeHealthScore, healthComponents, transformStatsResults, updateStatsSummary,
 } from '../statsSummary.js';
+import {
+  transformCardinality, transformDistribution, transformNumeric, transformDates,
+  transformStorage, transformDocSize, fieldTypeSummary, buildFieldProfiles,
+  indexPrefixMap,
+} from '../statsView.js';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
 import {
-  FIELD_DISCOVERY_SIZE, TOP_VALUES, encKey, discoverFields,
-  buildAllPipelines, buildOverviewPipeline, STATS_CHECKS,
+  FIELD_DISCOVERY_SIZE, discoverFieldsWithTotal, buildOverviewPipeline, buildAllPipelines, STATS_CHECKS,
 } from '../statsPipelines.js';
-
-const LARGE_COLLECTION_WARN = 100_000;
-
-function FieldName({ path }) {
-  const parts = path.split('.');
-  if (parts.length === 1) return <span class="stats-field-name">{path}</span>;
-  const parent = parts.slice(0, -1).join('.');
-  const leaf = parts[parts.length - 1];
-  return (
-    <span class="stats-field-name">
-      <span class="stats-field-parent">{parent}.</span>{leaf}
-    </span>
-  );
-}
-
-// ── UI helpers ──────────────────────────────────
-
-function Section({ title, status, children }) {
-  const [isCollapsed, setCollapsed] = useState(false);
-  const isError = status && typeof status === 'object' && status.error;
-  const statusCls = status === 'done'
-    ? 'stats-status-done'
-    : isError
-      ? 'stats-status-error'
-      : 'stats-status-loading';
-  const statusText = status === 'done' ? 'done' : isError ? 'error' : 'running\u2026';
-  return (
-    <div class="stats-section">
-      <div class="stats-section-header" onClick={() => setCollapsed(!isCollapsed)}>
-        <span class="stats-section-chevron">{isCollapsed ? '\u25b8' : '\u25be'}</span>
-        <span class="stats-section-title" style="flex:1">{title}</span>
-        <span class={`stats-status ${statusCls}`}>{statusText}</span>
-      </div>
-      {!isCollapsed && (
-        <div class="stats-section-body">
-          {isError && <div class="stats-error">{status.error}</div>}
-          {children}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function healthColor(score) {
-  if (score >= 90) return 'var(--success)';
-  if (score >= 75) return 'var(--accent)';
-  if (score >= 50) return 'var(--warning)';
-  return 'var(--danger)';
-}
-
-function formatValue(v) {
-  if (v === null) return 'null';
-  if (v === '') return '""';
-  if (typeof v === 'object') return JSON.stringify(v);
-  return String(v);
-}
-
-function isSpecialValue(v) {
-  return v === null || v === '' || v === true || v === false || typeof v === 'undefined';
-}
-
-function FormattedValue({ value }) {
-  if (value === null) return <span class="stats-dist-special">null</span>;
-  if (value === '') return <span class="stats-dist-special">""</span>;
-  if (value === true) return <span class="stats-dist-special">true</span>;
-  if (value === false) return <span class="stats-dist-special">false</span>;
-  if (typeof value === 'object') return <span class="stats-dist-object">{JSON.stringify(value)}</span>;
-  return String(value);
-}
-
-function formatDate(d) {
-  if (!d) return '\u2014';
-  const s = typeof d === 'string' ? d : d.$date || String(d);
-  try { return new Date(s).toISOString().split('T')[0]; } catch { return String(s); }
-}
-
-function formatBytes(n) {
-  if (n == null) return '\u2014';
-  if (n < 1024) return `${Math.round(n)} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KiB`;
-  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MiB`;
-  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GiB`;
-}
-
-// ── Visual helpers ──────────────────────────────
-
-function toTimestamp(d) {
-  if (!d) return null;
-  const s = typeof d === 'string' ? d : d.$date || String(d);
-  try { return new Date(s).getTime(); } catch { return null; }
-}
-
-function DateTimeline({ ranges }) {
-  const timestamps = ranges.flatMap((d) => [toTimestamp(d.earliest), toTimestamp(d.latest)]).filter(Boolean);
-  if (timestamps.length < 2) return null;
-  const globalMin = Math.min(...timestamps);
-  const globalMax = Math.max(...timestamps);
-  const span = globalMax - globalMin || 1;
-  return (
-    <div class="stats-timeline">
-      {ranges.map((d) => {
-        const start = toTimestamp(d.earliest);
-        const end = toTimestamp(d.latest);
-        if (start == null || end == null) return null;
-        const left = ((start - globalMin) / span) * 100;
-        const width = Math.max(((end - start) / span) * 100, 1);
-        return (
-          <div class="stats-timeline-row">
-            <span class="stats-timeline-label">{d.field.split('.').pop()}</span>
-            <div class="stats-timeline-track">
-              <div class="stats-timeline-bar" style={{ left: `${left}%`, width: `${width}%` }} />
-            </div>
-            <span class="stats-timeline-dates">{formatDate(d.earliest)} {'\u2014'} {formatDate(d.latest)}</span>
-          </div>
-        );
-      })}
-      <div class="stats-timeline-axis">
-        <span>{formatDate(new Date(globalMin).toISOString())}</span>
-        <span>{formatDate(new Date(globalMax).toISOString())}</span>
-      </div>
-    </div>
-  );
-}
-
-// ── Component ───────────────────────────────────
+import StatsSummary from './StatsSummary.jsx';
+import StatsSchema from './StatsSchema.jsx';
+import StatsFieldGrid from './StatsFieldGrid.jsx';
 
 export default function StatsPanel() {
-  const [overview, setOverview] = useState(null);
-  const [coverage, setCoverage] = useState(null);
-  const [empties, setEmpties] = useState(null);
-  const [types, setTypes] = useState(null);
-  const [distribution, setDistribution] = useState(null);
-  const [cardinality, setCardinality] = useState(null);
-  const [stringAnalysis, setStringAnalysis] = useState(null);
-  const [numericStats, setNumericStats] = useState(null);
-  const [dateRanges, setDateRanges] = useState(null);
-  const [schemaShapes, setSchemaShapes] = useState(null);
-  const [sentinels, setSentinels] = useState(null);
-  const [storage, setStorage] = useState(null);
-  const [docSize, setDocSize] = useState(null);
+  const [overview, setOverview] = useState(null);   // { total, fieldCount }
+  const [raw, setRaw] = useState({});                // { [check]: apiResponse }
   const [fields, setFields] = useState([]);
   const [statuses, setStatuses] = useState({});
   const [discovering, setDiscovering] = useState(false);
+  const [fieldsTotal, setFieldsTotal] = useState(0); // uncapped discovered field count
+  const [indexes, setIndexes] = useState(null); // regular index list (cache-first)
   const runIdRef = useRef(0);
 
-  const SECTION_ORDER = ['overview', 'distribution', 'coverage', 'sentinels', 'schema', 'cardinality', 'strings', 'numeric', 'dates'];
-
-  function setStatus(key, value) {
-    setStatuses((prev) => ({ ...prev, [key]: value }));
-  }
+  function setStatus(key, value) { setStatuses((prev) => ({ ...prev, [key]: value })); }
 
   useEffect(() => {
     const collection = selectedCollection.value;
     if (!collection || activePanel.value !== 'stats') return;
-
     const runId = ++runIdRef.current;
-    setOverview(null);
-    setCoverage(null);
-    setEmpties(null);
-    setTypes(null);
-    setDistribution(null);
-    setCardinality(null);
-    setStringAnalysis(null);
-    setNumericStats(null);
-    setDateRanges(null);
-    setSchemaShapes(null);
-    setSentinels(null);
-    setStorage(null);
-    setDocSize(null);
-    setFields([]);
-    setStatuses({});
-    setDiscovering(true);
+    setOverview(null); setRaw({}); setFields([]); setStatuses({}); setDiscovering(true); setFieldsTotal(0); setIndexes(null);
 
     (async () => {
-      // Phase 1: discover fields (use cache from preload if available)
+      // Phase 1: discover fields (cache from preload if available)
       let discoveredFields;
       try {
         error.value = null;
         const cached = cache.get(collection, 'statsFields');
         if (cached) {
           discoveredFields = cached;
+          setFieldsTotal(cache.get(collection, 'statsFieldsTotal') ?? cached.length);
         } else {
-          const sample = await api.aggregate(collection, [
-            { $sample: { size: FIELD_DISCOVERY_SIZE } },
-          ]);
+          const sample = await api.aggregate(collection, [{ $sample: { size: FIELD_DISCOVERY_SIZE } }]);
           if (runId !== runIdRef.current) return;
-          discoveredFields = discoverFields(sample.result || []);
+          const discovered = discoverFieldsWithTotal(sample.result || []);
+          discoveredFields = discovered.fields;
           cache.set(collection, 'statsFields', discoveredFields);
+          cache.set(collection, 'statsFieldsTotal', discovered.total);
+          setFieldsTotal(discovered.total);
         }
         setFields(discoveredFields);
         setDiscovering(false);
@@ -207,19 +62,29 @@ export default function StatsPanel() {
         setDiscovering(false);
         return;
       }
+      if (discoveredFields.length === 0) return;
 
-      if (discoveredFields.length === 0) {
-        return;
-      }
+      // Regular indexes (cache-first; prefetch usually populates them) to mark
+      // which fields are the leading key of an index. Best-effort, non-blocking.
+      (async () => {
+        try {
+          let idx = cache.get(collection, 'indexes');
+          if (idx == null) {
+            const res = await api.listIndexes(collection, false);
+            idx = res.result || [];
+            cache.set(collection, 'indexes', idx);
+          }
+          if (runId === runIdRef.current) setIndexes(idx);
+        } catch { /* no index markers on failure */ }
+      })();
 
-      // Phase 1.5: get exact count (use totalCount cache from prefetch)
+      // Phase 1.5: exact count
       setStatus('overview', 'loading');
       let totalDocs = 0;
       try {
         const cachedCount = cache.get(collection, 'totalCount');
-        if (cachedCount !== null) {
-          totalDocs = cachedCount;
-        } else {
+        if (cachedCount !== null) totalDocs = cachedCount;
+        else {
           const countRes = await api.aggregate(collection, buildOverviewPipeline());
           if (runId !== runIdRef.current) return;
           totalDocs = countRes.result?.[0]?.count ?? 0;
@@ -232,127 +97,60 @@ export default function StatsPanel() {
         setStatus('overview', { error: err.message });
       }
 
-
-      // Phase 2: run all analyses in parallel.
-      // Each check publishes its slice of the UI as soon as its result lands —
-      // sections render progressively rather than waiting for the slowest check.
-      // The 5 health-score checks route their result through transformStatsResults
-      // (single-key call) so the panel and the tab-bar dot share one transform.
+      // Phase 2: run all checks in parallel; publish each raw response as it lands.
       const pipelines = buildAllPipelines(discoveredFields);
-
-      const resultHandlers = {
-        coverage: (res) => setCoverage(transformStatsResults({ coverage: res }, discoveredFields).coverage),
-        empties: (res) => setEmpties(transformStatsResults({ empties: res }, discoveredFields).empties),
-        types: (res) => setTypes(transformStatsResults({ types: res }, discoveredFields).types),
-        strings: (res) => setStringAnalysis(transformStatsResults({ strings: res }, discoveredFields).strings),
-        schema: (res) => setSchemaShapes(transformStatsResults({ schema: res }, discoveredFields).schemaShapes),
-        sentinels: (res) => setSentinels(transformStatsResults({ sentinels: res }, discoveredFields).sentinels),
-        cardinality: (res) => {
-          const r = res.result?.[0] || {};
-          setCardinality(discoveredFields.map((f) => ({
-            field: f,
-            distinct: r[encKey(f)]?.[0]?.distinct ?? 0,
-          })));
-        },
-        distribution: (res) => {
-          const r = res.result?.[0] || {};
-          setDistribution(discoveredFields.map((f) => ({
-            field: f,
-            values: (r[encKey(f)] || []).map((v) => ({ value: v._id, count: v.count })),
-          })));
-        },
-        numeric: (res) => {
-          const r = res.result?.[0] || {};
-          setNumericStats(discoveredFields.map((f) => {
-            const s = r[encKey(f)]?.[0];
-            if (!s) return null;
-            return { field: f, count: s.count, min: s.min, max: s.max, avg: s.avg };
-          }).filter(Boolean));
-        },
-        dates: (res) => {
-          const r = res.result?.[0] || {};
-          setDateRanges(discoveredFields.map((f) => {
-            const s = r[encKey(f)]?.[0];
-            if (!s) return null;
-            return { field: f, count: s.count, earliest: s.earliest, latest: s.latest };
-          }).filter(Boolean));
-        },
-        storage: (res) => {
-          const s = res.result?.[0]?.storageStats;
-          if (!s) { setStorage(null); return; }
-          setStorage({
-            size: s.size,
-            storageSize: s.storageSize,
-            freeStorageSize: s.freeStorageSize,
-            avgObjSize: s.avgObjSize,
-            count: s.count,
-          });
-        },
-        docSize: (res) => {
-          const r = res.result?.[0];
-          if (!r) { setDocSize(null); return; }
-          setDocSize({
-            count: r.count,
-            avg: r.avgSize,
-            min: r.minSize,
-            max: r.maxSize,
-            total: r.totalSize,
-          });
-        },
-      };
-
       for (const key of STATS_CHECKS) setStatus(key, 'loading');
-
-      await Promise.allSettled(
-        STATS_CHECKS.map(async (key) => {
-          const cacheKey = `stats_${key}`;
-          try {
-            let res = cache.get(collection, cacheKey);
-            if (!res) {
-              res = await api.aggregate(collection, pipelines[key]);
-              if (runId !== runIdRef.current) return;
-              cache.set(collection, cacheKey, res);
-            }
-            resultHandlers[key](res);
-            setStatus(key, 'done');
-          } catch (err) {
+      await Promise.allSettled(STATS_CHECKS.map(async (key) => {
+        const cacheKey = `stats_${key}`;
+        try {
+          let res = cache.get(collection, cacheKey);
+          if (!res) {
+            res = await api.aggregate(collection, pipelines[key]);
             if (runId !== runIdRef.current) return;
-            setStatus(key, { error: err.message });
+            cache.set(collection, cacheKey, res);
           }
-        }),
-      );
-
+          setRaw((prev) => ({ ...prev, [key]: res }));
+          setStatus(key, 'done');
+        } catch (err) {
+          if (runId !== runIdRef.current) return;
+          setStatus(key, { error: err.message });
+        }
+      }));
       if (runId !== runIdRef.current) return;
-
-      // Publish the summary signal once all 9 checks have settled.
-      // updateStatsSummary reads the populated cache, so any check that
-      // errored will be missing — it bails to null in that case (no false alarm).
-      updateStatsSummary(collection);
-
+      updateStatsSummary(collection); // unchanged tab-bar dot path
     })();
   }, [selectedCollection.value, activePanel.value]);
 
-  // Sections render top-to-bottom: a section only appears once all above it have resolved.
-  const resolved = (key) => statuses[key] === 'done' || (statuses[key] && statuses[key].error);
-  const canShow = (key) => {
-    for (const k of SECTION_ORDER) {
-      if (k === key) return true;
-      // coverage+empties+types are a merged section; all must resolve
-      if (k === 'coverage' && !resolved('coverage')) return false;
-      if (k === 'coverage' && !resolved('empties')) return false;
-      if (k === 'coverage' && !resolved('types')) return false;
-      if (k !== 'coverage' && !resolved(k)) return false;
-    }
-    return true;
-  };
-
-  const allKeys = [...SECTION_ORDER, 'empties', 'types', 'storage', 'docSize'];
-  const doneCount = allKeys.filter((k) => resolved(k)).length;
+  const allKeys = [...STATS_CHECKS, 'overview'];
+  const resolved = (k) => statuses[k] === 'done' || (statuses[k] && statuses[k].error);
+  const doneCount = allKeys.filter(resolved).length;
   const totalChecks = allKeys.length;
   const allDone = doneCount === totalChecks && !discovering;
   const running = fields.length > 0 && !allDone;
 
   if (!selectedCollection.value) return null;
+
+  // ── derive view models from raw responses (cheap; <= 50 fields) ──
+  const t = transformStatsResults(
+    { coverage: raw.coverage, empties: raw.empties, types: raw.types, strings: raw.strings, schema: raw.schema, sentinels: raw.sentinels },
+    fields,
+  );
+  const typeSummary = raw.types ? fieldTypeSummary(raw.types, fields) : {};
+  const cardinality = raw.cardinality ? transformCardinality(raw.cardinality, fields) : null;
+  const distribution = raw.distribution ? transformDistribution(raw.distribution, fields) : null;
+  const numeric = raw.numeric ? transformNumeric(raw.numeric, fields) : null;
+  const dates = raw.dates ? transformDates(raw.dates, fields) : null;
+  const storage = raw.storage ? transformStorage(raw.storage) : null;
+  const docSize = raw.docSize ? transformDocSize(raw.docSize) : null;
+
+  const profiles = buildFieldProfiles({
+    fields, total: overview?.total || 0,
+    coverage: t.coverage, empties: t.empties, typeSummary,
+    cardinality, distribution, strings: t.strings, numeric, dates, sentinels: t.sentinels,
+  });
+  const health = computeHealthScore(t.coverage, t.empties, t.types, t.strings, t.schemaShapes, fields, t.sentinels);
+  const components = t.coverage ? healthComponents(t.coverage, t.empties, t.types, t.strings, t.schemaShapes, fields, t.sentinels) : null;
+  const idxMap = indexPrefixMap(indexes || []);
 
   return (
     <div class="panel stats-panel">
@@ -364,18 +162,12 @@ export default function StatsPanel() {
             {discovering ? 'Discovering fields' : `${doneCount} / ${totalChecks} checks`}
           </span>
         )}
-        <button
-          class="icon-btn"
-          title="Re-run analysis"
-          onClick={() => {
-            cache.invalidateData(selectedCollection.value);
-            statsSummary.value = null;
-            activePanel.value = '';
-            setTimeout(() => { activePanel.value = 'stats'; }, 0);
-          }}
-        >
-          {'\u21bb'}
-        </button>
+        <button class="icon-btn" title="Re-run analysis" onClick={() => {
+          cache.invalidateData(selectedCollection.value);
+          statsSummary.value = null;
+          activePanel.value = '';
+          setTimeout(() => { activePanel.value = 'stats'; }, 0);
+        }}>{'↻'}</button>
       </div>
 
       {running && (
@@ -384,414 +176,28 @@ export default function StatsPanel() {
         </div>
       )}
 
-      <div class="stats-scroll">
-        {discovering && (
-          <div class="stats-empty">Discovering fields{'\u2026'}</div>
+      <div class="stats-scroll" style="display:flex;flex-direction:column;gap:16px">
+        {discovering && <div class="stats-empty">Discovering fields{'…'}</div>}
+        {fields.length === 0 && !discovering && <div class="stats-empty">No fields found in collection</div>}
+
+        {overview && (
+          <StatsSummary
+            health={health} components={components}
+            total={overview.total} fieldCount={overview.fieldCount} fieldsTotal={fieldsTotal}
+            storage={storage} docSize={docSize}
+          />
         )}
-        {fields.length === 0 && !discovering && (
-          <div class="stats-empty">No fields found in collection</div>
+        {overview && t.schemaShapes && t.schemaShapes.length > 0 && (
+          <StatsSchema schemaShapes={t.schemaShapes} />
         )}
-
-        {/* Overview + Health */}
-        {overview && (() => {
-          const health = computeHealthScore(coverage, empties, types, stringAnalysis, schemaShapes, fields, sentinels);
-          return (
-            <Section title="Overview" status={statuses.overview}>
-              <div class="stats-note">
-                All statistics are computed from the full collection. The health score combines field completeness, type consistency, whitespace cleanliness, schema consistency, and value completeness into a single 0–100 rating.
-              </div>
-              {overview.total > LARGE_COLLECTION_WARN && (
-                <div class="stats-warn">
-                  This collection has {overview.total.toLocaleString()} documents. Some checks may be slow or time out.
-                </div>
-              )}
-              <div class="stats-overview-grid">
-                {(() => {
-                  const tone = health !== null ? healthColor(health) : 'var(--text-secondary)';
-                  const cardStyle = health !== null
-                    ? {
-                        borderColor: `color-mix(in srgb, ${tone} 60%, transparent)`,
-                        borderWidth: '2px',
-                        background: `color-mix(in srgb, ${tone} 12%, var(--bg-base))`,
-                      }
-                    : { borderColor: 'var(--border)' };
-                  return (
-                    <div class="stats-overview-card" style={cardStyle} title={health !== null ? healthLabel(health) : `calculating${'\u2026'}`}>
-                      <div class="stats-metric-value" style={{ color: tone }}>
-                        {health !== null ? health : '?'}
-                      </div>
-                      <div class="stats-metric-label" style={health !== null ? { color: tone, fontWeight: 600 } : null}>Health</div>
-                    </div>
-                  );
-                })()}
-                <div class="stats-overview-card">
-                  <div class="stats-metric-value">{overview.total.toLocaleString()}</div>
-                  <div class="stats-metric-label">Documents</div>
-                </div>
-                <div class="stats-overview-card">
-                  <div class="stats-metric-value">{overview.fieldCount}</div>
-                  <div class="stats-metric-label">Fields</div>
-                </div>
-                {storage && (
-                  <div class="stats-overview-card" title={`Logical: ${formatBytes(storage.size)} \u00b7 Free: ${formatBytes(storage.freeStorageSize)}`}>
-                    <div class="stats-metric-value">{formatBytes(storage.storageSize)}</div>
-                    <div class="stats-metric-label">On disk</div>
-                  </div>
-                )}
-                {docSize && (
-                  <div class="stats-overview-card" title={`Min: ${formatBytes(docSize.min)} \u00b7 Max: ${formatBytes(docSize.max)} \u00b7 Total BSON: ${formatBytes(docSize.total)}`}>
-                    <div class="stats-metric-value">{formatBytes(docSize.avg)}</div>
-                    <div class="stats-metric-label">Avg doc</div>
-                  </div>
-                )}
-              </div>
-            </Section>
-          );
-        })()}
-
-        {/* Value Distribution */}
-        {distribution && canShow('distribution') && (
-          <Section title={`Value Distribution (top ${TOP_VALUES})`} status={statuses.distribution}>
-            <div class="stats-note">The most frequently occurring values for each field, with their count. Useful for spotting placeholder data (e.g., "N/A", "TBD"), unexpected duplicates, or fields dominated by a single value.</div>
-            <div class="stats-dist-grid">
-              {distribution.map((d) => (
-                <div class="stats-dist-card">
-                  <div class="stats-dist-field"><FieldName path={d.field} /></div>
-                  {d.values.length === 0 ? (
-                    <div class="stats-dist-empty">no values</div>
-                  ) : (
-                    (() => {
-                      const maxCount = d.values[0]?.count || 1;
-                      return d.values.map((v) => (
-                        <div class={`stats-dist-row${isSpecialValue(v.value) ? ' stats-dist-row-special' : ''}`}>
-                          <div class="stats-dist-bar" style={{ width: `${Math.round((v.count / maxCount) * 100)}%` }} />
-                          <span class="stats-dist-value" title={formatValue(v.value)}>
-                            <FormattedValue value={v.value} />
-                          </span>
-                          <span class="stats-dist-count">{v.count.toLocaleString()}</span>
-                        </div>
-                      ));
-                    })()
-                  )}
-                </div>
-              ))}
-            </div>
-          </Section>
-        )}
-
-        {/* ── Data Quality ─────────────────────────── */}
-
-        {/* Field Quality (merged: coverage + empties + types) */}
-        {coverage && canShow('coverage') && (
-          <Section title="Field Quality" status={
-            (statuses.coverage?.error || statuses.empties?.error || statuses.types?.error)
-              ? { error: statuses.coverage?.error || statuses.empties?.error || statuses.types?.error }
-              : (statuses.coverage === 'done' && statuses.empties === 'done' && statuses.types === 'done') ? 'done' : 'loading'
-          }>
-            <div class="stats-note">
-              The "%" column shows what share of documents have a real value for each field (not null, not missing, not empty).
-              When a field is below 100%, the Null, Missing, and Empty columns break down the reason.
-              The "Types" column flags fields where the data type varies across documents (e.g., sometimes text, sometimes a number) — this can cause matching failures.
-              Colored cells indicate problems.
-            </div>
-            <table class="stats-table">
-              <thead>
-                <tr>
-                  <th>Field</th>
-                  <th>%</th>
-                  <th>Null</th>
-                  <th>Missing</th>
-                  <th>Empty</th>
-                  <th>Types</th>
-                </tr>
-              </thead>
-              <tbody>
-                {coverage.map((c) => {
-                  const e = empties?.find((x) => x.field === c.field);
-                  const t = types?.find((x) => x.field === c.field);
-                  return (
-                    <tr>
-                      <td><FieldName path={c.field} /></td>
-                      <td class="stats-mono stats-coverage-cell">
-                        <div class="stats-coverage-bar" style={{ width: `${c.pct}%` }} />
-                        <span class="stats-coverage-text">{c.pct}%</span>
-                      </td>
-                      <td class="stats-mono">{e && e.nullCount > 0 ? e.nullCount.toLocaleString() : '\u2014'}</td>
-                      <td class="stats-mono">{e && e.missingCount > 0 ? e.missingCount.toLocaleString() : '\u2014'}</td>
-                      <td class="stats-mono">{e && e.emptyCount > 0 ? e.emptyCount.toLocaleString() : '\u2014'}</td>
-                      <td>
-                        {t ? (
-                          <span class="stats-type-tags-inline">
-                            {t.types.map((entry) => (
-                              <span class="stats-type-tag stats-type-tag-warn">
-                                {entry._id}
-                                <span class="stats-type-tag-count">{entry.count.toLocaleString()}</span>
-                              </span>
-                            ))}
-                          </span>
-                        ) : '\u2014'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </Section>
-        )}
-
-        {/* Suspicious Values (sentinel placeholder strings) */}
-        {sentinels && canShow('sentinels') && (
-          <Section title="Suspicious Values" status={statuses.sentinels}>
-            <div class="stats-note">
-              Fields containing placeholder text that masquerades as data {'—'} values
-              like "null", "N/A", or "-" (matched case-insensitively, whitespace-trimmed).
-              These pass the coverage check because they are real strings, but they usually
-              mean the value is actually missing.
-            </div>
-            {sentinels.length === 0 ? (
-              <div class="stats-ok">No suspicious placeholder strings found</div>
-            ) : (
-              <div class="stats-sentinel-list">
-                {sentinels.map((s) => (
-                  <div class="stats-sentinel-row">
-                    <span class="stats-sentinel-field"><FieldName path={s.field} /></span>
-                    <span class="stats-sentinel-tokens">
-                      {s.values.map((v) => (
-                        <span class="stats-sentinel-token">
-                          <span class="stats-dist-special">{v.value}</span>
-                          <span class="stats-sentinel-count">{'×'}{v.count.toLocaleString()}</span>
-                        </span>
-                      ))}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Section>
-        )}
-
-        {/* Schema Consistency */}
-        {schemaShapes && canShow('schema') && (() => {
-          const baseline = schemaShapes[0]?.sampleFields || [];
-          const baselineSet = new Set(baseline);
-          return (
-            <Section title="Schema Consistency" status={statuses.schema}>
-              <div class="stats-note">
-                Distribution of field counts per document. If all documents have the same number of fields, the schema is consistent.
-                Multiple groups indicate documents with different shapes — likely from merged imports or optional fields.
-                {schemaShapes.length > 1 && ' Extra/missing fields are compared against the most common shape.'}
-              </div>
-              {schemaShapes.length <= 1 ? (
-                <div class="stats-ok">All documents have the same structure ({schemaShapes[0]?.fieldCount} fields)</div>
-              ) : (
-                <table class="stats-table">
-                  <thead>
-                    <tr>
-                      <th>Fields</th>
-                      <th>Documents</th>
-                      <th>Difference</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {schemaShapes.map((s, i) => {
-                      const fields = s.sampleFields || [];
-                      const fieldsSet = new Set(fields);
-                      const extra = i === 0 ? [] : fields.filter((f) => !baselineSet.has(f));
-                      const missing = i === 0 ? [] : baseline.filter((f) => !fieldsSet.has(f));
-                      return (
-                        <tr>
-                          <td class="stats-mono">{s.fieldCount}</td>
-                          <td class="stats-mono">{s.docCount.toLocaleString()}</td>
-                          <td>
-                            {i === 0 ? (
-                              <span class="stats-schema-baseline">most common</span>
-                            ) : (
-                              <span class="stats-schema-diff">
-                                {extra.length > 0 && (
-                                  <span class="stats-schema-extra">
-                                    {'+\u2009'}{extra.join(', ')}
-                                  </span>
-                                )}
-                                {missing.length > 0 && (
-                                  <span class="stats-schema-missing">
-                                    {'\u2212\u2009'}{missing.join(', ')}
-                                  </span>
-                                )}
-                                {extra.length === 0 && missing.length === 0 && '\u2014'}
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </Section>
-          );
-        })()}
-
-        {/* ── Field Profiling ────────────────────────── */}
-
-        {/* Distinct Values */}
-        {cardinality && canShow('cardinality') && (() => {
-          const total = overview?.total || 0;
-          const sorted = [...cardinality].sort((a, b) => {
-            const pa = total > 0 ? a.distinct / total : 0;
-            const pb = total > 0 ? b.distinct / total : 0;
-            return pb - pa;
-          });
-          return (
-            <Section title="Field Diversity" status={statuses.cardinality}>
-              <div class="stats-note">
-                How many different values each field has out of {total.toLocaleString()} documents. Fields sorted from most diverse (likely IDs) to least (likely categories).
-              </div>
-              <table class="stats-table">
-                <thead>
-                  <tr>
-                    <th>Field</th>
-                    <th style="min-width:120px">Diversity</th>
-                    <th>Distinct</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sorted.map((c) => {
-                    const pct = total > 0 ? Math.round((c.distinct / total) * 100) : 0;
-                    const pctLabel = pct === 0 && c.distinct > 0 ? '<1' : String(pct);
-                    return (
-                      <tr>
-                        <td><FieldName path={c.field} /></td>
-                        <td class="stats-mono stats-coverage-cell">
-                          <div class="stats-coverage-bar" style={{ width: `${pct}%` }} />
-                          <span class="stats-coverage-text">{pctLabel}%</span>
-                        </td>
-                        <td class="stats-mono stats-subtle">{c.distinct.toLocaleString()}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </Section>
-          );
-        })()}
-
-        {/* String Analysis (merged: whitespace + string length) */}
-        {stringAnalysis && canShow('strings') && (
-          <Section title="String Analysis" status={statuses.strings}>
-            <div class="stats-note">
-              Character length and whitespace analysis for text fields. "Count" is the number of string values for that field.
-              If Min and Max length are the same, the data may be padded or truncated. Leading/trailing whitespace (ws) causes invisible matching failures — values look identical but the hidden spaces make them different.
-            </div>
-            {stringAnalysis.length === 0 ? (
-              <div class="stats-ok">No string fields found in this collection</div>
-            ) : (
-              <table class="stats-table">
-                <thead>
-                  <tr>
-                    <th>Field</th>
-                    <th>Count</th>
-                    <th>Min len</th>
-                    <th>Max len</th>
-                    <th>Avg len</th>
-                    <th>Leading ws</th>
-                    <th>Trailing ws</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stringAnalysis.map((s) => (
-                      <tr>
-                        <td><FieldName path={s.field} /></td>
-                        <td class="stats-mono">{s.count.toLocaleString()}</td>
-                        <td class="stats-mono">{s.minLen}</td>
-                        <td class="stats-mono">{s.maxLen}</td>
-                        <td class="stats-mono">{s.avgLen}</td>
-                        <td class="stats-mono">{s.leading > 0 ? s.leading.toLocaleString() : '\u2014'}</td>
-                        <td class="stats-mono">{s.trailing > 0 ? s.trailing.toLocaleString() : '\u2014'}</td>
-                      </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </Section>
-        )}
-
-        {/* Numeric Stats */}
-        {numericStats && canShow('numeric') && (
-          <Section title="Numeric Stats" status={statuses.numeric}>
-            <div class="stats-note">
-              Range and average for numeric fields. "Count" is the number of documents with a numeric value for that field.
-              A very large gap between Min and Max may indicate data entry errors or placeholder values like 0 or 999999.
-            </div>
-            {numericStats.length === 0 ? (
-              <div class="stats-ok">No numeric fields found in this collection</div>
-            ) : (
-              <table class="stats-table">
-                <thead>
-                  <tr>
-                    <th>Field</th>
-                    <th>Count</th>
-                    <th>Min</th>
-                    <th>Max</th>
-                    <th>Avg</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {numericStats.map((n) => (
-                    <tr>
-                      <td><FieldName path={n.field} /></td>
-                      <td class="stats-mono">{n.count.toLocaleString()}</td>
-                      <td class="stats-mono">{n.min.toLocaleString()}</td>
-                      <td class="stats-mono">{n.max.toLocaleString()}</td>
-                      <td class="stats-mono">{Math.round(n.avg).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </Section>
-        )}
-
-        {/* Date Ranges */}
-        {dateRanges && canShow('dates') && (
-          <Section title="Date Ranges" status={statuses.dates}>
-            <div class="stats-note">
-              The date range for each field that contains dates. "Count" is the number of documents with a date value for that field.
-              Dates far in the past (e.g., 1970-01-01) or future (e.g., 2099-12-31) usually indicate default or placeholder values.
-            </div>
-            {dateRanges.length === 0 ? (
-              <div class="stats-ok">No date fields found in this collection</div>
-            ) : (
-              <Fragment>
-                <table class="stats-table">
-                  <thead>
-                    <tr>
-                      <th>Field</th>
-                      <th>Count</th>
-                      <th>Earliest</th>
-                      <th>Latest</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dateRanges.map((d) => (
-                      <tr>
-                        <td><FieldName path={d.field} /></td>
-                        <td class="stats-mono">{d.count.toLocaleString()}</td>
-                        <td class="stats-mono">{formatDate(d.earliest)}</td>
-                        <td class="stats-mono">{formatDate(d.latest)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {dateRanges.length > 1 && <DateTimeline ranges={dateRanges} />}
-              </Fragment>
-            )}
-          </Section>
+        {fields.length > 0 && (
+          <StatsFieldGrid profiles={profiles} indexMap={idxMap} />
         )}
 
         {running && (
           <div class="stats-loading-bottom">
             <span class="stats-progress-spinner" />
-            {`Loading\u2026 ${doneCount} / ${totalChecks} checks complete`}
+            {`Loading… ${doneCount} / ${totalChecks} checks complete`}
           </div>
         )}
       </div>
