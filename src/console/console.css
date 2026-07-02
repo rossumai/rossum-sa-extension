@@ -3734,29 +3734,24 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .nl-search-input:disabled { opacity: 0.6; cursor: default; }
 .nl-search-input::placeholder { color: var(--text-secondary); }
 .nl-search-input.loading {
-  border: 1.5px solid transparent;
-  padding: 3.5px 7.5px;
-  /* A soft rainbow wash sweeps across the solid input base, inside the spinning
-     conic-gradient border. Layers (top→bottom): faint moving tint, solid base, border. */
-  background:
-    linear-gradient(90deg, rgba(139,92,246,0.16), rgba(236,72,153,0.11), rgba(249,115,22,0.09), rgba(59,130,246,0.11), rgba(34,211,238,0.16), rgba(139,92,246,0.16)) padding-box,
-    linear-gradient(var(--bg-input), var(--bg-input)) padding-box,
-    conic-gradient(from var(--ai-angle), #8b5cf6, #ec4899, #f97316, #f59e0b, #3b82f6, #22d3ee, #8b5cf6) border-box;
-  background-size: 220% 100%, auto, auto;
-  background-position: var(--ai-bg-pos) 0, 0 0, 0 0;
+  /* Slim pastel conic border spinning at half the old speed, with a breathing glow. */
+  border: 1px solid transparent;
   color: transparent;
-  animation: ai-border-spin 1.8s linear infinite, ai-glow-pulse 1.8s ease-in-out infinite, ai-bg-sweep 3s linear infinite;
+  background:
+    linear-gradient(var(--bg-input), var(--bg-input)) padding-box,
+    conic-gradient(from var(--ai-angle), #a78bfa, #f0abfc, #fda4af, #fcd34d, #93c5fd, #67e8f9, #a78bfa) border-box;
+  animation: ai-border-spin 3.2s linear infinite, ai-breathe 3.2s ease-in-out infinite;
 }
+.nl-search-input.loading:disabled { opacity: 1; } /* the border animation carries the disabled look */
 .nl-search-input.loading::placeholder { color: transparent; }
 @property --ai-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
-@property --ai-bg-pos { syntax: '<percentage>'; initial-value: 0%; inherits: false; }
 @keyframes ai-border-spin { to { --ai-angle: 360deg; } }
-@keyframes ai-bg-sweep { to { --ai-bg-pos: 220%; } }
-@keyframes ai-glow-pulse {
-  0%, 100% { box-shadow: 0 0 10px -5px rgba(139, 92, 246, 0.45); }
-  50%      { box-shadow: 0 0 22px -3px rgba(236, 72, 153, 0.60); }
+@keyframes ai-breathe {
+  0%, 100% { box-shadow: 0 0 8px -5px rgba(167, 139, 250, 0.50); }
+  50%      { box-shadow: 0 0 16px -4px rgba(240, 171, 252, 0.55); }
 }
-/* Shimmering rainbow "gerund" loader overlaid on the input while a query runs. */
+/* Shimmering gradient "gerund" loader overlaid on the input while a query runs.
+   Two stacked spans crossfade on rotation (in rises up as out drifts away). */
 .nl-search-loading {
   position: absolute;
   inset: 0;
@@ -3764,33 +3759,92 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
   align-items: center;
   padding: 0 9.5px;
   font-size: 11px;
-  font-weight: 600;
-  font-style: italic;
-  letter-spacing: 0.01em;
   pointer-events: none;
-  background: linear-gradient(90deg, #8b5cf6, #ec4899, #f97316, #f59e0b, #3b82f6, #22d3ee, #8b5cf6);
-  background-size: 300% 100%;
+}
+.nl-gerund {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  background: linear-gradient(90deg, #8b5cf6, #ec4899, #3b82f6, #8b5cf6);
+  background-size: 280% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
-  animation: ai-text-shimmer 2s linear infinite;
+  animation: ai-text-shimmer 3.4s linear infinite;
 }
-@keyframes ai-text-shimmer { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+.nl-gerund-in { animation: ai-text-shimmer 3.4s linear infinite, ai-gerund-in 0.45s ease both; }
+.nl-gerund-out { position: absolute; left: 9.5px; animation: ai-text-shimmer 3.4s linear infinite, ai-gerund-out 0.45s ease both; }
+@keyframes ai-text-shimmer { 0% { background-position: 0% 50%; } 100% { background-position: 280% 50%; } }
+@keyframes ai-gerund-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@keyframes ai-gerund-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-5px); } }
 @media (prefers-reduced-motion: reduce) {
   .nl-search-input.loading { animation: none; }
-  .nl-search-loading { animation: none; -webkit-text-fill-color: var(--text-secondary); color: var(--text-secondary); }
+  .nl-gerund { animation: none; -webkit-text-fill-color: var(--text-secondary); color: var(--text-secondary); }
+  .nl-gerund-out { display: none; }
+  .agent-spark.loading { animation: none; }
 }
 
-/* Agent surface ("Mr. Fabry") — compact drop-in query builder: a single input, an
-   animated rainbow loader while a query is generated + verified, no chat transcript. */
+/* Agent surface ("Mr. Fabry") — compact drop-in query builder: a sparkle-marked input,
+   an animated pastel loader while a query is generated + verified, and a footer
+   lifecycle slot (hidden idle → phase tracker running → compact result line done). */
 .nl-search-wrapper { position: relative; }
 .agent-box { display: flex; flex-direction: column; gap: 3px; padding: 6px 0; }
 .agent-input-row { display: flex; gap: 8px; align-items: center; }
 .agent-input-row .nl-search-wrapper { flex: 1; }
-.agent-footer { display: flex; align-items: center; gap: 8px; }
-.agent-attribution { font-size: 10px; color: var(--text-secondary); opacity: .7; margin-left: auto; }
-.agent-transcript-link { font-size: 10px; color: var(--accent); background: none; border: none; padding: 0; cursor: pointer; text-decoration: underline; font-family: var(--font-sans); }
+/* The ✦ sparkle marks the input as AI even when idle; room for it on the left. */
+.agent-input-row .nl-search-input { padding-left: 24px; }
+.agent-input-row .nl-search-loading { padding-left: 24px; }
+.agent-input-row .nl-gerund-out { left: 24px; }
+.agent-spark {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 1;
+  background: linear-gradient(120deg, #8b5cf6, #ec4899);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  opacity: 0.75;
+  transition: opacity 0.2s;
+}
+.nl-search-wrapper:hover .agent-spark, .nl-search-wrapper:focus-within .agent-spark { opacity: 1; }
+.agent-spark.loading { opacity: 1; animation: ai-spark-twinkle 1.6s ease-in-out infinite; }
+@keyframes ai-spark-twinkle {
+  0%, 100% { transform: translateY(-50%) scale(1) rotate(0deg); opacity: 0.7; }
+  50%      { transform: translateY(-50%) scale(1.25) rotate(90deg); opacity: 1; }
+}
+/* Quiet gradient focus ring (agent row only — the modal's continue input stays plain). */
+.agent-input-row .nl-search-input:focus:not(.loading) {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--bg-input), var(--bg-input)) padding-box,
+    linear-gradient(120deg, rgba(139, 92, 246, 0.55), rgba(236, 72, 153, 0.45), rgba(59, 130, 246, 0.55)) border-box;
+  box-shadow: 0 0 12px -6px rgba(139, 92, 246, 0.5);
+}
+/* Footer lifecycle slot (only rendered while running or once a result exists). */
+.agent-footer { display: flex; align-items: center; gap: 8px; min-height: 15px; }
+.agent-phases { display: flex; align-items: center; gap: 7px; }
+.agent-phase {
+  display: flex; align-items: center; gap: 3px;
+  font-size: 9px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--text-secondary); opacity: 0.45;
+  transition: opacity 0.25s, color 0.25s;
+}
+.agent-phase i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.agent-phase.active { opacity: 1; color: #8b5cf6; }
+.agent-phase.done { opacity: 0.8; }
+.agent-result { display: flex; align-items: center; gap: 6px; font-size: 10.5px; color: var(--text-secondary); min-width: 0; flex: 1; }
+.agent-result-ok { color: var(--success); font-weight: 700; }
+.agent-result-err { color: var(--danger); font-weight: 700; }
+.agent-result-sum { color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.agent-result-meta { white-space: nowrap; opacity: 0.8; }
+.agent-result-msg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.agent-transcript-link { margin-left: auto; white-space: nowrap; font-size: 10px; color: var(--accent); background: none; border: none; padding: 0; cursor: pointer; text-decoration: underline; font-family: var(--font-sans); }
 .agent-transcript-link:hover { color: var(--accent-hover, var(--accent)); }
 /* Transcript modal (opened from "View transcript") */
 .modal-card:has(.agent-chat) { max-width: 720px; width: 92vw; }

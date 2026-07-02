@@ -163,6 +163,22 @@ describe('runAgentQuery', () => {
     expect(note.kind).toBe('unrun');
     expect(api.aggregate).not.toHaveBeenCalled();
   });
+
+  it('emits stable onPhase keys as the loop advances (generate → run → verify, refine only on a correction)', async () => {
+    // happy path: no refine key
+    let phases = [];
+    let agentApi = makeAgentApi(['[{"$match":{"a":1}}]']);
+    let api = makeApi([{ result: [{ a: 1 }] }]);
+    await runAgentQuery({ api, agentApi, request: 'x', collection: 'c', onPhase: (p) => phases.push(p) });
+    expect(phases).toEqual(['generate', 'run', 'verify']);
+
+    // empty first result: a correction turn emits 'refine', then re-runs + re-verifies
+    phases = [];
+    agentApi = makeAgentApi(['[{"$match":{"s":"open"}}]', '[{"$match":{"s":"Open"}}]']);
+    api = makeApi([{ result: [] }, { result: [{ s: 'Open' }] }]);
+    await runAgentQuery({ api, agentApi, request: 'x', collection: 'c', onPhase: (p) => phases.push(p) });
+    expect(phases).toEqual(['generate', 'run', 'refine', 'run', 'verify']);
+  });
 });
 
 describe('capRows', () => {

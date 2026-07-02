@@ -22,7 +22,7 @@ vi.mock('../src/mdh/agent/aiContext.js', () => ({
   getSchemaHints: vi.fn(async () => ({ fieldTypes: {}, numericStringFields: [], arrayPaths: [], knownValues: {}, topValues: {}, ranges: {}, searchIndexes: [] })),
 }));
 
-import AgentBox, { TranscriptModal } from '../src/mdh/components/AgentBox.jsx';
+import AgentBox, { TranscriptModal, outcomeFor } from '../src/mdh/components/AgentBox.jsx';
 import * as store from '../src/mdh/store.js';
 
 function waitFor(fn, { timeout = 1000, step = 10 } = {}) {
@@ -54,7 +54,7 @@ beforeEach(() => {
 afterEach(() => { render(null, root); root.remove(); });
 
 describe('AgentBox (drop-in)', () => {
-  it('applies the pipeline (no inline note), forwards the current editor pipeline, and offers a transcript modal', async () => {
+  it('applies the pipeline, forwards the current editor pipeline, and shows the result line + conversation modal', async () => {
     runAgentQuery.mockResolvedValue({
       pipelineText: '[{"$match":{"amount":{"$gt":10}}}]',
       note: { kind: 'verified', rowCount: 3 },
@@ -67,6 +67,9 @@ describe('AgentBox (drop-in)', () => {
     });
     const setValue = vi.fn();
     render(h(AgentBox, { editorRef: editorRef(setValue) }), root);
+    // idle: the footer lifecycle slot is not rendered at all (and no attribution line)
+    expect(root.querySelector('.agent-footer')).toBeNull();
+    expect(root.textContent).not.toMatch(/Powered by/);
     const input = root.querySelector('input');
     fireInput(input, 'amounts over 10');
     fireEnter(input);
@@ -79,15 +82,17 @@ describe('AgentBox (drop-in)', () => {
     expect(runAgentQuery).toHaveBeenCalledWith(expect.objectContaining({
       request: 'amounts over 10', collection: 'invoices', currentPipeline: '[{"$match":{"a":1}}]',
     }));
-    // no inline result note (the verdict text is not rendered in the box)
-    expect(root.textContent).not.toMatch(/3 rows/);
-    // transcript link opens the modal
-    await waitFor(() => root.querySelector('.agent-transcript-link'));
+    // done: the footer slot shows the compact result line (request + rows + verified)
+    await waitFor(() => root.querySelector('.agent-result'));
+    expect(root.querySelector('.agent-result-sum').textContent).toBe('amounts over 10');
+    expect(root.textContent).toMatch(/3 rows · verified/);
+    expect(root.querySelector('.agent-result-ok')).toBeTruthy();
+    // conversation link opens the modal
     root.querySelector('.agent-transcript-link').click();
     expect(openModal).toHaveBeenCalledWith('Mr. Fabry — conversation', expect.any(Function));
   });
 
-  it('does not touch the editor and surfaces a message when no pipeline is produced', async () => {
+  it('does not touch the editor and puts the message in the result slot when no pipeline is produced', async () => {
     runAgentQuery.mockResolvedValue({ pipelineText: null, note: { kind: 'no-pipeline' } });
     const setValue = vi.fn();
     render(h(AgentBox, { editorRef: editorRef(setValue) }), root);
@@ -95,11 +100,13 @@ describe('AgentBox (drop-in)', () => {
     fireInput(input, 'tell me a joke');
     fireEnter(input);
 
-    await waitFor(() => store.error.value && /Couldn.t build a query/.test(store.error.value.message));
+    await waitFor(() => root.querySelector('.agent-result-err'));
+    expect(root.textContent).toMatch(/Couldn.t build a query/);
+    expect(store.error.value).toBeNull(); // AI failures stay in the slot, not the global banner
     expect(setValue).not.toHaveBeenCalled();
   });
 
-  it('surfaces a read-only message and does not apply when a write is blocked', async () => {
+  it('shows a read-only message in the result slot and does not apply when a write is blocked', async () => {
     runAgentQuery.mockResolvedValue({ pipelineText: null, note: { kind: 'blocked' } });
     const setValue = vi.fn();
     render(h(AgentBox, { editorRef: editorRef(setValue) }), root);
@@ -107,11 +114,13 @@ describe('AgentBox (drop-in)', () => {
     fireInput(input, 'delete all rows');
     fireEnter(input);
 
-    await waitFor(() => store.error.value && /modify data|read-only/i.test(store.error.value.message));
+    await waitFor(() => root.querySelector('.agent-result-err'));
+    expect(root.textContent).toMatch(/modify data|read-only/i);
+    expect(store.error.value).toBeNull();
     expect(setValue).not.toHaveBeenCalled();
   });
 
-  it('shows the session-expired message on a 401', async () => {
+  it('keeps the session-expired message on the global banner on a 401', async () => {
     runAgentQuery.mockRejectedValue(Object.assign(new Error('Session expired. Reconnect.'), { status: 401 }));
     const setValue = vi.fn();
     render(h(AgentBox, { editorRef: editorRef(setValue) }), root);
@@ -120,20 +129,58 @@ describe('AgentBox (drop-in)', () => {
     fireEnter(input);
 
     await waitFor(() => store.error.value && /Session expired/.test(store.error.value.message));
+    expect(root.querySelector('.agent-result')).toBeNull(); // no result line for a session-wide failure
     expect(setValue).not.toHaveBeenCalled();
   });
 
-  it('shows the animated loader while a query is in flight', async () => {
+  it('shows the animated loader + live phase tracker while a query is in flight', async () => {
     let resolveRun;
-    runAgentQuery.mockImplementation(() => new Promise((r) => { resolveRun = r; }));
+    let emitPhase;
+    runAgentQuery.mockImplementation(({ onPhase }) => {
+      emitPhase = onPhase;
+      return new Promise((r) => { resolveRun = r; });
+    });
     render(h(AgentBox, { editorRef: editorRef(vi.fn()) }), root);
     const input = root.querySelector('input');
     fireInput(input, 'slow query');
     fireEnter(input);
 
-    await waitFor(() => root.querySelector('input.loading') && root.querySelector('.nl-search-loading'));
-    resolveRun({ pipelineText: '[]', note: { kind: 'declined' } });
+    await waitFor(() => root.querySelector('input.loading') && root.querySelector('.nl-gerund'));
+    // sparkle twinkles during the run
+    expect(root.querySelector('.agent-spark.loading')).toBeTruthy();
+    // phase tracker starts with the 3 base steps (no Refine until one happens)
+    await waitFor(() => root.querySelectorAll('.agent-phase').length === 3);
+    await waitFor(() => typeof emitPhase === 'function'); // schema hints resolve before the loop starts
+    emitPhase('generate');
+    await waitFor(() => root.querySelector('.agent-phase.active')?.textContent === 'Generate');
+    emitPhase('run');
+    await waitFor(() => root.querySelector('.agent-phase.active')?.textContent === 'Run');
+    // earlier steps read as done
+    expect(root.querySelectorAll('.agent-phase.done').length).toBe(1);
+    // a correction turn appends the honest 4th step
+    emitPhase('refine');
+    await waitFor(() => root.querySelectorAll('.agent-phase').length === 4);
+    expect(root.querySelector('.agent-phase.active')?.textContent).toBe('Refine');
+
+    resolveRun({ pipelineText: null, note: { kind: 'declined' } });
     await waitFor(() => !root.querySelector('input.loading'));
+    // tracker is replaced by the result line
+    expect(root.querySelector('.agent-phases')).toBeNull();
+    expect(root.querySelector('.agent-result')).toBeTruthy();
+  });
+});
+
+describe('outcomeFor (result-line mapping)', () => {
+  it('maps note kinds to the compact footer line', () => {
+    expect(outcomeFor('q', { kind: 'verified', rowCount: 3 })).toEqual({ ok: true, request: 'q', meta: '3 rows · verified' });
+    expect(outcomeFor('q', { kind: 'refined', rowCount: 1 })).toEqual({ ok: true, request: 'q', meta: '1 row · verified' });
+    expect(outcomeFor('q', { kind: 'empty' })).toEqual({ ok: true, request: 'q', meta: '0 matching rows' });
+    expect(outcomeFor('q', { kind: 'unrun' })).toEqual({ ok: true, request: 'q', meta: 'applied' });
+    expect(outcomeFor('q', { kind: 'error', error: 'boom' })).toEqual({ ok: true, request: 'q', meta: 'applied · run failed' });
+    expect(outcomeFor('q', { kind: 'blocked' }).ok).toBe(false);
+    expect(outcomeFor('q', { kind: 'blocked' }).message).toMatch(/modify data/);
+    expect(outcomeFor('q', { kind: 'no-pipeline' }).ok).toBe(false);
+    expect(outcomeFor('q', null).ok).toBe(false);
   });
 });
 

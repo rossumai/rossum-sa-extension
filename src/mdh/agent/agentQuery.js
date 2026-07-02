@@ -204,9 +204,11 @@ function refineReason(v) {
 
 // Core generate → verify (mechanical + semantic) → refine loop against an already
 // created + persona-primed chat. Appends turns to the shared `transcript` array.
+// `onPhase` receives a stable key ('generate'|'run'|'verify'|'refine') as the loop
+// advances — the AgentBox footer phase tracker renders from these.
 // Returns { pipelineText, note }. note.kind ∈ verified|refined|empty|error|unrun|no-pipeline|declined|blocked.
 async function runLoop({ api, agentApi, chatId, request, collection, fields, samples, currentPipeline, hints, transcript, onPhase, signal }) {
-  onPhase('Generating the query');
+  onPhase('generate');
   transcript.push({ role: 'user', text: request });
   const g0 = await generate(agentApi, chatId, buildGenPrompt({ request, collection, fields, samples, currentPipeline, ...hints }), signal);
   transcript.push({ role: 'assistant', text: g0.raw, reasoning: g0.reasoning });
@@ -221,14 +223,14 @@ async function runLoop({ api, agentApi, chatId, request, collection, fields, sam
     : { pipelineText, note: v.kind === 'empty' ? { kind: 'empty' } : { kind: 'error', error: v.error } });
 
   for (let attempt = 0; ; attempt++) {
-    onPhase('Running the query');
+    onPhase('run');
     const mech = await verify(api, collection, arr, signal);
     transcript.push({ role: 'system', text: verdictLabel(mech) });
     if (mech.kind === 'unrun') return { pipelineText, note: { kind: 'unrun' } };
 
     let effective = mech;
     if (mech.kind === 'ok') {
-      onPhase('Checking the result');
+      onPhase('verify');
       transcript.push({ role: 'user', text: 'Review: do these results answer the request?' });
       const sem = await semanticVerify(agentApi, chatId, { request, pipelineText, rows: mech.rows }, signal);
       transcript.push({ role: 'assistant', text: sem.raw, reasoning: sem.reasoning });
@@ -239,7 +241,7 @@ async function runLoop({ api, agentApi, chatId, request, collection, fields, sam
 
     if (attempt >= MAX_CORRECTIONS) return giveUp(effective);
 
-    onPhase(`Refining (${attempt + 1} of ${MAX_CORRECTIONS})`);
+    onPhase('refine');
     transcript.push({ role: 'user', text: refineReason(effective) });
     const gf = await generate(agentApi, chatId, buildFixPrompt({ verdict: effective, samples }), signal);
     transcript.push({ role: 'assistant', text: gf.raw, reasoning: gf.reasoning });
