@@ -1,12 +1,15 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-// initMdh has heavy side effects; mock the API client so it doesn't hit the network.
+// initMdh has heavy side effects; mock the API clients so it doesn't hit the network.
 vi.mock('../src/mdh/api.js', () => ({
   init: vi.fn(),
   getOrgId: vi.fn(() => Promise.resolve(1)),
-  probeLlmChat: vi.fn(() => Promise.resolve(false)),
   healthz: vi.fn(() => Promise.resolve()),
+}));
+vi.mock('../src/mdh/agent/agentApi.js', () => ({
+  init: vi.fn(),
+  probeAgent: vi.fn(() => Promise.resolve(false)),
 }));
 
 import { initMdh } from '../src/mdh/index.jsx';

@@ -2,38 +2,38 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // Isolate the probe logic as a unit (initMdh has heavy side effects); test the
-// exported helper that index.jsx uses. Mock fetch (repo convention) rather than
-// spying on the ESM namespace.
+// exported helper that index.jsx uses. index.jsx sources availability from the
+// Agent API's probeAgent(), so mock that module directly.
+vi.mock('../src/mdh/agent/agentApi.js', () => ({ probeAgent: vi.fn(), init: vi.fn() }));
+
 import { resolveAiAvailability } from '../src/mdh/index.jsx';
 import * as api from '../src/mdh/api.js';
+import { probeAgent } from '../src/mdh/agent/agentApi.js';
 
 beforeEach(() => {
   sessionStorage.clear();
+  vi.clearAllMocks();
   api.init('https://acme.rossum.app', 'tok');
 });
 
 describe('resolveAiAvailability', () => {
   it('uses a cached true without probing', async () => {
     sessionStorage.setItem('mdhAiAvailable_org1', 'true');
-    const f = vi.fn();
-    globalThis.fetch = f;
     expect(await resolveAiAvailability('org1')).toBe(true);
-    expect(f).not.toHaveBeenCalled();
+    expect(probeAgent).not.toHaveBeenCalled();
   });
   it('uses a cached false without probing', async () => {
     sessionStorage.setItem('mdhAiAvailable_org1', 'false');
-    const f = vi.fn();
-    globalThis.fetch = f;
     expect(await resolveAiAvailability('org1')).toBe(false);
-    expect(f).not.toHaveBeenCalled();
+    expect(probeAgent).not.toHaveBeenCalled();
   });
-  it('probes and caches on a miss (400 ⇒ available)', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 400, json: () => Promise.resolve({}) });
+  it('probes and caches on a miss (healthy ⇒ available)', async () => {
+    probeAgent.mockResolvedValue(true);
     expect(await resolveAiAvailability('org2')).toBe(true);
     expect(sessionStorage.getItem('mdhAiAvailable_org2')).toBe('true');
   });
-  it('probes and caches on a miss (403 ⇒ unavailable)', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 403, json: () => Promise.resolve({}) });
+  it('probes and caches on a miss (unreachable/gated ⇒ unavailable)', async () => {
+    probeAgent.mockResolvedValue(false);
     expect(await resolveAiAvailability('org3')).toBe(false);
     expect(sessionStorage.getItem('mdhAiAvailable_org3')).toBe('false');
   });

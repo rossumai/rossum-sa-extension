@@ -14,7 +14,8 @@
     "http://localhost:3000/*",
     "https://*.rossum.ai/*",
     "https://*.rossum.app/*",
-    "https://*.r8.lol/*"
+    "https://*.r8.lol/*",
+    "https://*.rossum.cloud/*"
   ],
   "content_scripts": [
     {

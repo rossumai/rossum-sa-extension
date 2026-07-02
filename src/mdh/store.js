@@ -23,8 +23,10 @@ export const modalContent = signal(null);
 // (shell shows a connecting state), true/false after the healthz probe. The
 // shell passes this to <App connected={...}/>.
 export const connected = signal(null);
-// /api/v1/internal/llmchat reachable on this org (cheap probe at MDH init).
-// false until proven available → the AI pipeline input stays hidden by default.
+// Rossum Agent API ("Mr. Fabry") reachable — set from probeAgent() (GET /health)
+// at MDH init. false until proven → the AI query input stays hidden by default.
+// (The AgentBox surface holds its own transient run state locally; each submit is
+// a self-contained fresh chat, so no agent session state lives in the store.)
 export const aiAvailable = signal(false);
 export const statsSummary = signal(null); // { collection, health, label } | null
 export const operations = signal([]);

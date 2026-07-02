@@ -1,15 +1,11 @@
 import { h } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
-import { selectedCollection, records, sampledFields, aiAvailable, error } from '../store.js';
+import { selectedCollection, records, sampledFields, aiAvailable } from '../store.js';
 import { extractFieldNames } from './JsonEditor.jsx';
 import JsonEditor from './JsonEditor.jsx';
 import { LibraryPanel, saveQuery, unsaveQuery, isSaved } from './QueryHistory.jsx';
 import { beautifyText } from '../pipelineComments.js';
-import * as api from '../api.js';
-import { runAiPipeline } from '../aiPipelineLoop.js';
-import { prependAiComment, stripAiComment } from '../llmPipeline.js';
-import { getSchemaHints } from '../aiContext.js';
-import AiRunTrace from './AiRunTrace.jsx';
+import AgentBox from './AgentBox.jsx';
 
 export default function PipelineEditor({ editorRef, initialValue, onChange, onValidChange, onLoadPipeline, onReset, onToggleStage, onCursorStage }) {
   const [savedState, setSavedState] = useState(false);
@@ -18,16 +14,7 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [popupPos, setPopupPos] = useState(null); // { top, left }
-  const [nlQuery, setNlQuery] = useState('');
-  const [nlLoading, setNlLoading] = useState(false);
-  const [nlPhase, setNlPhase] = useState(''); // live progress label from the AI loop
-  const [aiTrace, setAiTrace] = useState(null);
   const saveInputRef = useRef(null);
-  const nlInputRef = useRef(null);
-  const nlAbortRef = useRef(null);
-
-  // Abort any in-flight AI request when the editor unmounts.
-  useEffect(() => () => { if (nlAbortRef.current) nlAbortRef.current.abort(); }, []);
 
   // Close the overflow menu when clicking outside it
   useEffect(() => {
@@ -68,52 +55,12 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
     setSavedState(saved);
   }
 
-  useEffect(() => { updateSaveBtn(); setAiTrace(null); }, [selectedCollection.value]);
+  useEffect(() => { updateSaveBtn(); }, [selectedCollection.value]);
 
   function beautify() {
     if (!editorRef.current) return;
     const out = beautifyText(editorRef.current.getValue());
     if (out != null) editorRef.current.setValue(out);
-  }
-
-  async function handleNlSubmit() {
-    // Read from DOM ref as well so the submit works even when the keydown fires
-    // in the same synchronous tick as the preceding input event (before Preact
-    // has flushed the state update from onInput).
-    const q = (nlInputRef.current?.value ?? nlQuery).trim();
-    if (!q || nlLoading || !editorRef.current) return;
-
-    const fields = fieldsFn();
-    const collection = selectedCollection.value;
-    const currentPipeline = stripAiComment(editorRef.current.getValue()).trim();
-
-    if (nlAbortRef.current) nlAbortRef.current.abort();
-    const controller = new AbortController();
-    nlAbortRef.current = controller;
-
-    setAiTrace(null);
-    setNlPhase('Reading collection…'); // real work: the schema-hints fetch precedes the loop
-    setNlLoading(true);
-    try {
-      const hints = await getSchemaHints(api, collection, records.value).catch(() => ({}));
-      const { pipelineText, trace } = await runAiPipeline({
-        api, request: q, fields, collection, currentPipeline,
-        samples: (records.value || []).slice(0, 3),
-        ...hints,
-        signal: controller.signal,
-        onPhase: setNlPhase,
-      });
-      if (pipelineText) editorRef.current.setValue(prependAiComment(pipelineText, q));
-      if (trace) setAiTrace(trace);
-      setNlQuery('');
-    } catch (err) {
-      if (err.name === 'AbortError') return;
-      if (err.status === 403) { aiAvailable.value = false; return; } // gated mid-session → hide
-      error.value = { message: 'AI search failed: ' + err.message };
-    } finally {
-      setNlLoading(false);
-      setNlPhase('');
-    }
   }
 
   async function handleSave() {
@@ -200,27 +147,7 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
           </div>
         </div>
       )}
-      {aiAvailable.value && (
-        <div class="nl-search-row">
-          <div class="nl-search-wrapper">
-            <input
-              ref={nlInputRef}
-              class={'nl-search-input' + (nlLoading ? ' loading' : '')}
-              type="text"
-              placeholder="Describe a query in plain English..."
-              value={nlLoading ? '' : nlQuery}
-              disabled={nlLoading}
-              onInput={(e) => setNlQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleNlSubmit();
-                if (e.key === 'Escape') { setNlQuery(''); nlInputRef.current?.blur(); }
-              }}
-            />
-            {nlLoading && <div class="nl-search-loading">{`${nlPhase || 'Working'}…`}</div>}
-          </div>
-        </div>
-      )}
-      {aiAvailable.value && !nlLoading && aiTrace && <AiRunTrace trace={aiTrace} />}
+      {aiAvailable.value && <AgentBox editorRef={editorRef} />}
       <div style="display:flex;flex:1;min-height:0">
         <JsonEditor
           value={initialValue}

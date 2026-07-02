@@ -1,5 +1,6 @@
 import { effect } from '@preact/signals';
 import * as api from './api.js';
+import { probeAgent } from './agent/agentApi.js';
 import * as store from './store.js';
 import { activeApp } from '../console/store.js';
 import { prefetchForPanel, prefetchAll } from './prefetch.js';
@@ -92,15 +93,14 @@ async function pollOperations() {
   }
 }
 
-// Resolve /llmchat availability for the org, caching the result per-org in
-// sessionStorage so a same-session reload doesn't re-probe. Returns a boolean;
-// never throws (probeLlmChat swallows errors → false).
+// Resolve Agent API ("Mr. Fabry") availability for the org, caching per-org in
+// sessionStorage so a same-session reload doesn't re-probe. Never throws.
 export async function resolveAiAvailability(orgKey) {
   const key = `mdhAiAvailable_${orgKey}`;
   let cached = null;
   try { cached = sessionStorage.getItem(key); } catch {}
   if (cached === 'true' || cached === 'false') return cached === 'true';
-  const available = await api.probeLlmChat();
+  const available = await probeAgent();
   try { sessionStorage.setItem(key, String(available)); } catch {}
   return available;
 }
@@ -115,8 +115,8 @@ export async function initMdh({ pendingCollection, pendingPipeline, pendingVaria
   // domain-scoped fallback in scopeSuffix.
   store.orgId.value = await api.getOrgId();
 
-  // AI pipeline input: probe /llmchat availability without blocking boot. A hang
-  // or error simply leaves aiAvailable false (the input stays hidden).
+  // AI pipeline input: probe the Agent API's health endpoint without blocking
+  // boot. A hang or error simply leaves aiAvailable false (the input stays hidden).
   resolveAiAvailability(store.orgId.value || store.domain.value)
     .then((available) => { store.aiAvailable.value = available; })
     .catch(() => {});

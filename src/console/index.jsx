@@ -9,6 +9,7 @@ import {
 import { resolveTabState, writeTabState } from './tabState.js';
 import Console from './components/Console.jsx';
 import * as mdhApi from '../mdh/api.js';
+import * as agentApi from '../mdh/agent/agentApi.js';
 import * as mdhStore from '../mdh/store.js';
 import { initMdh } from '../mdh/index.jsx';
 import * as auditApi from '../audit/api.js';
@@ -119,6 +120,7 @@ async function boot() {
   mdhStore.domain.value = domain;
   mdhStore.token.value = token;
   mdhApi.init(domain, token);
+  agentApi.init(domain, token);
 
   auditStore.domain.value = domain;
   auditStore.token.value = token;
