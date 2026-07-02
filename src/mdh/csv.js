@@ -211,6 +211,23 @@ export function parseCsv(buffer, options = {}) {
   return { docs, columns, warnings, error: error ?? null };
 }
 
+// Guess the delimiter for preselection: count raw occurrences of each candidate
+// across the first few non-empty lines; the most frequent (>0) wins, else comma.
+// Comma is preferred on a tie (it is the first candidate). Detection only seeds
+// the UI — the user can override, and the parse honors the chosen delimiter.
+export function detectDelimiter(text) {
+  const CANDIDATES = [',', ';', '\t'];
+  const lines = String(text ?? '').split(/\r?\n/).filter((l) => l.trim() !== '').slice(0, 5);
+  let best = ',';
+  let bestCount = 0;
+  for (const cand of CANDIDATES) {
+    let count = 0;
+    for (const line of lines) count += line.split(cand).length - 1;
+    if (count > bestCount) { bestCount = count; best = cand; }
+  }
+  return best;
+}
+
 // ---- CSV export (serialization) — symmetric with the parser above ----
 
 // Order discovered top-level keys for a CSV header: _id first (if present),

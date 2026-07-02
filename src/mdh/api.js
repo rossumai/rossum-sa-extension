@@ -166,12 +166,16 @@ export function insertMany(collectionName, documents, ordered = false) {
   return post('/data/insert_many', { collectionName, documents, ordered });
 }
 
-export function updateOne(collectionName, filter, update) {
-  return post('/data/update_one', { collectionName, filter, update });
+export function updateOne(collectionName, filter, update, options) {
+  const body = { collectionName, filter, update };
+  if (options) body.options = options;
+  return post('/data/update_one', body);
 }
 
-export function updateMany(collectionName, filter, update) {
-  return post('/data/update_many', { collectionName, filter, update });
+export function updateMany(collectionName, filter, update, options) {
+  const body = { collectionName, filter, update };
+  if (options) body.options = options;
+  return post('/data/update_many', body);
 }
 
 export function deleteOne(collectionName, filter) {
@@ -182,8 +186,10 @@ export function deleteMany(collectionName, filter) {
   return post('/data/delete_many', { collectionName, filter });
 }
 
-export function replaceOne(collectionName, filter, replacement) {
-  return post('/data/replace_one', { collectionName, filter, replacement });
+export function replaceOne(collectionName, filter, replacement, options) {
+  const body = { collectionName, filter, replacement };
+  if (options) body.options = options;
+  return post('/data/replace_one', body);
 }
 
 export function aggregate(collectionName, pipeline, { signal } = {}) {
@@ -314,4 +320,103 @@ export async function listOperations(limit = 5000) {
     throw new Error(data?.message || `API error ${res.status}`);
   }
   return data;
+}
+
+// ---- MDH data-matching dataset API (server-side upsert / whole-dataset replace) ----
+// Distinct service from Data Storage: {baseDomain}/svc/data-matching/api/v1.
+// Writes are multipart file uploads returning 202 + a `Location` op-status URL
+// whose last path segment is the operation id. Uploads are JSON (type fidelity).
+function dmBase() { return `${baseDomain}/svc/data-matching/api/v1`; }
+
+function opIdFromLocation(res) {
+  const loc = res.headers?.get?.('location') || res.headers?.get?.('content-location') || '';
+  const m = loc.match(/\/operation\/([^/?#\s]+)/i);
+  return m ? m[1] : null;
+}
+
+async function dmWrite(method, collectionName, form, externalSignal) {
+  const { signal, timer } = combinedSignal(externalSignal);
+  let res;
+  try {
+    res = await fetch(`${dmBase()}/dataset/${encodeURIComponent(collectionName)}`, {
+      method,
+      headers: { Authorization: authHeader }, // NO Content-Type: browser sets the multipart boundary
+      body: form,
+      signal,
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') {
+      if (externalSignal?.aborted) throw err;
+      throw new Error('Request timed out after 30s');
+    }
+    throw err;
+  }
+  clearTimeout(timer);
+  if (res.status === 401) throw apiError('Session expired. Open a Rossum page and click Data Storage again to reconnect.', 401);
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw apiError(data?.message || `API error ${res.status}`, res.status);
+  const operationId = opIdFromLocation(res);
+  if (!operationId) throw apiError('No operation id in dataset response', res.status);
+  return { operationId };
+}
+
+function jsonFilePart(file) {
+  // Accept a Blob (already built by the caller) or a JSON string.
+  if (typeof Blob !== 'undefined' && file instanceof Blob) return file;
+  return new Blob([typeof file === 'string' ? file : JSON.stringify(file)], { type: 'application/json' });
+}
+
+export function datasetReplace(collectionName, file, { signal } = {}) {
+  const form = new FormData();
+  form.append('file', jsonFilePart(file), 'data.json');
+  form.append('encoding', 'utf-8');
+  return dmWrite('PUT', collectionName, form, signal);
+}
+
+export function datasetUpdate(collectionName, file, idKeys, { signal } = {}) {
+  const form = new FormData();
+  form.append('file', jsonFilePart(file), 'data.json');
+  form.append('encoding', 'utf-8');
+  form.append('update_or_new', 'true');
+  for (const k of (idKeys || [])) form.append('id_keys', k);
+  return dmWrite('PATCH', collectionName, form, signal);
+}
+
+// Poll a data-matching operation to a terminal state. Resolves the op on
+// `finished` (and on `unknown`, treated as terminal-uncertain); throws on
+// `failed` surfacing `error`. Tolerant of a few transient poll failures.
+export async function waitForDatasetOperation(operationId, { intervalMs = 2000, timeoutMs = 300_000, signal, onPoll } = {}) {
+  const start = Date.now();
+  let consecutiveErrors = 0;
+  for (;;) {
+    if (signal?.aborted) throw new Error('Operation polling aborted');
+    let op;
+    try {
+      const { signal: reqSignal, timer } = combinedSignal(signal);
+      const res = await fetch(`${dmBase()}/operation/${encodeURIComponent(operationId)}`, { headers: { Authorization: authHeader }, signal: reqSignal });
+      clearTimeout(timer);
+      op = await res.json().catch(() => ({}));
+      consecutiveErrors = 0;
+    } catch (err) {
+      if (++consecutiveErrors >= 5 || Date.now() - start > timeoutMs) {
+        const e = new Error(`Could not check operation ${operationId}: ${err.message}`);
+        e.pollUnavailable = true;
+        throw e;
+      }
+      await new Promise((r) => { setTimeout(r, intervalMs); });
+      continue;
+    }
+    // Surface the live operation object each poll so callers can show a
+    // heartbeat (status, timestamps, file metadata) — proof the job is alive.
+    try { onPoll?.(op); } catch { /* a caller callback must never break polling */ }
+    if (op.status === 'finished' || op.status === 'unknown') return op;
+    if (op.status === 'failed') throw new Error(op.error || `Operation ${operationId} failed`);
+    if (Date.now() - start > timeoutMs) {
+      const e = new Error(`Operation ${operationId} did not finish within ${Math.round(timeoutMs / 1000)}s`);
+      e.timedOut = true;
+      throw e;
+    }
+    await new Promise((r) => { setTimeout(r, intervalMs); });
+  }
 }

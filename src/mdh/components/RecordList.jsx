@@ -41,6 +41,7 @@ export default function RecordList({
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) pending = entry.contentRect.width;
       if (raf) return;
+      if (typeof requestAnimationFrame !== 'function') return;
       raf = requestAnimationFrame(() => {
         raf = 0;
         if (Math.abs(pending - lastReported) >= WIDTH_THRESHOLD_PX) {
@@ -51,7 +52,7 @@ export default function RecordList({
     });
     ro.observe(el);
     setListWidth(lastReported);
-    return () => { if (raf) cancelAnimationFrame(raf); ro.disconnect(); };
+    return () => { if (raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(raf); ro.disconnect(); };
   }, []);
 
   useEffect(() => {
@@ -231,37 +232,6 @@ export default function RecordList({
   );
 }
 
-function SplitButton({ label, cls, onMain, menuItems = [] }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onMouseDown(e) {
-      if (rootRef.current?.contains(e.target)) return;
-      setOpen(false);
-    }
-    document.addEventListener('mousedown', onMouseDown);
-    return () => document.removeEventListener('mousedown', onMouseDown);
-  }, [open]);
-
-  return (
-    <div ref={rootRef} class="split-btn">
-      <button class={`btn btn-sm ${cls}`} onClick={onMain}>{label}</button>
-      <button class={`btn btn-sm split-btn-drop ${cls}`} onClick={(e) => { e.stopPropagation(); setOpen(!open); }}>{'\u25BE'}</button>
-      {open && (
-        <div class="toolbar-more-menu">
-          {menuItems.map((item) => (
-            <button key={item.label} class="toolbar-menu-item" onClick={() => { setOpen(false); item.onClick(); }}>
-              {item.label}{item.beta && <span class="toolbar-menu-beta">beta</span>}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 const STAGES_DISABLED_TITLE = 'Unavailable in the Stages view — switch to List or Table to use this.';
 
 function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh, onCancelDownload, onEnterSelectionMode, onBulkDelete, onBulkUpdate, view, changeView }) {
@@ -283,6 +253,7 @@ function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh
       </div>
       <div style="flex:1"></div>
       <div class={'toolbar-group' + (recordsDisabled ? ' toolbar-group-disabled' : '')} title={disabledTitle} aria-disabled={disabledAttr}>
+        <BulkSplitButton onUpdate={onBulkUpdate} onDelete={onBulkDelete} />
         {downloadState ? (
           <span class="download-progress">
             <span class="download-progress-text">
@@ -320,19 +291,7 @@ function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh
             onFilteredXlsx={() => onRefresh('download-filtered-xlsx')}
           />
         )}
-        <BulkSplitButton onUpdate={onBulkUpdate} onDelete={onBulkDelete} />
-        <SplitButton
-          label="Insert"
-          cls="btn-success"
-          onMain={() => onRefresh('insert')}
-          menuItems={[
-            { label: 'From JSON file', onClick: () => onRefresh('insert-file') },
-            { label: 'From JSONL file', beta: true, onClick: () => onRefresh('insert-jsonl-file') },
-            { label: 'From CSV file', beta: true, onClick: () => onRefresh('insert-csv-file') },
-            { label: 'From Excel file', beta: true, onClick: () => onRefresh('insert-xlsx-file') },
-            { label: 'From XML file', beta: true, onClick: () => onRefresh('insert-xml-file') },
-          ]}
-        />
+        <button class="btn btn-sm btn-success" onClick={() => onRefresh('import')}>Import</button>
       </div>
     </div>
   );

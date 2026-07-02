@@ -1,7 +1,7 @@
 import { h, Fragment } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { closeModal } from './Modal.jsx';
-import { Segmented, Toggle } from './CsvImportWizard.jsx';
+import { Segmented, Toggle } from './ImportControls.jsx';
 import { csvHeader, csvRow } from '../csv.js';
 
 const DELIM_SEG = [

@@ -7,9 +7,7 @@ import FileDropArea, {
   extensionMatches,
 } from '../src/mdh/components/FileDropArea.jsx';
 import Modal, { openModal, closeModal } from '../src/mdh/components/Modal.jsx';
-import CsvImportWizard from '../src/mdh/components/CsvImportWizard.jsx';
-import InsertFileWizard from '../src/mdh/components/InsertFileWizard.jsx';
-import { FileInput } from '../src/mdh/components/DataOperations.jsx';
+import ImportWizard from '../src/mdh/components/ImportWizard.jsx';
 
 function mount(node) {
   const root = document.createElement('div');
@@ -140,45 +138,20 @@ describe('Modal overlay mis-drop guard', () => {
 
 describe('Import wizards accept dropped files', () => {
   it('CSV wizard: dropping a .csv advances past the pick stage', async () => {
-    const root = mount(h(CsvImportWizard, { onSuccess: () => {} }));
+    const root = mount(h(ImportWizard, { onSuccess: () => {} }));
     const area = root.querySelector('.file-input-area');
     const file = new File(['name,age\nAlice,30'], 'people.csv', { type: 'text/csv' });
     area.dispatchEvent(dragEvent('drop', { files: [file] }));
-    // Configure stage shows the CSV options panel once the file is read.
     await waitFor(() => root.querySelector('[data-testid="csv-options"]'));
     expect(root.querySelector('[data-testid="csv-options"]')).toBeTruthy();
   });
 
-  it('JSON wizard: dropping a wrong-type file shows a friendly rejection', async () => {
-    const root = mount(h(InsertFileWizard, { onSuccess: () => {}, format: 'json' }));
+  it('wizard: dropping a wrong-type file shows a friendly rejection', async () => {
+    const root = mount(h(ImportWizard, { onSuccess: () => {} }));
     const area = root.querySelector('.file-input-area');
     const file = new File(['<svg/>'], 'logo.png', { type: 'image/png' });
     area.dispatchEvent(dragEvent('drop', { files: [file] }));
     await waitFor(() => root.querySelector('.input-hint'));
-    expect(root.querySelector('.input-hint').textContent).toContain('Expected a .json file');
-  });
-});
-
-describe('Update/Replace FileInput drop support', () => {
-  it('drops a .json file → onParsed gets the documents', async () => {
-    let docs = null;
-    const root = mount(h(FileInput, { onParsed: (d) => { docs = d; } }));
-    const area = root.querySelector('.file-input-area');
-    const file = new File(['[{"a":1},{"a":2}]'], 'rows.json', { type: 'application/json' });
-    area.dispatchEvent(dragEvent('drop', { files: [file] }));
-    await waitFor(() => docs !== null);
-    expect(docs).toHaveLength(2);
-    expect(root.textContent).toContain('2 documents');
-  });
-
-  it('drops a wrong-type file → friendly error, onParsed not called with docs', async () => {
-    let docs = null;
-    const root = mount(h(FileInput, { onParsed: (d) => { docs = d; } }));
-    const area = root.querySelector('.file-input-area');
-    const file = new File(['x'], 'data.csv', { type: 'text/csv' });
-    area.dispatchEvent(dragEvent('drop', { files: [file] }));
-    await waitFor(() => root.querySelector('.input-hint'));
-    expect(root.querySelector('.input-hint').textContent).toContain('Expected a .json file');
-    expect(docs).toBeNull();
+    expect(root.querySelector('.input-hint').textContent).toMatch(/Expected a/);
   });
 });

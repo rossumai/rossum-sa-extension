@@ -20,11 +20,6 @@ import { BATCH_SIZE } from './downloadCollection.js';
 //
 // We use the same chunk size as the dataset downloader so the same shape of
 // data round-trips with the same per-call cost on both directions.
-//
-// The chunked overwrite path uses deleteMany(_id $in [...]) followed by
-// insertMany — the same two-call pattern used by bulkOps.js for snapshot
-// undo, which was specifically chosen over bulk_write replaceOne because the
-// data-storage service's bulk_write wire format proved unreliable.
 
 const PROBE_BATCH = 1000;
 
@@ -203,53 +198,6 @@ export async function runChunkedInsert(collection, docs, { batchSize = BATCH_SIZ
       failedBatches: result.failedBatches.length,
     });
   }
-  return result;
-}
-
-// Idempotent re-import: delete any document whose _id appears in the file
-// (no-op for _ids the server doesn't have), then chunked-insert the full
-// deduped file. Docs without an _id field skip the delete pass and get a
-// server-assigned ObjectId on insert.
-export async function runChunkedOverwrite(collection, docs, { batchSize = BATCH_SIZE, deleteBatch = PROBE_BATCH, signal, onProgress } = {}) {
-  const result = {
-    attempted: docs.length,
-    deleted: 0,
-    inserted: 0,
-    failedBatches: [],
-    deleteError: null,
-    cancelled: false,
-  };
-
-  const idsToClear = [];
-  for (const d of docs) {
-    if (hasOwn(d, '_id')) idsToClear.push(d._id);
-  }
-
-  for (let i = 0; i < idsToClear.length; i += deleteBatch) {
-    if (signal?.aborted) { result.cancelled = true; return result; }
-    const chunk = idsToClear.slice(i, i + deleteBatch);
-    try {
-      const del = await api.deleteMany(collection, { _id: { $in: chunk } });
-      result.deleted += del?.result?.deleted_count ?? 0;
-    } catch (err) {
-      result.deleteError = err?.message || String(err);
-      return result;
-    }
-    onProgress?.({
-      phase: 'delete',
-      processed: Math.min(i + deleteBatch, idsToClear.length),
-      total: idsToClear.length,
-    });
-  }
-
-  const insertRes = await runChunkedInsert(collection, docs, {
-    batchSize,
-    signal,
-    onProgress: (p) => onProgress?.({ phase: 'insert', ...p }),
-  });
-  result.inserted = insertRes.inserted;
-  result.failedBatches = insertRes.failedBatches;
-  result.cancelled = insertRes.cancelled;
   return result;
 }
 

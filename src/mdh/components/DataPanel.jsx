@@ -12,7 +12,7 @@ import PipelineDebug from './PipelineDebug.jsx';
 import RecordList from './RecordList.jsx';
 import StageLinkOverlay from './StageLinkOverlay.jsx';
 import { openRecordEditor } from './RecordEditor.jsx';
-import { openDataOperations } from './DataOperations.jsx';
+import { openImport } from './DataOperations.jsx';
 import { openBulkDelete } from './BulkDelete.jsx';
 import { openBulkUpdate } from './BulkUpdate.jsx';
 import { selectionMode, selectedIds, selectionPipelineDirty, resultsView, inspectTarget, stagesAutoscroll } from '../store.js';
@@ -484,18 +484,8 @@ export default function DataPanel() {
       downloadAllXlsx();
     } else if (action === 'download-filtered-xlsx') {
       downloadFilteredXlsx();
-    } else if (action === 'insert') {
-      openDataOperations('insert', invalidateAndRun, currentFields);
-    } else if (action === 'insert-file') {
-      openDataOperations('insert-file', invalidateAndRun, currentFields);
-    } else if (action === 'insert-jsonl-file') {
-      openDataOperations('insert-jsonl-file', invalidateAndRun, currentFields);
-    } else if (action === 'insert-csv-file') {
-      openDataOperations('insert-csv-file', invalidateAndRun, currentFields);
-    } else if (action === 'insert-xlsx-file') {
-      openDataOperations('insert-xlsx-file', invalidateAndRun, currentFields);
-    } else if (action === 'insert-xml-file') {
-      openDataOperations('insert-xml-file', invalidateAndRun, currentFields);
+    } else if (action === 'import') {
+      openImport(invalidateAndRun, currentFields);
     }
   }
 

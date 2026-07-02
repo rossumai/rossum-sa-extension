@@ -272,3 +272,77 @@ describe('async operation helpers', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+describe('write options passthrough', () => {
+  it('omits options when not passed (back-compat body shape)', async () => {
+    await api.updateOne('c', { _id: 1 }, { $set: { a: 1 } });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body).toEqual({ collectionName: 'c', filter: { _id: 1 }, update: { $set: { a: 1 } } });
+    expect('options' in body).toBe(false);
+  });
+
+  it('includes options.upsert when passed to replaceOne', async () => {
+    await api.replaceOne('c', { _id: 1 }, { a: 1 }, { upsert: true });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.options).toEqual({ upsert: true });
+  });
+
+  it('includes options when passed to updateMany', async () => {
+    await api.updateMany('c', { a: 1 }, { $set: { b: 2 } }, { upsert: true });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.options).toEqual({ upsert: true });
+  });
+});
+
+describe('data-matching dataset API', () => {
+  it('datasetReplace PUTs multipart to the data-matching base and returns the op id from Location', async () => {
+    fetchMock.mockResolvedValue(ok({ message: 'queued' }, { location: 'https://example.rossum.app/svc/master-data-hub/api/v1/operation/abc123' }));
+    const res = await api.datasetReplace('products', '[{"a":1}]');
+    expect(res).toEqual({ operationId: 'abc123' });
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://example.rossum.app/svc/data-matching/api/v1/dataset/products');
+    expect(opts.method).toBe('PUT');
+    expect(opts.headers.Authorization).toBe('Bearer test-token-123');
+    expect(opts.headers['Content-Type']).toBeUndefined(); // browser sets multipart boundary
+    expect(opts.body.get('encoding')).toBe('utf-8');
+    expect(opts.body.get('file')).toBeTruthy();
+  });
+
+  it('datasetUpdate PATCHes with repeated id_keys and update_or_new', async () => {
+    fetchMock.mockResolvedValue(ok({}, { location: '/x/operation/op9' }));
+    const res = await api.datasetUpdate('products', '[{"sku":"A1"}]', ['sku', 'region']);
+    expect(res.operationId).toBe('op9');
+    const opts = fetchMock.mock.calls[0][1];
+    expect(opts.method).toBe('PATCH');
+    expect(opts.body.getAll('id_keys')).toEqual(['sku', 'region']);
+    expect(opts.body.get('update_or_new')).toBe('true');
+  });
+
+  it('waitForDatasetOperation resolves on finished (lowercase)', async () => {
+    fetchMock
+      .mockResolvedValueOnce(ok({ status: 'processing' }))
+      .mockResolvedValueOnce(ok({ status: 'finished', operation_type: 'replace' }));
+    const op = await api.waitForDatasetOperation('op1', { intervalMs: 0 });
+    expect(op.status).toBe('finished');
+    expect(fetchMock.mock.calls[0][0]).toBe('https://example.rossum.app/svc/data-matching/api/v1/operation/op1');
+  });
+
+  it('waitForDatasetOperation throws with the server error on failed', async () => {
+    fetchMock.mockResolvedValue(ok({ status: 'failed', error: 'bad file' }));
+    await expect(api.waitForDatasetOperation('op2', { intervalMs: 0 })).rejects.toThrow(/bad file/);
+  });
+
+  it('waitForDatasetOperation feeds each poll to onPoll (heartbeat) with the live op', async () => {
+    fetchMock
+      .mockResolvedValueOnce(ok({ status: 'processing', operation_type: 'replace', file_metadata: { filename: 'data.json', file_size: 100 } }))
+      .mockResolvedValueOnce(ok({ status: 'finished' }));
+    const seen = [];
+    await api.waitForDatasetOperation('op3', { intervalMs: 0, onPoll: (op) => seen.push(op.status) });
+    expect(seen).toEqual(['processing', 'finished']);
+  });
+
+  it('waitForDatasetOperation survives an onPoll callback that throws', async () => {
+    fetchMock.mockResolvedValue(ok({ status: 'finished' }));
+    await expect(api.waitForDatasetOperation('op4', { intervalMs: 0, onPoll: () => { throw new Error('ui blew up'); } })).resolves.toMatchObject({ status: 'finished' });
+  });
+});

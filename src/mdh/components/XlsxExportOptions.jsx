@@ -1,7 +1,7 @@
 import { h, Fragment } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { closeModal } from './Modal.jsx';
-import { Toggle } from './CsvImportWizard.jsx';
+import { Toggle } from './ImportControls.jsx';
 import { displayValue } from '../displayValue.js';
 
 // Options + preview before an .xlsx export. `loadPreview` resolves

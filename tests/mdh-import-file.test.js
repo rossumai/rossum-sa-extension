@@ -7,7 +7,6 @@ import {
   dedupeById,
   normalizeDocId,
   runChunkedInsert,
-  runChunkedOverwrite,
   stableKey,
 } from '../src/mdh/importFile.js';
 import { BATCH_SIZE } from '../src/mdh/downloadCollection.js';
@@ -190,51 +189,6 @@ describe('runChunkedInsert', () => {
     expect(result.cancelled).toBe(true);
     expect(api.insertMany).toHaveBeenCalledTimes(2);
     expect(result.inserted).toBe(4); // first two batches landed before abort
-  });
-});
-
-describe('runChunkedOverwrite', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
-
-  it('deletes by every _id in the file (no pre-probe), then chunked-inserts all docs', async () => {
-    api.deleteMany.mockResolvedValue({ result: { deleted_count: 2 } });
-    api.insertMany.mockResolvedValue({ result: {} });
-
-    const docs = [
-      { _id: 'a', v: 1 },
-      { _id: 'b', v: 2 },
-      { _id: 'c', v: 3 },
-    ];
-    const result = await runChunkedOverwrite('vendors', docs);
-
-    expect(api.deleteMany).toHaveBeenCalledWith('vendors', { _id: { $in: ['a', 'b', 'c'] } });
-    expect(api.insertMany).toHaveBeenCalledWith('vendors', docs, false);
-    expect(result.deleted).toBe(2);
-    expect(result.inserted).toBe(3);
-  });
-
-  it('skips the delete pass entirely when no doc has an _id', async () => {
-    api.insertMany.mockResolvedValue({ result: {} });
-    const result = await runChunkedOverwrite('vendors', [{ v: 1 }, { v: 2 }]);
-    expect(api.deleteMany).not.toHaveBeenCalled();
-    expect(result.inserted).toBe(2);
-  });
-
-  it('bails out without inserting if the delete step fails', async () => {
-    api.deleteMany.mockRejectedValueOnce(new Error('boom'));
-    const result = await runChunkedOverwrite('vendors', [{ _id: 'a' }]);
-    expect(result.deleteError).toBe('boom');
-    expect(result.inserted).toBe(0);
-    expect(api.insertMany).not.toHaveBeenCalled();
-  });
-
-  it('chunks the delete pass when there are many _ids', async () => {
-    api.deleteMany.mockResolvedValue({ result: { deleted_count: 0 } });
-    api.insertMany.mockResolvedValue({ result: {} });
-    const docs = Array.from({ length: 2500 }, (_, i) => ({ _id: `id-${i}` }));
-    await runChunkedOverwrite('vendors', docs, { deleteBatch: 1000 });
-    // 2500 ids in deleteBatch=1000 means 3 delete calls.
-    expect(api.deleteMany).toHaveBeenCalledTimes(3);
   });
 });
 

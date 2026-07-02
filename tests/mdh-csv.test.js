@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { tokenizeCsv } from '../src/mdh/csv.js';
+import { tokenizeCsv, detectDelimiter } from '../src/mdh/csv.js';
 import { inferValue, dedupeHeaders, rowsToDocs } from '../src/mdh/csv.js';
 import { decodeBytes, parseCsv } from '../src/mdh/csv.js';
 
@@ -167,5 +167,21 @@ describe('parseCsv', () => {
   });
   it('surfaces a tokenizer error', () => {
     expect(parseCsv('"oops', {}).error).toBeTruthy();
+  });
+});
+
+describe('detectDelimiter', () => {
+  it('detects comma, semicolon, and tab', () => {
+    expect(detectDelimiter('a,b,c\n1,2,3')).toBe(',');
+    expect(detectDelimiter('a;b;c\n1;2;3')).toBe(';');
+    expect(detectDelimiter('a\tb\tc\n1\t2\t3')).toBe('\t');
+  });
+  it('picks the most frequent across the first non-empty lines', () => {
+    // semicolons: 3 (one per line); commas: 1 (inside a value) -> semicolon wins
+    expect(detectDelimiter('name;note\nAlice;hello, world\nBob;hi')).toBe(';');
+  });
+  it('defaults to comma on ties or when no delimiter is present', () => {
+    expect(detectDelimiter('singlecolumn\nvalue')).toBe(',');
+    expect(detectDelimiter('')).toBe(',');
   });
 });
