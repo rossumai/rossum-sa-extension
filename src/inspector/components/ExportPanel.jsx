@@ -4,6 +4,7 @@ import * as store from '../store.js';
 import { loadEnrichment, loadQueueHooks } from '../index.jsx';
 import { exportHookCandidates } from '../culprit.js';
 import ReliabilityBadge from './ReliabilityBadge.jsx';
+import CulpritChip from './CulpritChip.jsx';
 
 export default function ExportPanel() {
   const d = store.data.value;
@@ -43,6 +44,8 @@ export default function ExportPanel() {
   else if (Array.isArray(logs)) errText = 'Export failed — the extension error is no longer in the logs.';
   else errText = 'Loading…';
 
+  const attr = store.attributions.value.export;
+
   return (
     <div class="inspector-panel">
       <div class="inspector-kv">
@@ -55,6 +58,19 @@ export default function ExportPanel() {
         <div class="k">Error</div>
         <div class="v">{errText}</div>
       </div>
+      {!failing && candidates.length > 1 && attr && (
+        <div class="inspector-ai-attr">
+          <div class="t">Which export extension failed — reasoned by Mr. Fabry from the queue's export extensions + logs.</div>
+          {attr.status === 'loading' && <div class="inspector-loading inspector-ai-phase">{attr.phase || 'thinking'}…</div>}
+          {attr.status === 'error' && <div class="inspector-empty">AI attribution failed.</div>}
+          {attr.status === 'done' && attr.verdict && (
+            <div class="inspector-ai-verdict">
+              <div class="ttl"><CulpritChip culprit={attr.verdict.culprit} /> <ReliabilityBadge level={attr.verdict.confidence} /></div>
+              {attr.verdict.explanation && <div class="inspector-why">{attr.verdict.explanation}</div>}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

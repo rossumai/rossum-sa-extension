@@ -47,6 +47,12 @@ describe('toolLabel', () => {
     expect(toolLabel('something_weird')).toBe('working');
     expect(toolLabel('')).toBe('working');
   });
+  it('maps the Rossum resource tools used by the Inspector attribution agent', () => {
+    expect(toolLabel('rossum_get_hook')).toBe('reading extension code');
+    expect(toolLabel('rossum_list_hook_logs')).toBe('reading extension logs');
+    expect(toolLabel('rossum_list_hooks')).toBe('listing extensions');
+    expect(toolLabel('rossum_get_annotation_content')).toBe('reading field values');
+  });
 });
 
 describe('foldEvents / replyText', () => {

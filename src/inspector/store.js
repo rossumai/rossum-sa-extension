@@ -15,6 +15,16 @@ export const enrichment = signal({
 });
 export const live = signal(null); // { messages, matchedTriggerRules }
 
+// Rossum Agent API ("Mr. Fabry") availability for AI attribution (probed at init).
+export const aiAvailable = signal(false);
+// Per-finding AI attribution state, keyed 'label:<id>' / 'reject'. Reset per annotation.
+export const attributions = signal({});
+export function setAttribution(key, val) { attributions.value = { ...attributions.value, [key]: val }; }
+
+// Recently-inspected annotations (rich entries), most-recent-first, deduped by id.
+// Persisted globally in chrome.storage.local via recents.js; loaded at init.
+export const recents = signal([]);
+
 export const loading = signal(false);
 export const error = signal(null);
 
@@ -22,24 +32,13 @@ function emptyEnrichment() {
   return { audit: null, hookLogs: null, ruleLogs: null, workflow: null, notes: null, emails: null };
 }
 
-// Persist the inspected annotation per-tab so it survives a Console page refresh
-// (same mechanism as the session token/domain). node-safe (sessionStorage absent).
-const ANN_KEY = 'consoleInspectorAnn';
-export function persistAnnotationId(id) {
-  try { if (typeof sessionStorage !== 'undefined' && id != null && id !== '') sessionStorage.setItem(ANN_KEY, String(id)); } catch { /* ignore */ }
-}
-export function restoreAnnotationId() {
-  try { if (typeof sessionStorage !== 'undefined') return sessionStorage.getItem(ANN_KEY); } catch { /* ignore */ }
-  return null;
-}
-
 export function setAnnotationId(id) {
   annotationId.value = id;
   data.value = null;
   live.value = null;
   enrichment.value = emptyEnrichment();
+  attributions.value = {};
   error.value = null;
-  persistAnnotationId(id);
 }
 
 export function reset() {
@@ -47,6 +46,7 @@ export function reset() {
   data.value = null;
   live.value = null;
   enrichment.value = emptyEnrichment();
+  attributions.value = {};
   loading.value = false;
   error.value = null;
   connected.value = null;

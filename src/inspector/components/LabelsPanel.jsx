@@ -1,8 +1,9 @@
-import { h, Fragment } from 'preact';
+import { h } from 'preact';
 import { useEffect } from 'preact/hooks';
 import * as store from '../store.js';
 import { loadLabelContext } from '../index.jsx';
-import { labelAttribution, extensionAttribution, contrastText } from '../culprit.js';
+import { labelAttribution, contrastText } from '../culprit.js';
+import CulpritChip from './CulpritChip.jsx';
 import ReliabilityBadge from './ReliabilityBadge.jsx';
 import FoldableCode from './FoldableCode.jsx';
 
@@ -13,42 +14,21 @@ function LabelChip({ name, color }) {
   return <span class={`inspector-label-tag${color ? '' : ' nocolor'}`} style={style}>{name}</span>;
 }
 
-function appliedSource(l, labelHooks) {
-  if (l.rule) {
-    return {
-      source: <span class="inspector-label-why">applied by rule <b>{l.rule.name}</b></span>,
-      why: l.rule.trigger ? <Fragment>fires when: <FoldableCode code={l.rule.trigger} /></Fragment> : null,
-      badge: 'verified',
-    };
-  }
-  const ext = extensionAttribution(l.id, l.name, labelHooks);
-  const more = ext.others.length ? ` (+${ext.others.length} more)` : '';
-  if (ext.kind === 'named') {
-    return {
-      source: <span class="inspector-label-why">applied by extension <b>{ext.name}</b></span>,
-      why: <Fragment>extension <b>{ext.name}</b> calls <code class="inspector-code">/labels/apply</code> and references this label{ext.by === 'name' ? ' by name' : ''}.</Fragment>,
-      badge: null,
-    };
-  }
-  if (ext.kind === 'likely') {
-    return {
-      source: <span class="inspector-label-why">likely applied by extension <b>{ext.name}</b>{more}</span>,
-      why: <Fragment>this extension applies labels via <code class="inspector-code">/labels/apply</code>, but does not reference this one.</Fragment>,
-      badge: null,
-    };
-  }
-  if (ext.kind === 'opaque') {
-    return {
-      source: <span class="inspector-label-why">possibly applied by webhook <b>{ext.name}</b>{more}</span>,
-      why: <Fragment>external webhook — its label logic cannot be inspected.</Fragment>,
-      badge: null,
-    };
-  }
-  return {
-    source: <span class="inspector-label-why">applied manually</span>,
-    why: <Fragment>no rule or extension on this queue applies labels — likely set by a person.</Fragment>,
-    badge: 'unavailable',
-  };
+// Applied WITHOUT a rule: no audited applier exists, so an agent reads the
+// queue's hook code/settings/logs and reasons out which extension applied it.
+function AiLabelAttribution({ label }) {
+  const key = `label:${label.id}`;
+  const attr = store.attributions.value[key];
+  if (!store.aiAvailable.value) return <span class="inspector-label-why">AI attribution unavailable</span>;
+  if (!attr || attr.status === 'loading') return <span class="inspector-label-why inspector-loading inspector-ai-phase">{(attr && attr.phase) || 'thinking'}…</span>;
+  if (attr.status === 'error') return <span class="inspector-label-why">AI attribution failed</span>;
+  const v = attr.verdict;
+  return (
+    <span class="inspector-ai-verdict-inline">
+      <CulpritChip culprit={v.culprit} /> <ReliabilityBadge level={v.confidence} />
+      {v.explanation && <span class="inspector-why">{v.explanation}</span>}
+    </span>
+  );
 }
 
 export default function LabelsPanel() {
@@ -61,24 +41,36 @@ export default function LabelsPanel() {
   if (!d) return null;
   if (d.resolved.labelsById === undefined) return <div class="inspector-loading">Loading labels…</div>;
 
-  const labelHooks = d.resolved.labelHooks || [];
   const { applied, notApplied } = labelAttribution({
     annotation: d.annotation,
     labelsById: d.resolved.labelsById,
     labelRules: d.resolved.labelRules || [],
   });
-  const hasLabelAutomation = (d.resolved.labelRules || []).length > 0 || labelHooks.some((lh) => lh.capability !== 'none');
+  // Verified signal only: rule-governed label automation. Non-rule applications
+  // are now individually explained by the AI attribution card above (which may
+  // find a hook or conclude manual) rather than a queue-wide capability guess.
+  const hasLabelAutomation = (d.resolved.labelRules || []).length > 0;
 
   return (
     <div class="inspector-panel">
       <div class="inspector-sect">Applied labels ({applied.length})</div>
       {applied.length === 0 && <div class="inspector-empty">No labels applied to this annotation.</div>}
       {applied.map((l) => {
-        const s = appliedSource(l, labelHooks);
+        if (l.rule) {
+          return (
+            <div class="inspector-bcard">
+              <div class="ttl">
+                <LabelChip name={l.name} color={l.color} />
+                <span class="inspector-label-why">applied by rule <b>{l.rule.name}</b></span>
+                <ReliabilityBadge level="verified" />
+              </div>
+              {l.rule.trigger ? <div class="inspector-why">fires when: <FoldableCode code={l.rule.trigger} /></div> : null}
+            </div>
+          );
+        }
         return (
           <div class="inspector-bcard">
-            <div class="ttl"><LabelChip name={l.name} color={l.color} /> {s.source} <ReliabilityBadge level={s.badge} /></div>
-            {s.why ? <div class="inspector-why">{s.why}</div> : null}
+            <div class="ttl"><LabelChip name={l.name} color={l.color} /> <AiLabelAttribution label={l} /></div>
           </div>
         );
       })}
@@ -100,7 +92,11 @@ export default function LabelsPanel() {
       )}
 
       {!hasLabelAutomation && (
-        <div class="inspector-note">No queue rule or extension applies labels, so any labels here were set manually.</div>
+        <div class="inspector-note">
+          {applied.length > 0
+            ? 'No queue rule governs labels — see the attribution shown for each applied label above.'
+            : 'No queue rule governs labels on this queue.'}
+        </div>
       )}
     </div>
   );

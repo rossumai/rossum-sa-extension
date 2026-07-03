@@ -33,14 +33,14 @@ describe('Rail', () => {
     expect(activeApp.value).toBe('inspector');
   });
 
-  it('renders the Inspector as a muted (de-emphasized, bottom) rail item — and it is the last one', () => {
+  it('renders the Inspector as a normal (non-muted) rail item, positioned above Galaxy', () => {
     const root = mount();
     const items = [...root.querySelectorAll('.app-rail-item')];
-    const inspector = items.find((b) => b.getAttribute('title') === 'Annotation Inspector');
-    expect(inspector.classList.contains('muted')).toBe(true);
-    expect(items[items.length - 1]).toBe(inspector); // last in the rail
-    // no other app is muted
-    expect(items.filter((b) => b.classList.contains('muted'))).toHaveLength(1);
+    const idx = (title) => items.findIndex((b) => b.getAttribute('title') === title);
+    const inspector = items[idx('Annotation Inspector')];
+    expect(inspector.classList.contains('muted')).toBe(false);            // no dimming
+    expect(items.some((b) => b.classList.contains('muted'))).toBe(false); // nothing is muted now
+    expect(idx('Annotation Inspector')).toBeLessThan(idx('Org Galaxy'));  // above Galaxy
   });
 
   it('renders the Galaxy app button and switches to it on click', () => {

@@ -53,12 +53,6 @@ describe('inspector components', () => {
     expect(root.querySelector('.inspector-idlabel').textContent).toContain('user 99');
   });
 
-  it('persists the inspected annotation id so it survives a page refresh', () => {
-    store.setAnnotationId('424242');
-    expect(sessionStorage.getItem('consoleInspectorAnn')).toBe('424242');
-    expect(store.restoreAnnotationId()).toBe('424242');
-  });
-
   it('LabelsPanel attributes an applied label to its governing rule', () => {
     store.setAnnotationId('5');
     store.data.value = {
@@ -76,8 +70,9 @@ describe('inspector components', () => {
     expect(root.textContent).toContain('field.amount_total > 10000');
   });
 
-  it('LabelsPanel attributes a non-rule label to the extension that applies it', () => {
+  it('LabelsPanel defers a non-rule label to AI attribution (unavailable when the agent is offline)', () => {
     store.setAnnotationId('6');
+    store.aiAvailable.value = false; // agent offline in this test — no regex fallback anymore
     store.data.value = {
       annotation: { id: 6, labels: ['https://h/v1/labels/3878'] },
       blocker: null, content: { content: [] },
@@ -85,13 +80,17 @@ describe('inspector components', () => {
         queue: null, schema: null, document: null, usersById: {}, hooksById: {}, rulesById: {},
         labelsById: { 3878: { id: '3878', name: 'Needs review', color: '#16a34a' } },
         labelRules: [],
-        labelHooks: [{ hookId: 50, hookName: 'Tag needs-review', type: 'function', active: true, capability: 'applies-labels', labelIds: ['3878'] }],
       },
     };
     render(h(LabelsPanel, null), root);
     expect(root.textContent).toContain('Needs review');
-    expect(root.textContent).toContain('applied by extension');
-    expect(root.textContent).toContain('Tag needs-review');
+    expect(root.textContent).toContain('AI attribution unavailable');
+    // The footer must not contradict the per-label attribution card: with a
+    // label applied and no rule, it states only the verified rule fact and
+    // never claims "no extension applies labels" / "set manually".
+    expect(root.textContent).not.toContain('set manually');
+    expect(root.textContent).not.toContain('extension applies labels');
+    expect(root.textContent).toContain('No queue rule governs labels');
   });
 
   it('FoldableCode shows short code inline, folds long code behind a toggle', () => {
@@ -112,7 +111,7 @@ describe('inspector components', () => {
       resolved: {
         queue: null, schema: null, document: null, usersById: {}, hooksById: {}, rulesById: {},
         labelsById: { 9898: { id: '9898', name: 'Priority: High', color: '#dc2626' } },
-        labelRules: [], labelHooks: [],
+        labelRules: [],
       },
     };
     render(h(LabelsPanel, null), root);

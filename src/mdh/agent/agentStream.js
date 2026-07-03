@@ -10,6 +10,19 @@ const TOOL_LABELS = {
   data_storage_find: 'querying the collection',
   data_storage_list_indexes: 'inspecting indexes',
   data_storage_list_search_indexes: 'inspecting search indexes',
+  // Rossum resource tools (used by the Inspector's attribution agent)
+  rossum_get_hook: 'reading extension code',
+  rossum_list_hooks: 'listing extensions',
+  rossum_list_hook_logs: 'reading extension logs',
+  rossum_get_rule: 'reading a rule',
+  rossum_list_rules: 'reading queue rules',
+  rossum_list_rule_execution_logs: 'reading rule logs',
+  rossum_get_annotation: 'reading the annotation',
+  rossum_get_annotation_content: 'reading field values',
+  rossum_get_queue: 'reading the queue',
+  rossum_get_schema: 'reading the schema',
+  rossum_list_annotations: 'searching annotations',
+  rossum_search_annotations: 'searching annotations',
 };
 
 // Human status label for the compact live status line.

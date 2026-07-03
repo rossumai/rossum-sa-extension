@@ -173,78 +173,6 @@ export function contrastText(hex) {
   return lum > 0.6 ? '#1a1a24' : '#ffffff';
 }
 
-// --- extension label attribution -------------------------------------------
-// The platform records NO applier for a label (not audited; annotation.labels
-// is bare URLs). So when no rule applied it, infer the extension by analyzing
-// each queue hook: does its code/settings apply labels (POST /v1/labels/apply,
-// apply_label, add_labels) and does it reference this label's id? (Canonical
-// pattern hardcodes the label id — txscript-reference.) Always best-effort.
-const LABEL_APPLY_SIG = /labels\/apply|apply_label|add_labels|remove_labels/i;
-
-function labelIdsInBlob(blob) {
-  const ids = new Set();
-  for (const m of blob.matchAll(/labels\/(\d+)/g)) ids.add(m[1]); // label URLs
-  // a label-ish key/const assigned an id (bare number or a /labels/<id> URL)
-  for (const m of blob.matchAll(/label[\w ]*['"]?\s*[:=]\s*['"]?(?:[^'"\n]*?\/labels\/)?(\d{2,})/gi)) ids.add(m[1]);
-  return [...ids];
-}
-
-// Extensions may resolve a label by NAME (GET /v1/labels?name=… or list+match)
-// instead of hardcoding the id — so the name string appears in the code. Match
-// it as a quoted literal or a name=/name:/name== form (precise enough to avoid
-// matching common words by accident).
-export function hookReferencesLabelName(blob, name) {
-  if (!name || !blob) return false;
-  const esc = String(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`["']${esc}["']|name\\s*[=:]+\\s*["']?${esc}(?:["']|\\b)`, 'i').test(blob);
-}
-
-export function extractLabelHooks(hooks = []) {
-  return (hooks || []).map((h) => {
-    const code = (h.config && h.config.code) || '';
-    const settings = h.settings ? JSON.stringify(h.settings) : '';
-    const blob = `${code}\n${settings}`;
-    let capability;
-    if (LABEL_APPLY_SIG.test(blob)) capability = 'applies-labels';
-    else if (h.type === 'webhook') capability = 'unknown-webhook'; // opaque external service
-    else capability = 'none';
-    return {
-      hookId: h.id, hookName: h.name || `hook ${h.id}`, type: h.type,
-      active: h.active !== false, capability, labelIds: labelIdsInBlob(blob), blob,
-    };
-  });
-}
-
-// Rank queue extensions as candidates for applying a given label. A hook
-// "references this label" if its code/settings carry the label id OR the label
-// name (extensions often resolve the id from the name at runtime).
-export function labelExtensionCandidates(labelId, labelName, labelHooks = []) {
-  const id = String(labelId);
-  return (labelHooks || [])
-    .filter((lh) => lh.capability !== 'none')
-    .map((lh) => {
-      const refsId = lh.labelIds.includes(id);
-      const refsName = hookReferencesLabelName(lh.blob || '', labelName);
-      let match; let score;
-      if (lh.capability === 'applies-labels' && (refsId || refsName)) { match = 'references-label'; score = refsId ? 100 : 90; }
-      else if (lh.capability === 'applies-labels') { match = 'applies-labels'; score = 40; }
-      else { match = 'opaque-webhook'; score = 10; }
-      if (lh.active === false) score -= 5;
-      return { hookId: lh.hookId, hookName: lh.hookName, type: lh.type, match, score, by: refsId ? 'id' : (refsName ? 'name' : null) };
-    })
-    .sort((a, b) => b.score - a.score);
-}
-
-// Summarize the extension attribution for one applied label.
-export function extensionAttribution(labelId, labelName, labelHooks = []) {
-  const cands = labelExtensionCandidates(labelId, labelName, labelHooks);
-  if (!cands.length) return { kind: 'none', name: null, by: null, others: [] };
-  const best = cands[0];
-  const others = cands.slice(1).map((c) => c.hookName);
-  const kind = best.match === 'references-label' ? 'named' : best.match === 'applies-labels' ? 'likely' : 'opaque';
-  return { kind, name: best.hookName, by: best.by, others };
-}
-
 // Which extensions handle export, and (best-effort) which one failed. Export
 // extensions are deterministically the hooks subscribed to the export event;
 // the failing one is matched from the hook logs.
@@ -331,13 +259,6 @@ export function buildPipeline(hooks = [], hookLogs = []) {
   return phases;
 }
 
-// --- detective: capability scan + candidate ranking -------------------------
-export function detectRejectCapability(hook) {
-  if (hook?.type === 'webhook') return 'unknown-webhook';
-  const code = hook?.config?.code || '';
-  return /\/reject\b/.test(code) || /['"]rejected['"]/.test(code) ? 'calls-reject' : 'no-reject-call';
-}
-
 // --- labels ----------------------------------------------------------------
 // Extract the queue's label-applying rules. A label rule action carries label
 // URL(s)/id(s) under any payload key containing "label" (mirrors the maintained
@@ -391,22 +312,4 @@ export function labelAttribution({ annotation = {}, labelsById = {}, labelRules 
     }
   }
   return { applied, notApplied };
-}
-
-export function rankRejectCandidates({ hookLogs = [], queueHooks = [], rejectedAt = null, requestId = null } = {}) {
-  const ranById = new Map();
-  for (const l of hookLogs) ranById.set(l.hook_id, l);
-  return (queueHooks || [])
-    .map((h) => {
-      const log = ranById.get(h.id);
-      const matchedRequestId = !!(requestId && log && log.request_id === requestId);
-      const capability = detectRejectCapability(h);
-      let score = 0;
-      if (matchedRequestId) score += 100;
-      if (log) score += 20;
-      if (capability === 'calls-reject') score += 30;
-      else if (capability === 'unknown-webhook') score += 5;
-      return { hookId: h.id, name: h.name, capability, ran: !!log, matchedRequestId, score };
-    })
-    .sort((a, b) => b.score - a.score);
 }

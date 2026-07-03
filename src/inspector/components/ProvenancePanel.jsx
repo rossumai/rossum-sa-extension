@@ -3,10 +3,13 @@ import { useEffect } from 'preact/hooks';
 import * as store from '../store.js';
 import { loadQueueHooks } from '../index.jsx';
 import { fieldProvenance, matchingExtensions, matchConfigsForField } from '../culprit.js';
+import { fieldKey } from '../orchestrate.js';
+import CulpritChip from './CulpritChip.jsx';
 
 const SRC_LABEL = {
   score: 'engine', human: 'manual edit', formula: 'formula',
   connector: 'connector hook', rules: 'rule', data_matching: 'dataset match', none: 'no source',
+  not_found: 'not found',
 };
 
 function walkDatapoints(nodes, out) {
@@ -48,6 +51,14 @@ export default function ProvenancePanel() {
     return null;
   }
 
+  function attrFor(schemaId) {
+    const a = store.attributions.value[fieldKey(schemaId)];
+    if (!a) return null;
+    if (a.status === 'loading') return <span class="inspector-label-why inspector-loading inspector-ai-phase"> {a.phase || 'thinking'}…</span>;
+    if (a.status === 'done' && a.verdict && a.verdict.culprit) return <span class="inspector-label-why"> <CulpritChip culprit={a.verdict.culprit} /></span>;
+    return null;
+  }
+
   return (
     <div class="inspector-panel">
       <div class="inspector-sect">Where each value came from</div>
@@ -61,6 +72,7 @@ export default function ProvenancePanel() {
               <td>
                 <span class={`inspector-sb inspector-sb-${p.primary}`}>{SRC_LABEL[p.primary] || p.primary}</span>
                 {p.primary === 'data_matching' ? matchSource(p.schemaId) : null}
+                {(p.primary === 'rules' || p.primary === 'connector' || p.primary === 'data_matching') ? attrFor(p.schemaId) : null}
               </td>
               <td>{p.confidence != null ? p.confidence.toFixed(2) : (p.primary === 'human' ? 'edited' : '')}</td>
             </tr>

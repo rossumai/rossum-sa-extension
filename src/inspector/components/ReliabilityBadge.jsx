@@ -1,10 +1,13 @@
 import { h } from 'preact';
 
-const LABEL = { unavailable: 'Not recorded' };
+const LABEL = {
+  unavailable: 'Not recorded',
+  high: 'High confidence', medium: 'Medium confidence', low: 'Low confidence',
+};
 
 export default function ReliabilityBadge({ level }) {
-  // Only the 'unavailable' marker is surfaced; 'verified' and 'best-effort'
-  // are intentionally not shown (per product decision).
-  if (level !== 'unavailable') return null;
-  return <span class={`inspector-rb inspector-rb-${level}`}>{LABEL[level] || level}</span>;
+  // 'unavailable' + the AI confidence levels are surfaced; 'verified'/'best-effort'
+  // stay hidden (per the original product decision).
+  if (!LABEL[level]) return null;
+  return <span class={`inspector-rb inspector-rb-${level}`}>{LABEL[level]}</span>;
 }

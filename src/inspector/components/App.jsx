@@ -3,6 +3,7 @@ import { useState } from 'preact/hooks';
 import * as store from '../store.js';
 import { loadAnnotation } from '../index.jsx';
 import IdInput from './IdInput.jsx';
+import RecentAnnotations from './RecentAnnotations.jsx';
 import Overview from './Overview.jsx';
 import Timeline from './Timeline.jsx';
 import BlockedPanel from './BlockedPanel.jsx';
@@ -33,6 +34,7 @@ export default function App({ connected }) {
             <div class="inspector-empty">
               Not connected. Open a Rossum annotation and click <b>Inspect this annotation</b>, or paste an id below.
               <div style="margin-top:12px"><IdInput onSubmit={inspect} /></div>
+              <RecentAnnotations onSelect={inspect} />
             </div>
           </div>
         </main>
@@ -48,6 +50,7 @@ export default function App({ connected }) {
           <IdInput onSubmit={inspect} />
           {store.loading.value && <div class="inspector-loading">Loading…</div>}
           {store.error.value && <div class="error-banner">{store.error.value}</div>}
+          {!d && !store.loading.value && <RecentAnnotations onSelect={inspect} />}
           {d && (
             <div class="inspector-report">
               <Overview />

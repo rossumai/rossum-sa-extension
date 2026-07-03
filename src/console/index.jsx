@@ -137,12 +137,12 @@ async function boot() {
   inspectorStore.domain.value = domain;
   inspectorStore.token.value = token;
   inspectorApi.init(domain, token);
-  // Seed the annotation to inspect from a staging entry, else restore the one
-  // persisted on a prior inspect — so a Console page refresh keeps inspecting it.
-  const pendingAnn = entry?.pendingAnnotationId || inspectorStore.restoreAnnotationId();
+  // Open a specific annotation only when one was explicitly staged (a deep-link).
+  // Otherwise leave it unset so the Inspector opens to its recent-annotations list
+  // rather than jumping straight back into the last-inspected one.
+  const pendingAnn = entry?.pendingAnnotationId;
   if (pendingAnn) {
     inspectorStore.annotationId.value = String(pendingAnn);
-    inspectorStore.persistAnnotationId(pendingAnn);
   }
 
   effect(() => {

@@ -1,20 +1,42 @@
 import * as api from './api.js';
 import * as store from './store.js';
-import { extractLabelRules, extractLabelHooks } from './culprit.js';
+import { extractLabelRules } from './culprit.js';
+import { loadRecents, recordRecent } from './recents.js';
+import * as agentApi from '../mdh/agent/agentApi.js';
+import { orchestrateAttributions } from './orchestrate.js';
 
 let loadId = 0;
 const safe = (fn) => Promise.resolve().then(fn).catch(() => null);
 function idFromUrl(url) { const m = String(url || '').match(/\/(\d+)\/?$/); return m ? m[1] : null; }
 
+// Prefetch all enrichment + queue hooks/labels/rules (all 403-tolerant), then run
+// the attribution orchestrator. Aborts any prior in-flight run (superseded by a
+// newer annotation load) so it never writes a stale result.
+let attrController = null;
+async function prefetchAndOrchestrate() {
+  if (attrController) attrController.abort();
+  attrController = new AbortController();
+  const signal = attrController.signal;
+  await Promise.all([
+    loadEnrichment('workflow'), loadEnrichment('notes'), loadEnrichment('hookLogs'), loadEnrichment('ruleLogs'),
+    loadQueueHooks(), loadLabelContext(), loadQueueRules(),
+  ]);
+  if (signal.aborted) return;
+  await orchestrateAttributions({ store, api, agentApi, signal });
+}
+
 export async function initInspector() {
+  loadRecents(); // fire-and-forget; recents show even in the not-connected view
   try { await api.whoami(); }
   catch (err) { store.error.value = err.message || 'Failed to verify session'; store.connected.value = false; return; }
   store.connected.value = true;
+  agentApi.probeAgent().then((ok) => { store.aiAvailable.value = ok; }).catch(() => {}); // non-blocking
   if (store.annotationId.value) loadAnnotation(store.annotationId.value); // not awaited
 }
 
 export async function loadAnnotation(id) {
   const myId = ++loadId;
+  if (attrController) attrController.abort();
   store.loading.value = true;
   store.error.value = null;
   try {
@@ -36,6 +58,14 @@ export async function loadAnnotation(id) {
     if (myId !== loadId) return;
 
     store.data.value = { annotation, blocker, content, resolved: { queue, schema, document, usersById, hooksById: {}, rulesById: {} } };
+    recordRecent({
+      id: String(annotation.id),
+      fileName: (document && document.original_file_name) || null,
+      queue: (queue && queue.name) || null,
+      status: annotation.status || null,
+      at: Date.now(),
+    });
+    prefetchAndOrchestrate().catch(() => {}); // not awaited; swallow (attribution is best-effort)
   } catch (err) {
     if (myId === loadId) store.error.value = err.message || 'Failed to load annotation';
   } finally {
@@ -46,6 +76,7 @@ export async function loadAnnotation(id) {
 // Lazily fetch a best-effort enrichment collection into store.enrichment[kind].
 export async function loadEnrichment(kind) {
   const id = store.annotationId.value;
+  const myId = loadId; // bail before writing if the user navigated to another annotation
   const fns = {
     notes: () => api.listNotes(id),
     workflow: () => api.listWorkflowActivities(id),
@@ -56,8 +87,10 @@ export async function loadEnrichment(kind) {
   if (!fns[kind]) return;
   try {
     const v = await fns[kind]();
+    if (myId !== loadId) return;
     store.enrichment.value = { ...store.enrichment.value, [kind]: v };
   } catch (err) {
+    if (myId !== loadId) return;
     store.enrichment.value = { ...store.enrichment.value, [kind]: err.featureUnavailable ? 'unavailable' : [] };
   }
 }
@@ -66,11 +99,12 @@ export async function loadEnrichment(kind) {
 export async function loadQueueHooks() {
   const d = store.data.value;
   if (!d || !d.annotation.queue || d.resolved._hooksLoaded) return;
+  const myId = loadId;
   const hooks = await safe(() => api.listHooks(idFromUrl(d.annotation.queue))) || [];
   const hooksById = {};
   for (const hk of hooks) hooksById[hk.id] = hk;
   const cur = store.data.value;
-  if (!cur) return;
+  if (!cur || myId !== loadId) return; // superseded by a newer annotation → don't contaminate it
   store.data.value = { ...cur, resolved: { ...cur.resolved, hooksById, _hooksLoaded: true } };
 }
 
@@ -79,6 +113,7 @@ export async function loadQueueHooks() {
 export async function loadLabelContext() {
   const d = store.data.value;
   if (!d) return;
+  const myId = loadId;
   const queueId = idFromUrl(d.annotation.queue);
   const [labels, rules, hooks] = await Promise.all([
     safe(() => api.listLabels()),
@@ -88,10 +123,22 @@ export async function loadLabelContext() {
   const labelsById = {};
   for (const l of labels || []) labelsById[String(l.id)] = { id: String(l.id), name: l.name, color: l.color, url: l.url };
   const labelRules = extractLabelRules(rules || []);
-  const labelHooks = extractLabelHooks(hooks || []);
+  const hooksById = {};
+  for (const hk of (hooks || [])) hooksById[hk.id] = hk;
   const cur = store.data.value;
-  if (!cur) return;
-  store.data.value = { ...cur, resolved: { ...cur.resolved, labelsById, labelRules, labelHooks } };
+  if (!cur || myId !== loadId) return; // superseded → don't merge stale label context into another annotation
+  store.data.value = { ...cur, resolved: { ...cur.resolved, labelsById, labelRules, hooksById: { ...cur.resolved.hooksById, ...hooksById }, _hooksLoaded: true } };
+}
+
+// For the orchestrator's programmatic correlation (rule → field): populate
+// resolved.rules from the queue's rules.
+export async function loadQueueRules() {
+  const d = store.data.value;
+  if (!d || !d.annotation.queue || d.resolved._rulesLoaded) return;
+  const myId = loadId;
+  const rules = await safe(() => api.listRules(idFromUrl(d.annotation.queue))) || [];
+  const cur = store.data.value; if (!cur || myId !== loadId) return; // superseded → skip stale write
+  store.data.value = { ...cur, resolved: { ...cur.resolved, rules, _rulesLoaded: true } };
 }
 
 // Opt-in live re-evaluate (the only write path).

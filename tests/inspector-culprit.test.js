@@ -2,8 +2,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   REL, classifyMessage, explainBlocker, classifyRejection,
-  fieldProvenance, detectRejectCapability, rankRejectCandidates,
-  extractLabelRules, labelAttribution, extractLabelHooks, extensionAttribution, exportHookCandidates,
+  fieldProvenance,
+  extractLabelRules, labelAttribution, exportHookCandidates,
   matchingExtensions, contrastText, matchConfigsForField, buildPipeline,
 } from '../src/inspector/culprit.js';
 
@@ -122,54 +122,7 @@ describe('labels', () => {
   });
 });
 
-describe('extension label attribution', () => {
-  // The documented canonical pattern (txscript-reference): hardcoded id + /labels/apply.
-  const CANON = [
-    'import requests',
-    'def rossum_hook_request_handler(payload):',
-    '    base_url = payload["base_url"]',
-    '    LABEL_NEEDS_REVIEW_ID = 3878',
-    '    label_url = f"{base_url}/api/v1/labels/{LABEL_NEEDS_REVIEW_ID}"',
-    '    requests.post(f"{base_url}/api/v1/labels/apply", json={"operations": {"add": [label_url]}})',
-    '    return {}',
-  ].join('\n');
-
-  // Resolves the label by NAME at runtime (no hardcoded id).
-  const BY_NAME = 'r = requests.get(base + "/api/v1/labels?name=Escalated"); requests.post(base + "/api/v1/labels/apply", json={"operations": {"add": [r.json()["results"][0]["url"]]}})';
-
-  const hooks = [
-    { id: 50, name: 'Tag needs-review', type: 'function', active: true, config: { code: CANON } },
-    { id: 51, name: 'Generic labeler', type: 'function', active: true, config: { code: 'requests.post(base + "/api/v1/labels/apply", json={"operations": {"add": add_labels}})' } },
-    { id: 52, name: 'Some webhook', type: 'webhook', active: true, config: {} },
-    { id: 53, name: 'Uppercase vendor', type: 'function', active: true, config: { code: 'return {"messages": []}' } },
-    { id: 54, name: 'Escalator', type: 'function', active: true, config: { code: BY_NAME } },
-  ];
-
-  it('extractLabelHooks detects capability + the hardcoded label id', () => {
-    const lh = extractLabelHooks(hooks);
-    const byId = Object.fromEntries(lh.map((x) => [x.hookId, x]));
-    expect(byId[50]).toMatchObject({ capability: 'applies-labels' });
-    expect(byId[50].labelIds).toContain('3878');
-    expect(byId[51]).toMatchObject({ capability: 'applies-labels' });
-    expect(byId[51].labelIds).toEqual([]); // applies labels but hardcodes none
-    expect(byId[52]).toMatchObject({ capability: 'unknown-webhook' });
-    expect(byId[53]).toMatchObject({ capability: 'none' });
-    expect(byId[54]).toMatchObject({ capability: 'applies-labels' }); // resolves by name
-  });
-
-  it('extensionAttribution: named by id, named by NAME, likely, opaque, none', () => {
-    const lh = extractLabelHooks(hooks);
-    expect(extensionAttribution('3878', 'Needs review', lh)).toMatchObject({ kind: 'named', name: 'Tag needs-review', by: 'id' });
-    // label resolved by NAME (id not hardcoded anywhere) -> Escalator matches on name
-    expect(extensionAttribution('9903', 'Escalated', lh)).toMatchObject({ kind: 'named', name: 'Escalator', by: 'name' });
-    // a label nobody references -> best is a generic labeler (likely)
-    expect(extensionAttribution('9999', 'Nope', lh).kind).toBe('likely');
-    // only a webhook present -> opaque
-    expect(extensionAttribution('9999', 'Nope', extractLabelHooks([hooks[2]])).kind).toBe('opaque');
-    // no label-capable hooks -> none
-    expect(extensionAttribution('9999', 'Nope', extractLabelHooks([hooks[3]])).kind).toBe('none');
-  });
-
+describe('extension run timeline', () => {
   it('exportHookCandidates: lists export hooks + matches the failing one from logs', () => {
     const ehooks = [
       { id: 70, name: 'Export: ERP push', type: 'webhook', active: true, events: ['annotation_content.export'] },
@@ -201,7 +154,7 @@ describe('extension label attribution', () => {
   });
 });
 
-describe('provenance + detective', () => {
+describe('provenance', () => {
   it('buckets a field value to its primary validation source (verified values)', () => {
     const p = fieldProvenance({ schema_id: 'amount_total', validation_sources: ['score'], content: { value: '5', rir_confidence: 0.97 } });
     expect(p).toMatchObject({ schemaId: 'amount_total', primary: 'score', confidence: 0.97 });
@@ -250,19 +203,5 @@ describe('provenance + detective', () => {
     expect(contrastText('#111111')).toBe('#ffffff'); // dark bg -> white text
     expect(contrastText('#FFFF00')).toBe('#1a1a24'); // bright bg -> dark text
     expect(contrastText('bogus')).toBe('#ffffff');
-  });
-  it('detects reject capability without guessing webhooks', () => {
-    expect(detectRejectCapability({ type: 'function', config: { code: 'requests.post(f"{base}/annotations/{id}/reject")' } })).toBe('calls-reject');
-    expect(detectRejectCapability({ type: 'function', config: { code: 'return {"messages": []}' } })).toBe('no-reject-call');
-    expect(detectRejectCapability({ type: 'webhook', config: { url: 'https://x' } })).toBe('unknown-webhook');
-  });
-  it('ranks the request_id match first', () => {
-    const ranked = rankRejectCandidates({
-      hookLogs: [{ hook_id: 11, request_id: 'RID' }],
-      queueHooks: [{ id: 11, name: 'ERP guard', type: 'function', config: { code: 'x/reject' } }, { id: 12, name: 'Other', type: 'webhook', config: {} }],
-      rejectedAt: 'T', requestId: 'RID',
-    });
-    expect(ranked[0]).toMatchObject({ hookId: 11, matchedRequestId: true });
-    expect(ranked[0].score).toBeGreaterThan(ranked[1].score);
   });
 });
