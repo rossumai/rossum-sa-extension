@@ -2,6 +2,7 @@
 // No DOM access; consumers (Preact components) render based on returned data.
 
 import { evalCondition } from './actionCondition.js';
+import { reEscape } from '../mdh/reEscape.js';
 
 // ── API ─────────────────────────────────────────────
 
@@ -157,8 +158,6 @@ function isMdhHook(hook) {
 const PLACEHOLDER_RE = /\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\|\s*([a-zA-Z_]+)(?:\s*\(\s*([^)]*?)\s*\))?\s*)?\}/g;
 const PLACEHOLDER_EXACT_RE = /^\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\|\s*([a-zA-Z_]+)(?:\s*\(\s*([^)]*?)\s*\))?\s*)?\}$/;
 
-const REGEX_SPECIALS_RE = /[.*+?^${}()|[\]\\]/g;
-
 function unquoteArg(raw) {
   if (raw == null) return '';
   const t = raw.trim();
@@ -169,13 +168,14 @@ function unquoteArg(raw) {
 }
 
 // Returns the modifier-applied value. The result type is dictated by the
-// modifier: `split` → array of strings, `re` → string, no modifier →
-// pass-through string. Unknown modifiers fall back to the raw value.
+// modifier: `split` → array of strings, `re` → string (Python re.escape
+// parity, see mdh/reEscape.js), no modifier → pass-through string. Unknown
+// modifiers fall back to the raw value.
 function applyModifier(value, modifier, arg) {
   if (modifier == null) return value;
   const s = value == null ? '' : String(value);
   if (modifier === 'split') return s.split(unquoteArg(arg));
-  if (modifier === 're') return s.replace(REGEX_SPECIALS_RE, '\\$&');
+  if (modifier === 're') return reEscape(s);
   return value;
 }
 

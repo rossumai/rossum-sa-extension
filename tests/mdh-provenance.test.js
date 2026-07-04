@@ -224,9 +224,22 @@ describe('substitutePlaceholders — re modifier', () => {
       .toEqual(['a\\.b\\*c\\+d']);
   });
 
-  it('escapes the full set of regex specials', () => {
-    expect(substitutePlaceholders(['{x | re}'], { x: '.*+?^${}()|[]\\' }))
-      .toEqual(['\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\']);
+  // The service's `re` value filter is Python re.escape (verified live against
+  // /svc/master-data-hub/api/v1/match 2026-07-04): it also escapes `-&~#`,
+  // space, and whitespace/control chars — not just the JS regex specials.
+  it('escapes the full Python re.escape set of regex specials', () => {
+    expect(substitutePlaceholders(['{x | re}'], { x: '.*+?^${}()|[]\\-&~# \t\n\r\v\f' }))
+      .toEqual(['\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\\\-\\&\\~\\#\\ \\\t\\\n\\\r\\\v\\\f']);
+  });
+
+  it('escapes space (verified: "ACME (US)" → "ACME\\ \\(US\\)")', () => {
+    expect(substitutePlaceholders(['{x | re}'], { x: 'ACME (US)' }))
+      .toEqual(['ACME\\ \\(US\\)']);
+  });
+
+  it('leaves non-special printable ASCII untouched (verified live)', () => {
+    const kept = '0123456789azAZ!"%\',/:;<=>@_`';
+    expect(substitutePlaceholders(['{x | re}'], { x: kept })).toEqual([kept]);
   });
 
   it('still produces a string for partial substitutions', () => {

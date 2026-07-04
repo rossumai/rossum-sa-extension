@@ -3,6 +3,7 @@ import { signal } from '@preact/signals';
 import JSON5 from 'json5';
 import { skip } from '../store.js';
 import { VAR_RE, VAR_RE_G } from '../placeholderSyntax.js';
+import { reEscape } from '../reEscape.js';
 import { mapPlaceholdersToFields } from '../placeholderFields.js';
 import { resolveFieldTypes, deriveResolvedType } from '../fieldTypes.js';
 
@@ -73,12 +74,11 @@ export function isJson5NumberLiteral(val) {
 
 // Placeholder modifiers, mirroring MDH's server-side substitution as modeled in
 // src/popup/mdh-provenance.js. `split(sep)` turns the value into an array of
-// strings; `re` regex-escapes it; no/unknown modifier → the raw string value.
+// strings; `re` regex-escapes it with Python re.escape parity (see
+// reEscape.js); no/unknown modifier → the raw string value.
 // Single-quoted or bare args are supported (the common convention, e.g.
 // `split(',')`); since the value is read from the editor text, a double-quoted
 // arg would arrive JSON-escaped — a rare shape left unhandled.
-const REGEX_SPECIALS_RE = /[.*+?^${}()|[\]\\]/g;
-
 function unquoteArg(raw) {
   if (raw == null) return '';
   const t = raw.trim();
@@ -90,7 +90,7 @@ function unquoteArg(raw) {
 
 function applyModifier(val, modifier, arg) {
   if (modifier === 'split') return String(val).split(unquoteArg(arg));
-  if (modifier === 're') return String(val).replace(REGEX_SPECIALS_RE, '\\$&');
+  if (modifier === 're') return reEscape(val);
   return String(val); // no modifier or unknown → raw string
 }
 

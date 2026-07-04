@@ -153,11 +153,30 @@ describe('placeholder modifiers', () => {
     expect(r.parsed).toEqual([{ $match: { tags: [''] } }]);
   });
 
+  // `re` mirrors the service's Python re.escape (verified live 2026-07-04):
+  // spaces, `-&~#`, and whitespace/control chars are escaped too.
   it('re escapes regex specials and stays a JSON string', () => {
     const p = getPipeline();
     p.setPlaceholder('v', 'A.C. Corp');
     expect(p.computeEditorState('[{"$match":{"name":"{v | re}"}}]').parsed)
-      .toEqual([{ $match: { name: 'A\\.C\\. Corp' } }]);
+      .toEqual([{ $match: { name: 'A\\.C\\.\\ Corp' } }]);
+  });
+
+  it('re escapes space/dash/amp like the live service ("ACME (US)" → "ACME\\ \\(US\\)")', () => {
+    const p = getPipeline();
+    p.setPlaceholder('v', 'ACME (US)');
+    expect(p.computeEditorState('[{"$match":{"name":"{v | re}"}}]').parsed)
+      .toEqual([{ $match: { name: 'ACME\\ \\(US\\)' } }]);
+    p.setPlaceholder('v', 'dash-mid amp&ers til~de hash#tag');
+    expect(p.computeEditorState('[{"$match":{"name":"{v | re}"}}]').parsed)
+      .toEqual([{ $match: { name: 'dash\\-mid\\ amp\\&ers\\ til\\~de\\ hash\\#tag' } }]);
+  });
+
+  it('re applies inside embedded placeholders ("^{v | re}$")', () => {
+    const p = getPipeline();
+    p.setPlaceholder('v', 'ACME (US)');
+    expect(p.computeEditorState('[{"$match":{"name":{"$regex":"^{v | re}$"}}}]').parsed)
+      .toEqual([{ $match: { name: { $regex: '^ACME\\ \\(US\\)$' } } }]);
   });
 
   it('tolerates whitespace inside the braces ("{ amount }")', () => {
