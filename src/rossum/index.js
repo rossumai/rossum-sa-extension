@@ -5,9 +5,11 @@ import { handleNode as handleExpandReasoning } from './features/expand-reasoning
 import { initScrollLock } from './features/scroll-lock.js';
 import { init as initClosableTooltips, handleNode as handleClosableTooltip } from './features/closable-tooltips.js';
 import { init as initDatasetMgmtSuggest } from './features/dataset-mgmt-suggest.js';
+import { init as initTrackViewed } from './features/track-viewed.js';
 
 initClosableTooltips();
 initDatasetMgmtSuggest();
+initTrackViewed();
 
 const SETTINGS_KEYS = [
   'schemaAnnotationsEnabled',

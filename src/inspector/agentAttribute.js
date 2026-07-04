@@ -4,30 +4,11 @@
 // queue ids, the question, and a compact candidate list, and tells the agent to fetch
 // what it needs. Pure prompt/parse here; runAttribution reuses the shared transport.
 import { newAcc, foldEvents, replyText } from '../mdh/agent/agentStream.js';
+import { budgetedJoin } from './promptBudget.js';
 
 const trunc = (s, n) => { const t = String(s ?? ''); return t.length > n ? t.slice(0, n) + '…' : t; };
 
 const TOOL_INSTRUCTION = 'Use your read-only tools to fetch whatever you need: each candidate extension\'s code and settings, this annotation and its content, the hook logs, and the queue\'s rules. Reason from their ACTUAL code/logs — a webhook with no readable code is opaque, so say so rather than guess. Never call any write / reject / revalidate action.';
-
-// The agent /messages endpoint rejects a content string over 50000 chars. Since the
-// prompt no longer seeds code/logs it is normally tiny, but a queue with a huge
-// candidate list could still approach the cap — so keep head (framing/question) + tail
-// (the JSON-only instruction) ALWAYS and budget the candidate list, noting omissions.
-const MAX_PROMPT = 48000;
-const NOTE_RESERVE = 160; // headroom kept free so the omission note itself never breaches the cap
-function budgetedJoin(head, middle, tail, max = MAX_PROMPT) {
-  const sep = '\n\n';
-  const kept = [];
-  let used = [...head, ...tail].reduce((n, p) => n + p.length + sep.length, 0);
-  let omitted = 0;
-  for (const m of middle) {
-    if (used + m.length + sep.length > max - NOTE_RESERVE) { omitted++; continue; }
-    used += m.length + sep.length;
-    kept.push(m);
-  }
-  if (omitted) kept.push(`(… ${omitted} more candidate extension(s) omitted to stay within the length limit — fetch them with your tools if needed.)`);
-  return [...head, ...kept, ...tail].join(sep);
-}
 
 // Compact candidate line — identity only; the agent fetches code/settings/logs itself.
 function candidateLine(c) {

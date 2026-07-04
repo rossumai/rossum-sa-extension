@@ -162,7 +162,7 @@ describe('inspector components', () => {
     expect(txt).toContain('boom');
   });
 
-  it('App lists Field provenance as the last tab', () => {
+  it('App renders all evidence sections in one column, no tab bar', () => {
     store.setAnnotationId('9');
     store.data.value = {
       annotation: { id: 9, status: 'to_review', automation_blocker: null, messages: [] },
@@ -170,9 +170,10 @@ describe('inspector components', () => {
       resolved: { queue: null, schema: null, document: null, usersById: {}, hooksById: {}, rulesById: {} },
     };
     render(h(App, { connected: true }), root);
-    const tabs = [...root.querySelectorAll('.inspector-tab')].map((b) => b.textContent.trim());
-    expect(tabs[tabs.length - 1]).toBe('Field provenance');
-    expect(tabs).toContain('Why export failed');
+    expect(root.querySelector('.inspector-tab')).toBe(null);
+    const text = root.textContent;
+    expect(text).toContain('Fields');
+    expect(text).toContain('Export');
   });
 
   it('App shows a not-connected message when connected=false', () => {

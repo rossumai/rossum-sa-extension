@@ -109,21 +109,23 @@ export async function orchestrateAttributions({ store: s = store, api, agentApi,
 
   if (!s.aiAvailable.value) return; // no fallback — leave residual findings unattributed
 
+  const pending = [];
+
   // Per-finding AI (background).
   for (const item of ai) {
     if (s.attributions.value[item.key]) continue;
     s.setAttribution(item.key, { status: 'loading', phase: 'thinking', source: 'ai' });
     const onPhase = (phase) => { if (aborted()) return; const cur = s.attributions.value[item.key]; if (cur && cur.status === 'loading' && cur.phase !== phase) s.setAttribution(item.key, { status: 'loading', phase, source: 'ai' }); };
-    item.run(onPhase)
+    pending.push(item.run(onPhase)
       .then(({ verdict }) => { if (!aborted()) s.setAttribution(item.key, { status: 'done', verdict, source: 'ai' }); })
-      .catch((e) => { if (!aborted() && e?.name !== 'AbortError') s.setAttribution(item.key, { status: 'error', error: e?.message || 'failed', source: 'ai' }); });
+      .catch((e) => { if (!aborted() && e?.name !== 'AbortError') s.setAttribution(item.key, { status: 'error', error: e?.message || 'failed', source: 'ai' }); }));
   }
 
   // Batched field AI (one call for all residual fields).
   if (fieldItems.length) {
     for (const it of fieldItems) s.setAttribution(it.key, { status: 'loading', phase: 'thinking', source: 'ai' });
     const onPhase = (phase) => { if (aborted()) return; for (const it of fieldItems) { const cur = s.attributions.value[it.key]; if (cur && cur.status === 'loading' && cur.phase !== phase) s.setAttribution(it.key, { status: 'loading', phase, source: 'ai' }); } };
-    gatherFieldsContext({ api, store: s })
+    pending.push(gatherFieldsContext({ api, store: s })
       .then((context) => runFieldBatchAttribution({ agentApi, items: fieldItems, context, onPhase, signal }))
       .then(({ verdicts }) => {
         if (aborted()) return;
@@ -133,6 +135,8 @@ export async function orchestrateAttributions({ store: s = store, api, agentApi,
           s.setAttribution(it.key, { status: 'done', verdict: v ? { culprit: v.culprit, confidence: v.confidence, explanation: v.explanation } : { culprit: null, confidence: 'low', explanation: '' }, source: 'ai' });
         }
       })
-      .catch((e) => { if (!aborted() && e?.name !== 'AbortError') for (const it of fieldItems) s.setAttribution(it.key, { status: 'error', error: e?.message || 'failed', source: 'ai' }); });
+      .catch((e) => { if (!aborted() && e?.name !== 'AbortError') for (const it of fieldItems) s.setAttribution(it.key, { status: 'error', error: e?.message || 'failed', source: 'ai' }); }));
   }
+
+  await Promise.allSettled(pending);
 }

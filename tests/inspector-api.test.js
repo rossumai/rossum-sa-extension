@@ -50,3 +50,53 @@ describe('inspector api', () => {
     expect(globalThis.fetch.mock.calls[0][0]).toBe('https://api.example.rossum.ai/api/v1/annotations/5');
   });
 });
+
+describe('workflow + relation endpoints', () => {
+  beforeEach(() => { api.init('https://api.example.rossum.ai', 'TKN'); });
+
+  it('listWorkflowRuns hits /workflow_runs?', async () => {
+    const calls = [];
+    globalThis.fetch = vi.fn(async (url) => { calls.push(String(url)); return { ok: true, status: 200, json: async () => ({ results: [], pagination: {} }) }; });
+    await api.listWorkflowRuns(42);
+    expect(calls[0]).toContain('/api/v1/workflow_runs?');
+    expect(calls[0]).toContain('annotation=42');
+  });
+
+  it('listWorkflowSteps filters by workflow id', async () => {
+    const calls = [];
+    globalThis.fetch = vi.fn(async (url) => { calls.push(String(url)); return { ok: true, status: 200, json: async () => ({ results: [], pagination: {} }) }; });
+    await api.listWorkflowSteps(5);
+    expect(calls[0]).toContain('/api/v1/workflow_steps?');
+    expect(calls[0]).toContain('workflow=5');
+  });
+
+  it('listEmails is gone', () => {
+    expect(api.listEmails).toBeUndefined();
+  });
+
+  it('listAnnotationsByIds sends a csv id filter with sideload', async () => {
+    const calls = [];
+    globalThis.fetch = vi.fn(async (url) => { calls.push(String(url)); return { ok: true, status: 200, json: async () => ({ results: [], documents: [], queues: [] }) }; });
+    await api.listAnnotationsByIds(['1', '2']);
+    expect(calls[0]).toContain('/api/v1/annotations?');
+    expect(calls[0]).toContain('id=1%2C2');
+    expect(calls[0]).toContain('sideload=documents%2Cqueues');
+  });
+
+  it('listPages hits /pages?annotation=', async () => {
+    const calls = [];
+    globalThis.fetch = vi.fn(async (url) => { calls.push(String(url)); return { ok: true, status: 200, json: async () => ({ results: [], pagination: {} }) }; });
+    await api.listPages(42);
+    expect(calls[0]).toContain('/api/v1/pages?');
+    expect(calls[0]).toContain('annotation=42');
+  });
+
+  it('getBlob sends the auth header and returns the blob', async () => {
+    const blob = { size: 3 };
+    let seenAuth = null;
+    globalThis.fetch = vi.fn(async (url, opts) => { seenAuth = opts.headers.Authorization; return { ok: true, status: 200, blob: async () => blob }; });
+    const out = await api.getBlob('https://api.example.rossum.ai/api/v1/pages/1/content');
+    expect(seenAuth).toBe('Bearer TKN');
+    expect(out).toBe(blob);
+  });
+});

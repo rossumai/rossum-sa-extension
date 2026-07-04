@@ -48,7 +48,7 @@ export default function ExportPanel() {
 
   return (
     <div class="inspector-panel">
-      <div class="inspector-kv">
+      <div class="inspector-kv" data-evidence-id="export">
         <div class="k">Outcome</div>
         <div class="v"><span class="inspector-pill inspector-pill-failed_export">failed export</span></div>
         <div class="k">Failed at</div>

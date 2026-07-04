@@ -1,8 +1,8 @@
 import { h, Fragment } from 'preact';
 import * as store from '../store.js';
-import { runRevalidate } from '../index.jsx';
 import { classifyMessage, explainBlocker } from '../culprit.js';
 import { messageKey, blockerKey } from '../orchestrate.js';
+import { schemaIdForDatapoint } from '../evidence.js';
 import ReliabilityBadge from './ReliabilityBadge.jsx';
 import CulpritChip from './CulpritChip.jsx';
 
@@ -26,14 +26,16 @@ function AttrLine({ entry }) {
 
 function MsgRow({ m, idx }) {
   const attr = store.attributions.value[messageKey(idx)];
+  const field = schemaIdForDatapoint(store.data.value?.content?.content, m.datapointId);
   return (
-    <div class="inspector-mrow">
+    <div class="inspector-mrow" data-evidence-id={`message:${m.idx}`}>
       <span class={`inspector-lv inspector-lv-${m.level}`}>{m.level}</span>
       <div class="mc">
         <div class="inspector-mtxt">{m.content}</div>
         <div class="inspector-mrow2">
           {m.culprit ? <CulpritChip culprit={m.culprit} /> : <AttrLine entry={attr} />}
           {m.culprit ? <ReliabilityBadge level={m.reliability} /> : (!attr ? <ReliabilityBadge level="unavailable" /> : null)}
+          {field ? <span class="inspector-tag">field {field}</span> : null}
           {m.isException ? <span class="inspector-tag">is_exception</span> : null}
           {m.requestId ? <span class="inspector-tag">request_id {m.requestId.slice(0, 8)}</span> : null}
         </div>
@@ -51,7 +53,6 @@ export default function BlockedPanel() {
   // blocker); warnings/info are shown separately as non-blocking.
   const errorMsgs = messages.filter((m) => m.level === 'error');
   const otherMsgs = messages.filter((m) => m.level !== 'error');
-  const live = store.live.value;
 
   return (
     <div class="inspector-panel">
@@ -60,7 +61,7 @@ export default function BlockedPanel() {
       {(d.blocker?.content || []).map((raw, i) => {
         const b = explainBlocker(raw, ctx);
         return (
-          <div class="inspector-bcard">
+          <div class="inspector-bcard" data-evidence-id={`blocker:${i}`}>
             <div class="ttl">
               <code>{b.type}</code>{b.schemaId ? <span> · {b.schemaId}</span> : null}
               {' '}<CulpritChip culprit={b.culprit} /> <ReliabilityBadge level={b.reliability} />
@@ -85,12 +86,6 @@ export default function BlockedPanel() {
           {otherMsgs.map((m) => <MsgRow m={m} idx={m.idx} />)}
         </Fragment>
       )}
-
-      <div class="inspector-reeval">
-        <span class="t">Re-evaluate with current rules — a live <code>validate</code> against today's config to catch drift. Takes a brief reviewing lock.</span>
-        <button class="btn btn-primary" onClick={() => { runRevalidate(); }}>Re-evaluate</button>
-      </div>
-      {live && <div class="inspector-note">Live re-evaluation returned {live.messages.length} message(s) from current config ({live.matchedTriggerRules.length} rule(s) matched).</div>}
     </div>
   );
 }

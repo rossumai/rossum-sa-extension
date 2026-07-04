@@ -58,7 +58,7 @@ export default function LabelsPanel() {
       {applied.map((l) => {
         if (l.rule) {
           return (
-            <div class="inspector-bcard">
+            <div class="inspector-bcard" data-evidence-id={`label:${l.id}`}>
               <div class="ttl">
                 <LabelChip name={l.name} color={l.color} />
                 <span class="inspector-label-why">applied by rule <b>{l.rule.name}</b></span>
@@ -69,7 +69,7 @@ export default function LabelsPanel() {
           );
         }
         return (
-          <div class="inspector-bcard">
+          <div class="inspector-bcard" data-evidence-id={`label:${l.id}`}>
             <div class="ttl"><LabelChip name={l.name} color={l.color} /> <AiLabelAttribution label={l} /></div>
           </div>
         );
@@ -79,7 +79,7 @@ export default function LabelsPanel() {
         <div>
           <div class="inspector-sect" style="margin-top:18px">Governed by a rule but not applied ({notApplied.length})</div>
           {notApplied.map((l) => (
-            <div class="inspector-bcard">
+            <div class="inspector-bcard" data-evidence-id={`label-not:${l.id}`}>
               <div class="ttl">
                 <LabelChip name={l.name} color={l.color} />
                 <span class="inspector-label-why">not applied — rule <b>{l.rule.name}</b> did not fire</span>

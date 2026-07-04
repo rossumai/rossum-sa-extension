@@ -79,6 +79,74 @@ A Preact app that fetches the live Rossum org over REST and renders it as an exp
 
 Adding the app touched three hardcoded rail switch-points (`Rail.jsx` APPS, `Console.jsx` render switch, `boot.js` `isValidApp`) plus `console/index.jsx` (imports, `TITLES`, auth wiring, lazy `initGalaxy`). Auth uses the shared `consoleAuth_<uuid>` flow; styled by `console.css` (`.galaxy-*`). No persisted state in v1.
 
+### Inspector (Annotation Diagnosis Report) (`src/inspector/`)
+
+A read-only Console app answering "what happened to this annotation, and why" as a single
+progressively-filling **Diagnosis Report** (the earlier six question-tabs were replaced;
+spec: `docs/superpowers/specs/2026-07-03-inspector-overhaul-design.md`).
+
+- **`evidence.js`** — pure evidence model: `buildEvidence(input) → {items, verdict}` wraps
+  (never re-derives) `culprit.js`/`correlate.js`. Every item = `{id, section, fact,
+  reliability, culprit, sourceRef, data}` with stable citation ids that double as the
+  attribution keys (`message:<i>`, `blocker:<i>`, `field:<schemaId>`, `label:<id>`,
+  `reject`, `export`, `intake:*`, `workflow:*`, `drift:*`, `gap:<kind>` for 403'd sources).
+  `computeVerdict` is the deterministic "why not automated" root cause (rejected/export-failed
+  outrank automated outrank automation-off outrank blocked; low-score reasons carry
+  confidence vs `datapoint.score_threshold ?? queue.default_score_threshold`; no blocker
+  recorded → honest `not-recorded`, never a guess). Drift items join the model only after an
+  opt-in live run (`live` input), per-row unique ids.
+- **`synthesize.js`** — one Fabry chat per annotation (shared transport + `/persona cautious`):
+  `buildSynthesisPrompt` serializes the evidence (48k `budgetedJoin` from `promptBudget.js`,
+  shared with `agentAttribute.js`) and instructs inline `[e:<id>]` citations + honesty about
+  `(unavailable)` items; `parseCitations` splits streamed text into text/cite segments;
+  `runSynthesis` streams via `agentStream.js` and returns `{text, reasoning, tools}` (tool
+  NAMES only) for the read-only "View investigation" transcript modal.
+- **`index.jsx`** — staged lifecycle in `prefetchAndOrchestrate`: **gather** (9 independent
+  403-tolerant sources, each ticking `investigation.sourcesDone` + `recomputeEvidence()`)
+  → **attribute** (`orchestrate.js`, now awaitable via `Promise.allSettled`) → **synthesize**
+  (skipped to terminal `agent-offline` when the agent is down; synthesis failure leaves the
+  programmatic report fully usable) → **complete**. All stale writes guarded by `loadId` +
+  one `AbortController` per run (aborting also kills synthesis mid-stream). `runRevalidate`
+  (start → validate → cancel) stays the only write, opt-in from the Config-drift section;
+  its diff (`driftDiff.js`, keyed by `(type, content, id)`) recomputes evidence but never
+  re-triggers synthesis.
+- **`components/`** — `Report.jsx` assembles the report column; on wide windows (>1160px)
+  `App.jsx` wraps it in `.inspector-layout` (grid) beside **`PageRail`** — a sticky rail of
+  document-page thumbnails (page image URLs 401 without the Bearer header, so `api.getBlob`
+  fetches blobs → object URLs, revoked by `store.clearPagePreviews()` on annotation switch;
+  first 4 pages eager + "Load N more"; click opens the annotation in Rossum via the audit
+  `buildDeeplink`). Then `ReportHeader`
+  (Overview + Timeline), `InvestigationStrip` (Gather ✓ n/m → Attribute k of K → Synthesize,
+  live agent activity at right, collapses to a stat line), `VerdictCard` (instant,
+  severity-edged), `DiagnosisPanel` (skeleton whenever synthesis hasn't initialized →
+  streaming narrative — a takeaway line, "- " bullets, and a "Next step:" line, rendered
+  as a real list via `parseNarrative` — with `⌖` citation chips that scroll/flash
+  `[data-evidence-id]` anchors, unresolvable ids struck-through — never links → honest
+  offline/error notes; purple-tinted panel via `--diag-*` variables, credited "by Mr. Fabry";
+  once done, a **follow-up thread**: an AgentBox-style input (`.nl-search-*`/`.agent-spark`,
+  gerund loader) continues the SAME synthesis chat via `continueSynthesis`/`askFabry` —
+  answers render with citations, one question at a time, aborted on annotation switch),
+  then `EvidenceSection`-wrapped sections (Intake & origin, Blockers & messages, Fields
+  with confidence-vs-threshold bars, Extension runs ["no log — likely ran"], Labels,
+  Rejection, Approval workflow, Export, Config drift) each carrying its own status chip
+  (`loaded/attributing/sparse/unavailable/n-a/opt-in`); empty sections show `n/a` and no body.
+- **Entry points** — two: paste an id/URL, or click a row on the landing — a compact
+  table of annotations recently VIEWED in the Rossum UI (File/Queue/Status/When/Id,
+  status pills, relative time, Clear-all [current org only], dashed empty state; id-only
+  rows render before the one sideloaded enrichment call resolves names; live-updates via
+  `chrome.storage.onChanged`; "← All annotations" above the report tears down via
+  `closeAnnotation()` and refreshes the list); (the `/document/<id>` segment is the ANNOTATION id; SPA navigation caught via interval)
+  visited annotations are recorded by `src/rossum/features/track-viewed.js` (always-on,
+  pure tracker — the floating "Inspect this annotation" button, its popup twin, the
+  `inspectAnnotationEnabled` toggle, and the worker's `openInspector` handler were all
+  REMOVED 2026-07-04 by owner request) into `rossumViewedAnnotations` via the shared
+  dependency-free module `src/inspector/viewed.js`. The `pendingAnnotationId` deep-link
+  consumer remains in the console boot (currently producer-less). NOTE: reloading the
+  extension does NOT re-inject content scripts into already-open Rossum tabs — reload the
+  tab once before expecting tracking/features there.
+- Read-only stance unchanged: the agent's read-only framing is defense-in-depth, and the
+  server-side write-lock remains the ship-blocker before non-dogfood use.
+
 ### Coupa content script
 
 Two strategies: JSON metadata extraction from `#initial_full_react_data` script tag (React pages like invoices) and DOM attribute extraction with `IGNORE_S_CLASSES` filtering (Rails pages like POs).
@@ -89,13 +157,13 @@ Preact JSX. Detects current site (Rossum/NetSuite/Coupa) and dims irrelevant sec
 
 ## Chrome Storage Keys
 
-- Feature toggles: `schemaAnnotationsEnabled`, `expandFormulasEnabled`, `expandReasoningFieldsEnabled`, `scrollLockEnabled`, `resourceIdsEnabled`, `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled`
+- Feature toggles: `schemaAnnotationsEnabled`, `expandFormulasEnabled`, `expandReasoningFieldsEnabled`, `scrollLockEnabled`, `resourceIdsEnabled`, `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled` (the short-lived `inspectAnnotationEnabled` toggle was removed 2026-07-04 along with the floating button; any stored value is orphaned)
 - Console staging auth: `consoleAuth_<uuid>` (single-use, 24h TTL, removed on first read; carries `app` + optional DS pipeline prefill)
 - Console state: `consoleActiveApp` — per-tab (see MDH state below: session-first read with a `chrome.storage.local` seed)
 - MDH state: `mdhPipelineWidth`, `mdhSidebarWidth`, `mdhUploadsColumnWidths`, `mdhOverviewChartsScale`, `mdhResultsView`, `mdhStagesAutoscroll`, `mdhStagesSampleSize` are **global** (shared across tabs, persisted in `chrome.storage.local`). The **navigation** keys `mdhActiveView`, `mdhSelectedCollection`, `mdhActivePanel`, `mdhOpsSearch` (and the Console-level `consoleActiveApp`) are **per-tab**: read session-first from `sessionStorage`, written to BOTH `sessionStorage` (this tab's truth on reload) and `chrome.storage.local` (cross-session seed for a freshly-opened tab), via `src/console/tabState.js`. `mdhLastPipeline::<scope>::<collection>` is keyed per-org **and per-collection** (legacy un-collection-scoped `mdhLastPipeline::<scope>` entries from older builds are orphaned, not migrated).
 - Audit state: `auditActiveSource`, `auditFiltersBySource`
 - Galaxy state: none (no persisted state in v1)
-- Inspector state: `inspectorRecents` — recently-inspected annotations (rich entries: `{id, fileName, queue, status, at}`, deduped by id, most-recent-first, cap 8), **global** in `chrome.storage.local` (cross-session/cross-tab; loaded at init, recorded on each successful load, shown in the landing states only). Opening the Inspector lands on this recents list — it does **not** auto-open a previously-inspected annotation; only an explicitly staged `pendingAnnotationId` (a deep-link) auto-loads. (The old per-tab `consoleInspectorAnn` sessionStorage last-id + its persist/restore were removed — the recents list supersedes them.)
+- Inspector state: `rossumViewedAnnotations` — annotations the user OPENED IN THE ROSSUM UI (`{id, origin, at}`, deduped by (origin,id), newest-first, cap 12), written by the always-on `track-viewed` content-script feature (pure tracker, no DOM) and read by the Inspector landing, which also live-refreshes via `chrome.storage.onChanged`, which filters to the connected org's origin (cap 8 shown) and enriches file/queue/status via ONE sideloaded call (`/annotations?id=<csv>&sideload=documents,queues` — verified live). Clear-all removes only the current origin's entries. Opening the Inspector lands on this list — only an explicitly staged `pendingAnnotationId` (deep-link) auto-loads. (Legacy keys `inspectorRecents` [investigated-recents, retired 2026-07-04] and the older per-tab `consoleInspectorAnn` are orphaned, not migrated.)
 - AI pipeline input availability: cached in **`sessionStorage`** (key `mdhAiAvailable_<org>`), NOT `chrome.storage` — ephemeral per-session result of the `/internal/llmchat` probe, so availability is never persisted at rest.
 
 ## CSS Architecture
@@ -115,7 +183,7 @@ Preact JSX. Detects current site (Rossum/NetSuite/Coupa) and dims irrelevant sec
 
 ## Key Patterns
 
-- Most features are gated behind chrome.storage.local toggles controlled via popup. The `closable-tooltips` and `dataset-mgmt-suggest` features are always on (no toggle, no storage key) and are not advertised in the popup UI. `dataset-mgmt-suggest` self-gates on the legacy MDH web app path (`/svc/master-data-hub/web/`).
+- Most features are gated behind chrome.storage.local toggles controlled via popup. The `closable-tooltips`, `dataset-mgmt-suggest`, and `track-viewed` features are always on (no toggle, no storage key) and are not advertised in the popup UI. `dataset-mgmt-suggest` self-gates on the legacy MDH web app path (`/svc/master-data-hub/web/`).
 - Rossum entry point builds handlers array from enabled settings — disabled features add zero overhead
 - NetSuite and Coupa content scripts are self-contained single files (no MutationObserver pattern)
 

@@ -112,17 +112,54 @@ describe('orchestrateAttributions', () => {
   it('does not write a stale result after the signal aborts mid-flight', async () => {
     const store = orchStore(msgAnn([{ type: 'error', content: 'M', detail: {} }]));
     const ctrl = new AbortController();
-    let resolveStream;
+    // orchestrateAttributions now awaits every in-flight AI call before resolving (it
+    // returns a settle promise), so the fake stream must actually settle on abort —
+    // exactly like a real aborted fetch would reject — rather than hang forever.
     const agentApi = {
       createChat: async () => 'c1',
-      streamMessage: async (_id, content) => { if (content === '/persona cautious') return; return new Promise((r) => { resolveStream = r; }); },
+      streamMessage: async (_id, content, { signal } = {}) => {
+        if (content === '/persona cautious') return;
+        return new Promise((resolve, reject) => {
+          const onAbort = () => { const e = new Error('aborted'); e.name = 'AbortError'; reject(e); };
+          if (signal?.aborted) return onAbort();
+          signal?.addEventListener('abort', onAbort, { once: true });
+        });
+      },
     };
-    await orchestrateAttributions({ store, api: fakeApi, agentApi, signal: ctrl.signal });
+    const settled = orchestrateAttributions({ store, api: fakeApi, agentApi, signal: ctrl.signal });
     await waitFor(() => store.attributions.value[messageKey(0)]?.status === 'loading');
     ctrl.abort();
-    if (resolveStream) resolveStream();
-    await new Promise((r) => setTimeout(r, 20));
-    expect(store.attributions.value[messageKey(0)].status).toBe('loading'); // no stale 'done' after abort
+    await settled;
+    expect(store.attributions.value[messageKey(0)].status).toBe('loading'); // no stale 'done'/'error' after abort
+  });
+
+  it('drops a success that resolves AFTER the abort (exercises the success-path stale-write guard)', async () => {
+    const store = orchStore(msgAnn([{ type: 'error', content: 'M', detail: {} }]));
+    const ctrl = new AbortController();
+    // Gate on the ATTRIBUTION stream actually starting — not the persona-priming call,
+    // which resolves immediately and happens first (gathering context + priming both
+    // run before the real prompt goes out; eagerly resolving on the wrong call would
+    // deadlock this test waiting for a "start" signal that already fired).
+    let signalStreamStarted;
+    const streamStarted = new Promise((res) => { signalStreamStarted = res; });
+    let finishStream;
+    const gate = new Promise((res) => { finishStream = res; });
+    const agentApi = {
+      createChat: async () => 'c1',
+      streamMessage: async (_id, content, { onEvent } = {}) => {
+        if (content === '/persona cautious') return;
+        signalStreamStarted();
+        await gate; // held open until the test explicitly releases it (after abort)
+        onEvent({ type: 'text-delta', delta: '{"culprit":{"kind":"hook","id":9,"name":"AI"},"confidence":"medium","explanation":"e"}' });
+        onEvent({ type: 'finish' });
+      },
+    };
+    const settled = orchestrateAttributions({ store, api: fakeApi, agentApi, signal: ctrl.signal });
+    await streamStarted;
+    ctrl.abort();
+    finishStream(); // let the stream resolve successfully — but too late, the signal already aborted
+    await settled;
+    expect(store.attributions.value[messageKey(0)].status).toBe('loading'); // stale 'done' must not land
   });
 
   it('does nothing when handed an already-aborted signal (no dangling loading)', async () => {
@@ -145,5 +182,17 @@ describe('orchestrateAttributions', () => {
     expect(agentApi.calls.createChat).toBe(1); // one batched call for both fields
     expect(store.attributions.value[fieldKey('a')].verdict.culprit).toEqual({ kind: 'connector', id: 1, name: 'C' });
     expect(store.attributions.value[fieldKey('b')].verdict.culprit).toBeNull();
+  });
+});
+
+describe('orchestrateAttributions returns a settle promise', () => {
+  it('resolves only after AI attributions have landed', async () => {
+    const store = orchStore(msgAnn([{ type: 'error', content: 'B', detail: {} }]));
+    const agentApi = fakeAgent();
+    await orchestrateAttributions({ store, api: fakeApi, agentApi });
+    // after await: no attribution may still be 'loading'
+    const states = Object.values(store.attributions.value).map((a) => a.status);
+    expect(states.length).toBeGreaterThan(0);
+    expect(states).not.toContain('loading');
   });
 });

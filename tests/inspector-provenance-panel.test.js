@@ -16,4 +16,28 @@ describe('ProvenancePanel field attribution', () => {
     render(h(ProvenancePanel, null), root);
     expect(root.textContent).toContain('Set terms');
   });
+
+  it('renders a confidence bar with threshold for engine fields', () => {
+    store.data.value = {
+      annotation: { id: 1 },
+      content: { content: [ { category: 'datapoint', schema_id: 'terms', content: { value: '2/10', rir_confidence: 0.31 }, validation_sources: ['score'] } ] },
+      resolved: { hooksById: {}, schema: { content: [ { category: 'datapoint', id: 'terms', score_threshold: 0.8 } ] }, queue: null },
+    };
+    render(h(ProvenancePanel, null), root);
+    const el = root.querySelector('.inspector-table');
+    expect(el.querySelector('.inspector-conf')).toBeTruthy();
+    expect(el.textContent).toContain('0.31');
+    expect(el.querySelector('.inspector-conf').getAttribute('title')).toMatch(/tick marks the automation threshold/i);
+  });
+
+  it('clamps a malformed out-of-range confidence to the bar track', () => {
+    store.data.value = {
+      annotation: { id: 1 },
+      content: { content: [ { category: 'datapoint', schema_id: 'terms', content: { value: 'x', rir_confidence: 1.4 }, validation_sources: ['score'] } ] },
+      resolved: { hooksById: {}, schema: null, queue: { default_score_threshold: 0.8 } },
+    };
+    render(h(ProvenancePanel, null), root);
+    const fill = root.querySelector('.inspector-conf i');
+    expect(fill.getAttribute('style')).toMatch(/width:\s*100%/);
+  });
 });

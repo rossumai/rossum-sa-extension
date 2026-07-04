@@ -9,9 +9,12 @@ beforeEach(() => { store.recents.value = []; root = document.createElement('div'
 afterEach(() => { render(null, root); root.remove(); });
 
 describe('RecentAnnotations', () => {
-  it('renders nothing when there are no recents', () => {
+  it('renders the empty-state callout when there are no recents', () => {
     render(h(RecentAnnotations, { onSelect: () => {} }), root);
     expect(root.querySelector('.inspector-recents')).toBe(null);
+    const empty = root.querySelector('.inspector-recents-empty');
+    expect(empty).toBeTruthy();
+    expect(empty.textContent).toContain('Rossum UI');
   });
 
   it('renders a row per recent with filename, queue, status, and #id, plus a Clear control', () => {
@@ -20,12 +23,14 @@ describe('RecentAnnotations', () => {
       { id: '133640012', fileName: 'PO-99.pdf', queue: 'AP Queue', status: 'exported', at: 1 },
     ];
     render(h(RecentAnnotations, { onSelect: () => {} }), root);
-    expect(root.querySelectorAll('.inspector-recent').length).toBe(2);
+    expect(root.querySelectorAll('tr.inspector-recent').length).toBe(2);
     expect(root.textContent).toContain('invoice_4471.pdf');
     expect(root.textContent).toContain('Vendor US');
     expect(root.textContent).toContain('rejected');
     expect(root.textContent).toContain('#133641827');
     expect(root.querySelector('.inspector-recents-clear')).toBeTruthy();
+    expect(root.querySelector('.inspector-rectable')).toBeTruthy();
+    expect(root.querySelector('.inspector-recent-status').className).toContain('inspector-pill-rejected');
   });
 
   it('falls back to #id and omits missing queue/status', () => {

@@ -88,7 +88,34 @@ export const listAuditLogs = (annId, o) => safeListAll(`/api/v1/audit_logs?${bui
 // Hook logs live at /hooks/logs (NOT /hook_logs, which 404s). Only annotation/hook/queue filter.
 export const listHookLogs = (annId, o) => safeListAll(`/api/v1/hooks/logs?${buildQuery({ annotation: annId, page_size: 100 })}`, o);
 export const listRuleExecutionLogs = (annId, o) => safeListAll(`/api/v1/rules_execution_logs?${buildQuery({ annotation_id: annId, page_size: 100 })}`, o);
-export const listEmails = (queueId, o) => safeListAll(`/api/v1/emails?${buildQuery({ queue: queueId, type: 'outgoing', page_size: 100 })}`, o);
+export const listWorkflowRuns = (annId, o) => safeListAll(`/api/v1/workflow_runs?${buildQuery({ annotation: annId, page_size: 100 })}`, o);
+export const listWorkflowSteps = (workflowId, o) => safeListAll(`/api/v1/workflow_steps?${buildQuery({ workflow: workflowId, page_size: 100 })}`, o);
+export const getRelation = (url, o) => get(url, o);   // url from annotation.relations[]
+export const getEmail = (url, o) => get(url, o);      // url from annotation.email / document.email
+// Resolve several annotations + their documents/queues in ONE call (verified
+// live 2026-07-04: ?id=<csv> filters, sideload attaches; unknown ids dropped).
+export const listAnnotationsByIds = (ids, o) => get(`/api/v1/annotations?${buildQuery({ id: (ids || []).join(','), sideload: 'documents,queues', page_size: Math.max(1, (ids || []).length) })}`, o);
+
+// Page resources list — one call for all pages (verified live 2026-07-04).
+export const listPages = (annId, o) => safeListAll(`/api/v1/pages?${buildQuery({ annotation: annId, page_size: 100 })}`, o);
+
+// Binary fetch for page images: the page `content` URL 401s without the Bearer
+// header (verified live), so a plain <img src> can't load it — fetch → Blob.
+export async function getBlob(pathOrUrl, { signal: externalSignal } = {}) {
+  const { signal, timer, externalSignal: ext } = combinedSignal(externalSignal);
+  let res;
+  try {
+    res = await fetch(toUrl(pathOrUrl), { headers: { Authorization: authHeader }, signal });
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') { if (ext?.aborted) throw err; throw apiError('Request timed out after 30s', 0); }
+    throw err;
+  }
+  clearTimeout(timer);
+  if (res.status === 401) throw apiError('Session expired.', 401);
+  if (!res.ok) throw apiError(`API error ${res.status}`, res.status);
+  return res.blob();
+}
 export const listHooks = (queueId, o) => safeListAll(`/api/v1/hooks?${buildQuery({ queue: queueId, page_size: 100 })}`, o);
 export const listLabels = (o) => safeListAll(`/api/v1/labels?${buildQuery({ page_size: 100 })}`, o);
 export const listRules = (queueId, o) => safeListAll(`/api/v1/rules?${buildQuery({ queue: queueId, page_size: 100 })}`, o);

@@ -4,7 +4,12 @@ import * as store from '../store.js';
 import { loadQueueHooks } from '../index.jsx';
 import { fieldProvenance, matchingExtensions, matchConfigsForField } from '../culprit.js';
 import { fieldKey } from '../orchestrate.js';
+import { fieldThresholds } from '../evidence.js';
 import CulpritChip from './CulpritChip.jsx';
+
+// Clamp to the track: rir_confidence/threshold are documented in [0,1], but a
+// malformed value must not paint outside the 64px bar (the tick overhangs by design).
+const pct = (v) => Math.max(0, Math.min(100, Math.round((v ?? 0) * 100)));
 
 const SRC_LABEL = {
   score: 'engine', human: 'manual edit', formula: 'formula',
@@ -35,6 +40,7 @@ export default function ProvenancePanel() {
 
   const hooks = Object.values(d.resolved.hooksById || {});
   const allMatchers = matchingExtensions(hooks).map((m) => m.hookName).join(', ');
+  const { bySchemaId, defaultThreshold } = fieldThresholds(d.resolved.schema, d.resolved.queue);
 
   // Precise: the specific MDH config that writes this field; fall back to listing
   // matching extensions only if no config names the field.
@@ -65,18 +71,33 @@ export default function ProvenancePanel() {
       <table class="inspector-table">
         <thead><tr><th>Field</th><th>Value</th><th>Source</th><th>Confidence</th></tr></thead>
         <tbody>
-          {rows.map((p) => (
-            <tr>
-              <td class="fname">{p.schemaId}</td>
-              <td>{p.value == null ? '' : String(p.value)}</td>
-              <td>
-                <span class={`inspector-sb inspector-sb-${p.primary}`}>{SRC_LABEL[p.primary] || p.primary}</span>
-                {p.primary === 'data_matching' ? matchSource(p.schemaId) : null}
-                {(p.primary === 'rules' || p.primary === 'connector' || p.primary === 'data_matching') ? attrFor(p.schemaId) : null}
-              </td>
-              <td>{p.confidence != null ? p.confidence.toFixed(2) : (p.primary === 'human' ? 'edited' : '')}</td>
-            </tr>
-          ))}
+          {rows.map((p) => {
+            const threshold = bySchemaId[p.schemaId] ?? defaultThreshold;
+            return (
+              <tr data-evidence-id={`field:${p.schemaId}`}>
+                <td class="fname">{p.schemaId}</td>
+                <td>{p.value == null ? '' : String(p.value)}</td>
+                <td>
+                  <span class={`inspector-sb inspector-sb-${p.primary}`}>{SRC_LABEL[p.primary] || p.primary}</span>
+                  {p.primary === 'data_matching' ? matchSource(p.schemaId) : null}
+                  {(p.primary === 'rules' || p.primary === 'connector' || p.primary === 'data_matching') ? attrFor(p.schemaId) : null}
+                </td>
+                <td>
+                  {p.confidence != null ? (
+                    <span>
+                      <span class="inspector-conf" title={threshold != null
+                        ? `Extraction confidence ${p.confidence.toFixed(2)}. The tick marks the automation threshold (${threshold}) — at or above it the field can automate; below it blocks automation. Threshold source: field score_threshold, else the queue default.`
+                        : `Extraction confidence ${p.confidence.toFixed(2)} — no automation threshold is configured for this field or queue.`}>
+                        <i style={`width:${pct(p.confidence)}%;background:${threshold != null && p.confidence < threshold ? 'var(--danger)' : 'var(--success)'}`} />
+                        {threshold != null ? <span class="thr" style={`left:${pct(threshold)}%`} /> : null}
+                      </span>
+                      {p.confidence.toFixed(2)}{threshold != null ? ` / ${threshold}` : ''}
+                    </span>
+                  ) : (p.primary === 'human' ? 'edited' : '')}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       <div class="inspector-note">

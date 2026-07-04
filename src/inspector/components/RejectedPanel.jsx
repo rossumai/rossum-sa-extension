@@ -28,7 +28,7 @@ export default function RejectedPanel() {
   const attr = store.attributions.value.reject;
   return (
     <div class="inspector-panel">
-      <div class={`inspector-culprit inspector-culprit-${rej.culprit?.kind || 'none'}`}>
+      <div class={`inspector-culprit inspector-culprit-${rej.culprit?.kind || 'none'}`} data-evidence-id="reject">
         <div class="lbl">Culprit · {rej.culprit?.kind}</div>
         <div class="name">{rej.culprit?.name} <ReliabilityBadge level={rej.reliability} /></div>
         <div class="meta">{rej.automatic ? 'Automatic' : 'Manual'}{rej.when ? ` · ${rej.when}` : ''}{rej.current ? '' : ' · (historical — not currently rejected)'}</div>

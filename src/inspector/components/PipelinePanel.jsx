@@ -36,7 +36,7 @@ export default function PipelinePanel() {
                     ? (n.run.failed
                       ? <span class="inspector-pipe-status fail">failed</span>
                       : <span class="inspector-pipe-status ok">ran</span>)
-                    : <span class="inspector-pipe-status none">no log</span>}
+                    : <span class="inspector-pipe-status none" title="Only failures are reliably logged; absence of a log usually means it ran fine.">no log {'—'} likely ran</span>}
                   {n.run && n.run.durationMs != null ? <span class="inspector-tag">{n.run.durationMs} ms</span> : null}
                 </div>
                 {n.run && n.run.message ? <div class="inspector-pipe-msg">{n.run.message}</div> : null}
