@@ -8,6 +8,7 @@ import {
   normalizeDocId,
   runChunkedInsert,
   stableKey,
+  stripServerFields,
 } from '../src/mdh/importFile.js';
 import { BATCH_SIZE } from '../src/mdh/downloadCollection.js';
 
@@ -195,5 +196,23 @@ describe('runChunkedInsert', () => {
 describe('shared chunk size with downloader', () => {
   it('reuses BATCH_SIZE from downloadCollection so up and down round-trip with matching batches', () => {
     expect(BATCH_SIZE).toBe(1000);
+  });
+});
+
+describe('stripServerFields', () => {
+  it('removes _id (plain or EJSON) without mutating inputs', () => {
+    const docs = [{ _id: { $oid: 'a'.repeat(24) }, sku: 'A' }, { _id: '1', sku: 'B' }, { sku: 'C' }];
+    const out = stripServerFields(docs);
+    expect(out).toEqual([{ sku: 'A' }, { sku: 'B' }, { sku: 'C' }]);
+    expect(docs[0]._id).toBeTruthy(); // originals untouched
+    expect(out[2]).toBe(docs[2]);     // rows without server fields pass through by reference
+  });
+  it('removes __digest_md5 (server stores uploaded digests verbatim, never recomputes)', () => {
+    const docs = [{ _id: '1', __digest_md5: '0'.repeat(32), sku: 'A' }, { __digest_md5: 'f'.repeat(32), sku: 'B' }];
+    expect(stripServerFields(docs)).toEqual([{ sku: 'A' }, { sku: 'B' }]);
+    expect(docs[1].__digest_md5).toBeTruthy(); // originals untouched
+  });
+  it('leaves non-object rows alone', () => {
+    expect(stripServerFields([null, 5])).toEqual([null, 5]);
   });
 });

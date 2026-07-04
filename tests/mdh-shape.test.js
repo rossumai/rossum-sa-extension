@@ -86,3 +86,58 @@ describe('validateAgainstShape', () => {
     expect(r2.ok).toBe(true);
   });
 });
+
+describe('validateAgainstShape — whitespace pairing', () => {
+  const ref = deriveShape([{ sku: 'A1', price: 10 }]);
+
+  it('pairs a trailing-space file column with the existing column', () => {
+    const r = validateAgainstShape([{ 'sku ': 'A1', price: 10 }], ref);
+    expect(r.ok).toBe(false);
+    expect(r.whitespace).toEqual([{ expected: 'sku', got: 'sku ' }]);
+    expect(r.missing).toEqual([]);
+    expect(r.unknown).toEqual([]);
+  });
+
+  it('pairs a leading-space and an NBSP-edged column', () => {
+    const lead = validateAgainstShape([{ ' sku': 'A1', price: 10 }], ref);
+    expect(lead.whitespace).toEqual([{ expected: 'sku', got: ' sku' }]);
+    const nbsp = validateAgainstShape([{ 'sku\u00A0': 'A1', price: 10 }], ref); // NBSP-edged key, explicit escape
+    expect(nbsp.whitespace).toEqual([{ expected: 'sku', got: 'sku\u00A0' }]);
+    const tab = validateAgainstShape([{ 'sku\t': 'A1', price: 10 }], ref); // TAB-edged key
+    expect(tab.whitespace).toEqual([{ expected: 'sku', got: 'sku\t' }]);
+  });
+
+  it('pairs when BOTH sides carry different edge whitespace', () => {
+    const refWs = deriveShape([{ 'sku ': 'A1' }]);
+    const r = validateAgainstShape([{ ' sku': 'A1' }], refWs);
+    expect(r.whitespace).toEqual([{ expected: 'sku ', got: ' sku' }]);
+  });
+
+  it('pairs nested path segments (a. b vs a.b)', () => {
+    const nested = deriveShape([{ a: { b: 1 } }]);
+    const r = validateAgainstShape([{ a: { ' b': 1 } }], nested);
+    expect(r.whitespace).toEqual([{ expected: 'a.b', got: 'a. b' }]);
+  });
+
+  it('pairs multiple file variants of one existing field', () => {
+    const r = validateAgainstShape([{ 'sku ': 'A1', price: 10 }, { ' sku': 'B2', price: 20 }], ref);
+    expect(r.whitespace).toEqual(expect.arrayContaining([
+      { expected: 'sku', got: 'sku ' },
+      { expected: 'sku', got: ' sku' },
+    ]));
+    expect(r.unknown).toEqual([]);
+    expect(r.missing).toEqual([]);
+  });
+
+  it('a genuine rename stays missing+unknown, not whitespace', () => {
+    const r = validateAgainstShape([{ item: 'A1', price: 10 }], ref);
+    expect(r.whitespace).toEqual([]);
+    expect(r.missing).toEqual(['sku']);
+    expect(r.unknown).toEqual(['item']);
+  });
+
+  it('failedDocCount still counts whitespace-failing docs', () => {
+    const r = validateAgainstShape([{ 'sku ': 'A1', price: 10 }, { sku: 'B2', price: 20 }], ref);
+    expect(r.failedDocCount).toBe(1);
+  });
+});

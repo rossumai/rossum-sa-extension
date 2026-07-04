@@ -59,3 +59,44 @@ describe('SpecialText', () => {
     expect(root.querySelectorAll('.mdh-special').length).toBe(0);
   });
 });
+
+describe('SpecialText markEdgeSpaces', () => {
+  it('marks leading and trailing ordinary spaces', () => {
+    const el = mount({ value: ' name  ', markEdgeSpaces: true });
+    const marks = el.querySelectorAll('.mdh-special-space');
+    expect(marks.length).toBe(3); // 1 leading + 2 trailing
+    expect(marks[0].getAttribute('title')).toBe('U+0020 SPACE');
+    expect(el.textContent).toBe('·name··');
+  });
+
+  it('leaves interior spaces plain', () => {
+    const el = mount({ value: 'full name', markEdgeSpaces: true });
+    expect(el.querySelectorAll('.mdh-special-space').length).toBe(0);
+    expect(el.textContent).toBe('full name');
+  });
+
+  it('still marks interior special characters in the core', () => {
+    const el = mount({ value: ' a\u00A0b', markEdgeSpaces: true }); // leading space + interior NBSP
+    expect(el.textContent).toContain('NBSP');
+    // Only the leading U+0020 gets an edge marker; the interior NBSP marker
+    // shares .mdh-special-space (category "space"), so filter by title.
+    const edgeMarks = [...el.querySelectorAll('.mdh-special-space')].filter((m) => m.getAttribute('title') === 'U+0020 SPACE');
+    expect(edgeMarks.length).toBe(1);
+  });
+
+  it('quotes around the marked value', () => {
+    const el = mount({ value: 'name ', quote: true, markEdgeSpaces: true });
+    expect(el.textContent).toBe('"name·"');
+  });
+
+  it('renders a clean string byte-identical', () => {
+    const el = mount({ value: 'name', markEdgeSpaces: true });
+    expect(el.textContent).toBe('name');
+    expect(el.querySelector('.mdh-special')).toBe(null);
+  });
+
+  it('handles an all-spaces value without double-marking', () => {
+    const el = mount({ value: '  ', markEdgeSpaces: true });
+    expect(el.querySelectorAll('.mdh-special-space').length).toBe(2);
+  });
+});

@@ -25,6 +25,7 @@
   --danger-fg: #991b1b;
   --danger-border: #fecaca;
   --warning-border: #fde68a;
+  --success-border: #a7f3d0;
   --info-bg: #eaf1fd;
   --info-fg: #1e40af;
   --info-border: #c7daf8;
@@ -71,6 +72,7 @@
     --danger-fg: #fca5a5;
     --danger-border: #4a2020;
     --warning-border: #4a3a10;
+    --success-border: #1a4a30;
     --info-bg: #15233f;
     --info-fg: #93b4f5;
     --info-border: #294063;
@@ -1382,6 +1384,24 @@ body {
 }
 .import-error-hint { margin-top: 8px; opacity: 0.85; }
 
+/* Shape-validation success — reads unmistakably as OK (success palette),
+   mirroring .import-error so the two states are visually symmetric. */
+.import-ok {
+  font-size: 12px; line-height: 1.45;
+  padding: 10px 12px; border-radius: var(--radius);
+  background: var(--success-bg); color: var(--success-fg);
+  border: 1px solid var(--success-border); border-left: 3px solid var(--success);
+  display: flex; gap: 8px; align-items: flex-start;
+}
+.import-ok-icon { color: var(--success); font-size: 14px; line-height: 1.35; flex: none; }
+.import-ok strong { color: var(--success-fg); }
+/* The "checked against N records" context line inside a status panel — muted,
+   inherits the panel's palette so it never reads as a different severity. */
+.import-shape-note { margin-top: 4px; opacity: 0.85; font-weight: 400; }
+/* Neutral shape-block states (loading / empty collection) — NOT .input-hint,
+   which is danger-red by default. */
+.import-shape-neutral { font-size: 12px; color: var(--text-secondary); }
+
 .import-plan-line { font-size: 13px; color: var(--text-secondary); }
 .import-plan-line strong { color: var(--text-primary); font-weight: 600; }
 .import-conflict-warn { border-left-color: var(--warning, var(--danger)); }
@@ -1596,12 +1616,11 @@ body {
 .seg-tabs .csv-seg-opt:hover:not(.on) { color: var(--text-primary); }
 .seg-tabs .csv-seg-opt.on { background: transparent; color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
 
-.import-summary { margin-top: 14px; font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
-.import-summary strong { color: var(--text-primary); }
-.import-summary code { font-family: var(--font-mono); font-size: 11px; background: var(--bg-hover); padding: 1px 4px; border-radius: 3px; color: var(--text-primary); }
-.import-estimate { margin-top: 8px; font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
-.import-estimate strong { color: var(--text-primary); }
-.import-estimate code { font-family: var(--font-mono); font-size: 11px; background: var(--bg-hover); padding: 1px 4px; border-radius: 3px; color: var(--text-primary); }
+.import-steps { margin-top: 14px; font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
+.import-steps-head { font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-primary); margin-bottom: 4px; }
+.import-steps ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
+.import-steps strong { color: var(--text-primary); }
+.import-steps code { font-family: var(--font-mono); font-size: 11px; background: var(--bg-hover); padding: 1px 4px; border-radius: 3px; color: var(--text-primary); }
 
 .match-key-picker { position: relative; margin-top: 4px; }
 .match-key-chips {

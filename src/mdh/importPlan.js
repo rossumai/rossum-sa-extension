@@ -30,3 +30,27 @@ export function collectFieldPaths(docs, { sampleSize = 50, maxDepth = 5 } = {}) 
   if (idx > 0) { arr.splice(idx, 1); arr.unshift('_id'); }
   return arr;
 }
+
+// Presence of a dotted key path via own-property walk; arrays are leaves.
+function hasPath(doc, path) {
+  let cur = doc;
+  for (const seg of String(path).split('.')) {
+    if (cur === null || typeof cur !== 'object' || Array.isArray(cur) || !Object.prototype.hasOwnProperty.call(cur, seg)) return false;
+    cur = cur[seg];
+  }
+  return true;
+}
+
+// How many rows would make the server-side Update fail outright: a row missing
+// ANY match key fails the WHOLE data-matching PATCH (verified live 2026-07-03,
+// CLIENT_ERROR "ID key ... not found in the updated element"). A null key
+// value is accepted by the server, so null counts as present.
+export function countRowsMissingKeys(docs, keys) {
+  if (!Array.isArray(docs) || !Array.isArray(keys) || keys.length === 0) return 0;
+  let n = 0;
+  for (const d of docs) {
+    const obj = (d && typeof d === 'object' && !Array.isArray(d)) ? d : null;
+    if (!obj || !keys.every((k) => hasPath(obj, k))) n++;
+  }
+  return n;
+}

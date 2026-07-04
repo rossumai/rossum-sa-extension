@@ -24,6 +24,20 @@ import { makeCompletionSource } from '../pipelineCompletions.js';
 // Re-exported for PipelineEditor.jsx / DataPanel.jsx, which import it from here.
 export { extractFieldNames } from '../pipelineCompletions.js';
 
+// Pure: is `text` acceptable for this editor instance? JSON5 everywhere; with
+// `jsonLines` also accept NDJSON (every non-empty line is strict JSON on its
+// own) — the clipboard import stage's Next path (getFormat('json').parse)
+// accepts JSON-lines via an NDJSON fallback, so the editor's validation must
+// not contradict it. Every other consumer (default jsonLines=false, incl. the
+// pipeline editor) keeps strict JSON5-only behavior.
+export function isAcceptable(text, { jsonLines = false } = {}) {
+  try { JSON5.parse(text); return true; } catch { /* fall through */ }
+  if (!jsonLines) return false;
+  const lines = String(text).split(/\r?\n/).filter((l) => l.trim() !== '');
+  if (!lines.length) return false;
+  try { for (const l of lines) JSON.parse(l); return true; } catch { return false; }
+}
+
 const darkQuery = typeof window !== 'undefined' && window.matchMedia
   ? window.matchMedia('(prefers-color-scheme: dark)')
   : { matches: false };
@@ -92,7 +106,7 @@ const aggregateSetup = [
 ];
 
 
-export default function JsonEditor({ value = '', onChange, onValidChange, onToggleStage, onCursorStage, mode = 'default', fields, compact = false, readOnly = false, onSubmit, editorRef, minHeight = '200px' }) {
+export default function JsonEditor({ value = '', onChange, onValidChange, onToggleStage, onCursorStage, mode = 'default', fields, compact = false, readOnly = false, onSubmit, editorRef, minHeight = '200px', jsonLines = false }) {
   const containerRef = useRef(null);
   const viewRef = useRef(null);
   const onChangeRef = useRef(onChange);
@@ -101,11 +115,21 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
   const onToggleStageRef = useRef(onToggleStage);
   const onCursorStageRef = useRef(onCursorStage);
   const lastCursorStageRef = useRef(null);
+  // Mirrors the other callback refs above: the CodeMirror view + its
+  // updateListener are created once in the mount-only effect below, so any
+  // prop the validators read there must be threaded through a ref that's
+  // refreshed on every render (not captured at mount time) to avoid a
+  // stale-closure hazard if the prop ever changes after mount. For the import
+  // wizard's clipboard editor `jsonLines` is fixed for the component's
+  // lifetime, but this keeps the editor correct for any future caller that
+  // toggles it.
+  const jsonLinesRef = useRef(jsonLines);
   onChangeRef.current = onChange;
   onValidChangeRef.current = onValidChange;
   onSubmitRef.current = onSubmit;
   onToggleStageRef.current = onToggleStage;
   onCursorStageRef.current = onCursorStage;
+  jsonLinesRef.current = jsonLines;
 
   useEffect(() => {
     const fieldsFn = typeof fields === 'function' ? fields : null;
@@ -137,17 +161,17 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
           const errorEl = containerRef.current?.querySelector('.json-editor-error');
           if (!text) {
             if (errorEl) { errorEl.textContent = ''; containerRef.current.classList.remove('json-editor-invalid'); }
-          } else {
-            try {
-              JSON5.parse(text);
-              if (errorEl) { errorEl.textContent = ''; containerRef.current.classList.remove('json-editor-invalid'); }
-              if (onValidChangeRef.current) {
-                clearTimeout(validChangeTimer);
-                validChangeTimer = setTimeout(onValidChangeRef.current, 500);
-              }
-            } catch (e) {
-              if (errorEl) { errorEl.textContent = e.message; containerRef.current.classList.add('json-editor-invalid'); }
+          } else if (isAcceptable(text, { jsonLines: jsonLinesRef.current })) {
+            if (errorEl) { errorEl.textContent = ''; containerRef.current.classList.remove('json-editor-invalid'); }
+            if (onValidChangeRef.current) {
+              clearTimeout(validChangeTimer);
+              validChangeTimer = setTimeout(onValidChangeRef.current, 500);
             }
+          } else {
+            // Re-run JSON5.parse purely to recover an error message to show —
+            // isAcceptable() already decided this text is invalid.
+            try { JSON5.parse(text); }
+            catch (e) { if (errorEl) { errorEl.textContent = e.message; containerRef.current.classList.add('json-editor-invalid'); } }
           }
         }
         // Aggregate mode: report which stage the cursor is in (active-stage index,
@@ -185,7 +209,7 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
 
     // Initial validation
     const text = value.trim();
-    if (text) {
+    if (text && !isAcceptable(text, { jsonLines: jsonLinesRef.current })) {
       const errorEl = containerRef.current?.querySelector('.json-editor-error');
       try { JSON5.parse(text); }
       catch (e) { if (errorEl) { errorEl.textContent = e.message; containerRef.current.classList.add('json-editor-invalid'); } }
@@ -228,7 +252,7 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
           const change = computeMinimalChange(view.state.doc.toString(), v);
           if (change) view.dispatch({ changes: change });
         },
-        isValid: () => { const t = viewRef.current.state.doc.toString().trim(); if (!t) return false; try { JSON5.parse(t); return true; } catch { return false; } },
+        isValid: () => { const t = viewRef.current.state.doc.toString().trim(); if (!t) return false; return isAcceptable(t, { jsonLines: jsonLinesRef.current }); },
         getParsed: () => JSON5.parse(viewRef.current.state.doc.toString()),
         getError: () => containerRef.current?.querySelector('.json-editor-error')?.textContent || '',
         focus: () => viewRef.current.focus(),

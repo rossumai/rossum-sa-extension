@@ -68,6 +68,14 @@ function typeCompatible(refTypes, got) {
   return refTypes.has(got);
 }
 
+// Whitespace pairing: a "missing" and an "unknown" path that are the same
+// after per-segment trim differ only by leading/trailing whitespace — report
+// them as one explicit finding instead of two opaque ones. trim() also strips
+// NBSP/TAB/FEFF-class edge characters, not just U+0020.
+function normalizePath(path) {
+  return String(path).split('.').map((s) => s.trim()).join('.');
+}
+
 export function validateAgainstShape(docs, shape) {
   const missing = new Set();
   const unknown = new Set();
@@ -91,11 +99,27 @@ export function validateAgainstShape(docs, shape) {
     }
     if (bad) failedDocCount++;
   }
+
+  const whitespace = [];
+  const missingByNorm = new Map();
+  for (const m of missing) {
+    const n = normalizePath(m);
+    if (!missingByNorm.has(n)) missingByNorm.set(n, m);
+  }
+  for (const u of [...unknown]) {
+    const m = missingByNorm.get(normalizePath(u));
+    if (m !== undefined && m !== u) {
+      whitespace.push({ expected: m, got: u });
+      unknown.delete(u);
+      missing.delete(m);
+    }
+  }
   return {
-    ok: missing.size === 0 && unknown.size === 0 && typeMismatch.size === 0,
+    ok: missing.size === 0 && unknown.size === 0 && typeMismatch.size === 0 && whitespace.length === 0,
     missing: [...missing],
     unknown: [...unknown],
     typeMismatch: [...typeMismatch.values()],
+    whitespace,
     failedDocCount,
   };
 }

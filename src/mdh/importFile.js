@@ -207,3 +207,21 @@ function makeAbortError() {
   err.name = 'AbortError';
   return err;
 }
+
+// Data-matching (Update/Replace) uploads reject rows carrying an EJSON _id:
+// the whole operation fails with "batch op errors occurred", and id_keys=_id
+// can never match (verified live 2026-07-03). _id cannot round-trip through
+// that API anyway, so server-side uploads send _id-less copies. __digest_md5
+// is likewise server-owned: an uploaded value is stored VERBATIM, not
+// recomputed (verified live 2026-07-04), so a re-imported export would poison
+// records with digests stale relative to their edited content — strip it too.
+export function stripServerFields(docs) {
+  const OWNED = ['_id', '__digest_md5'];
+  return (docs || []).map((d) => {
+    if (!d || typeof d !== 'object' || Array.isArray(d)) return d;
+    if (!OWNED.some((k) => Object.prototype.hasOwnProperty.call(d, k))) return d;
+    const copy = { ...d };
+    for (const k of OWNED) delete copy[k];
+    return copy;
+  });
+}

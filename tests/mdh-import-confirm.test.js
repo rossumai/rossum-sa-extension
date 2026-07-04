@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { h } from 'preact';
 import { render } from 'preact';
 import ImportConfirm from '../src/mdh/components/ImportConfirm.jsx';
@@ -7,13 +7,18 @@ import { deriveShape } from '../src/mdh/shape.js';
 
 function mount(vnode) { const el = document.createElement('div'); document.body.appendChild(el); render(vnode, el); return el; }
 const docs = [{ sku: 'A1', price: 10 }, { sku: 'B2', price: 20 }];
-const base = { fileMeta: { name: 'f.json' }, docs, mode: 'insert', setMode() {}, keys: [], setKeys() {}, validateShape: false, setValidateShape() {}, shape: null, shapeLoading: false, estimate: null, estimateLoading: false, onImport() {}, onCancel() {} };
+const base = { fileMeta: { name: 'f.json' }, docs, mode: 'insert', setMode() {}, keys: [], setKeys() {}, validateShape: false, setValidateShape() {}, shape: null, shapeLoading: false, onImport() {}, onCancel() {} };
 
 describe('ImportConfirm', () => {
-  it('insert summary counts new documents and enables Go', () => {
+  it('insert step list explains verified insert behavior and enables Go', () => {
     const root = mount(h(ImportConfirm, { ...base, mode: 'insert' }));
-    expect(root.querySelector('[data-testid="import-plan"]').textContent).toMatch(/new document/i);
+    const t = root.querySelector('[data-testid="import-plan"]').textContent;
     expect(root.querySelector('[data-testid="import-go"]').disabled).toBe(false);
+    expect(t).toMatch(/What will happen/i);
+    expect(t).toMatch(/added as a new record/i);
+    expect(t).toMatch(/never modified/i);
+    expect(t).toMatch(/already exists in the collection is rejected/i);
+    expect(t).toMatch(/cancelling keeps the rows already inserted/i);
   });
 
   it('update requires match keys (Go disabled until a key is chosen)', () => {
@@ -21,12 +26,92 @@ describe('ImportConfirm', () => {
     expect(noKeys.querySelector('[data-testid="import-go"]').disabled).toBe(true);
     const withKeys = mount(h(ImportConfirm, { ...base, mode: 'update', keys: ['sku'] }));
     expect(withKeys.querySelector('[data-testid="import-go"]').disabled).toBe(false);
-    expect(withKeys.querySelector('[data-testid="import-plan"]').textContent).toMatch(/upsert|match/i);
+    expect(withKeys.querySelector('[data-testid="import-plan"]').textContent).toMatch(/matched to existing records by sku/i);
   });
 
-  it('replace summary warns it replaces the whole collection', () => {
+  it('update step list explains verified upsert behavior including the _id gotcha', () => {
+    const root = mount(h(ImportConfirm, { ...base, mode: 'update', keys: ['sku'] }));
+    const t = root.querySelector('[data-testid="import-plan"]').textContent;
+    expect(t).toMatch(/matched to existing records by sku/i);
+    expect(t).toMatch(/replaced by the row entirely/i);
+    expect(t).toMatch(/only one of them is updated/i);
+    expect(t).toMatch(/match nothing are inserted/i);
+    expect(t).toMatch(/_id.*ignored/i);
+    expect(t).toMatch(/can.t be recalled or undone/i); // apostrophe is curly (U+2019) in the copy
+  });
+
+  it('multi-key update copy states AND semantics; single-key copy does not', () => {
+    const multi = mount(h(ImportConfirm, { ...base, docs: [{ sku: 'A', region: 'EU' }], mode: 'update', keys: ['sku', 'region'] }));
+    const t = multi.querySelector('[data-testid="import-plan"]').textContent;
+    expect(t).toMatch(/matched to existing records by sku, region/i);
+    expect(t).toMatch(/all of them must match at once \(AND, not OR\)/i);
+    expect(t).toMatch(/equal in only some of these fields is not a match/i);
+    const single = mount(h(ImportConfirm, { ...base, docs: [{ sku: 'A' }], mode: 'update', keys: ['sku'] }));
+    expect(single.querySelector('[data-testid="import-plan"]').textContent).not.toMatch(/AND, not OR/);
+  });
+
+  it('update step list prompts for keys when none chosen', () => {
+    const root = mount(h(ImportConfirm, { ...base, mode: 'update', keys: [] }));
+    expect(root.querySelector('[data-testid="import-plan"]').textContent).toMatch(/Choose one or more fields/i);
+  });
+
+  it('replace step list explains wipe-and-load including the _id gotcha', () => {
     const root = mount(h(ImportConfirm, { ...base, mode: 'replace' }));
-    expect(root.querySelector('[data-testid="import-plan"]').textContent).toMatch(/entire collection|whole collection/i);
+    const t = root.querySelector('[data-testid="import-plan"]').textContent;
+    expect(t).toMatch(/Deletes every existing record/i);
+    expect(t).toMatch(/Custom indexes are kept/i);
+    expect(t).toMatch(/ids from an export are not preserved/i);
+  });
+
+  it('blocks Update with the exact missing-key row count', () => {
+    const mixed = [{ sku: 'A' }, { name: 'no-key' }, { name: 'also-none' }];
+    const root = mount(h(ImportConfirm, { ...base, docs: mixed, mode: 'update', keys: ['sku'] }));
+    const guard = root.querySelector('[data-testid="import-key-guard"]');
+    expect(guard.textContent).toMatch(/2 rows are missing/);
+    expect(guard.textContent).toMatch(/sku/);
+    expect(root.querySelector('[data-testid="import-go"]').disabled).toBe(true);
+  });
+
+  it('renders a Back button only when onBack is provided, and calls it', () => {
+    const onBack = vi.fn();
+    const withBack = mount(h(ImportConfirm, { ...base, onBack }));
+    const btn = withBack.querySelector('[data-testid="import-back"]');
+    expect(btn).toBeTruthy();
+    btn.click();
+    expect(onBack).toHaveBeenCalledTimes(1);
+    const without = mount(h(ImportConfirm, { ...base }));
+    expect(without.querySelector('[data-testid="import-back"]')).toBe(null);
+  });
+
+  it('shows a clearly-green success panel with the sample size inside it', () => {
+    const shape = deriveShape([{ sku: 'A1', price: 10 }]);
+    const root = mount(h(ImportConfirm, { ...base, validateShape: true, shape, shapeCount: 137, docs: [{ sku: 'B2', price: 20 }] }));
+    const ok = root.querySelector('[data-testid="import-shape-ok"]');
+    expect(ok).toBeTruthy();
+    expect(ok.classList.contains('import-ok')).toBe(true); // success palette, not a red hint
+    expect(ok.textContent).toMatch(/Shape matches/);
+    expect(ok.textContent).toMatch(/a random sample of 137 existing records/i);
+    // No stray red .input-hint line outside the panel
+    expect(root.querySelector('[data-testid="import-shape"] .input-hint')).toBe(null);
+  });
+
+  it('says "all N existing records" when the sample covered the whole collection', () => {
+    const shape = deriveShape([{ sku: 'A1', price: 10 }]);
+    const root = mount(h(ImportConfirm, { ...base, validateShape: true, shape, shapeCount: 150, shapeCoversAll: true, docs: [{ sku: 'B2', price: 20 }] }));
+    const ok = root.querySelector('[data-testid="import-shape-ok"]');
+    expect(ok.textContent).toMatch(/all 150 existing records/i);
+    expect(ok.textContent).not.toMatch(/random sample/i);
+  });
+
+  it('shows the sample note inside the red panel on mismatch, and neutral (not red) empty-collection text', () => {
+    const shape = deriveShape([{ sku: 'A1', price: 10, region: 'EU' }]);
+    const bad = mount(h(ImportConfirm, { ...base, validateShape: true, shape, shapeCount: 42, docs: [{ sku: 'B2', price: 20 }] }));
+    expect(bad.querySelector('[data-testid="import-shape-error"]').textContent).toMatch(/a random sample of 42 existing records/i);
+    const empty = mount(h(ImportConfirm, { ...base, validateShape: true, shape: null }));
+    const neutral = empty.querySelector('[data-testid="import-shape"] .import-shape-neutral');
+    expect(neutral).toBeTruthy();
+    expect(neutral.textContent).toMatch(/nothing to validate against/i);
+    expect(empty.querySelector('[data-testid="import-shape"] .input-hint')).toBe(null);
   });
 
   it('blocks Go with an error-styled panel when shape validation is on and docs do not match', () => {
@@ -47,25 +132,28 @@ describe('ImportConfirm', () => {
     expect(root.querySelector('[data-testid="import-shape"]').textContent).toMatch(/uniform/i);
   });
 
-  it('shows the Update matched-vs-insert estimate when available', () => {
-    const root = mount(h(ImportConfirm, { ...base, mode: 'update', keys: ['sku'], estimate: { supported: true, matched: 180, willInsert: 20, total: 200 } }));
-    const est = root.querySelector('[data-testid="import-estimate"]');
-    expect(est.textContent).toMatch(/~180/);
-    expect(est.textContent).toMatch(/update/i);
-    expect(est.textContent).toMatch(/~20/);
-    expect(est.textContent).toMatch(/insert/i);
+  it('reports a whitespace-only column difference explicitly and visibly', () => {
+    const shape = deriveShape([{ sku: 'A1', price: 10 }]);
+    const root = mount(h(ImportConfirm, {
+      ...base, validateShape: true, shape, shapeCount: 1,
+      docs: [{ 'sku ': 'B2', price: 20 }],
+    }));
+    const err = root.querySelector('[data-testid="import-shape-error"]');
+    expect(err.textContent).toMatch(/only by leading\/trailing whitespace/i);
+    expect(err.textContent).toMatch(/"sku·"/);      // file side, marked
+    expect(err.textContent).toMatch(/"sku"/);            // existing side
+    expect(err.querySelector('.mdh-special-space')).toBeTruthy();
+    expect(root.querySelector('[data-testid="import-go"]').disabled).toBe(true);
   });
 
-  it('shows an Estimating placeholder while the estimate loads', () => {
-    const loading = mount(h(ImportConfirm, { ...base, mode: 'update', keys: ['sku'], estimateLoading: true }));
-    expect(loading.querySelector('[data-testid="import-estimate"]').textContent).toMatch(/estimating/i);
+  it('renders Missing/Unexpected names through the whitespace-revealing renderer', () => {
+    const shape = deriveShape([{ 'region\u00A0': 'EU' }]); // NBSP (U+00A0) lives in the DB field name
+    const root = mount(h(ImportConfirm, {
+      ...base, validateShape: true, shape, shapeCount: 1,
+      docs: [{ zone: 'EU' }],
+    }));
+    const err = root.querySelector('[data-testid="import-shape-error"]');
+    expect(err.textContent).toContain('NBSP'); // DB-side NBSP made visible in the Missing list
   });
 
-  it('shows a composite estimate naming all match keys', () => {
-    const root = mount(h(ImportConfirm, { ...base, mode: 'update', keys: ['sku', 'region'], estimate: { supported: true, matched: 5, willInsert: 2, total: 7 } }));
-    const est = root.querySelector('[data-testid="import-estimate"]').textContent;
-    expect(est).toMatch(/~5/);
-    expect(est).toMatch(/~2/);
-    expect(est).toMatch(/sku, region/);
-  });
 });

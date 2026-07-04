@@ -5,21 +5,15 @@ import { closeModal } from './Modal.jsx';
 import FileDropArea from './FileDropArea.jsx';
 import JsonEditor from './JsonEditor.jsx';
 import { CsvPreview, Segmented } from './ImportControls.jsx';
-import ImportConfirm, { defaultKeysFor } from './ImportConfirm.jsx';
+import ImportConfirm from './ImportConfirm.jsx';
 import { ImportProgress, ImportSummary } from './ImportStages.jsx';
 import { getFormat, detectFormat, ALL_ACCEPT } from '../formats/index.js';
-import { runChunkedInsert, dedupeById } from '../importFile.js';
+import { runChunkedInsert, dedupeById, stripServerFields } from '../importFile.js';
 import { deriveShape } from '../shape.js';
-import { estimateMatches } from '../matchEstimate.js';
 import * as api from '../api.js';
 
-const VALIDATE_SHAPE_KEY = 'mdhImportValidateShape';
-function readValidateShapePref() { try { return globalThis.__mdhValidateShape !== false; } catch { return true; } }
-function persistValidateShape(v) {
-  try { globalThis.__mdhValidateShape = v; chrome?.storage?.local?.set?.({ [VALIDATE_SHAPE_KEY]: v }); } catch { /* no-op */ }
-}
-
 const STAGE = { PICK: 'pick', CONFIGURE: 'configure', CONFIRM: 'confirm', IMPORTING: 'importing', DONE: 'done' };
+const SHAPE_SAMPLE = 500;
 const SOURCE_SEG = [
   { value: 'file', label: 'File' },
   { value: 'clipboard', label: 'Clipboard' },
@@ -31,15 +25,20 @@ export default function ImportWizard({ onSuccess, fieldsFn }) {
   const [format, setFormat] = useState(null);
   const [fileMeta, setFileMeta] = useState(null);
   const [rawInput, setRawInput] = useState(null);
+  const [clipboardText, setClipboardText] = useState(null);
   const [opts, setOpts] = useState({});
   const [parsed, setParsed] = useState(null);
   const [mode, setMode] = useState('insert');
   const [keys, setKeys] = useState([]);
-  const [validateShape, setValidateShape] = useState(readValidateShapePref());
+  // Deliberately NOT persisted (owner decision 2026-07-04): every wizard opens
+  // with shape validation ON; turning it off applies to that import only. A
+  // legacy `mdhImportValidateShape` chrome.storage key from older builds is
+  // orphaned, not read.
+  const [validateShape, setValidateShape] = useState(true);
   const [shape, setShape] = useState(null);
   const [shapeLoading, setShapeLoading] = useState(false);
-  const [estimate, setEstimate] = useState(null);
-  const [estimateLoading, setEstimateLoading] = useState(false);
+  const [shapeCount, setShapeCount] = useState(0);
+  const [shapeCoversAll, setShapeCoversAll] = useState(false);
   const [importProgress, setImportProgress] = useState(null);
   const [importResult, setImportResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -51,9 +50,6 @@ export default function ImportWizard({ onSuccess, fieldsFn }) {
 
   const fmt = format ? getFormat(format) : null;
   const setOpt = (k, v) => setOpts((o) => ({ ...o, [k]: v }));
-
-  // Hydrate validateShape from storage on mount
-  useEffect(() => { try { chrome?.storage?.local?.get?.(VALIDATE_SHAPE_KEY, (r) => { if (r && typeof r[VALIDATE_SHAPE_KEY] === 'boolean') setValidateShape(r[VALIDATE_SHAPE_KEY]); }); } catch { /* no-op */ } }, []);
 
   // ---- file pick (drop or click) ----
   function handleFile(fileObj) {
@@ -73,7 +69,7 @@ export default function ImportWizard({ onSuccess, fieldsFn }) {
       if (res.error) { setErrorMsg(res.error.message); return; }
       if (!res.docs.length) { setErrorMsg('File contains no documents'); return; }
       setParsed(res);
-      setKeys(defaultKeysFor(res.docs));
+      setKeys([]);
       setStage(STAGE.CONFIRM);
     }).catch((err) => setErrorMsg(`Couldn't read file: ${err.message}`));
   }
@@ -81,15 +77,17 @@ export default function ImportWizard({ onSuccess, fieldsFn }) {
   // ---- clipboard next: parse the editor's raw text as JSON / JSON-lines ----
   function clipboardNext() {
     setErrorMsg(null);
-    const text = (editorRef.current?.getValue?.() ?? '').trim();
+    const raw = editorRef.current?.getValue?.() ?? '';
+    const text = raw.trim();
     if (!text) { setErrorMsg('No documents to import'); return; }
     const res = getFormat('json').parse(text);
     if (res.error) { setErrorMsg(res.error.message); return; }
     if (!res.docs.length) { setErrorMsg('No documents to import'); return; }
+    setClipboardText(raw); // restored into the editor when the user comes Back
     setFormat('json');
     setFileMeta({ name: 'Pasted data', size: null });
     setParsed(res);
-    setKeys(defaultKeysFor(res.docs));
+    setKeys([]);
     setStage(STAGE.CONFIRM);
   }
 
@@ -105,38 +103,40 @@ export default function ImportWizard({ onSuccess, fieldsFn }) {
 
   function configureNext() {
     if (!parsed || parsed.error || !parsed.docs.length) return;
-    setKeys(defaultKeysFor(parsed.docs));
+    setKeys([]);
     setStage(STAGE.CONFIRM);
   }
 
-  // ---- confirm: sample the existing collection to derive its shape ----
+  // ---- confirm: derive the existing collection's shape from a RANDOM sample
+  // ($sample — F1), falling back to the old first-N find so shape validation
+  // never silently disappears if aggregation is unavailable. ----
+  async function fetchShapeSample(collection) {
+    try {
+      const res = await api.aggregate(collection, [{ $sample: { size: SHAPE_SAMPLE } }]);
+      return res?.result || [];
+    } catch {
+      const res = await api.find(collection, { limit: SHAPE_SAMPLE });
+      return res?.result || [];
+    }
+  }
+
   useEffect(() => {
     if (stage !== STAGE.CONFIRM) return undefined;
     let alive = true;
     setShapeLoading(true);
-    api.find(selectedCollection.value, { limit: 500 })
-      .then((res) => { if (!alive) return; const existing = res?.result || []; setShape(existing.length ? deriveShape(existing) : null); setShapeLoading(false); })
-      .catch(() => { if (alive) { setShape(null); setShapeLoading(false); } });
+    fetchShapeSample(selectedCollection.value)
+      .then((existing) => {
+        if (!alive) return;
+        setShape(existing.length ? deriveShape(existing) : null);
+        setShapeCount(existing.length);
+        // Fewer rows returned than requested => the sample exhausted the
+        // collection, so the check covered ALL existing records.
+        setShapeCoversAll(existing.length > 0 && existing.length < SHAPE_SAMPLE);
+        setShapeLoading(false);
+      })
+      .catch(() => { if (alive) { setShape(null); setShapeCount(0); setShapeCoversAll(false); setShapeLoading(false); } });
     return () => { alive = false; };
   }, [stage, selectedCollection.value]);
-
-  // ---- confirm (Update only): estimate the matched-vs-insert split by the
-  // chosen match key. Read-only, debounced, stale-guarded. ----
-  const estKeysKey = keys.join(' ');
-  useEffect(() => {
-    if (stage !== STAGE.CONFIRM || mode !== 'update' || keys.length === 0 || !parsed) {
-      setEstimate(null); setEstimateLoading(false);
-      return undefined;
-    }
-    let alive = true;
-    setEstimateLoading(true);
-    const timer = setTimeout(() => {
-      estimateMatches(selectedCollection.value, parsed.docs, keys, api.find)
-        .then((r) => { if (alive) { setEstimate(r); setEstimateLoading(false); } })
-        .catch(() => { if (alive) { setEstimate(null); setEstimateLoading(false); } });
-    }, 300);
-    return () => { alive = false; clearTimeout(timer); };
-  }, [stage, mode, estKeysKey, parsed]);
 
   // ---- import ----
   async function startImport() {
@@ -156,7 +156,7 @@ export default function ImportWizard({ onSuccess, fieldsFn }) {
         setStage(STAGE.IMPORTING);
         const startedAt = Date.now();
         setImportProgress({ phase: 'uploading', indeterminate: true, elapsedMs: 0 });
-        const blob = new Blob([JSON.stringify(docs)], { type: 'application/json' });
+        const blob = new Blob([JSON.stringify(stripServerFields(docs))], { type: 'application/json' });
         const { operationId } = mode === 'update'
           ? await api.datasetUpdate(selectedCollection.value, blob, keys, { signal: ctrl.signal })
           : await api.datasetReplace(selectedCollection.value, blob, { signal: ctrl.signal });
@@ -199,16 +199,39 @@ export default function ImportWizard({ onSuccess, fieldsFn }) {
     }
   }
 
-  // Reset source-specific input when toggling, so a half-finished pick in one
-  // source never lingers behind the other.
-  function switchSource(v) {
-    setErrorMsg(null);
-    setSource(v);
+  // Clear the picked-file state (shared by source toggling and Back-to-Pick).
+  // clipboardText deliberately survives so the editor restores what was typed.
+  function resetFileInput() {
     setFormat(null);
     setRawInput(null);
     setOpts({});
     setFileMeta(null);
     setParsed(null);
+  }
+
+  // Reset source-specific input when toggling, so a half-finished pick in one
+  // source never lingers behind the other.
+  function switchSource(v) {
+    setErrorMsg(null);
+    setSource(v);
+    resetFileInput();
+  }
+
+  // ---- back navigation ----
+  function configureBack() {
+    setErrorMsg(null);
+    resetFileInput();
+    setStage(STAGE.PICK);
+  }
+
+  function confirmBack() {
+    setErrorMsg(null);
+    // Re-parsing with different options can change the column set, so match
+    // keys reset (they're re-defaulted to [] on every forward transition too).
+    setKeys([]);
+    if (source === 'file' && fmt?.ConfigureControls) { setStage(STAGE.CONFIGURE); return; }
+    resetFileInput();
+    setStage(STAGE.PICK);
   }
 
   // ---- render ----
@@ -228,7 +251,7 @@ export default function ImportWizard({ onSuccess, fieldsFn }) {
           ) : (
             <Fragment>
               <div class="modal-field-label" style="margin-top:10px">Paste or type JSON (array, object, or JSON-lines):</div>
-              <JsonEditor value={'[\n  \n]'} minHeight="200px" fields={fieldsFn} editorRef={editorRef} />
+              <JsonEditor value={clipboardText ?? '[\n  \n]'} minHeight="200px" fields={fieldsFn} editorRef={editorRef} jsonLines />
             </Fragment>
           )}
           {errorMsg && <div class="input-hint" style="color:var(--danger)">{errorMsg}</div>}
@@ -246,6 +269,7 @@ export default function ImportWizard({ onSuccess, fieldsFn }) {
           <fmt.ConfigureControls opts={opts} setOpt={setOpt} parsed={parsed} />
           <CsvPreview parsed={parsed} />
           <div class="modal-actions">
+            <button class="btn btn-secondary" style="margin-right:auto" data-testid="configure-back" onClick={configureBack}>{'←'} Back</button>
             <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>
             <button class="btn btn-primary" data-testid="import-next" disabled={!parsed || !!parsed.error || !parsed.docs.length} onClick={configureNext}>Next {'→'}</button>
           </div>
@@ -259,10 +283,9 @@ export default function ImportWizard({ onSuccess, fieldsFn }) {
             docs={parsed.docs}
             mode={mode} setMode={setMode}
             keys={keys} setKeys={setKeys}
-            validateShape={validateShape} setValidateShape={(v) => { setValidateShape(v); persistValidateShape(v); }}
-            shape={shape} shapeLoading={shapeLoading}
-            estimate={estimate} estimateLoading={estimateLoading}
-            onImport={startImport} onCancel={closeModal}
+            validateShape={validateShape} setValidateShape={setValidateShape}
+            shape={shape} shapeLoading={shapeLoading} shapeCount={shapeCount} shapeCoversAll={shapeCoversAll}
+            onImport={startImport} onCancel={closeModal} onBack={confirmBack}
           />
           {errorMsg && <div class="input-hint" style="color:var(--danger)">{errorMsg}</div>}
         </Fragment>
