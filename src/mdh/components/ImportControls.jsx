@@ -6,7 +6,7 @@ import { getEjsonType, formatEjsonValue } from '../displayValue.js';
 // per-format CSV import wizard (now removed) so the unified ImportWizard and
 // export-options modals share one source.
 
-// Segmented pill group. options: [{ value, label, title?, testid? }].
+// Segmented pill group. options: [{ value, label, title?, testid?, disabled? }].
 // `testid` (on the wrapper) is optional; per-option `testid` lands on each button.
 export function Segmented({ value, options, onChange, testid, ariaLabel, tabs }) {
   return (
@@ -19,6 +19,7 @@ export function Segmented({ value, options, onChange, testid, ariaLabel, tabs })
           title={o.title}
           data-testid={o.testid}
           aria-pressed={o.value === value}
+          disabled={o.disabled}
           onClick={() => onChange(o.value)}
         >{o.label}</button>
       ))}

@@ -14,7 +14,6 @@ globalThis.chrome = { storage: { local: { get: (k, cb) => cb && cb({}), set() {}
 
 vi.mock('../src/mdh/api.js');
 vi.mock('../src/mdh/components/RecordCard.jsx', () => ({ default: () => h('div', { class: 'record-card-stub' }) }));
-vi.mock('../src/mdh/components/DownloadSplitButton.jsx', () => ({ default: () => h('div') }));
 vi.mock('../src/mdh/components/StagesView.jsx', () => ({ default: () => h('div', { class: 'stages-view-stub' }) }));
 
 import RecordList from '../src/mdh/components/RecordList.jsx';

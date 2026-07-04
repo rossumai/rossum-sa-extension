@@ -8,6 +8,7 @@ import {
   pipelineReducesResultSet,
   terminalWriteStage,
   stripWriteStages,
+  parseExportFilter,
 } from '../src/mdh/pipelineOps.js';
 
 describe('applySortToPipeline', () => {
@@ -352,5 +353,48 @@ describe('terminalWriteStage', () => {
   });
   it('only checks the LAST stage', () => {
     expect(terminalWriteStage([{ $out: 'a' }, { $match: {} }])).toBeNull();
+  });
+});
+
+describe('parseExportFilter', () => {
+  const id = (t) => t; // substitute pass-through
+  it('returns stages for a real filter', () => {
+    const r = parseExportFilter('[{"$match":{"region":"EU"}}]', id);
+    expect(r.available).toBe(true);
+    expect(r.stages).toEqual([{ $match: { region: 'EU' } }]);
+    expect(r.trivial).toBe(false);
+  });
+  it('flags the trivial match-all (spec §2 preselection rule)', () => {
+    expect(parseExportFilter('[{"$match":{}}]', id).trivial).toBe(true);
+  });
+  it('empty pipeline -> unavailable with the exact copy', () => {
+    const r = parseExportFilter('[]', id);
+    expect(r.available).toBe(false);
+    expect(r.reason).toBe('No filter is active — the pipeline is empty.');
+  });
+  it('parse error / non-array -> unavailable with the error message', () => {
+    expect(parseExportFilter('nonsense{', id).available).toBe(false);
+    expect(parseExportFilter('{"$match":{}}', id).reason).toMatch(/array/);
+  });
+  it('strips pagination stages before deciding', () => {
+    const r = parseExportFilter('[{"$skip": 20}, {"$limit": 10}]', id);
+    expect(r.available).toBe(false); // nothing left after stripping
+  });
+  it('flags a pipeline ending in $out as unavailable (exports are read-only)', () => {
+    const r = parseExportFilter('[{"$match":{"region":"EU"}},{"$out":"archive"}]', id);
+    expect(r.available).toBe(false);
+    expect(r.stages).toBeNull();
+    expect(r.reason).toBe('The pipeline ends in a write stage ($out/$merge) — exports are read-only.');
+  });
+  it('flags a pipeline ending in $merge as unavailable (exports are read-only)', () => {
+    const r = parseExportFilter('[{"$group":{"_id":"$x"}},{"$merge":{"into":"target"}}]', id);
+    expect(r.available).toBe(false);
+    expect(r.reason).toMatch(/read-only/);
+  });
+  it('does not flag $out/$merge that only appears mid-pipeline (not terminal)', () => {
+    // terminalWriteStage only looks at the LAST stage — a non-terminal write
+    // stage isn't this guard's concern (defence in depth belongs elsewhere).
+    const r = parseExportFilter('[{"$out":"archive"},{"$match":{"region":"EU"}}]', id);
+    expect(r.available).toBe(true);
   });
 });

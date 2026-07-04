@@ -5,7 +5,6 @@ import { skip, selectedCollection, selectionMode, selectedIds, selectionPipeline
 import RecordCard from './RecordCard.jsx';
 import RecordTable from './RecordTable.jsx';
 import StagesView from './StagesView.jsx';
-import DownloadSplitButton from './DownloadSplitButton.jsx';
 import { deriveColumns } from '../recordColumns.js';
 import JSON5 from 'json5';
 import * as api from '../api.js';
@@ -257,17 +256,15 @@ function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh
         {downloadState ? (
           <span class="download-progress">
             <span class="download-progress-text">
-              {downloadState.counting
-                ? 'Counting matching documents\u2026'
-                : downloadState.cancelled
-                  ? 'Cancelled'
-                  : downloadState.done
-                    ? `\u2713 ${downloadState.count} records`
-                    : `Downloading\u2026 ${downloadState.count}${downloadState.total ? ' / ' + downloadState.total : ''} records${downloadState.filtered ? ' (filtered)' : ''}`}
+              {downloadState.cancelled
+                ? 'Cancelled'
+                : downloadState.done
+                  ? `\u2713 ${downloadState.count} records`
+                  : `Downloading\u2026 ${downloadState.count}${downloadState.total ? ' / ' + downloadState.total : ''} records${downloadState.filtered ? ' (filtered)' : ''}`}
             </span>
             {!downloadState.cancelled && !downloadState.done && (
               <span class="download-bar">
-                {!downloadState.counting && downloadState.total > 0
+                {downloadState.total > 0
                   ? <span class="download-bar-fill" style={`width:${Math.min(100, Math.round((downloadState.count / downloadState.total) * 100))}%`}></span>
                   : <span class="download-bar-fill download-bar-indeterminate"></span>
                 }
@@ -278,18 +275,7 @@ function DefaultToolbar({ allExpanded, toggleExpandAll, downloadState, onRefresh
             )}
           </span>
         ) : (
-          <DownloadSplitButton
-            onAllJson={() => onRefresh('download')}
-            onFilteredJson={() => onRefresh('download-filtered')}
-            onAllCsv={() => onRefresh('download-csv')}
-            onFilteredCsv={() => onRefresh('download-filtered-csv')}
-            onAllXml={() => onRefresh('download-xml')}
-            onFilteredXml={() => onRefresh('download-filtered-xml')}
-            onAllJsonl={() => onRefresh('download-jsonl')}
-            onFilteredJsonl={() => onRefresh('download-filtered-jsonl')}
-            onAllXlsx={() => onRefresh('download-xlsx')}
-            onFilteredXlsx={() => onRefresh('download-filtered-xlsx')}
-          />
+          <button class="btn btn-sm" data-testid="export-open" title="Export collection" onClick={() => onRefresh('export')}>Export</button>
         )}
         <button class="btn btn-sm btn-success" onClick={() => onRefresh('import')}>Import</button>
       </div>

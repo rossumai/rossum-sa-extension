@@ -21,17 +21,14 @@ import { showUndo } from '../undo.js';
 import { addToHistory } from './QueryHistory.jsx';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
-import { applySortToPipeline, applyFilterDeltaToPipeline, applySkipToPipeline, extractUIStateFromPipeline, stripPaginationStages, pipelineReducesResultSet, terminalWriteStage } from '../pipelineOps.js';
+import { applySortToPipeline, applyFilterDeltaToPipeline, applySkipToPipeline, extractUIStateFromPipeline, parseExportFilter, pipelineReducesResultSet, terminalWriteStage } from '../pipelineOps.js';
 import { applyMutationToText, normalizeEffectivePipelineText, setStageDisabled, parseEntries } from '../pipelineComments.js';
 import { loadCollections } from './Sidebar.jsx';
 import { savePipelineState, getPipelineState } from '../pipelineState.js';
 import { saveLastPipeline } from '../lastPipeline.js';
-import { downloadCollection as runDownload, buildCsvSerializer, buildXmlSerializer, buildNdjsonSerializer, buildXlsxSerializer } from '../downloadCollection.js';
-import { buildColumnDiscoveryPipeline } from '../csv.js';
-import { orderExportColumns } from '../recordColumns.js';
-import CsvExportOptions from './CsvExportOptions.jsx';
-import XmlExportOptions from './XmlExportOptions.jsx';
-import XlsxExportOptions from './XlsxExportOptions.jsx';
+import { downloadCollection as runDownload } from '../downloadCollection.js';
+import ExportWizard from './ExportWizard.jsx';
+import { buildExportJob } from '../exportFormats.jsx';
 import JSON5 from 'json5';
 export default function DataPanel() {
   const editorRef = useRef(null);
@@ -40,9 +37,8 @@ export default function DataPanel() {
   const pagination = usePagination();
   const leftRef = useRef(null);
   const panelRef = useRef(null);
-  const [downloadState, setDownloadState] = useState(null); // null | { count, total, filtered?, counting?, cancelled?, done? }
+  const [downloadState, setDownloadState] = useState(null); // null | { count, total, filtered?, cancelled?, done? }
   const downloadCancelRef = useRef(false);
-  const downloadCountAbortRef = useRef(null); // AbortController for the pre-flight count of filtered downloads
   // When switching collections via a saved/recent pipeline, stash the payload
   // so the collection-change effect can apply it instead of running the default.
   const pendingLoadRef = useRef(null); // null | { pipelineText, variables }
@@ -464,26 +460,8 @@ export default function DataPanel() {
   }
 
   function handleToolbarAction(action) {
-    if (action === 'download') {
-      downloadAll();
-    } else if (action === 'download-filtered') {
-      downloadFiltered();
-    } else if (action === 'download-csv') {
-      downloadAllCsv();
-    } else if (action === 'download-filtered-csv') {
-      downloadFilteredCsv();
-    } else if (action === 'download-xml') {
-      downloadAllXml();
-    } else if (action === 'download-filtered-xml') {
-      downloadFilteredXml();
-    } else if (action === 'download-jsonl') {
-      downloadAllJsonl();
-    } else if (action === 'download-filtered-jsonl') {
-      downloadFilteredJsonl();
-    } else if (action === 'download-xlsx') {
-      downloadAllXlsx();
-    } else if (action === 'download-filtered-xlsx') {
-      downloadFilteredXlsx();
+    if (action === 'export') {
+      openExport();
     } else if (action === 'import') {
       openImport(invalidateAndRun, currentFields);
     }
@@ -510,426 +488,24 @@ export default function DataPanel() {
     handleSetPlaceholder._timer = setTimeout(runQuery, 400);
   }
 
-  async function downloadAll() {
-    const tc = pagination.totalCount.value;
-    if (tc !== null && tc > 10_000) {
-      const proceed = await confirmModal(
-        'Large collection',
-        `This collection has ${tc.toLocaleString()} documents. Downloading may take a while. Continue?`,
-      );
-      if (!proceed) return;
-    }
-
+  // ---- unified export ----
+  function openExport() {
+    const raw = editorRef.current ? editorRef.current.getValue() : '';
+    const filterState = parseExportFilter(raw, (t) => pipeline.substituteWithTypes(t));
     const col = collection;
-    await runDownloadJob({
-      pipelineStages: [{ $match: {} }],
-      filename: `${col}.json`,
-      filtered: false,
-      fetchCount: async () => {
-        if (pagination.totalCount.value !== null) return pagination.totalCount.value;
-        const r = await api.aggregate(col, [{ $count: 'total' }]);
-        return r.result?.[0]?.total ?? 0;
-      },
-    });
-  }
-
-  async function downloadFiltered() {
-    if (!editorRef.current) return;
-
-    let pipelineStages;
-    try {
-      const text = pipeline.substituteWithTypes(editorRef.current.getValue());
-      const parsed = JSON5.parse(text);
-      if (!Array.isArray(parsed)) throw new Error('pipeline must be a JSON array');
-      pipelineStages = stripPaginationStages(parsed);
-    } catch (err) {
-      error.value = { message: `Cannot download filtered: ${err.message}` };
-      return;
-    }
-
-    // Pre-flight count so we can (a) populate the progress bar's total and
-    // (b) gate the >10k confirmation on the filtered subset, not the whole
-    // collection. Cancellable while in flight.
-    downloadCancelRef.current = false;
-    error.value = null;
-    setDownloadState({ counting: true, filtered: true });
-
-    const ac = new AbortController();
-    downloadCountAbortRef.current = ac;
-    const col = collection;
-    let filteredCount;
-    try {
-      const r = await api.aggregate(col, [...pipelineStages, { $count: 'total' }], { signal: ac.signal });
-      filteredCount = r.result?.[0]?.total ?? 0;
-    } catch (err) {
-      downloadCountAbortRef.current = null;
-      if (downloadCancelRef.current || err.name === 'AbortError') {
-        setDownloadState(null);
-        return;
-      }
-      error.value = { message: `Cannot download filtered: ${err.message}` };
-      setDownloadState(null);
-      return;
-    }
-    downloadCountAbortRef.current = null;
-
-    if (downloadCancelRef.current) { setDownloadState(null); return; }
-
-    if (filteredCount > 10_000) {
-      setDownloadState(null);
-      const proceed = await confirmModal(
-        'Large download',
-        `This filter matches ${filteredCount.toLocaleString()} documents. Downloading may take a while. Continue?`,
-      );
-      if (!proceed) return;
-    }
-
-    await runDownloadJob({
-      pipelineStages,
-      filename: `${col}-filtered.json`,
-      filtered: true,
-      fetchCount: async () => filteredCount,
-    });
-  }
-
-  async function downloadAllJsonl() {
-    const tc = pagination.totalCount.value;
-    if (tc !== null && tc > 10_000) {
-      const proceed = await confirmModal('Large collection', `This collection has ${tc.toLocaleString()} documents. Downloading may take a while. Continue?`);
-      if (!proceed) return;
-    }
-    const col = collection;
-    await runDownloadJob({
-      pipelineStages: [{ $match: {} }],
-      filename: `${col}.jsonl`,
-      filtered: false,
-      fetchCount: async () => {
-        if (pagination.totalCount.value !== null) return pagination.totalCount.value;
-        const r = await api.aggregate(col, [{ $count: 'total' }]);
-        return r.result?.[0]?.total ?? 0;
-      },
-      serializer: buildNdjsonSerializer(),
-    });
-  }
-
-  async function downloadFilteredJsonl() {
-    if (!editorRef.current) return;
-    let pipelineStages;
-    try {
-      const text = pipeline.substituteWithTypes(editorRef.current.getValue());
-      const parsed = JSON5.parse(text);
-      if (!Array.isArray(parsed)) throw new Error('pipeline must be a JSON array');
-      pipelineStages = stripPaginationStages(parsed);
-    } catch (err) {
-      error.value = { message: `Cannot download filtered: ${err.message}` };
-      return;
-    }
-    downloadCancelRef.current = false;
-    error.value = null;
-    setDownloadState({ counting: true, filtered: true });
-    const ac = new AbortController();
-    downloadCountAbortRef.current = ac;
-    const col = collection;
-    let filteredCount;
-    try {
-      const r = await api.aggregate(col, [...pipelineStages, { $count: 'total' }], { signal: ac.signal });
-      filteredCount = r.result?.[0]?.total ?? 0;
-    } catch (err) {
-      downloadCountAbortRef.current = null;
-      if (downloadCancelRef.current || err.name === 'AbortError') { setDownloadState(null); return; }
-      error.value = { message: `Cannot download filtered: ${err.message}` };
-      setDownloadState(null);
-      return;
-    }
-    downloadCountAbortRef.current = null;
-    if (downloadCancelRef.current) { setDownloadState(null); return; }
-    if (filteredCount > 10_000) {
-      setDownloadState(null);
-      const proceed = await confirmModal('Large download', `This filter matches ${filteredCount.toLocaleString()} documents. Downloading may take a while. Continue?`);
-      if (!proceed) return;
-    }
-    await runDownloadJob({
-      pipelineStages,
-      filename: `${col}-filtered.jsonl`,
-      filtered: true,
-      fetchCount: async () => filteredCount,
-      serializer: buildNdjsonSerializer(),
-    });
-  }
-
-  function downloadAllCsv() {
-    const col = collection;
-    openModal('Export CSV', () => (
-      <CsvExportOptions
-        loadPreview={async () => {
-          const [keysRes, sampleRes] = await Promise.all([
-            api.aggregate(col, buildColumnDiscoveryPipeline([{ $match: {} }])),
-            api.aggregate(col, [{ $match: {} }, { $limit: 10 }]),
-          ]);
-          return { columns: orderExportColumns(records.value, keysRes.result?.[0]?.keys ?? []), sample: sampleRes.result || [] };
-        }}
-        onDownload={async ({ delimiter, header, columns }) => {
-          const tc = pagination.totalCount.value;
-          if (tc !== null && tc > 10_000) {
-            const proceed = await confirmModal(
-              'Large collection',
-              `This collection has ${tc.toLocaleString()} documents. Exporting may take a while. Continue?`,
-            );
-            if (!proceed) return;
-          }
-          await runDownloadJob({
-            pipelineStages: [{ $match: {} }],
-            filename: `${col}.csv`,
-            filtered: false,
-            fetchCount: async () => {
-              if (pagination.totalCount.value !== null) return pagination.totalCount.value;
-              const r = await api.aggregate(col, [{ $count: 'total' }]);
-              return r.result?.[0]?.total ?? 0;
-            },
-            serializer: buildCsvSerializer({ dialect: { delimiter }, header, bom: false, columns }),
-          });
-        }}
+    openModal(`Export ${col}`, () => (
+      <ExportWizard
+        collection={col}
+        filterState={filterState}
+        totalCount={pagination.totalCount.value}
+        recordsSample={records.value}
+        onExport={(config) => executeExport(config, filterState)}
       />
     ));
   }
 
-  function downloadFilteredCsv() {
-    if (!editorRef.current) return;
-    let pipelineStages;
-    try {
-      const text = pipeline.substituteWithTypes(editorRef.current.getValue());
-      const parsed = JSON5.parse(text);
-      if (!Array.isArray(parsed)) throw new Error('pipeline must be a JSON array');
-      pipelineStages = stripPaginationStages(parsed);
-    } catch (err) {
-      error.value = { message: `Cannot export filtered: ${err.message}` };
-      return;
-    }
-    const col = collection;
-    openModal('Export CSV', () => (
-      <CsvExportOptions
-        loadPreview={async () => {
-          const [keysRes, sampleRes] = await Promise.all([
-            api.aggregate(col, buildColumnDiscoveryPipeline(pipelineStages)),
-            api.aggregate(col, [...pipelineStages, { $limit: 10 }]),
-          ]);
-          return { columns: orderExportColumns(records.value, keysRes.result?.[0]?.keys ?? []), sample: sampleRes.result || [] };
-        }}
-        onDownload={async ({ delimiter, header, columns }) => {
-          // Pre-count for the progress total + >10k gate (cancellable).
-          downloadCancelRef.current = false;
-          error.value = null;
-          setDownloadState({ counting: true, filtered: true });
-          const ac = new AbortController();
-          downloadCountAbortRef.current = ac;
-          let filteredCount;
-          try {
-            const r = await api.aggregate(col, [...pipelineStages, { $count: 'total' }], { signal: ac.signal });
-            filteredCount = r.result?.[0]?.total ?? 0;
-          } catch (err) {
-            downloadCountAbortRef.current = null;
-            if (downloadCancelRef.current || err.name === 'AbortError') { setDownloadState(null); return; }
-            error.value = { message: `Cannot export filtered: ${err.message}` };
-            setDownloadState(null);
-            return;
-          }
-          downloadCountAbortRef.current = null;
-          if (downloadCancelRef.current) { setDownloadState(null); return; }
-          if (filteredCount > 10_000) {
-            setDownloadState(null);
-            const proceed = await confirmModal(
-              'Large export',
-              `This filter matches ${filteredCount.toLocaleString()} documents. Exporting may take a while. Continue?`,
-            );
-            if (!proceed) return;
-          }
-          await runDownloadJob({
-            pipelineStages,
-            filename: `${col}-filtered.csv`,
-            filtered: true,
-            fetchCount: async () => filteredCount,
-            serializer: buildCsvSerializer({ dialect: { delimiter }, header, bom: false, columns }),
-          });
-        }}
-      />
-    ));
-  }
-
-  function downloadAllXml() {
-    const col = collection;
-    openModal('Export XML', () => (
-      <XmlExportOptions
-        loadPreview={async () => {
-          const r = await api.aggregate(col, [{ $match: {} }, { $limit: 10 }]);
-          return { sample: r.result || [] };
-        }}
-        onDownload={async ({ rootName, recordName }) => {
-          const tc = pagination.totalCount.value;
-          if (tc !== null && tc > 10_000) {
-            const proceed = await confirmModal('Large collection', `This collection has ${tc.toLocaleString()} documents. Exporting may take a while. Continue?`);
-            if (!proceed) return;
-          }
-          await runDownloadJob({
-            pipelineStages: [{ $match: {} }],
-            filename: `${col}.xml`,
-            filtered: false,
-            fetchCount: async () => {
-              if (pagination.totalCount.value !== null) return pagination.totalCount.value;
-              const r = await api.aggregate(col, [{ $count: 'total' }]);
-              return r.result?.[0]?.total ?? 0;
-            },
-            serializer: buildXmlSerializer({ rootName, recordName }),
-          });
-        }}
-      />
-    ));
-  }
-
-  function downloadFilteredXml() {
-    if (!editorRef.current) return;
-    let pipelineStages;
-    try {
-      const text = pipeline.substituteWithTypes(editorRef.current.getValue());
-      const parsed = JSON5.parse(text);
-      if (!Array.isArray(parsed)) throw new Error('pipeline must be a JSON array');
-      pipelineStages = stripPaginationStages(parsed);
-    } catch (err) {
-      error.value = { message: `Cannot export filtered: ${err.message}` };
-      return;
-    }
-    const col = collection;
-    openModal('Export XML', () => (
-      <XmlExportOptions
-        loadPreview={async () => ({ sample: (await api.aggregate(col, [...pipelineStages, { $limit: 10 }])).result || [] })}
-        onDownload={async ({ rootName, recordName }) => {
-          // Pre-count for the progress total + >10k gate (cancellable).
-          downloadCancelRef.current = false;
-          error.value = null;
-          setDownloadState({ counting: true, filtered: true });
-          const ac = new AbortController();
-          downloadCountAbortRef.current = ac;
-          let filteredCount;
-          try {
-            const r = await api.aggregate(col, [...pipelineStages, { $count: 'total' }], { signal: ac.signal });
-            filteredCount = r.result?.[0]?.total ?? 0;
-          } catch (err) {
-            downloadCountAbortRef.current = null;
-            if (downloadCancelRef.current || err.name === 'AbortError') { setDownloadState(null); return; }
-            error.value = { message: `Cannot export filtered: ${err.message}` };
-            setDownloadState(null);
-            return;
-          }
-          downloadCountAbortRef.current = null;
-          if (downloadCancelRef.current) { setDownloadState(null); return; }
-          if (filteredCount > 10_000) {
-            setDownloadState(null);
-            const proceed = await confirmModal(
-              'Large export',
-              `This filter matches ${filteredCount.toLocaleString()} documents. Exporting may take a while. Continue?`,
-            );
-            if (!proceed) return;
-          }
-          await runDownloadJob({
-            pipelineStages,
-            filename: `${col}-filtered.xml`,
-            filtered: true,
-            fetchCount: async () => filteredCount,
-            serializer: buildXmlSerializer({ rootName, recordName }),
-          });
-        }}
-      />
-    ));
-  }
-
-  function downloadAllXlsx() {
-    const col = collection;
-    openModal('Export Excel', () => (
-      <XlsxExportOptions
-        loadPreview={async () => {
-          const [keysRes, sampleRes] = await Promise.all([
-            api.aggregate(col, buildColumnDiscoveryPipeline([{ $match: {} }])),
-            api.aggregate(col, [{ $match: {} }, { $limit: 10 }]),
-          ]);
-          return { columns: orderExportColumns(records.value, keysRes.result?.[0]?.keys ?? []), sample: sampleRes.result || [] };
-        }}
-        onDownload={async ({ sheetName, header, columns }) => {
-          const tc = pagination.totalCount.value;
-          if (tc !== null && tc > 10_000) {
-            const proceed = await confirmModal('Large collection', `This collection has ${tc.toLocaleString()} documents. Exporting may take a while. Continue?`);
-            if (!proceed) return;
-          }
-          await runDownloadJob({
-            pipelineStages: [{ $match: {} }],
-            filename: `${col}.xlsx`,
-            filtered: false,
-            fetchCount: async () => {
-              if (pagination.totalCount.value !== null) return pagination.totalCount.value;
-              const r = await api.aggregate(col, [{ $count: 'total' }]);
-              return r.result?.[0]?.total ?? 0;
-            },
-            serializer: buildXlsxSerializer({ sheetName, header, columns }),
-          });
-        }}
-      />
-    ));
-  }
-
-  function downloadFilteredXlsx() {
-    if (!editorRef.current) return;
-    let pipelineStages;
-    try {
-      const text = pipeline.substituteWithTypes(editorRef.current.getValue());
-      const parsed = JSON5.parse(text);
-      if (!Array.isArray(parsed)) throw new Error('pipeline must be a JSON array');
-      pipelineStages = stripPaginationStages(parsed);
-    } catch (err) {
-      error.value = { message: `Cannot export filtered: ${err.message}` };
-      return;
-    }
-    const col = collection;
-    openModal('Export Excel', () => (
-      <XlsxExportOptions
-        loadPreview={async () => {
-          const [keysRes, sampleRes] = await Promise.all([
-            api.aggregate(col, buildColumnDiscoveryPipeline(pipelineStages)),
-            api.aggregate(col, [...pipelineStages, { $limit: 10 }]),
-          ]);
-          return { columns: orderExportColumns(records.value, keysRes.result?.[0]?.keys ?? []), sample: sampleRes.result || [] };
-        }}
-        onDownload={async ({ sheetName, header, columns }) => {
-          downloadCancelRef.current = false;
-          error.value = null;
-          setDownloadState({ counting: true, filtered: true });
-          const ac = new AbortController();
-          downloadCountAbortRef.current = ac;
-          let filteredCount;
-          try {
-            const r = await api.aggregate(col, [...pipelineStages, { $count: 'total' }], { signal: ac.signal });
-            filteredCount = r.result?.[0]?.total ?? 0;
-          } catch (err) {
-            downloadCountAbortRef.current = null;
-            if (downloadCancelRef.current || err.name === 'AbortError') { setDownloadState(null); return; }
-            error.value = { message: `Cannot export filtered: ${err.message}` };
-            setDownloadState(null);
-            return;
-          }
-          downloadCountAbortRef.current = null;
-          if (downloadCancelRef.current) { setDownloadState(null); return; }
-          if (filteredCount > 10_000) {
-            setDownloadState(null);
-            const proceed = await confirmModal('Large export', `This filter matches ${filteredCount.toLocaleString()} documents. Exporting may take a while. Continue?`);
-            if (!proceed) return;
-          }
-          await runDownloadJob({
-            pipelineStages,
-            filename: `${col}-filtered.xlsx`,
-            filtered: true,
-            fetchCount: async () => filteredCount,
-            serializer: buildXlsxSerializer({ sheetName, header, columns }),
-          });
-        }}
-      />
-    ));
+  async function executeExport(config, filterState) {
+    await runDownloadJob(buildExportJob(config, collection, filterState.stages));
   }
 
   async function runDownloadJob({ pipelineStages, filename, filtered, fetchCount, serializer }) {
@@ -964,10 +540,6 @@ export default function DataPanel() {
 
   function cancelDownload() {
     downloadCancelRef.current = true;
-    if (downloadCountAbortRef.current) {
-      try { downloadCountAbortRef.current.abort(); } catch { /* already aborted */ }
-      downloadCountAbortRef.current = null;
-    }
   }
 
   useEffect(() => () => clearTimeout(persistTimerRef.current), []);

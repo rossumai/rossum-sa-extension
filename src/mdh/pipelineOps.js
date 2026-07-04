@@ -4,6 +4,8 @@
 // conditions, $project, $lookup, etc.) — only the stage owned by the UI
 // event is inserted, updated, or removed.
 
+import JSON5 from 'json5';
+
 function hasKey(stage, key) {
   return stage && typeof stage === 'object' && key in stage;
 }
@@ -173,4 +175,22 @@ export function stripPaginationStages(pipeline) {
     end--;
   }
   return pipeline.slice(0, end);
+}
+
+// Parse the editor pipeline for the export wizard's "Current filter" scope.
+// substitute = the placeholder substituter (pipeline.substituteWithTypes).
+// Never throws: any problem comes back as { available: false, reason }.
+export function parseExportFilter(rawText, substitute) {
+  try {
+    const parsed = JSON5.parse(substitute(rawText));
+    if (!Array.isArray(parsed)) throw new Error('pipeline must be a JSON array');
+    const stages = stripPaginationStages(parsed);
+    if (stages.length === 0) return { stages: null, available: false, reason: 'No filter is active — the pipeline is empty.' };
+    if (terminalWriteStage(stages)) {
+      return { stages: null, available: false, reason: 'The pipeline ends in a write stage ($out/$merge) — exports are read-only.' };
+    }
+    return { stages, available: true, trivial: stages.length === 1 && JSON.stringify(stages[0]) === '{"$match":{}}' };
+  } catch (err) {
+    return { stages: null, available: false, reason: err.message };
+  }
 }
