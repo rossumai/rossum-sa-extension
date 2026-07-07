@@ -11,7 +11,7 @@ vi.mock('../src/mdh/components/RecordCard.jsx', () => ({
 
 import * as api from '../src/mdh/api.js';
 import StagesView from '../src/mdh/components/StagesView.jsx';
-import { hoveredStage } from '../src/mdh/store.js';
+import { hoveredStage, stagesShowDef } from '../src/mdh/store.js';
 
 async function waitFor(condition, description = 'condition', timeoutMs = 2000) {
   const start = Date.now();
@@ -50,8 +50,9 @@ afterEach(() => {
   if (currentRoot) { render(null, currentRoot); currentRoot = null; }
   document.body.innerHTML = '';
   hoveredStage.value = null;
+  stagesShowDef.value = false;
 });
-beforeEach(() => { vi.clearAllMocks(); hoveredStage.value = null; });
+beforeEach(() => { vi.clearAllMocks(); hoveredStage.value = null; stagesShowDef.value = false; });
 
 describe('StagesView', () => {
   it('renders an input section plus one section per active stage', async () => {
@@ -173,6 +174,47 @@ describe('StagesView', () => {
     await waitFor(() => root.querySelector('.pipeline-inspect-section'), 'section rendered');
     expect(root.querySelector('.pipeline-inspect-def')).toBeNull();
     expect(root.querySelector('.pipeline-inspect-output')).not.toBeNull();
+  });
+
+  it('renders each active stage\'s substituted definition when Definitions is on', async () => {
+    stagesShowDef.value = true;
+    const entries = [
+      { disabled: false, stage: { $match: { code: 'AB-12', qty: 100 } } },
+      { disabled: false, stage: { $limit: 50 } },
+    ];
+    api.aggregate.mockResolvedValue({ result: [] });
+    const root = mount({ collection: 'vendors', entries });
+    await waitFor(() => root.querySelectorAll('.pipeline-inspect-stagedef').length === 2, 'two definition blocks');
+    const defs = [...root.querySelectorAll('.pipeline-inspect-stagedef')].map((el) => el.textContent);
+    // Faithful pretty-printed substituted stage object (values already resolved upstream).
+    expect(defs[0]).toBe(JSON.stringify({ $match: { code: 'AB-12', qty: 100 } }, null, 2));
+    expect(defs[0]).toContain('"code": "AB-12"');
+    expect(defs[0]).toContain('"qty": 100');
+    expect(defs[1]).toBe(JSON.stringify({ $limit: 50 }, null, 2));
+  });
+
+  it('renders no definition block when Definitions is off (default)', async () => {
+    const entries = [{ disabled: false, stage: { $match: { x: 1 } } }];
+    api.aggregate.mockResolvedValue({ result: [] });
+    const root = mount({ collection: 'vendors', entries });
+    await waitFor(() => root.querySelector('.pipeline-inspect-section'), 'section rendered');
+    expect(root.querySelector('.pipeline-inspect-stagedef')).toBeNull();
+  });
+
+  it('renders no definition block for the input section or disabled stages', async () => {
+    stagesShowDef.value = true;
+    const entries = [
+      { disabled: false, stage: { $match: { x: 1 } } },
+      { disabled: true, stage: { $sort: { a: -1 } } },
+    ];
+    api.aggregate.mockResolvedValue({ result: [] });
+    const root = mount({ collection: 'vendors', entries });
+    await waitFor(() => root.querySelectorAll('.pipeline-inspect-stagedef').length === 1, 'exactly one def block');
+    // Only the single active $match stage has a block: input (data-idx="-1") and the
+    // disabled $sort do not.
+    const inputSection = root.querySelector('.pipeline-inspect-section[data-idx="-1"]');
+    expect(inputSection.querySelector('.pipeline-inspect-stagedef')).toBeNull();
+    expect(root.querySelector('.pipeline-inspect-disabled .pipeline-inspect-stagedef')).toBeNull();
   });
 
   it('hovering a stage section publishes its entry index + element to hoveredStage', async () => {

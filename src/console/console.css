@@ -1505,6 +1505,24 @@ body {
 .pipeline-inspect-zero { color: var(--danger); }
 .pipeline-inspect-time { color: var(--text-secondary); opacity: 0.7; min-width: 46px; text-align: right; }
 .pipeline-inspect-time-slow { color: var(--warning); opacity: 1; font-weight: 600; }
+/* Opt-in read-only block under an active stage's header: the stage's own
+   definition with variables substituted (as sent to the DS API). Mono code
+   block mirroring .inspector-code-block; capped + scrollable so a large stage
+   never pushes the sample output out of the fixed-height section.
+   overscroll-behavior-x: none (NOT the all-axes shorthand) stops the horizontal
+   rubber-band on long lines without blocking vertical scroll-chaining — once the
+   block reaches its top/bottom the wheel chains up to the stage list, so the page
+   keeps scrolling when the mouse is over the block. */
+.pipeline-inspect-stagedef {
+  flex-shrink: 0; margin: 0;
+  padding: 8px 10px;
+  font-family: var(--font-mono); font-size: 12px;
+  line-height: 1.4;
+  background: var(--bg-code); color: var(--text-code);
+  border-bottom: 1px solid var(--border);
+  max-height: 160px; overflow: auto; overscroll-behavior-x: none;
+  white-space: pre;
+}
 /* Records span the full section width (the per-stage query box was removed —
    hover a stage to draw a connector line to its code in the pipeline editor). */
 .pipeline-inspect-body {
@@ -1520,8 +1538,10 @@ body {
    horizontal rubber-band without blocking vertical scroll-chaining. A record
    taller than the stage band scrolls within itself (max-height + overflow-y:
    auto) and, once at its top/bottom, chains the wheel up to the list (default
-   overscroll-behavior on the card = chaining). A record that fits chains
-   immediately, so the list always scrolls when there's nothing left to scroll. */
+   overscroll-behavior on the card = chaining, so the page keeps scrolling when the
+   mouse is over a record — the macOS vertical rubber-band is the unavoidable cost
+   of that chaining). A record that fits chains immediately, so the list always
+   scrolls when there's nothing left to scroll. */
 .pipeline-inspect-output {
   display: flex; flex-direction: row; gap: 8px; align-items: stretch;
   overflow-x: auto; overflow-y: hidden; min-width: 0; min-height: 0;

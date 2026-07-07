@@ -4,7 +4,7 @@ import * as api from '../api.js';
 import { stripWriteStages } from '../pipelineOps.js';
 import RecordCard from './RecordCard.jsx';
 import useStageCounts from '../hooks/useStageCounts.js';
-import { hoveredStage, stagesAutoscroll, stagesSampleSize, STAGE_SAMPLE_SIZES } from '../store.js';
+import { hoveredStage, stagesAutoscroll, stagesSampleSize, STAGE_SAMPLE_SIZES, stagesShowDef } from '../store.js';
 
 const SLOW_QUERY_MS = 1000;
 const HIGHLIGHT_MS = 1600; // ≥ the .pipeline-inspect-flash animation (1.5s) so the class outlasts it
@@ -80,6 +80,7 @@ export default function StagesView({ collection, entries, onToggleStage, inspect
   const activeKey = JSON.stringify(activeStages);
   const sampleSize = stagesSampleSize.value; // configurable; re-fetches on change
   const autoscroll = stagesAutoscroll.value;
+  const showDef = stagesShowDef.value;
   const { counts, inputInfo } = useStageCounts(collection, activeStages);
 
   useEffect(() => {
@@ -142,6 +143,10 @@ export default function StagesView({ collection, entries, onToggleStage, inspect
           <input type="checkbox" checked={autoscroll} onChange={(e) => { stagesAutoscroll.value = e.currentTarget.checked; }} />
           <span>Auto-scroll</span>
         </label>
+        <label class="pipeline-inspect-opt pipeline-inspect-autoscroll" title="Show each stage's query with variables substituted (as sent to the Data Storage API)">
+          <input type="checkbox" checked={showDef} onChange={(e) => { stagesShowDef.value = e.currentTarget.checked; }} />
+          <span>Definitions</span>
+        </label>
       </div>
       <div class="pipeline-inspect-scroll">
         <section class={sectionCls(-1)} data-idx="-1">
@@ -182,6 +187,9 @@ export default function StagesView({ collection, entries, onToggleStage, inspect
                 toggle={<StageToggle entryIndex={entryIndex} disabled={false} onToggle={onToggleStage} />}
                 num={`${myIdx + 1}`} label={stageKey} prevCount={prevCount} count={counts[myIdx]?.count} ms={counts[myIdx]?.ms}
               />
+              {showDef && (
+                <pre class="pipeline-inspect-stagedef">{JSON.stringify(stage, null, 2)}</pre>
+              )}
               <div class="pipeline-inspect-body">
                 <div class="pipeline-inspect-output"><StageOutput info={previews[myIdx]} /></div>
               </div>

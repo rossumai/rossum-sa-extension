@@ -81,6 +81,12 @@ export const hoveredStage = signal(null);
 export const STAGE_SAMPLE_SIZES = [10, 25, 50];
 export const stagesAutoscroll = signal(true);
 export const stagesSampleSize = signal(10);
+// Whether the Stages view shows each active stage's substituted definition
+// (the concrete stage object as sent to the Data Storage API) in a read-only
+// block under the stage header. Opt-in — default OFF so the fixed-height stage
+// sections keep their full sample-output space until the user asks for it.
+// Persisted as mdhStagesShowDef, wired like mdhStagesAutoscroll in index.jsx.
+export const stagesShowDef = signal(false);
 // Coerce a stored/unknown value to one of the allowed sample sizes (default 10).
 export function coerceStageSampleSize(v) {
   const n = typeof v === 'number' ? v : parseInt(v, 10);
