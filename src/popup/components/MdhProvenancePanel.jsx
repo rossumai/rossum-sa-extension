@@ -8,14 +8,18 @@ import {
   filterHookEntries,
   loadAnnotationValues,
   loadMdhHooksForQueue,
+  loadSchemaTypesForQueue,
+  mergeSchemaTypes,
   substitutePlaceholders,
 } from '../mdh-provenance.js';
 import {
   dropCachedAnnotation,
   getCachedAnnotation,
   getCachedHookEntries,
+  getCachedSchemaTypes,
   setCachedAnnotation,
   setCachedHookEntries,
+  setCachedSchemaTypes,
 } from '../cache.js';
 import { openConsoleTab, runInTab } from '../utils.js';
 import { readCurrentContext } from '../tab-readers.js';
@@ -177,6 +181,16 @@ export default function MdhProvenancePanel({ tab }) {
           }).catch(() => {});
         }
 
+        // Schema types are authoritative (they mirror what MDH actually injects);
+        // the normalized_value heuristic above fills anything the schema misses.
+        let schemaTypes = forceRefresh ? null : await getCachedSchemaTypes(ctx.domain, queueId);
+        if (!schemaTypes) {
+          schemaTypes = await loadSchemaTypesForQueue(ctx.domain, ctx.token, queueId);
+          setCachedSchemaTypes(ctx.domain, queueId, schemaTypes).catch(() => {});
+        }
+        if (cancelled) return;
+        types = mergeSchemaTypes(types, schemaTypes);
+
         // Resolve placeholder-driven dataset names (e.g. `dataset: "{mdh_dataset_pos}"`)
         // against the schema's default values, which live on the annotation as header fields.
         const resolvedEntries = hookEntries.map(({ hook, cfgs }) => ({
@@ -312,13 +326,14 @@ export default function MdhProvenancePanel({ tab }) {
                   currentRow={currentRow}
                   onRowChange={setCurrentRow}
                   forceRefreshNonce={refreshNonce}
-                  onOpenInDm={(dataset, pipelineText, variables) =>
+                  onOpenInDm={(dataset, pipelineText, variables, variableTypes) =>
                     openConsoleTab(tab, {
                       token: state.ctx.token,
                       domain: state.ctx.domain,
                       pendingCollection: dataset,
                       pendingPipeline: pipelineText,
                       pendingVariables: variables,
+                      pendingVariableTypes: variableTypes,
                     }, 'mdh')
                   }
                 />

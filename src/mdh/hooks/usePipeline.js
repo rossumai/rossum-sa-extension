@@ -1,7 +1,7 @@
 import { useRef } from 'preact/hooks';
 import { signal } from '@preact/signals';
 import JSON5 from 'json5';
-import { skip } from '../store.js';
+import { skip, selectedCollection } from '../store.js';
 import { VAR_RE, VAR_RE_G } from '../placeholderSyntax.js';
 import { reEscape } from '../reEscape.js';
 import { mapPlaceholdersToFields } from '../placeholderFields.js';
@@ -148,6 +148,30 @@ export function usePipeline() {
   }
   const { sortState, filterState, placeholderValues, suppressSync, placeholderTypes, fieldTypes } = stateRef.current;
 
+  // Substitute {var} placeholders inside a bare collection-name string (not JSON).
+  // Unfilled vars → '' (collection won't resolve → value-based fallback).
+  function substituteCollName(raw) {
+    return String(raw).replace(VAR_RE_G, (_m, name) => {
+      const v = placeholderValues.value[name];
+      return v == null ? '' : String(v);
+    });
+  }
+  // Resolve a fieldMap entry's collection: null → the active collection,
+  // otherwise the (var-substituted) raw collection string. '' → null.
+  function resolveCollectionName(rawColl) {
+    if (rawColl == null) return selectedCollection.value || null;
+    const resolved = substituteCollName(rawColl);
+    return resolved || null;
+  }
+  // Look up loaded FieldTypeInfo for a resolved (collection, field): undefined
+  // if the collection/field pair hasn't been sampled yet, null if sampled with
+  // no usable data, else the info object.
+  function lookupFieldTypeInfo(coll, field) {
+    if (!coll) return undefined;
+    const collMap = fieldTypes.value[coll];
+    return collMap ? collMap[field] : undefined;
+  }
+
   function buildPipelineFromUI() {
     const pipeline = [];
     const filters = filterState.value;
@@ -235,11 +259,13 @@ export function usePipeline() {
   // (undefined types are omitted → value-based for those names).
   function buildResolvedTypes(text) {
     const fieldMap = mapPlaceholdersToFields(text);
-    const ft = fieldTypes.value;
     const pt = placeholderTypes.value;
     const out = {};
     for (const name of extractPlaceholders(text)) {
-      const d = deriveResolvedType(name, { override: pt[name], fieldMap, fieldTypes: ft, parsedOk: true });
+      const m = fieldMap[name];
+      let fieldTypeInfo;
+      if (m && !m.ambiguous) fieldTypeInfo = lookupFieldTypeInfo(resolveCollectionName(m.collection), m.field);
+      const d = deriveResolvedType(name, { override: pt[name], fieldMap, fieldTypeInfo, parsedOk: true });
       if (d.type) out[name] = d.type;
     }
     return out;
@@ -253,21 +279,44 @@ export function usePipeline() {
     return computeEditorState(text, buildResolvedTypes(text));
   }
 
-  // Unique comparison fields referenced by the pipeline (skips ambiguous names).
+  // Unique (collection, field) pairs referenced by the pipeline (skips
+  // ambiguous names and names whose collection can't be resolved).
   function referencedFields(text) {
     const fm = mapPlaceholdersToFields(text);
-    return [...new Set(Object.values(fm).filter((v) => v && v.field && !v.ambiguous).map((v) => v.field))];
+    const pairs = [];
+    const seen = new Set();
+    for (const v of Object.values(fm)) {
+      if (!v || !v.field || v.ambiguous) continue;
+      const coll = resolveCollectionName(v.collection);
+      if (!coll) continue;
+      const key = `${coll}::${v.field}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      pairs.push({ collection: coll, field: v.field });
+    }
+    return pairs;
   }
 
-  // Resolve any not-yet-known field types into the fieldTypes signal. Returns
-  // true if it fetched something (so the caller can re-snapshot the debug view).
-  // `resolver` is injectable for tests; defaults to the live resolveFieldTypes.
-  async function ensureFieldTypes(collection, fields, resolver = resolveFieldTypes) {
-    if (!collection || !fields || fields.length === 0) return false;
-    const missing = fields.filter((f) => !(f in fieldTypes.value));
-    if (missing.length === 0) return false;
-    const resolved = await resolver(collection, missing);
-    fieldTypes.value = { ...fieldTypes.value, ...resolved };
+  // Resolve any not-yet-known field types into the fieldTypes signal, grouped
+  // per collection. `pairs` is referencedFields(...) output. Returns true if it
+  // fetched something (so the caller can re-snapshot the debug view). `resolver`
+  // is injectable for tests; defaults to the live resolveFieldTypes.
+  async function ensureFieldTypes(pairs, resolver = resolveFieldTypes) {
+    if (!pairs || pairs.length === 0) return false;
+    const byColl = new Map();
+    for (const { collection, field } of pairs) {
+      const collMap = fieldTypes.value[collection] || {};
+      if (field in collMap) continue;
+      if (!byColl.has(collection)) byColl.set(collection, []);
+      byColl.get(collection).push(field);
+    }
+    if (byColl.size === 0) return false;
+    const next = { ...fieldTypes.value };
+    for (const [coll, missing] of byColl) {
+      const resolved = await resolver(coll, missing);
+      next[coll] = { ...(next[coll] || {}), ...resolved };
+    }
+    fieldTypes.value = next;
     return true;
   }
 
@@ -277,9 +326,12 @@ export function usePipeline() {
   // ignoring any manual override, so the "Auto (X)" label stays truthful.
   function resolvedTypeForName(name, fieldMap, parsedOk) {
     const override = placeholderTypes.value[name];
-    const effective = deriveResolvedType(name, { override, fieldMap, fieldTypes: fieldTypes.value, parsedOk });
+    const m = fieldMap[name];
+    let fieldTypeInfo;
+    if (m && !m.ambiguous) fieldTypeInfo = lookupFieldTypeInfo(resolveCollectionName(m.collection), m.field);
+    const effective = deriveResolvedType(name, { override, fieldMap, fieldTypeInfo, parsedOk });
     const auto = override
-      ? deriveResolvedType(name, { override: undefined, fieldMap, fieldTypes: fieldTypes.value, parsedOk })
+      ? deriveResolvedType(name, { override: undefined, fieldMap, fieldTypeInfo, parsedOk })
       : effective;
     return { ...effective, autoType: auto.type };
   }

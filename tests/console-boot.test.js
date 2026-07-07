@@ -43,6 +43,16 @@ describe('resolveBootAuth', () => {
       pendingCtx: { pendingCollection: 'invoices', pendingPipeline: '[]', pendingVariables: undefined },
     });
   });
+  it('resolveBootAuth carries pendingVariableTypes from the staging entry', () => {
+    const entry = {
+      token: 't', domain: 'd', app: 'mdh',
+      pendingCollection: 'C', pendingPipeline: '[]',
+      pendingVariables: { cust: '21199417' },
+      pendingVariableTypes: { cust: 'string' },
+    };
+    const r = resolveBootAuth({ entry, session: {} });
+    expect(r.pendingCtx.pendingVariableTypes).toEqual({ cust: 'string' });
+  });
   it('falls back to the session token/domain on reload', () => {
     const out = resolveBootAuth({
       entry: null,

@@ -109,7 +109,7 @@ export async function resolveAiAvailability(orgKey) {
 // auth, set store.domain/token, and called api.init. This restores persisted
 // view state, applies any pipeline prefill, probes the connection, and registers
 // the app's effects. Runs once (the shell memoizes per app).
-export async function initMdh({ pendingCollection, pendingPipeline, pendingVariables } = {}) {
+export async function initMdh({ pendingCollection, pendingPipeline, pendingVariables, pendingVariableTypes } = {}) {
   // Resolve the org id first so per-org keys (last pipeline here, and saved/recent
   // in QueryHistory) are correct before any scoped read. Failure -> null -> the
   // domain-scoped fallback in scopeSuffix.
@@ -161,6 +161,7 @@ export async function initMdh({ pendingCollection, pendingPipeline, pendingVaria
         collection: pendingCollection,
         pipelineText: pendingPipeline,
         variables: pendingVariables || undefined,
+        placeholderTypes: pendingVariableTypes || undefined,
       };
     }
   }

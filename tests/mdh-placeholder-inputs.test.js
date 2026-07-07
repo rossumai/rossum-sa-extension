@@ -1,5 +1,13 @@
+// @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
-import { parseAnnotationId } from '../src/mdh/components/PlaceholderInputs.jsx';
+import { h, render } from 'preact';
+import PlaceholderInputs, { parseAnnotationId } from '../src/mdh/components/PlaceholderInputs.jsx';
+
+function renderInputs(props) {
+  const container = document.createElement('div');
+  render(h(PlaceholderInputs, props), container);
+  return { container };
+}
 
 describe('parseAnnotationId', () => {
   it('accepts a bare numeric ID', () => {
@@ -32,5 +40,25 @@ describe('parseAnnotationId', () => {
     expect(parseAnnotationId('not a url or id')).toBeNull();
     expect(parseAnnotationId('https://example.com/some/path')).toBeNull();
     expect(parseAnnotationId('')).toBeNull();
+  });
+});
+
+describe('PlaceholderInputs Auto label — value-based guess', () => {
+  it('marks the Auto option with "?" when no field type resolved', () => {
+    const { container } = renderInputs({
+      names: ['cust'], values: { cust: '21199417' }, types: {},
+      resolvedTypeFor: () => ({ type: undefined, autoType: undefined }),
+    });
+    const autoOpt = container.querySelector('.placeholder-type-select option[value="auto"]');
+    expect(autoOpt.textContent).toBe('Auto (Number?)');
+  });
+
+  it('does NOT mark with "?" when a field type resolved', () => {
+    const { container } = renderInputs({
+      names: ['cust'], values: { cust: '21199417' }, types: {},
+      resolvedTypeFor: () => ({ type: 'string', autoType: 'string' }),
+    });
+    const autoOpt = container.querySelector('.placeholder-type-select option[value="auto"]');
+    expect(autoOpt.textContent).toBe('Auto (String)');
   });
 });

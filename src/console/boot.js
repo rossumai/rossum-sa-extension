@@ -28,6 +28,7 @@ export function resolveBootAuth({ entry, session }) {
         pendingCollection: entry.pendingCollection,
         pendingPipeline: entry.pendingPipeline,
         pendingVariables: entry.pendingVariables,
+        pendingVariableTypes: entry.pendingVariableTypes,
       },
     };
   }

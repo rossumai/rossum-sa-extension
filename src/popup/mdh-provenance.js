@@ -236,6 +236,60 @@ export function substitutePlaceholders(node, values, types) {
   return node;
 }
 
+// ── Schema types (authoritative placeholder types) ───
+
+// Walk a queue schema's `content` tree and classify each datapoint's placeholder
+// type. MDH substitution only distinguishes number-vs-string.
+export function buildSchemaTypes(content) {
+  const out = {};
+  const walk = (nodes) => {
+    if (Array.isArray(nodes)) { for (const n of nodes) walkNode(n); return; }
+    if (nodes && typeof nodes === 'object') walkNode(nodes);
+  };
+  const walkNode = (node) => {
+    if (!node || typeof node !== 'object') return;
+    if (node.category === 'datapoint' && node.id) {
+      const isNumber = node.type === 'number'
+        || (node.type === 'enum' && node.enum_value_type === 'number');
+      out[node.id] = isNumber ? 'number' : 'string';
+    }
+    if (node.children != null) walk(node.children);
+  };
+  walk(content);
+  return out;
+}
+
+// Schema types are authoritative; the normalized_value heuristic fills any field
+// the schema does not cover (or when the schema fetch failed → schemaTypes {}).
+export function mergeSchemaTypes(heuristicTypes, schemaTypes) {
+  return { ...(heuristicTypes || {}), ...(schemaTypes || {}) };
+}
+
+// Explicit per-placeholder type map for the editor tab. Explicit 'string' (not
+// omission) so the editor treats it as an authoritative override and reproduces
+// the Provenance replay exactly.
+export function buildVariableTypes(placeholders, types) {
+  const out = {};
+  const t = types || {};
+  for (const name of placeholders) out[name] = t[name] === 'number' ? 'number' : 'string';
+  return out;
+}
+
+// Fetch a queue's schema and classify its datapoint types. Best-effort: any
+// failure (403/offline/missing schema) yields {} so callers fall back to the
+// heuristic.
+export async function loadSchemaTypesForQueue(domain, token, queueId) {
+  try {
+    const queue = await fetchJson(`${domain}/api/v1/queues/${queueId}?fields=schema`, token);
+    const schemaUrl = queue?.schema;
+    if (!schemaUrl) return {};
+    const schema = await fetchJson(`${schemaUrl}?fields=content`, token);
+    return buildSchemaTypes(schema?.content || []);
+  } catch {
+    return {};
+  }
+}
+
 // Rossum's annotation-content endpoint does NOT include the schema-defined
 // `type` per datapoint, but it does populate `normalized_value` for typed
 // fields. type=number canonicalizes to a numeric string ("5552.14");

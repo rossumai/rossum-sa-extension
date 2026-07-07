@@ -113,6 +113,7 @@ export default function PlaceholderInputs({ names, values, types, onSetValue, on
         const value = values[name] || '';
         const override = (types && types[name]) || '';
         const autoLabelType = rt.autoType || valueBasedType(value); // what Auto yields, ignoring override
+        const autoGuessed = !rt.autoType; // Auto would fall back to value-based inference
         const effective = override || rt.type; // override-first effective type, for the compat check
         const incompatible = value !== '' && !isCompatibleWithType(value, effective);
         return (
@@ -131,7 +132,7 @@ export default function PlaceholderInputs({ names, values, types, onSetValue, on
               onChange={(e) => onSetType(name, e.target.value)}
             >
               {typeOptionsFor(value, override).map((opt) => (
-                <option value={opt} key={opt}>{opt === 'auto' ? `Auto (${CAP[autoLabelType]})` : CAP[opt]}</option>
+                <option value={opt} key={opt}>{opt === 'auto' ? `Auto (${CAP[autoLabelType]}${autoGuessed ? '?' : ''})` : CAP[opt]}</option>
               ))}
             </select>
             {incompatible && (

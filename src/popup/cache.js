@@ -33,6 +33,27 @@ export async function setCachedHookEntries(domain, queueId, entries) {
   });
 }
 
+// ── Schema types (per queue) ──
+const SCHEMA_PREFIX = 'mdhProv:schemaTypes:v1:';
+const schemaKey = (domain, queueId) => `${SCHEMA_PREFIX}${domain}#${queueId}`;
+
+export async function getCachedSchemaTypes(domain, queueId) {
+  if (!queueId) return null;
+  const key = schemaKey(domain, queueId);
+  const stored = await chrome.storage.session.get(key);
+  const entry = stored[key];
+  if (!entry?.fetchedAt) return null;
+  if (Date.now() - entry.fetchedAt > TTL_MS) return null;
+  return entry.types;
+}
+
+export async function setCachedSchemaTypes(domain, queueId, types) {
+  if (!queueId) return;
+  await chrome.storage.session.set({
+    [schemaKey(domain, queueId)]: { types, fetchedAt: Date.now() },
+  });
+}
+
 // ── Annotation values (skips metadata + content fetches on warm reopen) ──
 
 // v3: types are now derived from `content.normalized_value` (Rossum's

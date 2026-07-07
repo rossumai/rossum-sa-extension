@@ -51,7 +51,10 @@ describe('transformTypeBuckets', () => {
 
 describe('deriveResolvedType', () => {
   const strInfo = { dominant: 'string', dominantBson: 'string', share: 1, distribution: [], mixed: false };
-  const base = { override: undefined, fieldMap: { code: { field: 'code', op: '$eq' } }, fieldTypes: { code: strInfo }, parsedOk: true };
+  // fieldTypeInfo is a single FieldTypeInfo (or null/undefined) for the resolved
+  // (collection, field) pair — the caller looks it up, deriveResolvedType no
+  // longer takes the whole per-collection map.
+  const base = { override: undefined, fieldMap: { code: { field: 'code', op: '$eq' } }, fieldTypeInfo: strInfo, parsedOk: true };
   it('uses the dataset field type', () => {
     expect(deriveResolvedType('code', base)).toMatchObject({ type: 'string', source: 'field' });
   });
@@ -60,7 +63,7 @@ describe('deriveResolvedType', () => {
   });
   it('mixed field marks source mixed', () => {
     const mixed = { ...strInfo, mixed: true, share: 0.82 };
-    expect(deriveResolvedType('code', { ...base, fieldTypes: { code: mixed } })).toMatchObject({ type: 'string', source: 'mixed' });
+    expect(deriveResolvedType('code', { ...base, fieldTypeInfo: mixed })).toMatchObject({ type: 'string', source: 'mixed' });
   });
   it('invalid pipeline → invalid (value-based)', () => {
     expect(deriveResolvedType('code', { ...base, parsedOk: false })).toEqual({ type: undefined, source: 'invalid' });
@@ -72,13 +75,38 @@ describe('deriveResolvedType', () => {
     expect(deriveResolvedType('x', { ...base, fieldMap: { x: { ambiguous: true } } })).toEqual({ type: undefined, source: 'ambiguous' });
   });
   it('field type not yet resolved → detecting', () => {
-    expect(deriveResolvedType('code', { ...base, fieldTypes: {} })).toMatchObject({ type: undefined, source: 'detecting' });
+    expect(deriveResolvedType('code', { ...base, fieldTypeInfo: undefined })).toMatchObject({ type: undefined, source: 'detecting' });
   });
   it('null field info → no-data (value-based)', () => {
-    expect(deriveResolvedType('code', { ...base, fieldTypes: { code: null } })).toMatchObject({ type: undefined, source: 'no-data' });
+    expect(deriveResolvedType('code', { ...base, fieldTypeInfo: null })).toMatchObject({ type: undefined, source: 'no-data' });
   });
   it('non-primitive dominant → other (value-based) with detected bson', () => {
     const oid = { dominant: 'other', dominantBson: 'objectId', share: 1, distribution: [], mixed: false };
-    expect(deriveResolvedType('code', { ...base, fieldTypes: { code: oid } })).toMatchObject({ type: undefined, source: 'other', detectedBson: 'objectId' });
+    expect(deriveResolvedType('code', { ...base, fieldTypeInfo: oid })).toMatchObject({ type: undefined, source: 'other', detectedBson: 'objectId' });
+  });
+});
+
+describe('deriveResolvedType — fieldTypeInfo arg', () => {
+  const fieldMap = { cust: { field: 'customer_match', collection: '_PROD_material_match', op: '$eq' } };
+
+  it('uses the passed field type info (string wins over numeric-looking value)', () => {
+    const info = { dominant: 'string', dominantBson: 'string', share: 1, mixed: false };
+    expect(deriveResolvedType('cust', { override: undefined, fieldMap, fieldTypeInfo: info, parsedOk: true }))
+      .toMatchObject({ type: 'string', source: 'field' });
+  });
+
+  it('override wins over field info', () => {
+    const info = { dominant: 'number', dominantBson: 'int', share: 1, mixed: false };
+    expect(deriveResolvedType('cust', { override: 'string', fieldMap, fieldTypeInfo: info, parsedOk: true }))
+      .toMatchObject({ type: 'string', source: 'override' });
+  });
+
+  it('undefined info → detecting; null info → no-data; unmapped → no-field', () => {
+    expect(deriveResolvedType('cust', { fieldMap, fieldTypeInfo: undefined, parsedOk: true }))
+      .toMatchObject({ type: undefined, source: 'detecting' });
+    expect(deriveResolvedType('cust', { fieldMap, fieldTypeInfo: null, parsedOk: true }))
+      .toMatchObject({ type: undefined, source: 'no-data' });
+    expect(deriveResolvedType('nope', { fieldMap, fieldTypeInfo: undefined, parsedOk: true }))
+      .toMatchObject({ type: undefined, source: 'no-field' });
   });
 });

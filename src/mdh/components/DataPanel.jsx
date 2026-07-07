@@ -103,7 +103,7 @@ export default function DataPanel() {
         'Run write-stage pipeline?',
         `This pipeline ends in ${write.op} and will write results into collection "${write.target}", which may overwrite existing data. Run it?`,
         async () => {
-          await pipeline.ensureFieldTypes(collection, pipeline.referencedFields(rawText));
+          await pipeline.ensureFieldTypes(pipeline.referencedFields(rawText));
           const result = await query.runQuery(
             collection,
             rawText,
@@ -118,7 +118,7 @@ export default function DataPanel() {
       );
       return;
     }
-    await pipeline.ensureFieldTypes(collection, pipeline.referencedFields(rawText));
+    await pipeline.ensureFieldTypes(pipeline.referencedFields(rawText));
     const result = await query.runQuery(
       collection,
       rawText,
@@ -213,7 +213,7 @@ export default function DataPanel() {
 
   useEffect(() => {
     if (!collection || !editorRef.current) return;
-    pipeline.ensureFieldTypes(collection, pipeline.referencedFields(editorState.text))
+    pipeline.ensureFieldTypes(pipeline.referencedFields(editorState.text))
       .then((changed) => { if (changed) recomputeEditorState(); });
   }, [editorState.text, collection]);
 

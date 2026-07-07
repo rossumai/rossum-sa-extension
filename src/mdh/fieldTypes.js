@@ -50,7 +50,7 @@ const PRIMITIVES = new Set(['string', 'number', 'boolean', 'null']);
 // Decide a placeholder's resolved type + the SOURCE label for the badge.
 // `.type` drives substitution (undefined → value-based, byte-identical to today);
 // `.source` drives the badge text.
-export function deriveResolvedType(name, { override, fieldMap, fieldTypes, parsedOk }) {
+export function deriveResolvedType(name, { override, fieldMap, fieldTypeInfo, parsedOk }) {
   if (override && override !== 'auto') {
     return PRIMITIVES.has(override) ? { type: override, source: 'override' } : { type: undefined, source: 'no-field' };
   }
@@ -58,11 +58,10 @@ export function deriveResolvedType(name, { override, fieldMap, fieldTypes, parse
   const m = fieldMap[name];
   if (!m) return { type: undefined, source: 'no-field' };
   if (m.ambiguous) return { type: undefined, source: 'ambiguous' };
-  if (!(m.field in fieldTypes)) return { type: undefined, source: 'detecting', field: m.field };
-  const info = fieldTypes[m.field];
-  if (!info) return { type: undefined, source: 'no-data', field: m.field };
-  if (info.dominant === 'other') return { type: undefined, source: 'other', field: m.field, detectedBson: info.dominantBson };
-  return { type: info.dominant, source: info.mixed ? 'mixed' : 'field', field: m.field, share: info.share, mixed: info.mixed };
+  if (fieldTypeInfo === undefined) return { type: undefined, source: 'detecting', field: m.field };
+  if (!fieldTypeInfo) return { type: undefined, source: 'no-data', field: m.field };
+  if (fieldTypeInfo.dominant === 'other') return { type: undefined, source: 'other', field: m.field, detectedBson: fieldTypeInfo.dominantBson };
+  return { type: fieldTypeInfo.dominant, source: fieldTypeInfo.mixed ? 'mixed' : 'field', field: m.field, share: fieldTypeInfo.share, mixed: fieldTypeInfo.mixed };
 }
 
 const FIELD_TYPES_KEY = 'stats_fieldTypes'; // 10-min TTL (cache.js: key starts with 'stats')

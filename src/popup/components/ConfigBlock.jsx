@@ -1,6 +1,7 @@
 import { h } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
+  buildVariableTypes,
   configUsesLineItems,
   evaluateCfgCondition,
   queryToPipeline,
@@ -134,17 +135,16 @@ export default function ConfigBlock({
     const q = cfg.queries[i];
     const pipeline = queryToPipeline(q.raw);
     if (!pipeline) return;
-    // Keep the placeholders verbatim so the dataset manager shows them as live,
-    // pre-filled variables (rather than baking in the values). Pass the current
-    // row's resolved values so each variable's input is pre-filled and the query
-    // runs with the right value — the editor understands the same `{name}` and
-    // `{name | split(',')}` grammar, so it substitutes them on run.
+    // Keep placeholders verbatim so the editor shows them as live variables.
+    // Pass the current row's values AND the resolved types so the editor
+    // reproduces this replay exactly (types propagate, not just values).
     const values = valuesForCurrentRow();
     const variables = {};
     for (const name of q.placeholders) {
       if (name in values) variables[name] = String(values[name]);
     }
-    onOpenInDm(cfg.dataset, JSON.stringify(pipeline, null, 2), variables);
+    const variableTypes = buildVariableTypes(q.placeholders, types);
+    onOpenInDm(cfg.dataset, JSON.stringify(pipeline, null, 2), variables, variableTypes);
   };
 
   return (

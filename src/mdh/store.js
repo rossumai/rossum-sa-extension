@@ -37,7 +37,7 @@ export const undoToast = signal(null); // { id, message, action, ts, ttlMs, stat
 // One-shot pipeline prefill consumed by DataPanel's [collection] effect: set by
 // the popup's "Open in Dataset Management" button and by boot to restore the
 // last remembered query. Cleared after the matching collection's effect applies it.
-export const pendingPipelineLoad = signal(null); // { collection, pipelineText, variables? } | null
+export const pendingPipelineLoad = signal(null); // { collection, pipelineText, variables?, placeholderTypes? } | null
 // Field names sampled from the active collection on select (best-effort $sample).
 // Primed in DataPanel's collection-change effect; cleared on switch.
 export const sampledFields = signal([]);

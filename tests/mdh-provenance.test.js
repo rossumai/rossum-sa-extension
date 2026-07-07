@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
+  buildSchemaTypes,
+  buildVariableTypes,
   collectPlaceholders,
   describeQuery,
   evaluateCfgCondition,
@@ -8,6 +10,8 @@ import {
   flattenContent,
   hookConfigs,
   loadMdhHooksForQueue,
+  loadSchemaTypesForQueue,
+  mergeSchemaTypes,
   replayConfig,
   substitutePlaceholders,
 } from '../src/popup/mdh-provenance.js';
@@ -637,6 +641,99 @@ describe('loadMdhHooksForQueue', () => {
       loadMdhHooksForQueue('https://x.rossum.app', 'token', 1),
     );
     expect(hooks.map((h) => h.id)).toEqual([435212]);
+  });
+});
+
+// ── Schema types (authoritative placeholder types) ────
+
+describe('buildSchemaTypes', () => {
+  it('maps number and number-enum to number, everything else to string', () => {
+    const content = [
+      { category: 'section', children: [
+        { category: 'datapoint', id: 'amount', type: 'number' },
+        { category: 'datapoint', id: 'cust', type: 'enum', enum_value_type: 'string' },
+        { category: 'datapoint', id: 'code', type: 'enum', enum_value_type: 'number' },
+        { category: 'datapoint', id: 'name', type: 'string' },
+        { category: 'datapoint', id: 'when', type: 'date' },
+        { category: 'multivalue', id: 'items', children: { category: 'tuple', children: [
+          { category: 'datapoint', id: 'item_qty', type: 'number' },
+          { category: 'datapoint', id: 'item_desc', type: 'string' },
+        ] } },
+      ] },
+    ];
+    expect(buildSchemaTypes(content)).toEqual({
+      amount: 'number', cust: 'string', code: 'number', name: 'string',
+      when: 'string', item_qty: 'number', item_desc: 'string',
+    });
+  });
+  it('tolerates non-array input', () => {
+    expect(buildSchemaTypes(null)).toEqual({});
+  });
+});
+
+describe('mergeSchemaTypes', () => {
+  it('schema wins; heuristic fills fields the schema does not cover', () => {
+    expect(mergeSchemaTypes({ a: 'number', b: 'number' }, { b: 'string', c: 'number' }))
+      .toEqual({ a: 'number', b: 'string', c: 'number' });
+  });
+});
+
+describe('buildVariableTypes', () => {
+  it('emits explicit number/string per placeholder from the merged types map', () => {
+    expect(buildVariableTypes(['cust', 'amount', 'unknown'], { amount: 'number' }))
+      .toEqual({ cust: 'string', amount: 'number', unknown: 'string' });
+  });
+});
+
+// ── loadSchemaTypesForQueue ────────────────────────────
+
+describe('loadSchemaTypesForQueue', () => {
+  // Two sequential fetches: queue (→ schema url), then schema (→ content).
+  const withSequentialFetch = async (responses, run) => {
+    const original = globalThis.fetch;
+    let i = 0;
+    globalThis.fetch = async () => {
+      const r = responses[i++];
+      return { ok: true, json: async () => r };
+    };
+    try {
+      return await run();
+    } finally {
+      globalThis.fetch = original;
+    }
+  };
+
+  it('fetches the queue schema url then the schema content and classifies types', async () => {
+    const content = [
+      { category: 'section', children: [
+        { category: 'datapoint', id: 'amount', type: 'number' },
+        { category: 'datapoint', id: 'name', type: 'string' },
+      ] },
+    ];
+    const types = await withSequentialFetch(
+      [{ schema: 'https://x.rossum.app/api/v1/schemas/77' }, { content }],
+      () => loadSchemaTypesForQueue('https://x.rossum.app', 'token', 123),
+    );
+    expect(types).toEqual({ amount: 'number', name: 'string' });
+  });
+
+  it('returns {} when the queue fetch fails (e.g. 403)', async () => {
+    const original = globalThis.fetch;
+    globalThis.fetch = async () => ({ ok: false, status: 403 });
+    try {
+      const types = await loadSchemaTypesForQueue('https://x.rossum.app', 'token', 123);
+      expect(types).toEqual({});
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it('returns {} when the queue has no schema url', async () => {
+    const types = await withSequentialFetch(
+      [{}],
+      () => loadSchemaTypesForQueue('https://x.rossum.app', 'token', 123),
+    );
+    expect(types).toEqual({});
   });
 });
 
