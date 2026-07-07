@@ -142,8 +142,8 @@ describe('Import wizards accept dropped files', () => {
     const area = root.querySelector('.file-input-area');
     const file = new File(['name,age\nAlice,30'], 'people.csv', { type: 'text/csv' });
     area.dispatchEvent(dragEvent('drop', { files: [file] }));
-    await waitFor(() => root.querySelector('[data-testid="csv-options"]'));
-    expect(root.querySelector('[data-testid="csv-options"]')).toBeTruthy();
+    await waitFor(() => root.querySelector('[data-testid="parse-strip"]'));
+    expect(root.querySelector('[data-testid="parse-strip"]')).toBeTruthy();
   });
 
   it('wizard: dropping a wrong-type file shows a friendly rejection', async () => {
@@ -153,5 +153,19 @@ describe('Import wizards accept dropped files', () => {
     area.dispatchEvent(dragEvent('drop', { files: [file] }));
     await waitFor(() => root.querySelector('.input-hint'));
     expect(root.querySelector('.input-hint').textContent).toMatch(/Expected a/);
+  });
+
+  it('surfaces the picked file (name + shape) in the modal title', async () => {
+    // Render through the real Modal so the wizard's title update reaches the header.
+    openModal('Import', () => h(ImportWizard, { onSuccess: () => {} }));
+    const root = mount(h(Modal));
+    const area = root.querySelector('.file-input-area');
+    const file = new File(['name,age\nAlice,30'], 'people.csv', { type: 'text/csv' });
+    area.dispatchEvent(dragEvent('drop', { files: [file] }));
+    await waitFor(() => root.querySelector('.modal-title [data-testid="source-strip"]'));
+    const title = root.querySelector('.modal-title');
+    expect(title.textContent).toContain('people.csv');
+    expect(title.textContent).toMatch(/1 row/);
+    closeModal();
   });
 });

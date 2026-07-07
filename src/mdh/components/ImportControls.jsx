@@ -44,7 +44,7 @@ export function Toggle({ checked, onChange, title, testid }) {
   );
 }
 
-export function CsvPreview({ parsed, limit = 10 }) {
+export function CsvPreview({ parsed, limit = 5 }) {
   if (!parsed) return null;
   const { columns = [], docs = [], warnings = [], error } = parsed;
   if (error) {
@@ -84,6 +84,23 @@ export function CsvPreview({ parsed, limit = 10 }) {
         </div>
       )}
       {warnings.map((w, i) => <div key={i} class="csv-warning" data-testid="csv-warning">{'⚠'} {w}</div>)}
+    </div>
+  );
+}
+
+const JSON_PREVIEW_ROWS = 5;
+
+// Compact preview for column-less imports (JSON / JSON-lines): the first few
+// docs as single-line JSON, in the same preview chrome as the export modal.
+export function JsonPreview({ docs }) {
+  if (!docs.length) return null;
+  const shown = docs.slice(0, JSON_PREVIEW_ROWS);
+  return (
+    <div class="csv-export-preview" data-testid="json-preview">
+      <div class="csv-export-preview-caption">
+        Preview {'·'} first {shown.length} of {docs.length.toLocaleString()} row{docs.length === 1 ? '' : 's'}
+      </div>
+      <pre class="csv-export-preview-text">{shown.map((d) => JSON.stringify(d)).join('\n')}</pre>
     </div>
   );
 }

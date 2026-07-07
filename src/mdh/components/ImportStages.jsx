@@ -40,7 +40,7 @@ export function ImportProgress({ progress, onCancel }) {
           <div class="input-hint">{file.filename}{file.size != null ? ` · ${formatBytes(file.size)}` : ''}</div>
         )}
         {bits.length > 0 && <div class="import-progress-status" data-testid="import-progress-status">{bits.join(' · ')}</div>}
-        <div class="input-hint">The server is still working {'—'} this can take a minute or two for large files. You can close this window and check the outcome later in <strong>Operation Logs</strong>.</div>
+        <div class="input-hint">Typically 30{'–'}60 s. You can close this {'—'} the outcome appears in <strong>Operation Logs</strong>.</div>
         {onCancel && <div class="modal-actions"><button class="btn btn-secondary" onClick={onCancel}>Stop watching</button></div>}
       </Fragment>
     );

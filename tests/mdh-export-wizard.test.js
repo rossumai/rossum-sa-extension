@@ -70,6 +70,7 @@ describe('ExportWizard', () => {
 
   it('the what-will-happen list is scope-aware', async () => {
     const root = mount({ ...base, filterState: FILTER });
+    (await waitFor(() => root.querySelector('[data-testid="export-count-toggle"]'))).click();
     const steps = await waitFor(() => root.querySelector('[data-testid="export-plan"]'));
     // All records (default): collection-wide lead line, plain _id ordering, no filter talk.
     expect(steps.textContent).toMatch(/Every record in the collection is exported/);
@@ -87,14 +88,13 @@ describe('ExportWizard', () => {
 
   it('shows the exact count and filename in the count line (all-records uses totalCount)', async () => {
     const root = mount(base);
-    await waitFor(() => /Exports 3 documents to vendors\.json/.test(root.querySelector('[data-testid="export-count"]').textContent));
+    await waitFor(() => /Exports 3 records to vendors\.json/.test(root.querySelector('[data-testid="export-count"]').textContent));
   });
 
   it('warns inline above 10,000 documents — no popup', async () => {
     const root = mount({ ...base, totalCount: 25000 });
     const line = await waitFor(() => root.querySelector('[data-testid="export-count"]'));
-    await waitFor(() => /Large export — this may take a while\./.test(line.textContent));
-    expect(line.classList.contains('import-warn')).toBe(true);
+    await waitFor(() => /Large export — may take a while\./.test(line.textContent));
     expect(root.querySelector('[data-testid="export-download"]').disabled).toBe(false);
   });
 
@@ -113,6 +113,7 @@ describe('ExportWizard', () => {
 
   it('what-will-happen shows the columns line only for column formats', async () => {
     const root = mount(base);
+    (await waitFor(() => root.querySelector('[data-testid="export-count-toggle"]'))).click();
     const steps = await waitFor(() => root.querySelector('[data-testid="export-plan"]'));
     expect(steps.textContent).toMatch(/1,000-record batches/);
     expect(steps.textContent).toMatch(/Cancelling discards the partial file/);
@@ -120,6 +121,10 @@ describe('ExportWizard', () => {
     expect(steps.textContent).not.toMatch(/union of fields/);
     [...root.querySelectorAll('[data-testid="export-format"] button')].find((b) => b.textContent.trim() === 'CSV').click();
     await waitFor(() => /union of fields/.test(root.querySelector('[data-testid="export-plan"]').textContent));
+    // Let the column-discovery fetch actually resolve (not just the render-time
+    // bullet) so this test doesn't leave a pending aggregate() call to spill
+    // into a later test's mock-call assertions.
+    await waitFor(() => /sku,price/.test(root.querySelector('[data-testid="export-preview"]').textContent));
   });
 
   it('Download hands the full config to onExport and closes the modal', async () => {
@@ -131,7 +136,7 @@ describe('ExportWizard', () => {
     [...root.querySelectorAll('[data-testid="export-format"] button')].find((b) => b.textContent.trim() === 'CSV').click();
     await waitFor(() => root.querySelector('[data-testid="export-csv-bom"]'));
     // count for filtered scope resolves to 7 via the $count mock
-    await waitFor(() => /Exports 7 documents/.test(root.querySelector('[data-testid="export-count"]').textContent));
+    await waitFor(() => /Exports 7 records/.test(root.querySelector('[data-testid="export-count"]').textContent));
     root.querySelector('[data-testid="export-download"]').click();
     expect(closeModal).toHaveBeenCalled();
     expect(onExport).toHaveBeenCalledWith({

@@ -2,6 +2,7 @@ import { h, Fragment } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { closeModal } from './Modal.jsx';
 import { Segmented } from './ImportControls.jsx';
+import PlanSummary from './PlanSummary.jsx';
 import { EXPORT_FORMATS, getExportFormat, exportFilename } from '../exportFormats.jsx';
 import { buildColumnDiscoveryPipeline } from '../csv.js';
 import { orderExportColumns } from '../recordColumns.js';
@@ -171,19 +172,21 @@ export default function ExportWizard({ collection, filterState, totalCount, reco
         )}
       </div>
 
-      <div class={`export-count${isLarge ? ' import-warn' : ''}`} data-testid="export-count">
-        {count.loading && <span>Counting documents{'…'}</span>}
-        {!count.loading && count.value !== null && (
-          <span>Exports {count.value.toLocaleString()} documents to <code>{filename}</code> {'—'} streamed to a file you choose.{isLarge ? ' Large export ' + '—' + ' this may take a while.' : ''}</span>
-        )}
-        {!count.loading && count.value === null && (
-          <span>Exports to <code>{filename}</code> {'—'} streamed to a file you choose.</span>
-        )}
-      </div>
-
-      <div class="import-steps" data-testid="export-plan">
-        <div class="import-steps-head">What will happen</div>
-        <ul>
+      <PlanSummary
+        summaryTestid="export-count"
+        summary={
+          count.loading ? <span>Counting documents{'…'}</span>
+          : count.value !== null ? (
+            <span>
+              Exports {count.value.toLocaleString()} record{count.value === 1 ? '' : 's'} to <code>{filename}</code> {'—'} streamed to the file you pick; the collection is never modified.
+              {isLarge ? <span> Large export {'—'} may take a while.</span> : null}
+            </span>
+          ) : (
+            <span>Exports to <code>{filename}</code> {'—'} streamed to the file you pick; read-only.</span>
+          )
+        }
+      >
+        <ul data-testid="export-plan">
           {scope === 'all'
             ? <li>Every record in the collection is exported {'—'} the pipeline editor is ignored.</li>
             : <li>Only records matching the current pipeline are exported; trailing paging stages (<code>$skip</code>/<code>$limit</code>) are removed, so the whole result set is exported {'—'} not just the visible page.</li>}
@@ -195,7 +198,7 @@ export default function ExportWizard({ collection, filterState, totalCount, reco
           <li>Cancelling discards the partial file {'—'} nothing is saved.</li>
           <li>The export is read-only {'—'} the collection is never modified.</li>
         </ul>
-      </div>
+      </PlanSummary>
 
       <div class="modal-actions">
         <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>

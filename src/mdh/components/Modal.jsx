@@ -108,6 +108,15 @@ export function openModal(title, renderFn) {
   modalContent.value = { title, render: renderFn };
 }
 
+// Update the currently-open modal's title in place. Multi-step flows (e.g. the
+// import wizard) use this to surface the picked file in the header. Guarded
+// no-op when no modal is open — so components rendered standalone (unit tests)
+// stay safe even when the store's modalContent isn't provided.
+export function setModalTitle(title) {
+  if (!modalContent || !modalContent.value) return;
+  modalContent.value = { ...modalContent.value, title };
+}
+
 export default function Modal() {
   const modal = modalContent.value;
   const cardRef = useRef(null);

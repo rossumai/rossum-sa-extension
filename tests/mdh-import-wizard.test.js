@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-vi.mock('../src/mdh/store.js', () => ({ selectedCollection: { value: 'vendors' } }));
+vi.mock('../src/mdh/store.js', () => ({ selectedCollection: { value: 'vendors' }, modalContent: { value: null } }));
 vi.mock('../src/mdh/api.js', () => ({
   find: vi.fn().mockResolvedValue({ result: [] }),
   aggregate: vi.fn().mockResolvedValue({ result: [] }),
@@ -45,8 +45,8 @@ function pick(root, f) {
   input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-// Drive the wizard to CONFIRM via file pick with a JSON array, then return root.
-async function toConfirmViaFile(root, json) {
+// Drive the wizard to Decide via file pick with a JSON array, then return root.
+async function toDecideViaFile(root, json) {
   pick(root, file(JSON.stringify(json), 'd.json'));
   await waitFor(() => root.querySelector('[data-testid="import-go"]'));
   return root;
@@ -61,16 +61,19 @@ describe('ImportWizard — source toggle + detection', () => {
     expect(root.querySelector('.file-input-area')).toBeTruthy();
   });
 
-  it('detects a selected JSON file and reaches confirm', async () => {
+  it('detects a selected JSON file and reaches decide', async () => {
     const root = mount(h(ImportWizard, { onSuccess() {} }));
     pick(root, file('[{"_id":"1","a":1}]', 'd.json'));
     await waitFor(() => root.querySelector('[data-testid="import-go"]'));
   });
 
-  it('detects a selected CSV file and reaches the configure stage', async () => {
+  it('detects a selected CSV file and lands directly on Decide with parsing options shown', async () => {
     const root = mount(h(ImportWizard, { onSuccess() {} }));
     pick(root, file('a,b\n1,2\n', 'rows.csv'));
-    await waitFor(() => root.querySelector('[data-testid="csv-options"]'));
+    await waitFor(() => root.querySelector('[data-testid="parse-strip"]'));
+    await waitFor(() => root.querySelector('[data-testid="import-mode"]'));
+    // The parsing controls are visible by default (no summary/Change toggle).
+    expect(root.querySelector('[data-testid="csv-delim-comma"]')).toBeTruthy();
   });
 
   it('rejects an unsupported file type via the click path', async () => {
@@ -95,6 +98,8 @@ describe('ImportWizard — source toggle + detection', () => {
   it('preselects the detected delimiter for a semicolon CSV', async () => {
     const root = mount(h(ImportWizard, { onSuccess() {} }));
     pick(root, file('a;b\n1;2\n', 'rows.csv'));
+    await waitFor(() => root.querySelector('[data-testid="parse-strip"]'));
+    // Controls are shown inline — no toggle to open.
     const semi = await waitFor(() => root.querySelector('[data-testid="csv-delim-semicolon"]'));
     expect(semi.getAttribute('aria-pressed')).toBe('true');
   });
@@ -105,7 +110,7 @@ describe('ImportWizard routing', () => {
     selectedCollection.value = 'products';
     const docs = [{ _id: '1', name: 'Foo' }, { _id: '2', name: 'Bar' }];
     const root = mount(h(ImportWizard, { onSuccess: vi.fn() }));
-    await toConfirmViaFile(root, docs);
+    await toDecideViaFile(root, docs);
 
     // Mode should default to insert; click go
     const goBtn = root.querySelector('[data-testid="import-go"]');
@@ -122,7 +127,7 @@ describe('ImportWizard routing', () => {
     selectedCollection.value = 'products';
     const docs = [{ _id: '1', name: 'Foo' }, { _id: '2', name: 'Bar' }];
     const root = mount(h(ImportWizard, { onSuccess: vi.fn() }));
-    await toConfirmViaFile(root, docs);
+    await toDecideViaFile(root, docs);
 
     // Switch to Replace mode
     const modeReplace = [...root.querySelectorAll('[data-testid="import-mode"] button, [aria-label="Import mode"] button, .csv-seg-opt')]
@@ -159,7 +164,7 @@ describe('ImportWizard routing', () => {
     selectedCollection.value = 'products';
     const docs = [{ _id: '1', __digest_md5: '0'.repeat(32), name: 'Foo' }, { _id: '2', name: 'Bar' }];
     const root = mount(h(ImportWizard, { onSuccess: vi.fn() }));
-    await toConfirmViaFile(root, docs);
+    await toDecideViaFile(root, docs);
 
     const modeUpdate = [...root.querySelectorAll('.csv-seg-opt')].find((b) => b.textContent.trim() === 'Update');
     modeUpdate.click();
@@ -203,7 +208,7 @@ describe('ImportWizard routing', () => {
       else signal.addEventListener('abort', () => reject(new Error('Operation polling aborted')));
     }));
     const root = mount(h(ImportWizard, { onSuccess: vi.fn() }));
-    await toConfirmViaFile(root, [{ _id: '1', name: 'Foo' }]);
+    await toDecideViaFile(root, [{ _id: '1', name: 'Foo' }]);
 
     const modeReplace = [...root.querySelectorAll('[data-testid="import-mode"] button, .csv-seg-opt')]
       .find((b) => b.textContent.trim() === 'Replace');
@@ -228,7 +233,7 @@ describe('ImportWizard — shape sampling', () => {
   it('derives the shape from a random $sample aggregation', async () => {
     api.aggregate.mockResolvedValueOnce({ result: [{ sku: 'A', price: 1 }] });
     const root = mount(h(ImportWizard, { onSuccess: vi.fn() }));
-    await toConfirmViaFile(root, [{ sku: 'B', price: 2 }]);
+    await toDecideViaFile(root, [{ sku: 'B', price: 2 }]);
     await waitFor(() => api.aggregate.mock.calls.length > 0);
     expect(api.aggregate).toHaveBeenCalledWith('vendors', [{ $sample: { size: 500 } }]);
     expect(api.find).not.toHaveBeenCalled();
@@ -237,45 +242,49 @@ describe('ImportWizard — shape sampling', () => {
   it('falls back to find(limit 500) when $sample fails', async () => {
     api.aggregate.mockRejectedValueOnce(new Error('no $sample'));
     const root = mount(h(ImportWizard, { onSuccess: vi.fn() }));
-    await toConfirmViaFile(root, [{ sku: 'B', price: 2 }]);
+    await toDecideViaFile(root, [{ sku: 'B', price: 2 }]);
     await waitFor(() => api.find.mock.calls.length > 0);
     expect(api.find).toHaveBeenCalledWith('vendors', { limit: 500 });
   });
 });
 
 describe('ImportWizard — back navigation', () => {
-  it('Confirm -> Back returns to Configure with user-tweaked options preserved (CSV)', async () => {
-    const root = mount(h(ImportWizard, { onSuccess: vi.fn() }));
-    pick(root, file('a;b\n1;2\n', 'rows.csv'));
-    await waitFor(() => root.querySelector('[data-testid="csv-options"]'));
-    // Detection picked semicolon; the user overrides to comma (their tweak).
-    root.querySelector('[data-testid="csv-delim-comma"]').click();
-    await waitFor(() => root.querySelector('[data-testid="csv-delim-comma"]').getAttribute('aria-pressed') === 'true');
-    const next = await waitFor(() => { const b = root.querySelector('[data-testid="import-next"]'); return b && !b.disabled ? b : null; });
-    next.click();
-    const back = await waitFor(() => root.querySelector('[data-testid="import-back"]'));
-    back.click();
-    await waitFor(() => root.querySelector('[data-testid="csv-options"]'));
-    // The user's override survived — no re-detection back to semicolon.
-    expect(root.querySelector('[data-testid="csv-delim-comma"]').getAttribute('aria-pressed')).toBe('true');
-  });
-
-  it('Confirm -> Back returns to Pick for a JSON file (nothing to configure)', async () => {
-    const root = mount(h(ImportWizard, { onSuccess: vi.fn() }));
-    await toConfirmViaFile(root, [{ sku: 'A' }]);
-    const back = await waitFor(() => root.querySelector('[data-testid="import-back"]'));
-    back.click();
-    await waitFor(() => root.querySelector('.file-input-area'));
-    expect(root.querySelector('[data-testid="import-go"]')).toBe(null);
-  });
-
-  it('Configure -> Back returns to Pick', async () => {
+  it('Back from Decide returns to Pick (file case)', async () => {
     const root = mount(h(ImportWizard, { onSuccess: vi.fn() }));
     pick(root, file('a,b\n1,2\n', 'rows.csv'));
-    const back = await waitFor(() => root.querySelector('[data-testid="configure-back"]'));
+    await waitFor(() => root.querySelector('[data-testid="parse-strip"]'));
+    const back = await waitFor(() => root.querySelector('[data-testid="import-back"]'));
     back.click();
-    await waitFor(() => root.querySelector('.file-input-area'));
-    expect(root.querySelector('[data-testid="csv-options"]')).toBe(null);
+    await waitFor(() => root.querySelector('[data-testid="import-file-input"]'));
+    expect(root.querySelector('[data-testid="import-go"]')).toBe(null);
+    expect(root.querySelector('[data-testid="parse-strip"]')).toBe(null);
+  });
+
+  it('mode round-trip: a chosen mode survives Back and re-picking the same file', async () => {
+    const root = mount(h(ImportWizard, { onSuccess: vi.fn() }));
+    pick(root, file('a,b\n1,2\n', 'rows.csv'));
+    await waitFor(() => root.querySelector('[data-testid="import-mode"]'));
+
+    const modeReplace = [...root.querySelectorAll('[data-testid="import-mode"] button')]
+      .find((b) => b.textContent.trim() === 'Replace');
+    expect(modeReplace).toBeTruthy();
+    modeReplace.click();
+    await waitFor(() => {
+      const b = [...root.querySelectorAll('[data-testid="import-mode"] button')].find((btn) => btn.textContent.trim() === 'Replace');
+      return b.classList.contains('on') ? b : null;
+    });
+
+    const back = await waitFor(() => root.querySelector('[data-testid="import-back"]'));
+    back.click();
+    await waitFor(() => root.querySelector('[data-testid="import-file-input"]'));
+
+    pick(root, file('a,b\n1,2\n', 'rows.csv'));
+    await waitFor(() => root.querySelector('[data-testid="import-mode"]'));
+
+    const restoredReplace = [...root.querySelectorAll('[data-testid="import-mode"] button')]
+      .find((b) => b.textContent.trim() === 'Replace');
+    expect(restoredReplace.classList.contains('on')).toBe(true);
+    expect(restoredReplace.getAttribute('aria-pressed')).toBe('true');
   });
 
   it('clipboard round-trip: submitted text is restored after Back', async () => {
@@ -294,36 +303,38 @@ describe('ImportWizard — back navigation', () => {
     root.querySelector('[data-testid="clipboard-next"]').click();
     await waitFor(() => root.querySelector('[data-testid="import-go"]'));
   });
-
-  it('the chosen import mode survives a Configure round-trip', async () => {
-    const root = mount(h(ImportWizard, { onSuccess: vi.fn() }));
-    pick(root, file('a,b\n1,2\n', 'rows.csv'));
-    const next = await waitFor(() => { const b = root.querySelector('[data-testid="import-next"]'); return b && !b.disabled ? b : null; });
-    next.click();
-    await waitFor(() => root.querySelector('[data-testid="import-go"]'));
-    [...root.querySelectorAll('[data-testid="import-mode"] button, .csv-seg-opt')].find((b) => b.textContent.trim() === 'Replace').click();
-    const back = await waitFor(() => root.querySelector('[data-testid="import-back"]'));
-    back.click();
-    const next2 = await waitFor(() => { const b = root.querySelector('[data-testid="import-next"]'); return b && !b.disabled ? b : null; });
-    next2.click();
-    await waitFor(() => root.querySelector('[data-testid="import-go"]'));
-    const replaceBtn = [...root.querySelectorAll('[data-testid="import-mode"] button, .csv-seg-opt')].find((b) => b.textContent.trim() === 'Replace');
-    expect(replaceBtn.getAttribute('aria-pressed')).toBe('true');
-  });
 });
 
-describe('ImportWizard — shape validation default', () => {
-  it('is always ON for a fresh wizard, even after being toggled off in a previous one (no persistence)', async () => {
-    const first = mount(h(ImportWizard, { onSuccess: vi.fn() }));
-    await toConfirmViaFile(first, [{ sku: 'A' }]);
-    const toggle = first.querySelector('[data-testid="shape-toggle"]');
-    expect(toggle.getAttribute('aria-checked')).toBe('true');
-    toggle.click(); // user turns it off for this import
-    await waitFor(() => toggle.getAttribute('aria-checked') === 'false');
+describe('ImportWizard — Decide screen', () => {
+  it('changing a parsing option re-parses and resets match keys', async () => {
+    const root = mount(h(ImportWizard, { onSuccess: vi.fn() }));
+    pick(root, file('sku,name\nA1,Foo\n', 'rows.csv'));
+    await waitFor(() => root.querySelector('[data-testid="parse-strip"]'));
 
-    // A brand-new wizard (next modal open) must start with validation ON again.
-    const second = mount(h(ImportWizard, { onSuccess: vi.fn() }));
-    await toConfirmViaFile(second, [{ sku: 'A' }]);
-    expect(second.querySelector('[data-testid="shape-toggle"]').getAttribute('aria-checked')).toBe('true');
+    const modeUpdate = [...root.querySelectorAll('.csv-seg-opt')].find((b) => b.textContent.trim() === 'Update');
+    modeUpdate.click();
+    const keyInput = await waitFor(() => root.querySelector('[data-testid="match-key-input"]'));
+    keyInput.focus();
+    const skuBtn = await waitFor(() => [...root.querySelectorAll('[data-testid="match-key-suggest"] button')].find((b) => b.textContent.trim() === 'sku') || null);
+    skuBtn.click();
+    await waitFor(() => root.querySelector('.match-key-chip'));
+
+    // Parsing controls are inline; toggle "First row is a header" off directly.
+    const headerToggle = await waitFor(() => root.querySelector('[data-testid="csv-header"]'));
+    headerToggle.click();
+
+    await waitFor(() => (root.querySelector('.match-key-chip') === null ? true : null));
+    await waitFor(() => (root.querySelector('[data-testid="csv-header"]').getAttribute('aria-checked') === 'false' ? true : null));
+  });
+
+  it('clipboard JSON renders a compact JsonPreview instead of the CSV table', async () => {
+    const root = mount(h(ImportWizard, { onSuccess: vi.fn() }));
+    [...root.querySelectorAll('.csv-seg-opt')].find((b) => b.textContent.trim() === 'Clipboard').click();
+    const editor = await waitFor(() => root.querySelector('[data-testid="clipboard-editor"]'));
+    editor.value = '[{"a":1},{"a":2}]';
+    root.querySelector('[data-testid="clipboard-next"]').click();
+    const preview = await waitFor(() => root.querySelector('[data-testid="json-preview"]'));
+    expect(preview.textContent).toContain('{"a":1}');
+    expect(root.querySelector('[data-testid="csv-preview"]')).toBe(null);
   });
 });
