@@ -994,6 +994,13 @@ body.popup-wide .mdh-card {
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--text-hint);
+  cursor: default;
+  user-select: none;
+}
+
+.unlock-notice {
+  font-size: 10px;
+  color: var(--text-secondary);
 }
 
 .footer-link {

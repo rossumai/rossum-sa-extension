@@ -6,6 +6,7 @@ import { initScrollLock } from './features/scroll-lock.js';
 import { init as initClosableTooltips, handleNode as handleClosableTooltip } from './features/closable-tooltips.js';
 import { init as initDatasetMgmtSuggest } from './features/dataset-mgmt-suggest.js';
 import { init as initTrackViewed } from './features/track-viewed.js';
+import { init as initAnnotateForMe, handleNode as handleAnnotateForMe, isAnnotateEnabled } from './features/annotate-for-me.js';
 
 initClosableTooltips();
 initDatasetMgmtSuggest();
@@ -17,6 +18,8 @@ const SETTINGS_KEYS = [
   'expandReasoningFieldsEnabled',
   'scrollLockEnabled',
   'resourceIdsEnabled',
+  'annotateForMeEnabled',
+  'experimentalUnlocked',
 ];
 
 chrome.storage.local.get(SETTINGS_KEYS).then((settings) => {
@@ -38,6 +41,10 @@ chrome.storage.local.get(SETTINGS_KEYS).then((settings) => {
         initScrollLock(node);
       }
     });
+  }
+  if (isAnnotateEnabled(settings)) {
+    initAnnotateForMe();
+    handlers.push(handleAnnotateForMe);
   }
 
   const body = document.querySelector('body');

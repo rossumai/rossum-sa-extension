@@ -4,6 +4,7 @@ import Toggle from './Toggle.jsx';
 import MdhProvenancePanel from './MdhProvenancePanel.jsx';
 import { openConsoleTab, runInTab, detectSite, findRossumTabs, activateTab } from '../utils.js';
 import { readAuthInfo, readPageFlag, togglePageFlag } from '../tab-readers.js';
+import { createUnlockCounter } from '../experimental.js';
 
 const STORAGE_TOGGLES = [
   'schemaAnnotationsEnabled',
@@ -11,8 +12,12 @@ const STORAGE_TOGGLES = [
   'expandFormulasEnabled',
   'expandReasoningFieldsEnabled',
   'scrollLockEnabled',
+  'annotateForMeEnabled',
   'netsuiteFieldNamesEnabled',
   'coupaFieldNamesEnabled',
+  // Not a toggle shown anywhere: the easter-egg unlock flag (5 clicks on the
+  // version hash). Loaded with the rest so the Experimental section can render.
+  'experimentalUnlocked',
 ];
 
 // Each id is both the React state key and the page-side localStorage key.
@@ -104,6 +109,8 @@ export default function App({ tab }) {
   const [messageValues, setMessageValues] = useState({ devFeaturesEnabled: false, devDebugEnabled: false });
   const [authError, setAuthError] = useState(null);
   const [rossumTabs, setRossumTabs] = useState(null);
+  const [unlockNotice, setUnlockNotice] = useState(null);
+  const [unlockCounter] = useState(() => createUnlockCounter());
 
   useEffect(() => {
     if (site) return;
@@ -136,6 +143,18 @@ export default function App({ tab }) {
     setStorageValues((prev) => ({ ...prev, [key]: value }));
     await chrome.storage.local.set({ [key]: value });
     chrome.tabs.reload(tab.id);
+  };
+
+  // 5 quick clicks on the version hash flip the Experimental section. The tab
+  // only reloads when the flip changes what's injected (annotate toggle is on).
+  const onVersionClick = async () => {
+    if (!unlockCounter.click() || !storageValues) return;
+    const next = !storageValues.experimentalUnlocked;
+    setStorageValues((prev) => ({ ...prev, experimentalUnlocked: next }));
+    await chrome.storage.local.set({ experimentalUnlocked: next });
+    setUnlockNotice(next ? 'Experimental features unlocked' : 'Experimental features hidden');
+    setTimeout(() => setUnlockNotice(null), 2500);
+    if (storageValues.annotateForMeEnabled && tab?.id != null) chrome.tabs.reload(tab.id);
   };
 
   const setMessageToggle = async (key) => {
@@ -267,6 +286,20 @@ export default function App({ tab }) {
                   />
                 </div>
 
+                {storageValues.experimentalUnlocked ? (
+                  <div class="toggle-group" data-context="experimental">
+                    <span class="group-label">Experimental</span>
+                    <Toggle
+                      id="annotateForMeEnabled"
+                      label="Annotate for me"
+                      hint="Fabry applies value/box corrections to the open document (writes; undoable)"
+                      beta
+                      checked={storageValues.annotateForMeEnabled}
+                      onChange={(v) => setStorageToggle('annotateForMeEnabled', v)}
+                    />
+                  </div>
+                ) : null}
+
                 <div class="toggle-group toggle-group--cols-2">
                   <span class="group-label">Developer</span>
                   <Toggle
@@ -336,7 +369,8 @@ export default function App({ tab }) {
       )}
 
       <footer class="footer">
-        <span class="version">{version}</span>
+        <span class="version" onClick={onVersionClick}>{version}</span>
+        {unlockNotice ? <span class="unlock-notice">{unlockNotice}</span> : null}
         <a
           href={SUPPORT_URL}
           target="_blank"
