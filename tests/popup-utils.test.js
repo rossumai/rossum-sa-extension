@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { runInTab, openConsoleTab, detectSite, findRossumTabs, activateTab } from '../src/popup/utils.js';
+import { runInTab, openConsoleTab, detectSite, findRossumTabs, activateTab, isConsoleTab } from '../src/popup/utils.js';
 
 let executeScriptMock;
 let storageSetMock;
@@ -189,5 +189,20 @@ describe('activateTab', () => {
     tabsUpdateMock.mockRejectedValueOnce(new Error('tab gone'));
     await activateTab({ id: 1, windowId: 1 });
     expect(windowCloseSpy).toHaveBeenCalled();
+  });
+});
+
+describe('isConsoleTab', () => {
+  it('matches this extension\'s Console page, with or without a query string', () => {
+    expect(isConsoleTab('chrome-extension://abc/console/console.html')).toBe(true);
+    expect(isConsoleTab('chrome-extension://abc/console/console.html?authId=x')).toBe(true);
+  });
+
+  it('rejects other extensions, other own-pages, sites, and empty input', () => {
+    expect(isConsoleTab('chrome-extension://zzz/console/console.html')).toBe(false);
+    expect(isConsoleTab('chrome-extension://abc/popup/popup.html')).toBe(false);
+    expect(isConsoleTab('https://elis.rossum.ai/queues')).toBe(false);
+    expect(isConsoleTab('')).toBe(false);
+    expect(isConsoleTab(undefined)).toBe(false);
   });
 });

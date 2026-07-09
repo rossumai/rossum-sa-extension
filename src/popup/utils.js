@@ -13,6 +13,14 @@ export function detectSite(url) {
   return null;
 }
 
+// True when the URL is this extension's own Console page. chrome.runtime.getURL
+// embeds our extension id, so this matches only our Console — never another
+// extension's pages or a real site. The Console URL carries a ?authId=... query,
+// which startsWith tolerates.
+export function isConsoleTab(url) {
+  return !!url && url.startsWith(chrome.runtime.getURL('console/console.html'));
+}
+
 // Returns Rossum tabs across all windows, most-recently-accessed first.
 // Tabs without a visible URL (no host permission, redacted) are filtered out.
 export async function findRossumTabs() {

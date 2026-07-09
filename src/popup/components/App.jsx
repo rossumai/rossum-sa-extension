@@ -2,7 +2,7 @@ import { h, Fragment } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import Toggle from './Toggle.jsx';
 import MdhProvenancePanel from './MdhProvenancePanel.jsx';
-import { openConsoleTab, runInTab, detectSite, findRossumTabs, activateTab } from '../utils.js';
+import { openConsoleTab, runInTab, detectSite, findRossumTabs, activateTab, isConsoleTab } from '../utils.js';
 import { readAuthInfo, readPageFlag, togglePageFlag } from '../tab-readers.js';
 import { createUnlockCounter } from '../experimental.js';
 
@@ -54,7 +54,7 @@ function hostFromUrl(url) {
   try { return new URL(url).host; } catch { return ''; }
 }
 
-function UnsupportedSite({ tabs }) {
+export function UnsupportedSite({ tabs, isConsole }) {
   // tabs === null means we haven't queried yet — render the static fallback
   // immediately rather than showing a loading flicker; the list will reveal
   // when the query resolves.
@@ -63,7 +63,7 @@ function UnsupportedSite({ tabs }) {
   if (hasTabs) {
     return (
       <div class="unsupported-site">
-        <p class="unsupported-lede">This tab isn't supported by the extension.</p>
+        <p class="unsupported-lede">{isConsole ? "You're on the Rossum Console." : "This tab isn't supported by the extension."}</p>
         <p class="unsupported-heading">Switch to one of your open Rossum tabs:</p>
         <ul class="rossum-tab-list">
           {tabs.map((t) => (
@@ -89,7 +89,7 @@ function UnsupportedSite({ tabs }) {
 
   return (
     <div class="unsupported-site">
-      <p class="unsupported-lede">This tab isn't supported by the extension.</p>
+      <p class="unsupported-lede">{isConsole ? "You're on the Rossum Console." : "This tab isn't supported by the extension."}</p>
       <p>It works on:</p>
       <div class="supported-sites">
         <span class="supported-site">Rossum</span>
@@ -103,6 +103,7 @@ function UnsupportedSite({ tabs }) {
 
 export default function App({ tab }) {
   const site = detectSite(tab?.url || '');
+  const isConsole = !site && isConsoleTab(tab?.url || '');
   const version = chrome.runtime.getManifest().version_name || chrome.runtime.getManifest().version;
 
   const [storageValues, setStorageValues] = useState(null);
@@ -229,7 +230,7 @@ export default function App({ tab }) {
       </header>
 
       {!site ? (
-        <UnsupportedSite tabs={rossumTabs} />
+        <UnsupportedSite tabs={rossumTabs} isConsole={isConsole} />
       ) : (
         <div id="mainContent">
           <div class="content-row">
