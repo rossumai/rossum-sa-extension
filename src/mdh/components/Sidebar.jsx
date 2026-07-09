@@ -247,7 +247,7 @@ function confirmDrop(name) {
   openModal(`Drop "${name}"?`, () => <DropConfirmBody name={name} />);
 }
 
-export { loadCollections, performDrop };
+export { loadCollections, performDrop, showCreateModal };
 
 export default function Sidebar() {
   useEffect(() => { loadCollections(); }, []);

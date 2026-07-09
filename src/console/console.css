@@ -332,6 +332,28 @@ body {
   color: var(--text-secondary); font-size: 14px;
 }
 
+.empty-state-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  max-width: 380px;
+}
+
+.empty-state-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.empty-state-body {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .tab-bar {
   display: flex; border-bottom: 1px solid var(--border);
   background: var(--bg-card); flex-shrink: 0;
