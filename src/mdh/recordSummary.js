@@ -1,7 +1,6 @@
 // src/mdh/recordSummary.js
 // Pure helpers for the collapsed record preview. No Preact, no signals,
-// no DOM — everything is passed in by the caller. See
-// docs/superpowers/specs/2026-04-15-record-preview-design.md.
+// no DOM — everything is passed in by the caller.
 
 import { displayValue, getEjsonType } from './displayValue.js';
 
