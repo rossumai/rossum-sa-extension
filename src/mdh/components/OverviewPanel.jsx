@@ -1,11 +1,12 @@
 import { h, Fragment } from 'preact';
 import { useEffect, useState, useRef } from 'preact/hooks';
-import { collections, selectedCollection, activeView } from '../store.js';
+import { collections, selectedCollection, activeView, connected } from '../store.js';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
 import { buildStoragePipeline, buildBatchStoragePipeline } from '../statsPipelines.js';
 import FlashOnChange from './FlashOnChange.jsx';
 import OverviewCharts from './OverviewCharts.jsx';
+import CollectionEmptyState from './CollectionEmptyState.jsx';
 
 const BATCH_SIZE = 50;
 const BATCH_CONCURRENCY = 3;
@@ -306,7 +307,7 @@ export default function OverviewPanel() {
 
       <div class="stats-scroll">
         {totalCount === 0 ? (
-          <div class="stats-empty">No collections</div>
+          <CollectionEmptyState connected={connected.value} />
         ) : (
           <table class="stats-table stats-overview-table">
             <colgroup>
