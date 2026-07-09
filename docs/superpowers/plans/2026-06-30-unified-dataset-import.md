@@ -1,5 +1,7 @@
 # Unified Dataset Import Implementation Plan
 
+> **⚠️ Superseded — execution engine only (2026-07-01).** This plan builds the **client-side match/execution engine** (`runImport.js`, the aggregation probe, the per-row `update_one`/`replace_one` pool, upsert emulation, the `api.js` `options.upsert` passthrough — Tasks 1–3 and the execution parts of 6–9), which was **retired and replaced** by the server-side MDH data-matching API one day later. `runImport.js` no longer exists in `src/`. See `docs/superpowers/plans/2026-07-01-mdh-import-datamatching-redesign.md` (its Task 6 deletes `runImport.js`) for the current model. **Still live:** the unified Import wizard, the Insert/Update/Replace modes, the `formats/` registry, and `ImportControls`/`ImportConfirm`/`ImportStages` (Tasks 4–6). Kept as a historical build record.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the MDH app's two inconsistent import families with one unified Import wizard that does Insert / Update / Replace across all five file formats, with configurable match keys, a live "what-will-happen" plan, progress, and cancellation.

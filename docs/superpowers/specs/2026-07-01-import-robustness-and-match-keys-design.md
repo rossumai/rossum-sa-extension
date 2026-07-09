@@ -1,5 +1,7 @@
 # Import Robustness & Match-Key UX — Design
 
+> **⚠️ Superseded — probe/per-row pieces only (2026-07-01).** Pieces 2 (composite-key probe optimization) and 3 (large-import per-row guardrail) target the **client-side per-row match engine** (`runImport.js`/`probeCollection`/`buildUpdateSet`/`buildProbePipeline`/`LARGE_IMPORT_THRESHOLD`), which was **retired** the same day when Update/Replace moved server-side to the MDH data-matching API — see `docs/superpowers/specs/2026-07-01-mdh-import-datamatching-redesign-design.md`. Those modules (and `getPath` in `importPlan.js`) no longer exist in `src/`. **Still live and shipped:** Piece 1's searchable `MatchKeyPicker` + `collectFieldPaths`, and Piece 4's `RecordList` rAF guard. Kept as a historical design record.
+
 **Date:** 2026-07-01
 **Status:** Approved (brainstorming) → ready for implementation plan
 **Area:** Dataset Management (MDH) Console app — `src/mdh/`

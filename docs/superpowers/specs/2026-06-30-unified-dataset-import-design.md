@@ -4,6 +4,10 @@
 **Status:** Approved (brainstorming) → ready for implementation plan
 **Area:** Dataset Management (MDH) Console app — `src/mdh/`
 
+> **⚠️ Superseded — execution engine only (2026-07-01).** The **client-side match/execution engine** described below — `runImport.js`, the pre-flight aggregation probe, the per-row `update_one`/`replace_one` concurrency pool, client-side upsert emulation, and block-if-non-unique — was **retired and replaced** by the server-side MDH data-matching API one day later. `runImport.js` no longer exists in `src/`: Update → `PATCH`/`datasetUpdate`, Replace → `PUT`/`datasetReplace` (whole-collection), both server-side and async. See `docs/superpowers/specs/2026-07-01-mdh-import-datamatching-redesign-design.md` (+ its plan) for the current model.
+>
+> **Still live:** the unified Import wizard, the Insert/Update/Replace mode model, the `formats/` registry, and the shared wizard shell (`ImportWizard`/`ImportConfirm`/`ImportControls`/`ImportStages`). This doc is kept as an accurate historical snapshot of those; treat §4 (mode semantics), §6 (execution & performance), §7's `runImport.js`, and §9–§11 as describing the retired engine.
+
 ## 1. Problem & goal
 
 The MDH app today has **two inconsistent import families**:

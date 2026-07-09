@@ -1,5 +1,7 @@
 # Import Robustness & Match-Key UX Implementation Plan
 
+> **⚠️ Superseded — probe/per-row pieces only (2026-07-01).** Tasks that extend `runImport.js`'s `probeCollection` (positional composite groups, indexed prefilter) and add the large-import per-row caution target the **client-side per-row match engine**, which was **retired** the same day when Update/Replace moved server-side to the MDH data-matching API — see `docs/superpowers/plans/2026-07-01-mdh-import-datamatching-redesign.md` (its Task 6 deletes `runImport.js`). `runImport.js`, `probeCollection`, `buildProbePipeline`, and `getPath` no longer exist in `src/`. **Still live and shipped:** the searchable `MatchKeyPicker` + `collectFieldPaths`, and the `RecordList` rAF guard. Kept as a historical build record.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the import Update/Replace flow work on real documents (searchable, nested-aware match-key picker), faster on large collections (indexed-prefilter probe), safer (large-import caution), and cleaner (rAF flake guard).
