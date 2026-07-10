@@ -5,7 +5,7 @@ import { activeApp } from '../console/store.js';
 import { SOURCE_ORDER } from './sources/index.js';
 import { fetchActive } from './query.js';
 import * as agentApi from '../mdh/agent/agentApi.js';
-import { runAuditQuery, continueAuditQuery, DEFAULT_QUESTION } from './fabry.js';
+import { runAuditQuery, continueAuditQuery, refreshAuditSummary, DEFAULT_QUESTION } from './fabry.js';
 
 // Restore persisted per-source state, merging only known sources/keys over the
 // defaults so a stale stored shape can't corrupt the store.
@@ -35,6 +35,15 @@ let fabryController = null;
 function currentFilters() { return store.filtersBySource.value[store.activeSource.value] || {}; }
 function currentRows() { return store.rows.value || []; }
 
+// Identity of the loaded view the summary describes: source + its filter
+// fields + paging. Captured when a summary starts; a mismatch later = stale.
+export function viewSignature() {
+  const key = store.activeSource.value;
+  const st = store.filtersBySource.value[key] || {};
+  const { object_type, action, object_id, username, timestamp_after, timestamp_before, page, cursor } = st;
+  return JSON.stringify([key, object_type, action, object_id, username, timestamp_after, timestamp_before, page, cursor]);
+}
+
 // Immutably patch the turn with the given id in store.fabry.
 function patchTurn(id, fn) {
   const cur = store.fabry.value;
@@ -55,7 +64,8 @@ export async function runDefaultSummary() {
   if (fabryController) fabryController.abort();
   fabryController = new AbortController();
   const signal = fabryController.signal;
-  store.fabry.value = { status: 'running', chatId: null, error: null,
+  const forView = viewSignature();
+  store.fabry.value = { status: 'running', chatId: null, error: null, forView: null,
     turns: [{ id: 1, question: null, text: '', reasoning: '', tools: [], state: 'streaming' }] };
   try {
     const res = await runAuditQuery({
@@ -63,12 +73,12 @@ export async function runDefaultSummary() {
       onText: (t) => { if (!signal.aborted) patchTurn(1, (turn) => { turn.text = t; }); },
     });
     if (signal.aborted) return;
-    store.fabry.value = { status: 'done', chatId: res.chatId, error: null,
+    store.fabry.value = { status: 'done', chatId: res.chatId, error: null, forView,
       turns: [{ id: 1, question: null, text: res.text, reasoning: res.reasoning, tools: res.tools, state: 'done' }] };
   } catch (e) {
     if (signal.aborted || e?.name === 'AbortError') return;
     patchTurn(1, (turn) => { turn.state = 'error'; });
-    store.fabry.value = { ...store.fabry.value, status: 'error', error: e?.message || 'failed' };
+    store.fabry.value = { ...store.fabry.value, status: 'error', error: e?.message || 'failed', forView: null };
   }
 }
 
@@ -100,6 +110,42 @@ export async function askAuditFabry(question) {
     if (signal.aborted || e?.name === 'AbortError') return;
     patchTurn(id, (turn) => { turn.state = 'error'; });
     store.fabry.value = { ...store.fabry.value, status: 'error', error: e?.message || 'failed' };
+  }
+}
+
+// Re-summarize the CURRENT view as a new turn in the same chat (new rows
+// re-seeded). Called when the summary is stale: on expand, or automatically
+// while the panel is open once the new rows have landed. Falls back to a
+// fresh chat when none exists.
+export async function refreshSummary() {
+  if (!store.aiAvailable.value) return;
+  if (store.availability.value !== 'available') return; // rows not landed yet — never seed the old page
+  const cur = store.fabry.value;
+  if (cur.turns.some((t) => t.state === 'streaming')) return; // one at a time
+  if (!cur.chatId) { store.resetFabry(); return runDefaultSummary(); }
+  if (fabryController) fabryController.abort();
+  fabryController = new AbortController();
+  const signal = fabryController.signal;
+  const forView = viewSignature();
+  const id = (cur.turns[cur.turns.length - 1]?.id || 0) + 1;
+  store.fabry.value = { ...cur, status: 'running',
+    turns: [...cur.turns, { id, question: null, text: '', reasoning: '', tools: [], state: 'streaming' }] };
+  try {
+    const res = await refreshAuditSummary({
+      agentApi, chatId: cur.chatId, filters: currentFilters(), rows: currentRows(), signal,
+      onText: (t) => { if (!signal.aborted) patchTurn(id, (turn) => { turn.text = t; }); },
+    });
+    if (signal.aborted) return;
+    patchTurn(id, (turn) => { turn.text = res.text; turn.reasoning = res.reasoning; turn.tools = res.tools; turn.state = 'done'; });
+    // Clear any prior give-up marker — this view now has a good summary.
+    store.fabry.value = { ...store.fabry.value, status: 'done', forView, refreshFailedFor: null };
+  } catch (e) {
+    if (signal.aborted || e?.name === 'AbortError') return;
+    patchTurn(id, (turn) => { turn.state = 'error'; });
+    // Mark this exact view signature as already attempted so the panel's
+    // auto-refresh effect gives up on it (see store.js) instead of re-firing
+    // on every render — an explicit expand still retries manually.
+    store.fabry.value = { ...store.fabry.value, status: 'error', error: e?.message || 'failed', refreshFailedFor: forView };
   }
 }
 

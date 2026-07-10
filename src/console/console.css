@@ -4162,6 +4162,7 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .audit-fabry-mark { font-size: 11px; margin-right: 1px; }
 .audit-fabry .inspector-diag-credit { flex-shrink: 0; }
 .audit-fabry-preview { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11.5px; color: var(--text-secondary); }
+.audit-fabry-stale { flex-shrink: 0; font-size: 10.5px; color: var(--text-secondary); font-style: italic; opacity: 0.85; }
 .audit-fabry-hint { margin-left: auto; font-size: 11px; color: var(--text-secondary); font-style: italic; }
 .audit-fabry-tx { flex-shrink: 0; }
 .audit-fabry-body { display: flex; flex-direction: column; gap: 10px; padding: 2px 0 12px; }

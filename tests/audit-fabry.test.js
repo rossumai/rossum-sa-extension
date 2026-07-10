@@ -1,6 +1,6 @@
 // tests/audit-fabry.test.js
 import { describe, it, expect, vi } from 'vitest';
-import { DEFAULT_QUESTION, seedRows, buildAuditPrompt, buildFollowupPrompt, runAuditQuery, continueAuditQuery } from '../src/audit/fabry.js';
+import { DEFAULT_QUESTION, seedRows, buildAuditPrompt, buildFollowupPrompt, buildRefreshPrompt, runAuditQuery, continueAuditQuery, refreshAuditSummary } from '../src/audit/fabry.js';
 
 const FILTERS = { object_type: 'annotation', action: 'update-status', username: 'a@b.c', object_id: '', timestamp_after: '', timestamp_before: '' };
 
@@ -54,6 +54,22 @@ describe('buildFollowupPrompt', () => {
   });
 });
 
+describe('buildRefreshPrompt', () => {
+  it('embeds the new rows, restricts to them, includes format lines and the default question, no persona', () => {
+    const p = buildRefreshPrompt({ filters: FILTERS, rows: [{ _idx: 0, action: 'delete', username: 'z@z.z' }] });
+    expect(p).toContain('"action":"delete"');
+    expect(p).not.toContain('_idx');
+    expect(p).toMatch(/ONLY on these/);
+    expect(p).toContain(DEFAULT_QUESTION);
+    expect(p).toMatch(/takeaway/i);
+    expect(p).toContain('"- "');
+    expect(p).toContain('Next step:');
+    expect(p).toContain('Do NOT include');
+    expect(p).toContain('[e:');
+    expect(p).not.toContain('/persona');
+  });
+});
+
 describe('runAuditQuery / continueAuditQuery', () => {
   it('runAuditQuery primes persona, streams text, returns chatId', async () => {
     const prompts = [];
@@ -93,5 +109,23 @@ describe('runAuditQuery / continueAuditQuery', () => {
     expect(calls[0][1]).toContain('more?');
     expect(calls[0][1]).not.toContain('/persona');
     expect(res.text).toContain('answer');
+  });
+  it('refreshAuditSummary reuses the chat (no createChat) and streams the refresh prompt onto it', async () => {
+    const calls = [];
+    const agentApi = {
+      createChat: vi.fn(),
+      streamMessage: vi.fn(async (id, content, { onEvent }) => {
+        calls.push([id, content]);
+        onEvent({ type: 'text-delta', delta: 'New summary.' });
+        onEvent({ type: 'finish' });
+      }),
+    };
+    const rows = [{ _idx: 0, action: 'update-status', username: 'q@q.q' }];
+    const res = await refreshAuditSummary({ agentApi, chatId: 'chatC', filters: FILTERS, rows });
+    expect(agentApi.createChat).not.toHaveBeenCalled();
+    expect(calls[0][0]).toBe('chatC');
+    expect(calls[0][1]).toContain('"action":"update-status"');
+    expect(calls[0][1]).not.toContain('/persona');
+    expect(res.text).toContain('New summary.');
   });
 });

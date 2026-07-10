@@ -38,8 +38,17 @@ export const aiAvailable = signal(false);
 
 // Fabry conversation state (ephemeral; no persistence). One chat per session:
 // turns[0] is the auto default-summary (question:null); later turns are Q&A.
-// status: 'idle' | 'running' | 'done' | 'error'.
-export const fabry = signal({ status: 'idle', chatId: null, turns: [], error: null });
+// status: 'idle' | 'running' | 'done' | 'error'. `forView` is the view
+// signature (see src/audit/index.jsx viewSignature) the current summary was
+// computed for — null while idle/errored; a mismatch against the live
+// signature means the summary is stale (view changed since it ran).
+// `refreshFailedFor` is a give-up marker: the view signature a refreshSummary()
+// attempt last FAILED for. It prevents the panel's auto-refresh effect from
+// retrying the same failed view forever (a failure leaves `forView` stale, so
+// without this marker the effect would immediately re-fire on every render);
+// cleared on the next successful refresh, and ignored by an explicit
+// user-initiated retry (expanding the panel).
+export const fabry = signal({ status: 'idle', chatId: null, turns: [], error: null, forView: null, refreshFailedFor: null });
 export function resetFabry() {
-  fabry.value = { status: 'idle', chatId: null, turns: [], error: null };
+  fabry.value = { status: 'idle', chatId: null, turns: [], error: null, forView: null, refreshFailedFor: null };
 }

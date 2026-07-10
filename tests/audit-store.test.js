@@ -5,7 +5,7 @@ describe('audit store — Fabry state', () => {
   it('defaults: aiAvailable false, fabry idle and empty', () => {
     store.resetFabry();
     expect(store.aiAvailable.value).toBe(false);
-    expect(store.fabry.value).toEqual({ status: 'idle', chatId: null, turns: [], error: null });
+    expect(store.fabry.value).toEqual({ status: 'idle', chatId: null, turns: [], error: null, forView: null, refreshFailedFor: null });
   });
   it('resetFabry restores the idle default after mutation', () => {
     store.fabry.value = { status: 'done', chatId: 'c1', error: 'x', turns: [{ id: 1, question: null, text: 'hi', reasoning: '', tools: [], state: 'done' }] };

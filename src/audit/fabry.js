@@ -34,6 +34,18 @@ export function seedRows(rows) {
   return json;
 }
 
+// Shared answer-format instructions for any prompt that asks Fabry to produce
+// a summary (as opposed to a short Q&A reply) — the initial default summary
+// and a later refresh must render identically in the UI (previewText/
+// FabryNarrative both parse this shape), so they share these exact lines.
+const FORMAT_LINES = [
+  'Format your answer EXACTLY like this (plain text, no markdown headings, no JSON):',
+  'Line 1: one punchy takeaway sentence (at most 12 words) — it doubles as a one-line preview.',
+  'Then 3–6 bullet lines, each starting with "- ": one fact per bullet, most recent first.',
+  'Last line: "Next step: …" naming the single most useful follow-up.',
+  'Do NOT include any [e:…] citations — this viewer has no citation targets. Never invent activity that is not in the audit log.',
+];
+
 export function buildAuditPrompt({ question, filters, rows, mode }) {
   const head = [
     'You are Mr. Fabry answering a question in a READ-ONLY Rossum audit-log viewer. Never modify anything — only read and reason.',
@@ -47,15 +59,23 @@ export function buildAuditPrompt({ question, filters, rows, mode }) {
     : [
         'Use your read-only tools to fetch the recent audit-log entries you need to answer. If you cannot retrieve audit logs, say so plainly rather than guessing.',
       ];
-  const tail = [
-    `Question: ${question}`,
-    'Format your answer EXACTLY like this (plain text, no markdown headings, no JSON):',
-    'Line 1: one punchy takeaway sentence (at most 12 words) — it doubles as a one-line preview.',
-    'Then 3–6 bullet lines, each starting with "- ": one fact per bullet, most recent first.',
-    'Last line: "Next step: …" naming the single most useful follow-up.',
-    'Do NOT include any [e:…] citations — this viewer has no citation targets. Never invent activity that is not in the audit log.',
-  ];
+  const tail = [`Question: ${question}`, ...FORMAT_LINES];
   return [...head, ...body, ...tail].join('\n\n');
+}
+
+// Re-summarize the CURRENT view as a new turn in the SAME chat: the view
+// (filters/paging) changed since the last summary, and the newly-loaded rows
+// need to be re-seeded so the new summary is grounded in what's on screen now
+// (never the stale rows the previous summary described).
+export function buildRefreshPrompt({ filters, rows }) {
+  return [
+    'The user changed the audit-log view. You are still in the same READ-ONLY audit-log viewer — never modify anything.',
+    `The view is now filtered by: ${filterContext(filters)}.`,
+    'Here are the audit-log entries now loaded (JSON). Base your new summary ONLY on these; do not claim anything beyond them:',
+    seedRows(rows),
+    `Question: ${DEFAULT_QUESTION}`,
+    ...FORMAT_LINES,
+  ].join('\n\n');
 }
 
 export function buildFollowupPrompt(question) {
@@ -94,4 +114,11 @@ export async function runAuditQuery({ agentApi, question, filters, rows, mode = 
 export async function continueAuditQuery({ agentApi, chatId, question, onPhase = () => {}, onText = () => {}, signal }) {
   onPhase('thinking');
   return streamTurn(agentApi, chatId, buildFollowupPrompt(question), { onPhase, onText, signal });
+}
+
+// Re-summarize the current view as a new turn in the existing chat (no
+// createChat, no persona re-prime — same shape as continueAuditQuery).
+export async function refreshAuditSummary({ agentApi, chatId, filters, rows, onPhase = () => {}, onText = () => {}, signal }) {
+  onPhase('thinking');
+  return streamTurn(agentApi, chatId, buildRefreshPrompt({ filters, rows }), { onPhase, onText, signal });
 }

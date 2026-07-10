@@ -7,6 +7,8 @@ vi.mock('../src/audit/fabry.js', () => ({
   DEFAULT_QUESTION: 'DEFAULT_Q',
   runAuditQuery: vi.fn(),
   continueAuditQuery: vi.fn(),
+  refreshAuditSummary: vi.fn(),
+  buildRefreshPrompt: vi.fn(),
 }));
 vi.mock('../src/audit/api.js', () => ({
   init: vi.fn(),
@@ -17,8 +19,8 @@ vi.mock('../src/audit/api.js', () => ({
   extractParam: vi.fn(),
 }));
 
-import { runDefaultSummary, askAuditFabry, initAudit } from '../src/audit/index.jsx';
-import { runAuditQuery, continueAuditQuery, DEFAULT_QUESTION } from '../src/audit/fabry.js';
+import { runDefaultSummary, askAuditFabry, refreshSummary, viewSignature, initAudit } from '../src/audit/index.jsx';
+import { runAuditQuery, continueAuditQuery, refreshAuditSummary, DEFAULT_QUESTION } from '../src/audit/fabry.js';
 import * as agentApi from '../src/mdh/agent/agentApi.js';
 import * as api from '../src/audit/api.js';
 import * as store from '../src/audit/store.js';
@@ -59,12 +61,20 @@ describe('runDefaultSummary', () => {
     await runDefaultSummary(); // not idle anymore → no second run
     expect(runAuditQuery).toHaveBeenCalledTimes(1);
   });
+  it('stores forView as the view signature captured at run time', async () => {
+    store.aiAvailable.value = true;
+    runAuditQuery.mockResolvedValue({ text: 'Latest.', reasoning: '', tools: [], chatId: 'c1' });
+    const sig = viewSignature();
+    await runDefaultSummary();
+    expect(store.fabry.value.forView).toBe(sig);
+  });
   it('records a turn error when the run rejects', async () => {
     store.aiAvailable.value = true;
     runAuditQuery.mockRejectedValue(new Error('boom'));
     await runDefaultSummary();
     expect(store.fabry.value.status).toBe('error');
     expect(store.fabry.value.turns[0].state).toBe('error');
+    expect(store.fabry.value.forView).toBeNull(); // a failed summary isn't "for" any view
   });
 });
 
@@ -93,6 +103,100 @@ describe('askAuditFabry', () => {
     await askAuditFabry('while busy');
     expect(continueAuditQuery).not.toHaveBeenCalled();
     expect(runAuditQuery).not.toHaveBeenCalled();
+  });
+});
+
+describe('refreshSummary', () => {
+  it('no-ops when availability is not "available" — never seeds the old page while the refetch is in flight', async () => {
+    store.aiAvailable.value = true;
+    store.availability.value = 'unknown';
+    store.fabry.value = { status: 'done', chatId: 'c1', error: null, forView: 'old-sig',
+      turns: [{ id: 1, question: null, text: 'Old.', reasoning: '', tools: [], state: 'done' }] };
+    await refreshSummary();
+    expect(refreshAuditSummary).not.toHaveBeenCalled();
+    expect(store.fabry.value.turns.length).toBe(1);
+  });
+
+  it('no-ops while a turn is already streaming (one at a time)', async () => {
+    store.aiAvailable.value = true;
+    store.availability.value = 'available';
+    store.fabry.value = { status: 'running', chatId: 'c1', error: null, forView: 'old-sig',
+      turns: [{ id: 1, question: null, text: '', reasoning: '', tools: [], state: 'streaming' }] };
+    await refreshSummary();
+    expect(refreshAuditSummary).not.toHaveBeenCalled();
+  });
+
+  it('appends a second summary turn via refreshAuditSummary on the SAME chat and refreshes forView', async () => {
+    store.aiAvailable.value = true;
+    store.availability.value = 'available';
+    store.fabry.value = { status: 'done', chatId: 'c1', error: null, forView: 'old-sig',
+      turns: [{ id: 1, question: null, text: 'Old.', reasoning: '', tools: [], state: 'done' }] };
+    refreshAuditSummary.mockResolvedValue({ text: 'New summary.', reasoning: 'r2', tools: ['x'] });
+    await refreshSummary();
+    expect(refreshAuditSummary).toHaveBeenCalledWith(expect.objectContaining({ chatId: 'c1' }));
+    expect(runAuditQuery).not.toHaveBeenCalled();
+    const turns = store.fabry.value.turns;
+    expect(turns.length).toBe(2);
+    expect(turns[0]).toMatchObject({ question: null, text: 'Old.', state: 'done' }); // original summary preserved
+    expect(turns[1]).toMatchObject({ question: null, text: 'New summary.', state: 'done' });
+    expect(store.fabry.value.status).toBe('done');
+    expect(store.fabry.value.forView).toBe(viewSignature());
+    expect(store.fabry.value.forView).not.toBe('old-sig');
+  });
+
+  it('falls back to a fresh chat (runAuditQuery path) when no chatId exists yet', async () => {
+    store.aiAvailable.value = true;
+    store.availability.value = 'available';
+    store.fabry.value = { status: 'error', chatId: null, error: 'boom', forView: null,
+      turns: [{ id: 1, question: null, text: '', reasoning: '', tools: [], state: 'error' }] };
+    runAuditQuery.mockResolvedValue({ text: 'Fresh.', reasoning: '', tools: [], chatId: 'c2' });
+    await refreshSummary();
+    expect(refreshAuditSummary).not.toHaveBeenCalled();
+    expect(runAuditQuery).toHaveBeenCalledTimes(1);
+    expect(store.fabry.value.chatId).toBe('c2');
+    expect(store.fabry.value.status).toBe('done');
+  });
+});
+
+describe('filter changes alone never trigger an agent call', () => {
+  beforeEach(() => {
+    store.connected.value = null;
+    store.error.value = null;
+    store.availability.value = 'unknown';
+    api.get.mockResolvedValue({ results: [], pagination: null });
+    api.buildQuery.mockReturnValue('');
+    globalThis.chrome = {
+      storage: {
+        local: {
+          get: vi.fn().mockResolvedValue({}),
+          set: vi.fn().mockResolvedValue(undefined),
+        },
+      },
+    };
+  });
+
+  it('after the eager default summary has already landed, changing a filter does not itself call any Fabry function — auto-refresh lives only in the mounted panel, not the wiring', async () => {
+    api.whoami.mockResolvedValue({ id: 1 });
+    agentApi.probeAgent.mockResolvedValue(true);
+    runAuditQuery.mockResolvedValue({ text: 'x', reasoning: '', tools: [], chatId: 'c1' });
+
+    await initAudit();
+    await waitFor(() => store.aiAvailable.value === true, 'aiAvailable set true after probe');
+
+    // Simulate the first audit query landing so the eager default summary runs.
+    store.availability.value = 'available';
+    await waitFor(() => runAuditQuery.mock.calls.length > 0, 'eager default summary ran once rows landed');
+    expect(runAuditQuery).toHaveBeenCalledTimes(1);
+
+    vi.clearAllMocks(); // clears call counts only; mockResolvedValue implementations survive
+
+    store.patchFilters('audit', { username: 'x@y.z', page: 1, cursor: null });
+    await Promise.resolve();
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(runAuditQuery).not.toHaveBeenCalled();
+    expect(refreshAuditSummary).not.toHaveBeenCalled();
+    expect(continueAuditQuery).not.toHaveBeenCalled();
   });
 });
 
