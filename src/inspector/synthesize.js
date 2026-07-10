@@ -30,36 +30,9 @@ export function buildSynthesisPrompt(evidence, annotation = {}) {
   return budgetedJoin(head, middle, tail);
 }
 
-const CITE_RE = /\[e:([A-Za-z0-9_.:-]+)\]/g;
-
-export function parseCitations(text) {
-  const s = typeof text === 'string' ? text : '';
-  if (!s) return [];
-  const out = [];
-  let last = 0;
-  for (const m of s.matchAll(CITE_RE)) {
-    if (m.index > last) out.push({ type: 'text', text: s.slice(last, m.index) });
-    out.push({ type: 'cite', id: m[1] });
-    last = m.index + m[0].length;
-  }
-  if (last < s.length) out.push({ type: 'text', text: s.slice(last) });
-  return out;
-}
-
-// Line-aware view over the streamed narrative: paragraph and bullet blocks,
-// each with its citation segments. Streaming-safe (a partial last line renders).
-export function parseNarrative(text) {
-  const s = typeof text === 'string' ? text : '';
-  if (!s) return [];
-  const blocks = [];
-  for (const line of s.split('\n')) {
-    const t = line.trim();
-    if (!t) continue;
-    const m = /^[-•]\s+(.*)$/.exec(t);
-    blocks.push(m ? { type: 'li', segments: parseCitations(m[1]) } : { type: 'p', segments: parseCitations(t) });
-  }
-  return blocks;
-}
+// Canonical narrative parsing lives in the shared UI seed (src/ui/fabry/) —
+// re-exported so existing imports keep working.
+export { parseCitations, parseNarrative } from '../ui/fabry/narrative.js';
 
 export async function runSynthesis({ agentApi, evidence, annotation, onPhase = () => {}, onText = () => {}, signal }) {
   onPhase('thinking');

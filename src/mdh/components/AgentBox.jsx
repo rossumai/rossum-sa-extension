@@ -8,6 +8,7 @@ import * as api from '../api.js';
 import { runAgentQuery, continueAgentQuery } from '../agent/agentQuery.js';
 import { getSchemaHints } from '../agent/aiContext.js';
 import { stripAiComment } from '../llmPipeline.js';
+import FabryInput from '../../ui/fabry/FabryInput.jsx';
 
 // Playful MongoDB/Rossum gerunds cycled in the loading placeholder.
 const GERUNDS = [
@@ -15,7 +16,6 @@ const GERUNDS = [
   'Projecting fields', 'Sorting things out', 'Grouping documents', 'Sifting the data',
   'Polishing the pipeline', 'Verifying results', 'Almost there',
 ];
-const GERUND_MS = 2400; // rotation cadence (kept gentle)
 
 // Footer phase tracker steps (keys match agentQuery's onPhase). Refine is appended
 // only when a correction turn actually happens — the tracker stays honest.
@@ -172,7 +172,6 @@ function showTranscript(session, editorRef, onUpdate) {
 export default function AgentBox({ editorRef }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [gi, setGi] = useState(0); // monotonically increasing gerund tick (modulo at render)
   const [phase, setPhase] = useState(null); // 'generate'|'run'|'verify'|'refine' while loading
   const [hadRefine, setHadRefine] = useState(false); // a correction turn happened this run
   const [outcome, setOutcome] = useState(null); // finished-run result line (see outcomeFor)
@@ -190,13 +189,6 @@ export default function AgentBox({ editorRef }) {
     setSession(null);
     setOutcome(null);
   }, [selectedCollection.value]);
-  // Cycle the loading gerund while a run is in flight.
-  useEffect(() => {
-    if (!loading) return undefined;
-    setGi(0);
-    const id = setInterval(() => setGi((i) => i + 1), GERUND_MS);
-    return () => clearInterval(id);
-  }, [loading]);
 
   // A continuation from the transcript modal grew the chat — mirror it in the result line.
   function handleSessionUpdate(s) {
@@ -254,26 +246,14 @@ export default function AgentBox({ editorRef }) {
 
   return (
     <div class="agent-box">
-      <div class="agent-input-row">
-        <div class="nl-search-wrapper">
-          <span class={'agent-spark' + (loading ? ' loading' : '')}>✦</span>
-          <input
-            class={'nl-search-input' + (loading ? ' loading' : '')}
-            type="text"
-            placeholder="Ask Mr. Fabry — describe a query…"
-            value={loading ? '' : input}
-            disabled={loading}
-            onInput={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') submit(e.target.value); if (e.key === 'Escape') setInput(''); }}
-          />
-          {loading && (
-            <div class="nl-search-loading">
-              {gi > 0 && <span key={'o' + gi} class="nl-gerund nl-gerund-out">{GERUNDS[(gi - 1) % GERUNDS.length] + '…'}</span>}
-              <span key={'i' + gi} class="nl-gerund nl-gerund-in">{GERUNDS[gi % GERUNDS.length] + '…'}</span>
-            </div>
-          )}
-        </div>
-      </div>
+      <FabryInput
+        value={input}
+        onInput={setInput}
+        onSubmit={submit}
+        busy={loading}
+        placeholder="Ask Mr. Fabry — describe a query…"
+        gerunds={GERUNDS}
+      />
       {(loading || outcome) && (
         <div class="agent-footer">
           {loading
