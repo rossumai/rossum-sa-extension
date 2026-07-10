@@ -13,13 +13,13 @@ Uses **esbuild** to bundle ES modules from `src/` into `dist/`. No other build t
 - `npm run build` — clean build into `dist/`
 - `npm run dev` — watch mode (JS only; re-run build for CSS/HTML changes)
 - `dist/` is the loadable Chrome extension (gitignored)
-- `build.js` orchestrates bundling + static asset copying (manifest.json, icons/, popup HTML/CSS, console HTML/CSS)
+- `build.js` orchestrates bundling + static asset copying (manifest.json, icons/, popup HTML/CSS, console HTML/CSS, devtools HTML/CSS)
 
 esbuild config: `format: 'iife'`, `minify: true`, `jsxFactory: 'h'`, `jsxFragment: 'Fragment'` (Preact JSX).
 
 ## Architecture
 
-Six esbuild entry points:
+Eight esbuild entry points:
 
 1. **`src/rossum/index.js`** → content script for Rossum pages
 2. **`src/netsuite/index.js`** → content script for NetSuite pages
@@ -27,6 +27,8 @@ Six esbuild entry points:
 4. **`src/popup/popup.jsx`** → extension popup UI (Preact)
 5. **`src/console/index.jsx`** → unified Console page (`console/console.html`, opened via `chrome.tabs.create`) — a left app-switcher rail over three apps: Dataset Management (`src/mdh/`), Audit Log Viewer (`src/audit/`), and Galaxy (`src/galaxy/`, a 3D org birdview)
 6. **`src/background/index.js`** → MV3 service worker (`background.js`)
+7. **`src/devtools/devtools.js`** → Chrome DevTools registrar (`devtools.html`, creates the "Rossum" panel + forwards `panel.onSearch` to CodeMirror)
+8. **`src/devtools/panel.jsx`** → DevTools panel page (`panel.html`)
 
 The background service worker exists for a single job: a content script can't
 `chrome.tabs.create` an extension page, so the `dataset-mgmt-suggest` feature
@@ -147,6 +149,19 @@ spec: `docs/superpowers/specs/2026-07-03-inspector-overhaul-design.md`).
 - Read-only stance unchanged: the agent's read-only framing is defense-in-depth, and the
   server-side write-lock remains the ship-blocker before non-dogfood use.
 
+### DevTools panel (Raw Object Editor) (`src/devtools/`)
+
+A Chrome DevTools panel named **"Rossum"** that displays and edits the API resource backing the current Rossum page. The editor fills the panel with compact font (11px) and no header — the tab itself shows the resource identity. Detected resources (`detect.js` `detectResource`): detail routes — **queue** (`/queues/{id}` + async `/queues/{id}/settings/emails` → `queue.inbox`), **hook** (`/extensions/my-extensions/{id}`), **user** (`/settings/users/{id}`), **schema** (`/settings/field-manager/detail/{id}` and queue **Fields** tab via async `queue.schema` fetch), **engine** (`/automation/engines/{id}`), **rule** (`/queues/{q}/settings/rules/{ruleId}/detail` — matched *before* the queue row, first-match-wins), **annotation** (`/document/{id}` and `/annotation/{id}` → `/api/v1/annotations/{id}`); and read-only collection pages — **Hooks** (`/extensions/my-extensions`), **Users** (`/settings/users`), **Labels** (`/settings/labels`), **Organization Groups** (part of `READONLY_COLLECTIONS`, always non-editable). Additional: a **queue** from `/documents?filtering=…&level=queue`, and `/documents?level=all` resolves to **organization** (via `GET /api/v1/organizations` → `results[0].url`). Links open via **Cmd/Ctrl-click** or right-click **"Open in new tab"**, reaching any Rossum API URL including workspace/org and sub-resources (e.g. annotation `content`, read-only). For annotations the panel edits the **annotation object** (metadata/status/labels) via PATCH — datapoint **content** is NOT edited here (that needs the content-operations API). Resource identity uses `keyOf(apiPath)` so sub-resources (different API paths) open as distinct tabs; `readOnly` descriptor flag marks non-editable resources. 404 shows a clearer message (out-of-org, support-access user, or deleted).
+
+- **Registrar & auth flow** — `devtools.js` creates the panel; `panel.jsx` is the panel page. Auth: the panel uses `chrome.devtools.inspectedWindow.eval` to read `{token, domain, pathname, search}` from the inspected Rossum tab's main-world context (no storage staging needed) and re-polls for SPA navigation (`inspected.js` `startBridge`, dedup keyed on domain|pathname|search|token — `search` is included so `/documents?level=all` vs `?…&level=queue` on the same path re-detect). Panel calls `${domain}/api/v1/…` with `Token` auth (reuses extension's existing `host_permissions`). Self-gated: always available on Rossum pages, no popup toggle or experimental unlock.
+- **In-panel tabs** — one permanent **default (page) tab** (`.rawjson-tab--page`, visually distinct) follows the inspected page, is pinned first, and is **always visible and never closeable** (seeded at store load via `ensurePageTab()`; `syncPageTab` never drops it; `closeTab`/`closeOtherTabs` preserve it). When no resource is detected it becomes resource-less (labelled "Page") and its **body shows the "Open a Rossum queue, hook, user, …" hint** (there is no separate no-tabs empty state). **Cmd/Ctrl-click** or right-click a Rossum API URL opens a **link tab** (closeable, reorderable via drag-and-drop, pinned after the root via `store.moveTab`). Tab state lives in Preact `store.tabs` / `store.activeId`. Right-click a tab → context menu (`store.tabMenu`): **"Close"** (link tabs only — never offered for the default tab) + **"Close Other Tabs"** (`closeOtherTabs`, keeps the clicked tab *and* the default tab); right-clicking the sole default tab opens no menu.
+- **Core UI** — CodeMirror `JsonCodeEditor` (basicSetup + `@codemirror/lang-json`). Theme-aware — `theme.js` `isDark()` (DevTools `chrome.devtools.panels.themeName`, `prefers-color-scheme` fallback) drives both the CodeMirror syntax colors (custom `HighlightStyle` approximating DevTools, light+dark) and the panel chrome (`data-theme` on the root; `panel.css`). **Cmd/Ctrl-F** is captured at the window capture phase (`keydown` listener) → focus + `openSearchPanel` on `store.views.active` (the DevTools native search bar does not appear; `search.js` was removed).
+- **Content preview** — when a resource's body is NOT JSON (by response `Content-Type`; e.g. `documents/{id}/content` returns the original file), `api.getResource` returns a blob descriptor and the tab shows `PreviewPane` instead of the editor: `image/*` → `<img>`, `application/pdf` → `<iframe>` (NOT `<embed>`/`<object>` — the extension-page CSP `object-src 'self'` blocks a `blob:` object), else a file-info card; every preview has **Download** + **Open in browser tab** (both use the `blob:` object URL — a direct `${domain}${apiPath}` nav would 401). Object URL is created/revoked with the component lifecycle. Preview tabs are read-only (no Save). `contentMeta.js` = pure `extFor`/`formatBytes`/`filenameFrom`. `getJson` is kept for JSON-guaranteed calls (`via` resolution + save re-fetch).
+- **Inline resource-name hints + prefetch cache** — the editor annotates every visible `/api/v1/<collection>/<id>` reference (scalar fields AND array elements) with the target object's **name**, dimmed at line end (`cmNames.js` ViewPlugin `.rawjson-name`; debounced `refreshNames` effect as names arrive). `nameResolve.js` `makeNameResolver(getJson)` resolves visible links (in-flight dedupe, ~6 concurrency cap, negative-cached errors) via a session `resourceCache.js` (`apiPath → {name, obj, at, status}`, ~200-entry cap). `pickName`: user → `username (first last)` (else `username`, else `email`); documents → `original_file_name`; else `.name`. Because resolving a name fetches the whole object, `resourceCache` doubles as a **prefetch cache**: `loadResource` reuses `deps.getCached` (≤60s `getFresh`) to open a link tab instantly with no network call, and warms `deps.putCached` on any JSON load. Cache is in-memory only (never persisted). Sub-resources (`…/content`, read-only) are never name-resolved.
+- **Editing & Save** — edits generate a diff (pure `diff.js` logic) shown in a `DiffConfirm` overlay; user accepts → `PATCH` sent to the API → on success, **reloads the inspected page** (`inspectedWindow.reload`). No Undo. Reuses pure modules `detect.js` (URL→resource descriptor `{type,id,apiPath,label,readOnly}`), `diff.js` (`buildPatchBody`/`diffObjects` — diff-shown == diff-sent), Preact signals `store.js`, and `actions.js` (`loadResource`/`requestDiff`/`saveResource`, dependency-injected with `{getJson, patch}`, with a resource-change guard so a mid-save SPA nav never writes the wrong resource); components `DiffConfirm` and the lean CodeMirror `JsonCodeEditor` are in `src/devtools/`.
+- **Fallback** — 403/405 (read-only org or insufficient perms) → the editor is non-editable and Save is hidden (view-only). 404 displays context (out-of-org, support-access user, resource deleted).
+- **Nothing leaves the browser** — resource JSON is fetched + displayed + patched inline; no contents persisted, no sync to background/storage.
+
 ### Coupa content script
 
 Two strategies: JSON metadata extraction from `#initial_full_react_data` script tag (React pages like invoices) and DOM attribute extraction with `IGNORE_S_CLASSES` filtering (Rails pages like POs).
@@ -157,7 +172,7 @@ Preact JSX. Detects current site (Rossum/NetSuite/Coupa) and dims irrelevant sec
 
 ## Chrome Storage Keys
 
-- Feature toggles: `schemaAnnotationsEnabled`, `expandFormulasEnabled`, `expandReasoningFieldsEnabled`, `scrollLockEnabled`, `resourceIdsEnabled`, `annotateForMeEnabled`, `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled` (the short-lived `inspectAnnotationEnabled` toggle was removed 2026-07-04 along with the floating button; any stored value is orphaned)
+- Feature toggles: `schemaAnnotationsEnabled`, `expandFormulasEnabled`, `expandReasoningFieldsEnabled`, `scrollLockEnabled`, `resourceIdsEnabled`, `annotateForMeEnabled`, `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled` (the short-lived `inspectAnnotationEnabled` toggle was removed 2026-07-04 along with the floating button, and the in-page `rawObjectEditorEnabled` toggle was removed 2026-07 with the in-page Raw Object Editor surface; any stored values are orphaned)
 - Experimental unlock: `experimentalUnlocked` — flipped by 5 quick clicks on the popup's version hash; reveals the popup's Experimental section AND is the second half of the `annotateForMeEnabled` double-gate (`isAnnotateEnabled` in `src/rossum/features/annotate-for-me.js`): the Annotate-for-me feature injects only when BOTH are true
 - Console staging auth: `consoleAuth_<uuid>` (single-use, 24h TTL, removed on first read; carries `app` + optional DS pipeline prefill)
 - Console state: `consoleActiveApp` — per-tab (see MDH state below: session-first read with a `chrome.storage.local` seed)

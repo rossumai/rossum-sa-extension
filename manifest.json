@@ -44,5 +44,6 @@
       "48": "icons/48-blue-crunch.png",
       "128": "icons/128-blue-crunch.png"
     }
-  }
+  },
+  "devtools_page": "devtools/devtools.html"
 }

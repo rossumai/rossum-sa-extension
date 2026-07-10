@@ -13,7 +13,7 @@ const chromeVersion = `${chromeMajor}.${chromeMinor}`;
 
 rmSync('dist', { recursive: true, force: true });
 
-for (const dir of ['dist/popup', 'dist/icons', 'dist/console']) {
+for (const dir of ['dist/popup', 'dist/icons', 'dist/console', 'dist/devtools']) {
   mkdirSync(dir, { recursive: true });
 }
 
@@ -28,6 +28,9 @@ cpSync('src/popup/popup.html', 'dist/popup/popup.html');
 cpSync('src/popup/popup.css', 'dist/popup/popup.css');
 cpSync('src/console/console.html', 'dist/console/console.html');
 cpSync('src/console/console.css', 'dist/console/console.css');
+cpSync('src/devtools/devtools.html', 'dist/devtools/devtools.html');
+cpSync('src/devtools/panel.html', 'dist/devtools/panel.html');
+cpSync('src/devtools/panel.css', 'dist/devtools/panel.css');
 
 const options = {
   entryPoints: {
@@ -37,6 +40,8 @@ const options = {
     'popup/popup': 'src/popup/popup.jsx',
     'console/console': 'src/console/index.jsx',
     'background': 'src/background/index.js',
+    'devtools/devtools': 'src/devtools/devtools.js',
+    'devtools/panel': 'src/devtools/panel.jsx',
   },
   bundle: true,
   minify: true,
