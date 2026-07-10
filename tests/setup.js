@@ -42,3 +42,16 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
   };
 }
 
+// jsdom does not always provide requestAnimationFrame in a worker context. Some
+// components (CodeMirror measure cycles, Preact after-paint effects) schedule a
+// rAF from inside an async task; when it's missing the call throws as an
+// *unhandled rejection* that vitest attributes to whichever file happens to be
+// running — a flake that only surfaces under full-suite load as test ordering
+// shifts. Define a guarded no-op (only where missing): it stops the throw
+// without invoking the callback, matching the pre-polyfill reality (the throw
+// meant the callback never ran), so there is no behavior change or cascade.
+if (typeof globalThis.requestAnimationFrame === 'undefined') {
+  globalThis.requestAnimationFrame = () => 0;
+  globalThis.cancelAnimationFrame = () => {};
+}
+

@@ -32,3 +32,14 @@ export function patchFilters(key, patch) {
   const cur = filtersBySource.value[key];
   filtersBySource.value = { ...filtersBySource.value, [key]: { ...cur, ...patch } };
 }
+
+// Rossum Agent API ("Mr. Fabry") reachable — set from probeAgent() at init.
+export const aiAvailable = signal(false);
+
+// Fabry conversation state (ephemeral; no persistence). One chat per session:
+// turns[0] is the auto default-summary (question:null); later turns are Q&A.
+// status: 'idle' | 'running' | 'done' | 'error'.
+export const fabry = signal({ status: 'idle', chatId: null, turns: [], error: null });
+export function resetFabry() {
+  fabry.value = { status: 'idle', chatId: null, turns: [], error: null };
+}

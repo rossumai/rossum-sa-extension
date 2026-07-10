@@ -1,5 +1,5 @@
 import { h } from 'preact';
-import { availability } from '../store.js';
+import { availability, aiAvailable } from '../store.js';
 import ConnectionBar from './ConnectionBar.jsx';
 import ErrorBanner from './ErrorBanner.jsx';
 import FiltersBar from './FiltersBar.jsx';
@@ -7,6 +7,7 @@ import ResultsTable from './ResultsTable.jsx';
 import DetailPanel from './DetailPanel.jsx';
 import Pagination from './Pagination.jsx';
 import UnavailablePanel from './UnavailablePanel.jsx';
+import FabryPanel from './FabryPanel.jsx';
 
 export default function App({ connected }) {
   return (
@@ -20,6 +21,7 @@ export default function App({ connected }) {
           <UnavailablePanel />
         ) : (
           <div class="audit-body">
+            {aiAvailable.value && <FabryPanel />}
             <FiltersBar />
             <div class="audit-results-row">
               <ResultsTable />

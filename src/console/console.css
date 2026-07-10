@@ -4151,3 +4151,26 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 
 /* Unified Export wizard */
 .export-wizard .csv-export-preview { margin-top: 10px; }
+
+/* Audit — Mr. Fabry insights band (Inspector Diagnosis identity, attached above the filters).
+   Collapsed: one line with a live preview. Expanded: chat-ordered thread, input last. */
+.audit-fabry { background: linear-gradient(180deg, var(--diag-grad-a), var(--diag-grad-b)); border-bottom: 1px solid var(--diag-border); padding: 0 16px; flex-shrink: 0; }
+.audit-fabry-bar { display: flex; align-items: center; gap: 10px; }
+.audit-fabry-toggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 7px; background: none; border: none; cursor: pointer; padding: 7px 0; font: inherit; text-align: left; color: var(--diag-fg); }
+.audit-fabry-toggle:hover .audit-fabry-title { text-decoration: underline; }
+.audit-fabry-title { font-weight: 700; font-size: 12.5px; flex-shrink: 0; }
+.audit-fabry-mark { font-size: 11px; margin-right: 1px; }
+.audit-fabry .inspector-diag-credit { flex-shrink: 0; }
+.audit-fabry-preview { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11.5px; color: var(--text-secondary); }
+.audit-fabry-hint { margin-left: auto; font-size: 11px; color: var(--text-secondary); font-style: italic; }
+.audit-fabry-tx { flex-shrink: 0; }
+.audit-fabry-body { display: flex; flex-direction: column; gap: 10px; padding: 2px 0 12px; }
+.audit-fabry-turn + .audit-fabry-turn { border-top: 1px dashed var(--diag-border); padding-top: 10px; }
+.audit-fabry-body .agent-input-row { margin-top: 2px; }
+.audit-fabry .nl-search-input { padding: 6px 8px 6px 27px; font-size: 12px; }
+.audit-fabry .nl-search-loading { font-size: 12px; padding-left: 27px; }
+.audit-fabry .nl-gerund-out { left: 27px; }
+.audit-fabry .agent-spark { left: 10px; font-size: 12px; }
+.audit-fabry .inspector-diag-body { font-size: 12.5px; }
+.audit-fabry .inspector-diag-body p { margin: 0 0 7px; }
+.audit-fabry .inspector-diag-body p:last-child { margin-bottom: 0; }

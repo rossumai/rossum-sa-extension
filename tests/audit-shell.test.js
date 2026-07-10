@@ -30,6 +30,7 @@ beforeEach(() => {
   store.rows.value = [];
   store.selectedRow.value = null;
   store.error.value = null;
+  store.aiAvailable.value = false;
 });
 
 describe('Audit shell', () => {
@@ -57,5 +58,12 @@ describe('Audit shell', () => {
     const root = mount(true);
     expect(root.querySelector('.unavailable-panel')).not.toBeNull();
     expect(root.querySelector('.results-wrap')).toBeNull();
+  });
+
+  it('mounts the Fabry panel only when the agent is available', () => {
+    store.aiAvailable.value = false;
+    expect(mount(true).querySelector('.audit-fabry')).toBeNull();
+    store.aiAvailable.value = true;
+    expect(mount(true).querySelector('.audit-fabry')).not.toBeNull();
   });
 });
