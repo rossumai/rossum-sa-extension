@@ -17,6 +17,7 @@
 // The navigation keys that are per-tab. Everything else stays global.
 export const TAB_SCOPED_KEYS = [
   'consoleActiveApp',
+  'fabryActiveChat',
   'mdhActiveView',
   'mdhSelectedCollection',
   'mdhActivePanel',

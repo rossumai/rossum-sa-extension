@@ -11,7 +11,7 @@
 // READ-ONLY is enforced client-side: `screen()` rejects any pipeline containing a write
 // stage ANYWHERE ($out/$merge, via stripWriteStages) — never executed or applied.
 // Returns { pipelineText, note, transcript } (transcript = the run's chat for the modal).
-import { newAcc, foldEvents, replyText, extractPipeline } from './agentStream.js';
+import { newAcc, foldEvents, replyText, extractPipeline } from '../../agent/agentStream.js';
 import { safeParseArray } from '../llmPipeline.js';
 import { stripWriteStages } from '../pipelineOps.js';
 

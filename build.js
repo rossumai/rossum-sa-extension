@@ -39,6 +39,10 @@ const options = {
     'scripts/coupa': 'src/coupa/index.js',
     'popup/popup': 'src/popup/popup.jsx',
     'console/console': 'src/console/index.jsx',
+    // Lazy-loaded by the Fabry chat's MermaidBlock (script-injected on the
+    // first mermaid fence): beautiful-mermaid ships one flat ~1.5MB module,
+    // so it gets its own bundle instead of weighing down console.js.
+    'console/mermaid': 'src/fabry/mermaidEntry.js',
     'background': 'src/background/index.js',
     'devtools/devtools': 'src/devtools/devtools.js',
     'devtools/panel': 'src/devtools/panel.jsx',

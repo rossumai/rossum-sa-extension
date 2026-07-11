@@ -3054,6 +3054,7 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
   pointer-events: none;            /* don't intercept clicks on the rail item */
 }
 
+
 /* ===================================================================== */
 /* Audit Log Viewer                                                      */
 /* ===================================================================== */
@@ -4175,3 +4176,157 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .audit-fabry .inspector-diag-body { font-size: 12.5px; }
 .audit-fabry .inspector-diag-body p { margin: 0 0 7px; }
 .audit-fabry .inspector-diag-body p:last-child { margin-bottom: 0; }
+
+/* ==== Fabry chat app ==== */
+.fabry-root { display: flex; flex-direction: column; min-height: 0; }
+.fabry-error { background: var(--danger-bg); color: var(--danger-fg); border: 1px solid var(--danger-border); border-radius: var(--radius); padding: 8px 12px; margin: 8px; font-size: 12px; }
+.fabry-layout { display: grid; grid-template-columns: 280px 1fr; flex: 1; min-height: 0; }
+.fabry-sidebar { position: relative; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--border); padding: 10px; gap: 8px; }
+.fabry-side-resizer { position: absolute; top: 0; right: -3px; width: 6px; height: 100%; cursor: col-resize; z-index: 5; }
+.fabry-side-resizer:hover, .fabry-side-resizer.dragging { background: var(--info-border); }
+/* Sidebar (final: F1 search-first over N3 two-line rows, blue scheme):
+   full-width regular-weight title + tiny time; active chat = soft info fill
+   + accent title; ghost New chat. */
+.fabry-newchat { border: 1px solid var(--border); color: var(--accent); background: none; border-radius: 10px; padding: 8px 12px; font-weight: 600; cursor: pointer; text-align: center; }
+.fabry-newchat:hover { background: var(--bg-hover); border-color: var(--info-border); }
+.fabry-chatlist { flex: 1; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 2px; overscroll-behavior: contain; }
+.fabry-search { display: flex; align-items: center; gap: 7px; border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; background: var(--bg-base); color: var(--text-secondary); }
+.fabry-search input { border: 0; background: none; font: inherit; font-size: 12px; color: var(--text-primary); flex: 1; outline: none; min-width: 0; }
+.fabry-search-glyph { font-size: 13px; }
+.fabry-search-clear { border: 0; background: none; color: var(--text-secondary); cursor: pointer; font-size: 13px; padding: 0 2px; }
+.fabry-search-clear:hover { color: var(--text-primary); }
+.fabry-search-status { font-size: 10.5px; color: var(--text-secondary); padding: 10px 6px; text-align: center; }
+.fabry-chat-title mark { background: none; color: var(--accent); font-weight: 600; }
+.fabry-chat-row { display: flex; flex-direction: column; gap: 2px; text-align: left; border: 0; background: none; border-radius: 10px; padding: 8px 11px; cursor: pointer; color: var(--text-primary); }
+.fabry-chat-row:hover { background: var(--bg-hover); }
+.fabry-chat-row.active { background: var(--info-bg); }
+.fabry-chat-row.active .fabry-chat-title { color: var(--accent); font-weight: 500; }
+.fabry-chat-title { min-width: 0; font-size: 12.5px; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fabry-chat-meta { font-size: 9.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.fabry-chat-empty { font-size: 12px; color: var(--text-secondary); padding: 12px; text-align: center; }
+.fabry-chat-loadingrow { font-size: 10.5px; color: var(--text-secondary); text-align: center; padding: 6px; }
+.fabry-working { position: relative; flex: 1; align-self: stretch; min-height: 20px; }
+.fabry-main { display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow-y: auto; overscroll-behavior: contain; }
+.fabry-thread { flex: 1 0 auto; padding: 18px 22px; display: flex; flex-direction: column; gap: 14px; max-width: 860px; width: 100%; margin: 0 auto; overflow-wrap: break-word; }
+.fabry-turn-chip { align-self: center; font-size: 10.5px; color: var(--text-secondary); background: var(--bg-hover); border-radius: 999px; padding: 3px 12px; font-family: var(--font-mono, monospace); }
+.fabry-turn-user { align-self: flex-end; max-width: 78%; background: var(--info-bg); border: 1px solid var(--info-border); border-radius: 12px 12px 4px 12px; padding: 9px 12px; font-size: 13px; white-space: pre-wrap; }
+.fabry-turn-img { max-width: 220px; max-height: 160px; border-radius: 8px; display: block; margin-bottom: 6px; }
+.fabry-turn-assistant { align-self: stretch; font-size: 13px; line-height: 1.55; }
+.fabry-thinking-toggle { border: 0; background: none; color: var(--accent); font-size: 11px; cursor: pointer; padding: 0; }
+.fabry-thinking-body { font-size: 11px; color: var(--text-secondary); border-left: 2px solid var(--info-border); padding: 4px 10px; margin: 6px 0; white-space: pre-wrap; max-height: 240px; overflow-y: auto; }
+.fabry-tools { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.fabry-tool-chip { font-size: 10px; color: var(--accent); border: 1px solid var(--info-border); border-radius: 999px; padding: 1px 8px; }
+/* R1 "Aligned" markdown (design round 4): real heading scale (parser maps
+   # / ## / ### / #### to h3–h6), indented lists, framed tables, --bg-code
+   blocks with a language tag + hand-rolled token highlighting, mermaid. */
+.fabry-md p { margin: 8px 0; }
+.fabry-md h3.fabry-md-h { font-size: 16.5px; font-weight: 700; margin: 20px 0 8px; }
+.fabry-md h4.fabry-md-h { font-size: 14.5px; font-weight: 650; margin: 18px 0 6px; }
+.fabry-md h5.fabry-md-h { font-size: 13px; font-weight: 650; margin: 14px 0 4px; }
+.fabry-md h6.fabry-md-h { font-size: 12px; font-weight: 650; margin: 12px 0 4px; color: var(--text-secondary); }
+.fabry-md ul, .fabry-md ol { padding-left: 22px; margin: 8px 0; }
+.fabry-md li { margin: 3px 0; }
+.fabry-md li::marker { color: var(--text-secondary); }
+.fabry-md-codewrap { position: relative; margin: 10px 0; }
+.fabry-md-lang { position: absolute; top: 6px; right: 10px; font-family: var(--font-mono); font-size: 9.5px; color: var(--text-secondary); user-select: none; }
+.fabry-md-code { background: var(--bg-code); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; overflow-x: auto; font-size: 12px; margin: 0; }
+.fabry-md-code .hl-kw { color: var(--mdh-special-bidi); }
+.fabry-md-code .hl-str { color: var(--success); }
+.fabry-md-code .hl-key { color: var(--info-fg); }
+.fabry-md-code .hl-num { color: var(--accent); }
+.fabry-md-code .hl-com { color: var(--text-secondary); font-style: italic; }
+.fabry-md-code .hl-lit { color: var(--warning); }
+.fabry-md-code .hl-dec { color: var(--info-fg); }
+.fabry-md-icode { background: var(--bg-code); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; font-size: 12px; }
+.fabry-md-tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; margin: 10px 0; }
+.fabry-md-table { border-collapse: collapse; font-size: 12px; width: 100%; }
+.fabry-md-table th { background: var(--bg-hover); font-weight: 600; font-size: 11.5px; }
+.fabry-md-table th, .fabry-md-table td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+.fabry-md-table tr:last-child td { border-bottom: 0; }
+.fabry-md-quote { border-left: 3px solid var(--info-border); margin: 8px 0; padding: 2px 10px; color: var(--text-secondary); }
+.fabry-md-h { margin: 10px 0 4px; }
+.fabry-md-hr { border: 0; border-top: 1px solid var(--border); margin: 18px 0; }
+.fabry-md-mermaid { position: relative; margin: 10px 0; border: 1px solid var(--border); border-radius: 8px; background: transparent; padding: 14px; overflow-x: auto; }
+.fabry-md-mermaid-box svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+.fabry-md-mermaid-src { font-family: var(--font-mono); font-size: 11px; line-height: 1.3; margin: 0; color: var(--text-secondary); opacity: .6; }
+.fabry-caret { display: inline-block; width: 7px; height: 14px; background: var(--accent); margin-left: 2px; animation: fabry-blink 1s steps(1) infinite; vertical-align: text-bottom; }
+@keyframes fabry-blink { 50% { opacity: 0; } }
+.fabry-turn-foot { display: flex; gap: 6px; margin-top: 6px; }
+.fabry-turn-foot button { border: 1px solid var(--border); background: none; border-radius: 6px; padding: 2px 8px; font-size: 11px; cursor: pointer; opacity: .7; }
+.fabry-turn-foot button:hover, .fabry-turn-foot button.on { opacity: 1; border-color: var(--info-border); color: var(--accent); }
+.fabry-interrupted { font-size: 11px; color: var(--warning-fg, #92600a); margin-top: 6px; }
+.fabry-refresh { border: 0; background: none; color: var(--accent); cursor: pointer; text-decoration: underline; font-size: 11px; }
+.fabry-greeting { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--text-secondary); }
+.fabry-greeting-mark { font-size: 28px; color: var(--accent); }
+.fabry-greeting-title { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+.fabry-thread-loading { text-align: center; color: var(--text-secondary); font-size: 12px; }
+.fabry-composer { position: sticky; bottom: 0; z-index: 10; background: var(--bg-base); padding: 10px 22px 14px; max-width: 860px; width: 100%; margin: 0 auto; }
+.fabry-senderr { color: var(--danger-fg); font-size: 12px; margin-bottom: 6px; }
+.fabry-persona { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 11px; color: var(--text-secondary); }
+.fabry-persona-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+.fabry-persona-seg button { border: 0; background: none; color: var(--text-secondary); padding: 3px 12px; font-size: 11px; cursor: pointer; }
+.fabry-persona-seg button.on { background: var(--info-bg); color: var(--accent); font-weight: 600; }
+.fabry-attach-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.fabry-attach { position: relative; }
+.fabry-attach img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
+.fabry-attach button { position: absolute; top: -6px; right: -6px; border: 1px solid var(--border); background: var(--bg-card); border-radius: 999px; width: 18px; height: 18px; line-height: 1; font-size: 11px; cursor: pointer; }
+.fabry-input-wrap { position: relative; display: flex; gap: 8px; align-items: flex-end; }
+.fabry-field { position: relative; flex: 1; display: flex; align-items: flex-end; gap: 8px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 16px; padding: 8px 10px 8px 14px; box-shadow: var(--shadow); }
+.fabry-field:focus-within { border-color: var(--info-border); }
+.fabry-input { flex: 1; resize: none; border: 0; padding: 6px 0; font-size: 13px; font-family: inherit; background: none; color: var(--text-primary); max-height: 180px; }
+.fabry-input:focus { outline: none; }
+.fabry-input-actions { display: flex; gap: 6px; align-items: center; }
+.fabry-attach-btn { cursor: pointer; font-size: 15px; opacity: .7; }
+.fabry-attach-btn:hover { opacity: 1; }
+.fabry-send { border: 0; border-radius: 10px; padding: 7px 16px; font-weight: 650; cursor: pointer; color: var(--bg-card); background: var(--accent); }
+.fabry-stop { border: 1px solid var(--info-border); border-radius: 10px; padding: 7px 16px; font-weight: 600; cursor: pointer; color: var(--accent); background: var(--info-bg); }
+.fabry-send:disabled { opacity: .5; cursor: default; }
+.fabry-cmdmenu { position: absolute; bottom: 100%; left: 0; right: 0; margin-bottom: 6px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); padding: 6px; max-height: 260px; overflow-y: auto; z-index: 5; }
+.fabry-cmd-row { display: flex; gap: 10px; width: 100%; text-align: left; border: 0; background: none; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.fabry-cmd-row:hover { background: var(--bg-hover); }
+.fabry-cmd-name { font-family: var(--font-mono, monospace); font-size: 12px; color: var(--accent); }
+.fabry-cmd-desc { font-size: 11px; color: var(--text-secondary); }
+.fabry-cmd-arg { border: 1px solid var(--info-border); background: none; color: var(--accent); border-radius: 999px; font-size: 10px; padding: 1px 8px; margin: 0 0 4px 26px; cursor: pointer; }
+.fabry-notice { font-size: 10.5px; color: var(--text-secondary); margin-top: 8px; text-align: center; }
+.fabry-hd { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 10px; padding: 11px 22px; border-bottom: 1px solid var(--info-border); background: linear-gradient(135deg, var(--bg-card), var(--info-bg)); width: 100%; }
+.fabry-hd-mark { color: var(--accent); font-size: 15px; }
+.fabry-hd-title { font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.fabry-hd-persona { font-size: 10px; color: var(--accent); border: 1px solid var(--info-border); border-radius: 999px; padding: 1px 8px; }
+.fabry-hd-tokens { margin-left: auto; font-size: 10px; color: var(--text-secondary); }
+.fabry-files { display: flex; flex-wrap: wrap; gap: 8px; padding: 6px 22px; max-width: 860px; width: 100%; margin: 0 auto; }
+.fabry-file { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; font-size: 11px; }
+.fabry-file-size { color: var(--text-secondary); font-size: 10px; }
+.fabry-file-dl { border: 0; background: none; cursor: pointer; color: var(--accent); font-size: 13px; }
+.fabry-sidebar-hd { display: flex; gap: 6px; align-items: stretch; }
+.fabry-sidebar-hd .fabry-newchat { flex: 1; }
+.fabry-sidebar-toggle { border: 1px solid var(--border); background: none; border-radius: 8px; padding: 4px 9px; cursor: pointer; color: var(--text-secondary); font-size: 12px; }
+.fabry-sidebar-toggle:hover { background: var(--bg-hover); color: var(--text-primary); }
+.fabry-layout.sidebar-collapsed { grid-template-columns: 52px 1fr; }
+.fabry-sidebar.collapsed { align-items: center; padding: 10px 6px; gap: 6px; }
+.fabry-newchat.icon { padding: 5px 10px; }
+.fabry-persona-hint { color: var(--text-secondary); font-size: 10.5px; }
+.fabry-starters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 20px; max-width: 580px; width: 100%; padding: 0 20px; }
+.fabry-starter { text-align: left; border: 1px solid var(--border); background: var(--bg-card); border-radius: 12px; padding: 11px 13px; cursor: pointer; font-size: 11.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 2px; }
+.fabry-starter b { font-size: 12.5px; font-weight: 600; color: var(--text-primary); }
+.fabry-starter:hover { border-color: var(--info-border); background: var(--info-bg); }
+.fabry-starter:hover b { color: var(--accent); }
+
+.fabry-main::-webkit-scrollbar, .fabry-chatlist::-webkit-scrollbar, .fabry-md-code::-webkit-scrollbar, .fabry-md-mermaid::-webkit-scrollbar, .fabry-md-tablewrap::-webkit-scrollbar { width: 9px; height: 9px; }
+.fabry-main::-webkit-scrollbar-thumb, .fabry-chatlist::-webkit-scrollbar-thumb, .fabry-md-code::-webkit-scrollbar-thumb, .fabry-md-mermaid::-webkit-scrollbar-thumb, .fabry-md-tablewrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+.fabry-main::-webkit-scrollbar-thumb:hover, .fabry-chatlist::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); border: 2px solid transparent; background-clip: content-box; }
+.fabry-main::-webkit-scrollbar-track, .fabry-chatlist::-webkit-scrollbar-track { background: transparent; }
+
+/* Sidebar scrollbar: invisible until the list is hovered (no layout shift —
+   the gutter width stays reserved, only the thumb paints on hover). */
+.fabry-chatlist::-webkit-scrollbar-thumb { background: transparent; border: 0; }
+.fabry-chatlist:hover::-webkit-scrollbar-thumb { background: var(--border); border: 2px solid transparent; background-clip: content-box; }
+
+/* Deep verify: composer toggle, live-phase chip, per-turn verdict chip + critic strip. */
+.fabry-deep-toggle { margin-left: auto; border: 1px solid var(--border); background: none; color: var(--text-secondary); border-radius: 999px; padding: 3px 12px; font-size: 11px; cursor: pointer; }
+.fabry-deep-toggle.on { border-color: var(--info-border); color: var(--accent); background: var(--info-bg); font-weight: 600; }
+.fabry-deep-phase { align-self: flex-start; font-size: 10.5px; color: var(--accent); border: 1px dashed var(--info-border); border-radius: 999px; padding: 2px 10px; }
+.fabry-deep-chip { border: 1px solid var(--border); background: none; border-radius: 6px; padding: 2px 8px; font-size: 11px; cursor: pointer; }
+.fabry-deep-chip.pass { color: var(--success-fg); border-color: var(--success-border); background: var(--success-bg); }
+.fabry-deep-chip.fail { color: var(--warning-fg); border-color: var(--warning-border); background: var(--warning-bg); }
+.fabry-deep-chip.inconclusive { color: var(--text-secondary); }
+.fabry-deep-strip { border: 1px solid var(--info-border); border-radius: 8px; background: var(--info-bg); padding: 8px 12px; margin-top: 6px; font-size: 12px; }

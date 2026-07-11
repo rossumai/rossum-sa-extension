@@ -1,6 +1,6 @@
 // Pure helpers for the Rossum Agent API stream (AI-SDK data-stream protocol).
 // No network, no DOM — fully unit-testable. See spec §2 for the event vocabulary.
-import { stripFences, safeParseArray } from '../llmPipeline.js';
+import { stripFences, safeParseArray } from '../mdh/llmPipeline.js';
 
 const TOOL_LABELS = {
   load_skill: 'consulting reference',

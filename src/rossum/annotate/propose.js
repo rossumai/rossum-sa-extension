@@ -3,7 +3,7 @@
 // NOTHING. The reading describes the page, which never changes during a run,
 // so the loop caches it and re-reconciles on every pass.
 import { buildReadPrompt, parseReading } from './reading.js';
-import { newAcc, foldEvents, replyText } from '../../mdh/agent/agentStream.js';
+import { newAcc, foldEvents, replyText } from '../../agent/agentStream.js';
 
 export async function readDocument({ gathered, token, domain, streamFabry, onEvent }) {
   const content = buildReadPrompt({

@@ -4,7 +4,7 @@ import * as store from './store.js';
 import { activeApp } from '../console/store.js';
 import { SOURCE_ORDER } from './sources/index.js';
 import { fetchActive } from './query.js';
-import * as agentApi from '../mdh/agent/agentApi.js';
+import * as agentApi from '../agent/agentApi.js';
 import { runAuditQuery, continueAuditQuery, refreshAuditSummary, DEFAULT_QUESTION } from './fabry.js';
 
 // Restore persisted per-source state, merging only known sources/keys over the

@@ -4,6 +4,7 @@ import {
   pickInitialApp,
   resolveBootAuth,
   computeStaleAuthRemovals,
+  appAfterGateChange,
 } from '../src/console/boot.js';
 
 describe('isValidApp', () => {
@@ -94,5 +95,22 @@ describe('computeStaleAuthRemovals', () => {
     expect(computeStaleAuthRemovals(all, now, TTL).sort()).toEqual(
       ['auditAuth_y', 'mdhAuth_x', 'mdhDomain', 'mdhToken'],
     );
+  });
+});
+
+describe('fabry experimental gate', () => {
+  it('isValidApp accepts fabry', () => {
+    expect(isValidApp('fabry')).toBe(true);
+  });
+  it('pickInitialApp only yields fabry when unlocked', () => {
+    expect(pickInitialApp({ persistedApp: 'fabry', fabryUnlocked: true })).toBe('fabry');
+    expect(pickInitialApp({ persistedApp: 'fabry', fabryUnlocked: false })).toBe('mdh');
+    expect(pickInitialApp({ persistedApp: 'fabry' })).toBe('mdh'); // default locked (older callers)
+    expect(pickInitialApp({ stagingApp: 'fabry', persistedApp: 'audit', fabryUnlocked: false })).toBe('audit');
+  });
+  it('appAfterGateChange kicks an active fabry back to mdh on re-lock', () => {
+    expect(appAfterGateChange('fabry', false)).toBe('mdh');
+    expect(appAfterGateChange('fabry', true)).toBe('fabry');
+    expect(appAfterGateChange('audit', false)).toBe('audit');
   });
 });

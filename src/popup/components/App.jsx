@@ -18,6 +18,7 @@ const STORAGE_TOGGLES = [
   // Not a toggle shown anywhere: the easter-egg unlock flag (5 clicks on the
   // version hash). Loaded with the rest so the Experimental section can render.
   'experimentalUnlocked',
+  'fabryDeepVerifyEnabled',
 ];
 
 // Each id is both the React state key and the page-side localStorage key.
@@ -297,6 +298,14 @@ export default function App({ tab }) {
                       beta
                       checked={storageValues.annotateForMeEnabled}
                       onChange={(v) => setStorageToggle('annotateForMeEnabled', v)}
+                    />
+                    <Toggle
+                      id="fabryDeepVerifyEnabled"
+                      label="Fabry: deep-verify loops"
+                      hint="Allow the chat's answer→verify→refine loop (roughly 2–3× tokens per message)"
+                      beta
+                      checked={storageValues.fabryDeepVerifyEnabled !== false}
+                      onChange={(v) => setStorageToggle('fabryDeepVerifyEnabled', v)}
                     />
                   </div>
                 ) : null}

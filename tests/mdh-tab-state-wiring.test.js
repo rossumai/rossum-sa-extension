@@ -7,7 +7,7 @@ vi.mock('../src/mdh/api.js', () => ({
   getOrgId: vi.fn(() => Promise.resolve(1)),
   healthz: vi.fn(() => Promise.resolve()),
 }));
-vi.mock('../src/mdh/agent/agentApi.js', () => ({
+vi.mock('../src/agent/agentApi.js', () => ({
   init: vi.fn(),
   probeAgent: vi.fn(() => Promise.resolve(false)),
 }));

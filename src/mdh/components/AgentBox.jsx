@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'preact/hooks';
 import { selectedCollection, records, sampledFields, error } from '../store.js';
 import { extractFieldNames } from './JsonEditor.jsx';
 import { openModal } from './Modal.jsx';
-import * as agentApi from '../agent/agentApi.js';
+import * as agentApi from '../../agent/agentApi.js';
 import * as api from '../api.js';
 import { runAgentQuery, continueAgentQuery } from '../agent/agentQuery.js';
 import { getSchemaHints } from '../agent/aiContext.js';

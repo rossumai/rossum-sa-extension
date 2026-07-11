@@ -1,6 +1,6 @@
 import { effect } from '@preact/signals';
 import * as api from './api.js';
-import { probeAgent } from './agent/agentApi.js';
+import { probeAgent } from '../agent/agentApi.js';
 import * as store from './store.js';
 import { activeApp } from '../console/store.js';
 import { prefetchForPanel, prefetchAll } from './prefetch.js';

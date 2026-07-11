@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   createSseParser, toolLabel, newAcc, foldEvents, replyText, extractPipeline,
-} from '../src/mdh/agent/agentStream.js';
+} from '../src/agent/agentStream.js';
 
 const sse = (obj) => `data: ${typeof obj === 'string' ? obj : JSON.stringify(obj)}\n\n`;
 

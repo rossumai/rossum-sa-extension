@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import * as agentApi from '../src/mdh/agent/agentApi.js';
+import * as agentApi from '../src/agent/agentApi.js';
 
 function streamResponse(chunks) {
   const enc = new TextEncoder();
@@ -75,5 +75,64 @@ describe('streamMessage — error & abort exit paths', () => {
     const ac = new AbortController(); ac.abort();
     await expect(agentApi.streamMessage('c1', 'hi', { signal: ac.signal, onEvent: () => {} }))
       .rejects.toMatchObject({ name: 'AbortError' });
+  });
+});
+
+describe('listChats / getChat / submitFeedback / downloadChatFile', () => {
+  it('listChats GETs with pagination and auth headers', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ chats: [{ chat_id: 'chat_1' }], total: 1, limit: 50, offset: 0 }) });
+    global.fetch = fetchMock;
+    const out = await agentApi.listChats();
+    expect(out.total).toBe(1);
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain('/chats?limit=50&offset=0');
+    expect(opts.headers['X-Rossum-Token']).toBe('tok123');
+  });
+  it('listChats throws with status on 401', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) });
+    await expect(agentApi.listChats()).rejects.toMatchObject({ status: 401 });
+  });
+  it('getChat returns the detail', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ chat_id: 'chat_1', messages: [], created_at: 'x', files: [] }) });
+    const out = await agentApi.getChat('chat_1');
+    expect(out.chat_id).toBe('chat_1');
+    expect(global.fetch.mock.calls[0][0]).toContain('/chats/chat_1');
+  });
+  it('submitFeedback PUTs snake_case body', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ turn_index: 2, is_positive: true }) });
+    global.fetch = fetchMock;
+    await agentApi.submitFeedback('chat_1', 2, true);
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain('/chats/chat_1/feedback');
+    expect(opts.method).toBe('PUT');
+    expect(JSON.parse(opts.body)).toEqual({ turn_index: 2, is_positive: true });
+  });
+  it('downloadChatFile returns a blob and URL-encodes the filename', async () => {
+    const blob = new Blob(['x']);
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, blob: async () => blob });
+    expect(await agentApi.downloadChatFile('chat_1', 'a b.csv')).toBe(blob);
+    expect(global.fetch.mock.calls[0][0]).toContain('/chats/chat_1/files/a%20b.csv');
+  });
+});
+
+describe('listCommands', () => {
+  it('returns commands on success', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ commands: [{ name: '/persona', description: 'd' }] }) });
+    expect((await agentApi.listCommands())[0].name).toBe('/persona');
+  });
+  it('returns [] on failure (degradation, never throws)', async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error('net'));
+    expect(await agentApi.listCommands()).toEqual([]);
+  });
+});
+
+describe('streamMessage images option', () => {
+  it('adds top-level images only when non-empty', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(streamResponse(['data: [DONE]\n\n']));
+    global.fetch = fetchMock;
+    await agentApi.streamMessage('c1', 'look', { onEvent: () => {}, images: [{ media_type: 'image/png', data: 'AAA=' }] });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ content: 'look', images: [{ media_type: 'image/png', data: 'AAA=' }] });
+    await agentApi.streamMessage('c1', 'plain', { onEvent: () => {} });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ content: 'plain' });
   });
 });

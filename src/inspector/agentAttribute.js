@@ -3,7 +3,7 @@
 // live), so the prompt does NOT seed code/settings/logs; it gives the annotation +
 // queue ids, the question, and a compact candidate list, and tells the agent to fetch
 // what it needs. Pure prompt/parse here; runAttribution reuses the shared transport.
-import { newAcc, foldEvents, replyText } from '../mdh/agent/agentStream.js';
+import { newAcc, foldEvents, replyText } from '../agent/agentStream.js';
 import { budgetedJoin } from './promptBudget.js';
 
 const trunc = (s, n) => { const t = String(s ?? ''); return t.length > n ? t.slice(0, n) + '…' : t; };

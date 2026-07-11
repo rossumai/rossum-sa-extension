@@ -17,7 +17,7 @@ import { saveSnapshot, loadSnapshot } from './undo.js';
 import { startAnnotation, applyContentOperations, validateContent, parseValidateMessages, cancelAnnotation } from './annotationWrite.js';
 import { tightenFields, destackFields, orphanClears, shrinkEngulfingBoxes, reseedFromRir, reseedTableByValues, repairMismatchedBoxes, findValueBox, boxMatchesValue, boxSquatsOnOthers, tightenBox, boxesOverlap } from './geometry.js';
 import { remapEmptyColumns, linkGridRows, extendGridRows, deriveCellBoxes, buildGridOp } from './grid.js';
-import { newAcc, foldEvents, replyText, toolLabel } from '../../mdh/agent/agentStream.js';
+import { newAcc, foldEvents, replyText, toolLabel } from '../../agent/agentStream.js';
 
 const MAX_CORRECTIONS = 3;
 const errorSig = (errs) => errs.map((e) => `${e.datapointId ?? e.schemaId}:${e.content}`).sort().join('|');

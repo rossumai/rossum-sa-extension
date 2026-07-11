@@ -3,7 +3,7 @@ import * as store from './store.js';
 import { extractLabelRules } from './culprit.js';
 import { loadRecents, enrichRecents } from './recents.js';
 import { VIEWED_KEY } from './viewed.js';
-import * as agentApi from '../mdh/agent/agentApi.js';
+import * as agentApi from '../agent/agentApi.js';
 import { orchestrateAttributions } from './orchestrate.js';
 import { buildEvidence } from './evidence.js';
 import { runSynthesis, continueSynthesis } from './synthesize.js';

@@ -19,7 +19,7 @@ function authHeaders(extra) {
 
 function agentError(status) {
   const e = new Error(status === 401
-    ? 'Session expired. Open a Rossum page and click Data Storage again to reconnect.'
+    ? 'Session expired. Reopen the Console from a Rossum page to reconnect.'
     : `Agent error ${status}`);
   e.status = status;
   return e;
@@ -49,7 +49,7 @@ export async function createChat() {
 
 // POST /chats/{id}/messages — stream one turn. onEvent(event) per parsed event.
 // Resolves when the stream ends; aborts on `signal` or IDLE_TIMEOUT of silence.
-export async function streamMessage(chatId, content, { onEvent = () => {}, signal } = {}) {
+export async function streamMessage(chatId, content, { onEvent = () => {}, signal, images } = {}) {
   const ctrl = new AbortController();
   const onAbort = () => ctrl.abort();
   if (signal) {
@@ -66,7 +66,7 @@ export async function streamMessage(chatId, content, { onEvent = () => {}, signa
     res = await fetch(`${AGENT_BASE}/chats/${chatId}/messages`, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ content }),
+      body: JSON.stringify(images && images.length ? { content, images } : { content }),
       signal: ctrl.signal,
     });
   } catch (err) { cleanup(); throw err; }
@@ -87,4 +87,48 @@ export async function streamMessage(chatId, content, { onEvent = () => {}, signa
   } finally {
     cleanup();
   }
+}
+
+async function getJson(path, init) {
+  const res = await fetch(`${AGENT_BASE}${path}`, {
+    ...init,
+    headers: { ...authHeaders({ 'Content-Type': 'application/json' }), ...(init && init.headers) },
+  });
+  if (!res.ok) throw agentError(res.status);
+  return res.json();
+}
+
+// GET /chats — the authenticated user's chat sessions, newest-first server-side.
+export function listChats({ limit = 50, offset = 0 } = {}) {
+  return getJson(`/chats?limit=${limit}&offset=${offset}`);
+}
+
+// GET /chats/{id} — full history: {chat_id, messages, created_at, files}.
+export function getChat(chatId) {
+  return getJson(`/chats/${chatId}`);
+}
+
+// PUT /chats/{id}/feedback — thumbs on one assistant turn.
+export function submitFeedback(chatId, turnIndex, isPositive) {
+  return getJson(`/chats/${chatId}/feedback`, {
+    method: 'PUT', body: JSON.stringify({ turn_index: turnIndex, is_positive: isPositive }),
+  });
+}
+
+// GET /commands — unauthenticated per the spec; [] on any failure so the
+// composer's autocomplete simply hides instead of erroring.
+export async function listCommands() {
+  try {
+    const res = await fetch(`${AGENT_BASE}/commands`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data?.commands) ? data.commands : [];
+  } catch { return []; }
+}
+
+// GET /chats/{id}/files/{filename} — needs auth headers; a plain <a href> would 401.
+export async function downloadChatFile(chatId, filename) {
+  const res = await fetch(`${AGENT_BASE}/chats/${chatId}/files/${encodeURIComponent(filename)}`, { headers: authHeaders() });
+  if (!res.ok) throw agentError(res.status);
+  return res.blob();
 }

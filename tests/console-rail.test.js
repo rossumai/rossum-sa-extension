@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { h, render } from 'preact';
 import Rail from '../src/console/components/Rail.jsx';
-import { activeApp } from '../src/console/store.js';
+import { activeApp, experimentalUnlocked } from '../src/console/store.js';
 
 // Render via h() rather than JSX literals: the repo's test discovery only
 // transforms .jsx sources, and every other .test.js renders components with
@@ -17,6 +17,7 @@ function mount() {
 describe('Rail', () => {
   beforeEach(() => {
     activeApp.value = 'mdh';
+    experimentalUnlocked.value = false;
   });
 
   it('renders one button per app', () => {
@@ -79,5 +80,24 @@ describe('Rail', () => {
     activeApp.value = 'audit';
     render(h(Rail, null), root);
     expect(root.querySelector('.app-rail-item.active').getAttribute('title')).toBe('Audit Log Viewer');
+  });
+});
+
+describe('Rail — fabry gate', () => {
+  it('hides Fabry while locked', () => {
+    experimentalUnlocked.value = false;
+    const root = mount();
+    expect(root.querySelectorAll('.app-rail-item').length).toBe(4);
+    expect([...root.querySelectorAll('.app-rail-item')].some((b) => b.getAttribute('title') === 'Mr. Fabry')).toBe(false);
+  });
+  it('shows Fabry with a beta badge when unlocked, and switches on click', () => {
+    experimentalUnlocked.value = true;
+    const root = mount();
+    const btn = [...root.querySelectorAll('.app-rail-item')].find((b) => b.getAttribute('title') === 'Mr. Fabry');
+    expect(btn).toBeTruthy();
+    expect(btn.querySelector('.app-rail-beta').textContent).toBe('beta');
+    expect(btn.querySelector('.app-rail-exp')).toBeNull(); // badge is beta; exp only gates
+    btn.click();
+    expect(activeApp.value).toBe('fabry');
   });
 });

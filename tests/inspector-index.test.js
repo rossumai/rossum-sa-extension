@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 vi.mock('../src/inspector/api.js');
 vi.mock('../src/inspector/orchestrate.js', () => ({ orchestrateAttributions: vi.fn(async () => {}) }));
-vi.mock('../src/mdh/agent/agentApi.js', () => ({
+vi.mock('../src/agent/agentApi.js', () => ({
   init: vi.fn(),
   probeAgent: vi.fn(() => Promise.resolve(false)),
   createChat: vi.fn(async () => 'c1'),

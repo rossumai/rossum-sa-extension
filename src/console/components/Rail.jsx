@@ -1,6 +1,6 @@
 // src/console/components/Rail.jsx
 import { h } from 'preact';
-import { activeApp } from '../store.js';
+import { activeApp, experimentalUnlocked } from '../store.js';
 
 const DATA_ICON = (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -36,18 +36,27 @@ const INSPECTOR_ICON = (
   </svg>
 );
 
+const FABRY_ICON = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+    <path d="M12 3l2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2z" />
+  </svg>
+);
+
 const APPS = [
   { id: 'mdh', label: 'Data', title: 'Dataset Management', icon: DATA_ICON },
   { id: 'audit', label: 'Audit', title: 'Audit Log Viewer', icon: AUDIT_ICON },
   { id: 'inspector', label: 'Inspector', title: 'Annotation Inspector', icon: INSPECTOR_ICON, beta: true },
   { id: 'galaxy', label: 'Galaxy', title: 'Org Galaxy', icon: GALAXY_ICON, beta: true },
+  // `exp` only gates visibility on experimentalUnlocked; the visible badge is `beta`.
+  { id: 'fabry', label: 'Fabry', title: 'Mr. Fabry', icon: FABRY_ICON, beta: true, exp: true },
 ];
 
 export default function Rail() {
   const active = activeApp.value;
+  const unlocked = experimentalUnlocked.value;
   return (
     <nav class="app-rail" aria-label="Application switcher">
-      {APPS.map((a) => (
+      {APPS.filter((a) => !a.exp || unlocked).map((a) => (
         <button
           type="button"
           class={'app-rail-item' + (active === a.id ? ' active' : '') + (a.muted ? ' muted' : '')}

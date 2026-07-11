@@ -3,7 +3,7 @@
 // the agent may use its read-only tools for residual gaps, but every claim should
 // cite an evidence id we can resolve. Pure prompt/parse here; transport injected.
 import { budgetedJoin } from './promptBudget.js';
-import { newAcc, foldEvents, replyText } from '../mdh/agent/agentStream.js';
+import { newAcc, foldEvents, replyText } from '../agent/agentStream.js';
 
 function itemLine(it) {
   return `[${it.id}] (${it.reliability}) ${it.fact}${it.culprit ? ` — culprit: ${it.culprit.kind} ${it.culprit.name}${it.culprit.id != null ? ` #${it.culprit.id}` : ''}` : ''}`;

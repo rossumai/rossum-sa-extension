@@ -2,7 +2,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../src/mdh/agent/agentApi.js', () => ({ init: vi.fn(), probeAgent: vi.fn() }));
+vi.mock('../src/agent/agentApi.js', () => ({ init: vi.fn(), probeAgent: vi.fn() }));
 vi.mock('../src/audit/fabry.js', () => ({
   DEFAULT_QUESTION: 'DEFAULT_Q',
   runAuditQuery: vi.fn(),
@@ -21,7 +21,7 @@ vi.mock('../src/audit/api.js', () => ({
 
 import { runDefaultSummary, askAuditFabry, refreshSummary, viewSignature, initAudit } from '../src/audit/index.jsx';
 import { runAuditQuery, continueAuditQuery, refreshAuditSummary, DEFAULT_QUESTION } from '../src/audit/fabry.js';
-import * as agentApi from '../src/mdh/agent/agentApi.js';
+import * as agentApi from '../src/agent/agentApi.js';
 import * as api from '../src/audit/api.js';
 import * as store from '../src/audit/store.js';
 

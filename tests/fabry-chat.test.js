@@ -1,0 +1,259 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('../src/agent/agentApi.js', () => ({
+  init: vi.fn(),
+  probeAgent: vi.fn().mockResolvedValue(true),
+  createChat: vi.fn().mockResolvedValue('chat_new'),
+  listChats: vi.fn().mockResolvedValue({ chats: [{ chat_id: 'chat_1', timestamp: 1, message_count: 2, first_message: 'hi' }], total: 1, limit: 50, offset: 0 }),
+  getChat: vi.fn().mockResolvedValue({ chat_id: 'chat_1', messages: [{ role: 'user', content: 'hi' }, { role: 'assistant', content: 'hello' }], created_at: 'x', files: [{ filename: 'out.csv', size: 3, timestamp: 't' }] }),
+  submitFeedback: vi.fn().mockResolvedValue({ turn_index: 0, is_positive: true }),
+  listCommands: vi.fn().mockResolvedValue([{ name: '/persona', description: 'd' }]),
+  downloadChatFile: vi.fn().mockResolvedValue(new Blob(['x'])),
+  streamMessage: vi.fn(),
+}));
+
+import * as agentApi from '../src/agent/agentApi.js';
+import * as store from '../src/fabry/store.js';
+import { loadChats, openChat, sendMessage, sendFeedback, stopStreaming } from '../src/fabry/chat.js';
+
+function streamOk(reply) {
+  agentApi.streamMessage.mockImplementation(async (id, content, { onEvent }) => {
+    onEvent({ type: 'text-delta', delta: reply });
+    onEvent({ type: 'finish' });
+  });
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  store.resetChatView();
+  store.chats.value = []; store.chatsTotal.value = null;
+  store.personaChoice.value = 'cautious';
+  store.error.value = null; store.sendError.value = null; store.streaming.value = false;
+  global.chrome = { storage: { local: { get: vi.fn().mockResolvedValue({}), set: vi.fn() } } };
+});
+
+describe('loadChats / openChat', () => {
+  it('fills the sidebar and opens a chat with normalized turns + files', async () => {
+    await loadChats();
+    expect(store.chats.value.length).toBe(1);
+    expect(store.chatsTotal.value).toBe(1);
+    await openChat('chat_1');
+    expect(store.activeChatId.value).toBe('chat_1');
+    expect(store.thread.value.map((t) => t.role)).toEqual(['user', 'assistant']);
+    expect(store.files.value[0].filename).toBe('out.csv');
+  });
+});
+
+describe('sendMessage', () => {
+  it('new chat: creates, primes cautious persona, streams, appends turns', async () => {
+    streamOk('answer');
+    const ok = await sendMessage('question', []);
+    expect(ok).toBe(true);
+    expect(agentApi.createChat).toHaveBeenCalled();
+    expect(agentApi.streamMessage.mock.calls[0][1]).toBe('/persona cautious');
+    expect(agentApi.streamMessage.mock.calls[1][1]).toBe('question');
+    const roles = store.thread.value.map((t) => `${t.role}${t.chip ? ':chip' : ''}`);
+    expect(roles).toEqual(['user:chip', 'assistant', 'user', 'assistant']);
+    expect(store.thread.value.at(-1).text).toBe('answer');
+    expect(store.streaming.value).toBe(false);
+  });
+  it('default persona sends no priming turn', async () => {
+    store.personaChoice.value = 'default';
+    streamOk('a');
+    await sendMessage('q', []);
+    expect(agentApi.streamMessage.mock.calls[0][1]).toBe('q');
+  });
+  it('429 lands in sendError and returns false (draft preserved by composer)', async () => {
+    store.personaChoice.value = 'default';
+    agentApi.streamMessage.mockRejectedValue(Object.assign(new Error('Agent error 429'), { status: 429 }));
+    const ok = await sendMessage('q', []);
+    expect(ok).toBe(false);
+    expect(store.sendError.value).toMatch(/rate/i);
+  });
+  it('passes images through', async () => {
+    store.personaChoice.value = 'default';
+    streamOk('a');
+    await sendMessage('look', [{ media_type: 'image/png', data: 'AAA=' }]);
+    expect(agentApi.streamMessage.mock.calls[0][2].images).toEqual([{ media_type: 'image/png', data: 'AAA=' }]);
+  });
+});
+
+describe('stopStreaming', () => {
+  it('keeps the partial fold as an interrupted turn', async () => {
+    store.personaChoice.value = 'default';
+    agentApi.streamMessage.mockImplementation((id, content, { onEvent, signal }) => new Promise((resolve, reject) => {
+      onEvent({ type: 'text-delta', delta: 'par' });
+      signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+    }));
+    const p = sendMessage('q', []);
+    await Promise.resolve();
+    stopStreaming();
+    await p;
+    const last = store.thread.value.at(-1);
+    expect(last).toMatchObject({ role: 'assistant', text: 'par', interrupted: true });
+  });
+});
+
+describe('stale-guard', () => {
+  it('a stale sendMessage never pollutes the thread after openChat switches chats mid-stream', async () => {
+    store.personaChoice.value = 'default'; // skip priming, one less turn to reason about
+    let resolveStream;
+    let streamStarted;
+    const streamGate = new Promise((resolve) => { streamStarted = resolve; });
+    agentApi.streamMessage.mockImplementation((id, content, { onEvent }) => new Promise((resolve) => {
+      resolveStream = () => {
+        onEvent({ type: 'text-delta', delta: 'stale answer' });
+        onEvent({ type: 'finish' });
+        resolve();
+      };
+      streamStarted(); // let the test know the stale call is now in flight, blocked on us
+    }));
+
+    const sendPromise = sendMessage('stale question', []);
+    await streamGate; // sendMessage is now suspended awaiting the (not-yet-resolved) stream
+
+    // User navigates away mid-stream.
+    await openChat('chat_1');
+    expect(store.activeChatId.value).toBe('chat_1');
+    expect(store.thread.value.map((t) => t.role)).toEqual(['user', 'assistant']);
+
+    // Now let the stale stream finish; its turns must never land in the new chat.
+    resolveStream();
+    const ok = await sendPromise;
+
+    expect(ok).toBe(false);
+    expect(store.activeChatId.value).toBe('chat_1');
+    expect(store.thread.value.map((t) => t.role)).toEqual(['user', 'assistant']);
+    expect(store.thread.value.some((t) => t.text === 'stale question' || t.text === 'stale answer')).toBe(false);
+    expect(store.streaming.value).toBe(false);
+  });
+});
+
+describe('sendFeedback', () => {
+  it('PUTs the server index and optimistically marks the turn (server thread, no chips)', async () => {
+    await openChat('chat_1'); // getChat returns [user, assistant]
+    await sendFeedback(1, true);
+    expect(agentApi.submitFeedback).toHaveBeenCalledWith('chat_1', 1, true);
+    expect(store.thread.value[1].feedback).toBe(true);
+  });
+
+  it('primed thread: maps the client thread index down past the stripped chip+ack', async () => {
+    store.activeChatId.value = 'chat_1';
+    store.thread.value = [
+      { role: 'user', chip: true, command: true, text: '/persona cautious', images: [], feedback: null, reasoning: '', tools: [], interrupted: false },
+      { role: 'assistant', chip: false, command: false, text: 'Persona set.', images: [], feedback: null, reasoning: '', tools: [], interrupted: false },
+      { role: 'user', chip: false, command: false, text: 'q', images: [], feedback: null, reasoning: '', tools: [], interrupted: false },
+      { role: 'assistant', chip: false, command: false, text: 'a', images: [], feedback: null, reasoning: '', tools: [], interrupted: false },
+    ];
+    await sendFeedback(3, true);
+    expect(agentApi.submitFeedback).toHaveBeenCalledWith('chat_1', 1, true);
+    expect(store.thread.value[3].feedback).toBe(true);
+  });
+});
+
+describe('deep verify send path', () => {
+  function queueStreams(replies) {
+    // Each call to streamMessage consumes the next scripted reply text.
+    let call = 0;
+    agentApi.streamMessage.mockImplementation(async (id, content, { onEvent }) => {
+      const text = replies[Math.min(call, replies.length - 1)];
+      call += 1;
+      onEvent({ type: 'text-delta', delta: text });
+      onEvent({ type: 'finish' });
+    });
+  }
+
+  beforeEach(() => {
+    store.personaChoice.value = 'default'; // skip main-chat priming for clarity
+    store.deepVerifyAllowed.value = true;
+    store.deepMode.value = true;
+    store.activeChatId.value = 'chat_main';
+  });
+
+  it('fail → refine → pass: reviewer chip turn, verdict on the final answer', async () => {
+    agentApi.createChat.mockResolvedValue('chat_critic');
+    queueStreams([
+      'answer v1',                    // main
+      'ok',                           // critic priming ack (/persona cautious)
+      'VERDICT: FAIL\n- wrong count', // critic verdict 1
+      'answer v2',                    // main refine
+      'ok',                           // critic 2 priming ack
+      'VERDICT: PASS',                // critic verdict 2
+    ]);
+    const ok = await sendMessage('how many queues?', []);
+    expect(ok).toBe(true);
+    const turns = store.thread.value;
+    const reviewer = turns.find((t) => t.text.startsWith('[deep-verify reviewer]'));
+    expect(reviewer).toMatchObject({ role: 'user', chip: true, command: false });
+    const final = turns[turns.length - 1];
+    expect(final.role).toBe('assistant');
+    expect(final.deep).toMatchObject({ verdict: 'pass' });
+    expect(store.deepPhase.value).toBe(null);
+    expect(store.streaming.value).toBe(false);
+  });
+
+  it('critic failure → answer kept, verdict inconclusive', async () => {
+    agentApi.createChat.mockRejectedValue(Object.assign(new Error('Agent error 429'), { status: 429 }));
+    queueStreams(['answer v1']);
+    const ok = await sendMessage('q', []);
+    expect(ok).toBe(true);
+    const final = store.thread.value[store.thread.value.length - 1];
+    expect(final.deep).toMatchObject({ verdict: 'inconclusive' });
+  });
+
+  it('kill switch off → plain single-turn path, no critic chat', async () => {
+    store.deepVerifyAllowed.value = false;
+    queueStreams(['plain answer']);
+    const ok = await sendMessage('q', []);
+    expect(ok).toBe(true);
+    expect(agentApi.createChat).not.toHaveBeenCalled();
+    expect(store.thread.value[store.thread.value.length - 1].deep).toBeUndefined();
+  });
+
+  it('liveTurn is cleared before the critic phase starts (no phantom duplicate answer)', async () => {
+    agentApi.createChat.mockResolvedValue('chat_critic');
+    let capturedLiveTurn;
+    let capturedStreaming;
+    let call = 0;
+    const replies = ['answer v1', 'ok', 'VERDICT: PASS'];
+    agentApi.streamMessage.mockImplementation(async (id, content, { onEvent }) => {
+      if (id === 'chat_critic' && capturedLiveTurn === undefined) {
+        capturedLiveTurn = store.liveTurn.value;
+        capturedStreaming = store.streaming.value;
+      }
+      const text = replies[Math.min(call, replies.length - 1)];
+      call += 1;
+      onEvent({ type: 'text-delta', delta: text });
+      onEvent({ type: 'finish' });
+    });
+    const ok = await sendMessage('q', []);
+    expect(ok).toBe(true);
+    expect(capturedLiveTurn).toBe(null);
+    expect(capturedStreaming).toBe(true);
+  });
+
+  it('stop during the critic phase aborts cleanly with no duplicate turn', async () => {
+    agentApi.createChat.mockResolvedValue('chat_critic');
+    let criticStarted;
+    const criticGate = new Promise((resolve) => { criticStarted = resolve; });
+    agentApi.streamMessage.mockImplementation((id, content, { onEvent, signal }) => {
+      if (id === 'chat_main') {
+        onEvent({ type: 'text-delta', delta: 'answer v1' });
+        onEvent({ type: 'finish' });
+        return Promise.resolve();
+      }
+      // critic phase (priming fold): hangs until the shared controller aborts.
+      return new Promise((resolve, reject) => {
+        criticStarted();
+        signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+      });
+    });
+    const p = sendMessage('q', []);
+    await criticGate; // the send is now suspended inside the critic's (hung) priming call
+    stopStreaming();
+    const ok = await p;
+    expect(ok).toBe(false);
+    expect(store.thread.value.filter((t) => t.role === 'assistant' && t.text === 'answer v1').length).toBe(1);
+  });
+});

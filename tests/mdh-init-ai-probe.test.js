@@ -4,11 +4,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // Isolate the probe logic as a unit (initMdh has heavy side effects); test the
 // exported helper that index.jsx uses. index.jsx sources availability from the
 // Agent API's probeAgent(), so mock that module directly.
-vi.mock('../src/mdh/agent/agentApi.js', () => ({ probeAgent: vi.fn(), init: vi.fn() }));
+vi.mock('../src/agent/agentApi.js', () => ({ probeAgent: vi.fn(), init: vi.fn() }));
 
 import { resolveAiAvailability } from '../src/mdh/index.jsx';
 import * as api from '../src/mdh/api.js';
-import { probeAgent } from '../src/mdh/agent/agentApi.js';
+import { probeAgent } from '../src/agent/agentApi.js';
 
 beforeEach(() => {
   sessionStorage.clear();

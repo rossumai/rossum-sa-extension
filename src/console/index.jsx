@@ -1,6 +1,6 @@
 import { h, render } from 'preact';
 import { effect } from '@preact/signals';
-import { activeApp } from './store.js';
+import { activeApp, experimentalUnlocked } from './store.js';
 import {
   pickInitialApp,
   resolveBootAuth,
@@ -9,7 +9,7 @@ import {
 import { resolveTabState, writeTabState } from './tabState.js';
 import Console from './components/Console.jsx';
 import * as mdhApi from '../mdh/api.js';
-import * as agentApi from '../mdh/agent/agentApi.js';
+import * as agentApi from '../agent/agentApi.js';
 import * as mdhStore from '../mdh/store.js';
 import { initMdh } from '../mdh/index.jsx';
 import * as auditApi from '../audit/api.js';
@@ -21,6 +21,8 @@ import { initGalaxy } from '../galaxy/index.jsx';
 import * as inspectorApi from '../inspector/api.js';
 import * as inspectorStore from '../inspector/store.js';
 import { initInspector } from '../inspector/index.jsx';
+import * as fabryStore from '../fabry/store.js';
+import { initFabry } from '../fabry/index.jsx';
 
 const AUTH_TTL_MS = 24 * 60 * 60 * 1000;
 const TITLES = {
@@ -28,6 +30,7 @@ const TITLES = {
   audit: 'Audit Logs — Rossum SA',
   galaxy: 'Org Galaxy — Rossum SA',
   inspector: 'Inspector — Rossum SA',
+  fabry: 'Mr. Fabry — Rossum SA',
 };
 
 async function purgeStaleAuthEntries() {
@@ -50,6 +53,7 @@ let mdhInited = false;
 let auditInited = false;
 let galaxyInited = false;
 let inspectorInited = false;
+let fabryInited = false;
 let pendingCtx = {};
 
 function ensureInited(app) {
@@ -72,6 +76,10 @@ function ensureInited(app) {
     inspectorInited = true;
     return initInspector();
   }
+  if (app === 'fabry' && !fabryInited) {
+    fabryInited = true;
+    return initFabry();
+  }
   return Promise.resolve();
 }
 
@@ -82,8 +90,29 @@ async function boot() {
   const stored = await chrome.storage.local.get([
     ...(authKey ? [authKey] : []),
     'consoleActiveApp',
+    'experimentalUnlocked',
+    'fabryDeepVerifyEnabled',
   ]);
   const entry = authKey ? stored[authKey] : null;
+
+  experimentalUnlocked.value = !!stored.experimentalUnlocked;
+  fabryStore.deepVerifyAllowed.value = stored.fabryDeepVerifyEnabled !== false;
+  chrome.storage.onChanged?.addListener((changes, area) => {
+    if (area === 'local' && changes.experimentalUnlocked) {
+      experimentalUnlocked.value = !!changes.experimentalUnlocked.newValue;
+    }
+    if (area === 'local' && changes.fabryDeepVerifyEnabled) {
+      fabryStore.deepVerifyAllowed.value = changes.fabryDeepVerifyEnabled.newValue !== false;
+    }
+  });
+  // Re-locking the gate while Fabry is the active app falls back to Dataset
+  // Management; any other active app is unaffected. Subscribes only to the
+  // gate signal (via .value) and reads activeApp with .peek() so this effect
+  // doesn't re-run on every app switch — just on gate changes.
+  effect(() => {
+    const unlocked = experimentalUnlocked.value;
+    if (!unlocked && activeApp.peek() === 'fabry') activeApp.value = 'mdh';
+  });
 
   purgeStaleAuthEntries().catch(() => {});
 
@@ -103,7 +132,7 @@ async function boot() {
   }
 
   const persistedApp = resolveTabState(['consoleActiveApp'], stored).consoleActiveApp;
-  const initial = pickInitialApp({ stagingApp, persistedApp });
+  const initial = pickInitialApp({ stagingApp, persistedApp, fabryUnlocked: !!stored.experimentalUnlocked });
   activeApp.value = initial;
 
   if (!token || !domain) {
@@ -113,6 +142,7 @@ async function boot() {
     auditStore.connected.value = false;
     galaxyStore.connected.value = false;
     inspectorStore.connected.value = false;
+    fabryStore.connected.value = false;
     render(<Console />, document.getElementById('app'));
     return;
   }
@@ -144,6 +174,11 @@ async function boot() {
   if (pendingAnn) {
     inspectorStore.annotationId.value = String(pendingAnn);
   }
+
+  // Fabry reuses the Agent API transport already initialized above (agentApi.init).
+  fabryStore.domain.value = domain;
+  fabryStore.token.value = token;
+  fabryStore.connected.value = true;
 
   effect(() => {
     writeTabState('consoleActiveApp', activeApp.value);

@@ -1,6 +1,6 @@
 // Content-script client for the worker's `annotate-fabry` port. Streams Fabry
 // SSE chunks from the worker and parses them with the shared pure parser.
-import { createSseParser } from '../../mdh/agent/agentStream.js';
+import { createSseParser } from '../../agent/agentStream.js';
 
 export function streamFabry({ token, domain, chatId, content, images, onEvent = () => {},
   connect = (name) => chrome.runtime.connect({ name }) }) {

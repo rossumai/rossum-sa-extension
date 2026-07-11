@@ -3,7 +3,7 @@
 // questions about audit activity as a citation-free narrative. Pure prompt
 // builders + injected-transport runners (agentApi injected), so the network
 // stays out of unit tests. Mirrors src/inspector/synthesize.js.
-import { newAcc, foldEvents, replyText } from '../mdh/agent/agentStream.js';
+import { newAcc, foldEvents, replyText } from '../agent/agentStream.js';
 
 export const DEFAULT_QUESTION =
   "Summarize the latest activity in this organization's audit log: the most recent events, who did what, and anything notable.";
