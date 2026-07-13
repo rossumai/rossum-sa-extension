@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { h, render } from 'preact';
 
 vi.mock('../src/fabry/chat.js', () => ({
-  sendFeedback: vi.fn(), openChat: vi.fn(), sendMessage: vi.fn(),
+  sendFeedback: vi.fn(), openChat: vi.fn(), sendMessage: vi.fn(), answerQuestions: vi.fn(),
 }));
 
 import * as chat from '../src/fabry/chat.js';
@@ -42,11 +42,12 @@ describe('Thread', () => {
     expect(root.querySelector('.fabry-tools').textContent).toContain('reading the queue');
     expect(root.querySelector('.fabry-thinking')).toBeTruthy();
   });
-  it('feedback buttons call sendFeedback with the thread index', () => {
+  it('does not render 👍/👎 feedback buttons (hidden pending backend feedback-id fix), keeps Copy', () => {
     const root = mount();
     const turns = root.querySelectorAll('.fabry-turn-assistant');
-    turns[1].querySelector('.fabry-fb-up').click();
-    expect(chat.sendFeedback).toHaveBeenCalledWith(3, true);
+    expect(turns[1].querySelector('.fabry-fb-up')).toBeNull();
+    expect(turns[1].querySelector('.fabry-fb-down')).toBeNull();
+    expect(turns[1].querySelector('.fabry-copy')).toBeTruthy();
   });
   it('renders the streaming live turn with a caret and the interrupted refresh row', () => {
     store.streaming.value = true;
@@ -93,5 +94,24 @@ describe('Thread', () => {
     chipEl.click();
     await flush();
     expect(root.querySelector('.fabry-deep-strip').textContent).toContain('wrong count');
+  });
+  it('renders a question form for a question turn and suppresses feedback', () => {
+    store.thread.value = [
+      { role: 'user', chip: false, command: false, text: 'draft', images: [], feedback: null, reasoning: '', tools: [], interrupted: false },
+      { role: 'assistant', chip: false, command: false, text: '', images: [], feedback: null, reasoning: '', tools: [], interrupted: false,
+        questions: [{ question: 'Name?', options: [], multi_select: false }] },
+    ];
+    const root = mount();
+    expect(root.querySelector('.fabry-q')).toBeTruthy();
+    expect(root.querySelector('.fabry-turn-foot')).toBeNull(); // no feedback on a question turn
+  });
+  it('renders the unsupported-element notice for a text-less unknown turn', () => {
+    store.thread.value = [
+      { role: 'assistant', chip: false, command: false, text: '', images: [], feedback: null, reasoning: '', tools: [], interrupted: false,
+        unhandled: [{ type: 'data-agent-confirmation', data: { prompt: 'ok?' } }] },
+    ];
+    const root = mount();
+    expect(root.querySelector('.fabry-turn-notice-warn').textContent).toContain('data-agent-confirmation');
+    expect(root.querySelector('.fabry-turn-foot')).toBeNull();
   });
 });

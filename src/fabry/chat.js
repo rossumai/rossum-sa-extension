@@ -71,7 +71,7 @@ function pushTurn(turn) {
   store.thread.value = [...store.thread.value, turn];
 }
 
-const BLANK_TURN = { chip: false, command: false, images: [], feedback: null, reasoning: '', tools: [], interrupted: false };
+const BLANK_TURN = { chip: false, command: false, images: [], feedback: null, reasoning: '', tools: [], interrupted: false, questions: null, unhandled: null, error: null };
 
 async function streamTurn(chatId, content, { images, signal } = {}) {
   const acc = newAcc();
@@ -88,7 +88,12 @@ async function streamTurn(chatId, content, { images, signal } = {}) {
 }
 
 function accTurn(acc, interrupted) {
-  return { ...BLANK_TURN, role: 'assistant', text: replyText(acc), reasoning: acc.reasoning, tools: acc.tools, interrupted };
+  return {
+    ...BLANK_TURN, role: 'assistant', text: replyText(acc), reasoning: acc.reasoning, tools: acc.tools, interrupted,
+    questions: acc.questions || null,
+    unhandled: (acc.unhandled && acc.unhandled.length) ? acc.unhandled : null,
+    error: acc.error || null,
+  };
 }
 
 // Returns true on success, false on failure (the composer keeps its draft on false).
@@ -131,7 +136,7 @@ export async function sendMessage(text, images = []) {
           if (id !== loadId) return null;
           pushTurn(accTurn(acc, false));
           store.liveTurn.value = null;
-          return { text: replyText(acc) };
+          return { text: replyText(acc), verifiable: !acc.questions };
         },
         // Fresh critic chat per verify pass, primed cautious; folds locally so
         // the critic never hijacks the main liveTurn display.
@@ -162,12 +167,14 @@ export async function sendMessage(text, images = []) {
       });
       if (id !== loadId) return false;
       if (!result) return false; // aborted/stale mid-loop — surface as failure like the single-turn path
-      // Attach the verdict to the last assistant turn.
-      const turns = store.thread.value;
-      for (let i = turns.length - 1; i >= 0; i -= 1) {
-        if (turns[i].role === 'assistant') {
-          store.thread.value = turns.map((t, j) => (j === i ? { ...t, deep: { verdict: result.verdict, issues: result.issues, criticText: result.criticText } } : t));
-          break;
+      if (!result.skipped) {
+        // Attach the verdict to the last assistant turn.
+        const turns = store.thread.value;
+        for (let i = turns.length - 1; i >= 0; i -= 1) {
+          if (turns[i].role === 'assistant') {
+            store.thread.value = turns.map((t, j) => (j === i ? { ...t, deep: { verdict: result.verdict, issues: result.issues, criticText: result.criticText } } : t));
+            break;
+          }
         }
       }
     }
@@ -192,6 +199,22 @@ export async function sendMessage(text, images = []) {
   }
 }
 
+// Format the user's answers to an agent clarifying-question turn into ONE
+// message. One question → the bare answer; several → numbered so the agent
+// maps answer to question unambiguously.
+export function formatAnswers(answers) {
+  if (answers.length === 1) return answers[0].answer;
+  return answers.map((a, i) => `${i + 1}. ${a.question}\n   → ${a.answer}`).join('\n');
+}
+
+// Send the answers to an agent question as the next message in the same chat
+// (verified: a plain message is the answer; the agent continues). Routes
+// through sendMessage so it streams, refreshes the sidebar, and — if deep mode
+// is on — the answer's turn verifies normally.
+export function answerQuestions(answers) {
+  return sendMessage(formatAnswers(answers));
+}
+
 export function stopStreaming() {
   if (!store.streaming.value) return;
   const acc = store.liveTurn.value;
@@ -199,8 +222,12 @@ export function stopStreaming() {
   if (controller) controller.abort();
 }
 
-// `threadIdx` is the turn's index in store.thread; see serverMessageIndex in
-// thread.js for how it maps to the server's feedback turn_index.
+// DORMANT: the 👍/👎 UI is currently hidden (AssistantTurn) because PUT
+// /feedback's turn_index addresses the RAW stored history while GET /chats
+// drops text-less tool-only steps, so a thread index mis-targets feedback on
+// tool-using turns (live-confirmed 2026-07-13; spec §9b). Kept for a one-line
+// re-enable once the backend exposes a stable per-message feedback id.
+// `threadIdx` is the turn's index in store.thread; serverMessageIndex maps it.
 export async function sendFeedback(threadIdx, isPositive) {
   const chatId = store.activeChatId.value;
   if (!chatId) return;

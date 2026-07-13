@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  createSseParser, toolLabel, newAcc, foldEvents, replyText, extractPipeline,
+  createSseParser, toolLabel, newAcc, foldEvents, replyText, extractPipeline, fallbackNotice,
 } from '../src/agent/agentStream.js';
 
 const sse = (obj) => `data: ${typeof obj === 'string' ? obj : JSON.stringify(obj)}\n\n`;
@@ -95,5 +95,58 @@ describe('extractPipeline', () => {
   });
   it('returns null for prose with no array', () => {
     expect(extractPipeline('I cannot do that.')).toBeNull();
+  });
+});
+
+describe('foldEvents — interactive elements', () => {
+  it('captures data-agent-question into acc.questions', () => {
+    const acc = newAcc();
+    foldEvents(acc, [{ type: 'data-agent-question', data: { questions: [{ question: 'Name?', options: [], multi_select: false }] } }]);
+    expect(acc.questions).toEqual([{ question: 'Name?', options: [], multi_select: false }]);
+  });
+  it('captures unknown data-* into acc.unhandled (deduped by type), leaves known data-* alone', () => {
+    const acc = newAcc();
+    foldEvents(acc, [
+      { type: 'data-agent-confirmation', data: { prompt: 'ok?' } },
+      { type: 'data-agent-confirmation', data: { prompt: 'again' } },
+      { type: 'data-final-answer', data: { text: 'x' } },
+    ]);
+    expect(acc.unhandled.map((u) => u.type)).toEqual(['data-agent-confirmation']);
+    expect(acc.finalAnswer).toBe('x'); // known data-* still handled, not in unhandled
+  });
+  it('treats data-task-snapshot and data-file-created as benign — not pushed to unhandled — while a genuinely-unknown data-foo still is', () => {
+    const acc = newAcc();
+    foldEvents(acc, [
+      { type: 'data-task-snapshot', data: { plan: [] } },
+      { type: 'data-file-created', data: { filename: 'report.csv' } },
+      { type: 'data-foo', data: { x: 1 } },
+    ]);
+    expect(acc.unhandled.map((u) => u.type)).toEqual(['data-foo']);
+  });
+  it('leaves acc.questions null when data-agent-question carries an empty questions array', () => {
+    const acc = newAcc();
+    foldEvents(acc, [{ type: 'data-agent-question', data: { questions: [] } }]);
+    expect(acc.questions).toBeNull();
+  });
+  it('captures error and tool-output-error into acc.error', () => {
+    const acc = newAcc();
+    foldEvents(acc, [{ type: 'error', errorText: 'boom' }]);
+    expect(acc.error).toBe('boom');
+    const acc2 = newAcc();
+    foldEvents(acc2, [{ type: 'tool-output-error', errorText: 'tool failed' }]);
+    expect(acc2.error).toBe('tool failed');
+  });
+});
+
+describe('fallbackNotice', () => {
+  it('null when text or questions present', () => {
+    expect(fallbackNotice({ text: 'hi' })).toBeNull();
+    expect(fallbackNotice({ text: '', questions: [{ question: 'q' }] })).toBeNull();
+  });
+  it('error > unsupported > empty priority', () => {
+    expect(fallbackNotice({ text: '', error: 'boom' })).toEqual({ kind: 'error', text: 'boom' });
+    expect(fallbackNotice({ text: '', unhandled: [{ type: 'data-x', data: 1 }] }))
+      .toEqual({ kind: 'unsupported', types: ['data-x'], payloads: [{ type: 'data-x', data: 1 }] });
+    expect(fallbackNotice({ text: '' })).toEqual({ kind: 'empty' });
   });
 });

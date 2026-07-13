@@ -1,11 +1,14 @@
 # Fabry Chat — a Claude-style Mr. Fabry interface in the Console
 
-**Date:** 2026-07-10, consolidated to AS-BUILT 2026-07-11
-**Status:** Shipped (experimental-gated). This document reflects the final
-implemented state after the 2026-07-11 iteration rounds (design rounds 1–6,
-response rendering, Deep Verify). The companion
-`2026-07-11-fabry-deep-verify-design.md` holds the Deep Verify design
-rationale; its behavior summary here is authoritative where they differ.
+**Date:** 2026-07-10, consolidated to AS-BUILT 2026-07-13
+**Status:** Shipped (experimental-gated). **This is the single authoritative
+as-built spec for the whole Fabry Chat feature** — the Claude-style app (design
+rounds 1–6, R1 response rendering), Deep Verify (§8), and agent interactive
+elements / clarifying questions (§9). Two subordinate detail docs keep the
+fuller design rationale and remain valid where they don't conflict with this
+one: `2026-07-11-fabry-deep-verify-design.md` (Deep Verify) and
+`2026-07-13-fabry-agent-questions-design.md` (questions + the full backend
+cross-check). Where they differ, THIS document governs.
 **Gate:** `experimentalUnlocked` (5 quick clicks on the popup version hash)
 
 ## 1. Purpose
@@ -17,7 +20,7 @@ feedback, token counts as first-class UI). Internal-org dogfood only: the
 agent's server-side write tools have no server-side write-lock — that remains
 the ship-blocker for anything beyond dogfood.
 
-## 2. Verified platform facts (live, 2026-07-10/11)
+## 2. Verified platform facts (live, 2026-07-10/13; see §10 backend cross-check)
 
 - Agent API (rossum-agent-api.tools.rossum.cloud, dev 2.2.0dev0), auth
   `X-Rossum-Token` + `X-Rossum-Api-Url`:
@@ -174,9 +177,72 @@ moment an answer settles, so no phantom/duplicate turns). Kill switch:
 `fabryDeepVerifyEnabled` (popup Experimental toggle, DEFAULT ON — only a
 stored `false` disables; mirrored live; forces the toggle off/hidden).
 Known limitation: the critic doesn't receive image attachments (vision
-claims typically come back inconclusive).
+claims typically come back inconclusive). Deep verify also **skips question
+turns** (§9): when a main answer is a clarifying question there is nothing to
+verify, so `deepLoop` returns `{skipped}` (no critic, no verdict) — including
+on a refine round that itself comes back as a question.
 
-## 9. Testing & verification
+## 9. Agent interactive elements (2026-07-13; detail spec: `2026-07-13-fabry-agent-questions-design.md`)
+
+The agent's `ask_user_question` tool emits a `data-agent-question` SSE event
+that used to render a **blank turn**. Now: `agentStream.foldEvents` folds it
+into `acc.questions`; `AssistantTurn` renders an inline **`FabryQuestions`**
+form. Question shape (live-verified): `{question, options, multi_select}` where
+each option is an **object `{value, label, description}`** (not a string) —
+free-text → text input; options → single-select buttons or multi-select
+toggles showing `label` (+ `description` on hover). On submit,
+`answerQuestions`/`formatAnswers` send ONE message back to the same chat (a
+plain message IS the answer — verified; the numbered form is used for multiple
+questions; the `label` text is sent, which also satisfies the backend's
+cautious write-approval matcher). Questions are **not persisted** (server drops
+the turn, like `/persona`), so the form is a live-only affordance; the form
+re-enables if the send fails.
+
+**Never render nothing (forward-compatible fallback).** `foldEvents` also
+captures any UNKNOWN `data-*` part into `acc.unhandled` and top-level `error`
+into `acc.error`; `fallbackNotice(turn)` + `FabryNotice`
+(`.fabry-turn-notice*`) resolve any nothing-renderable turn to a stream-error
+notice, a **named** unsupported-element notice (with the raw payload in a
+Details expander — "update the extension / continue in the agent UI"), or a
+quiet "(no response)". Two known-informational parts (`data-task-snapshot`,
+`data-file-created`) are ignored so they never false-alarm. Extra tool-chip
+labels (`ask_user_question`, `write_file`, etc.) were added.
+
+## 10. Backend cross-check (2026-07-13; read-only review of rossum-agent + sibling rossum-mcp; full report in the §9 detail spec)
+
+Facts verified against the backend source, folded in here as durable as-built
+truth (static analysis unless marked LIVE; the cited ARN is a dev profile, prod
+may differ):
+
+- **LLM model:** main agent = a Bedrock application-inference-profile ARN
+  commented **"Opus 4.6"** (`bedrock_client.py`, env `AWS_BEDROCK_MODEL_ARN`),
+  used by the main loop AND sub-agents (no separate critic model). Chat-title
+  summaries use a **"Haiku 4.5"** ARN, nothing else. No raw Anthropic slug in
+  the repo.
+- **Server-side write protection exists — the old "no write-lock ship-blocker"
+  is RETIRED.** The cautious persona is a code-level gate (blocks each write
+  tool pending confirmation, not prompt-only), and the MCP server disables all
+  write-tagged tools in read-only mode; our chats default to read-only
+  (`ChatMetadata.mcp_mode`) because the extension never sends `mcp_mode`, so
+  write tools are disabled server-side for us today. Caveats: fastmcp's runtime
+  `disable()` was not executed in the check; the protection is IMPLICIT (a
+  future `mcp_mode:"read-write"` would remove it — an `agentApi.js`
+  guard-comment documents the reliance).
+- **Feedback (👍/👎) `turn_index` is misaligned (LIVE-confirmed) — the UI is
+  hidden.** `PUT /feedback`'s `turn_index` addresses the RAW stored history, but
+  `GET /chats/{id}` drops text-less tool-only steps, so a thread index
+  mis-targets feedback on any tool-using turn (probe: answer at GET-index 1 but
+  raw index 2). Not FE-fixable (the projection omits the hidden steps). Decision:
+  the thumbs are hidden (Copy + verdict chip stay), the plumbing is dormant, and
+  the **backend ask** is filed — expose a stable per-message feedback id/raw
+  index on `GET /chats` messages.
+- Confirmed exactly: `/persona` never persisted; a plain next message is a
+  question's answer; top-level `{content, images}`; top-level `error` event
+  exists but **no `tool-output-error`** (tool failures ride inside
+  `tool-output-available` text); `ask_user_question` is the only user-interactive
+  tool.
+
+## 11. Testing & verification
 
 ~120 Fabry-related tests across transport, pure modules (markdown/highlight/
 deepLoop/thread/format/search), components (jsdom, h(), flush(); three files
@@ -187,10 +253,14 @@ streaming/tools/markdown/diagrams, feedback placement re-checked server-side
 after the indexing fix, abort semantics, gate & kill-switch live flips,
 deep-verify full loop, infinite scroll, alignment metrics.
 
-## 10. Out of scope / deferred
+## 12. Out of scope / deferred
 
 Chat rename/delete (no API); hiding critic chats from the sidebar; server-side
 critic; multi-critic panels; critic image pass-through; signal-aware critic
 `createChat` (Stop during creation can orphan an empty server chat); origin
 tags for machine chats (F2 concept — deliberately not built with F1);
-persisted drafts; the standing server-side write-lock work.
+persisted drafts. **Feedback 👍/👎 is hidden** pending the backend feedback-id
+ask (§10). Live surfacing of `data-task-snapshot` / `data-file-created`
+(task plan, generated-file links) is a future enhancement. Note: the standing
+"server-side write-lock" item is **retired** (§10 — it's already enforced for
+our read-only-default chats).

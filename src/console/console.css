@@ -4330,3 +4330,23 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .fabry-deep-chip.fail { color: var(--warning-fg); border-color: var(--warning-border); background: var(--warning-bg); }
 .fabry-deep-chip.inconclusive { color: var(--text-secondary); }
 .fabry-deep-strip { border: 1px solid var(--info-border); border-radius: 8px; background: var(--info-bg); padding: 8px 12px; margin-top: 6px; font-size: 12px; }
+
+/* Agent clarifying-question form + fallback notice (spec §1/§6). */
+.fabry-q { display: flex; flex-direction: column; gap: 10px; margin: 8px 0; padding: 12px 14px; border: 1px solid var(--info-border); border-radius: 10px; background: var(--info-bg); }
+.fabry-q-item { display: flex; flex-direction: column; gap: 6px; }
+.fabry-q-text { font-size: 13px; font-weight: 600; }
+.fabry-q-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.fabry-q-opt { border: 1px solid var(--border); background: var(--bg-card); border-radius: 999px; padding: 4px 12px; font-size: 12px; cursor: pointer; }
+.fabry-q-opt.on { border-color: var(--accent); color: var(--accent); background: var(--bg-hover); font-weight: 600; }
+.fabry-q-input { border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 13px; background: var(--bg-input); color: var(--text-primary); font-family: inherit; }
+.fabry-q-input:focus { outline: 2px solid var(--info-border); }
+.fabry-q-submit { align-self: flex-start; border: 0; background: var(--accent); color: var(--bg-card); font-weight: 650; border-radius: 8px; padding: 7px 16px; cursor: pointer; }
+.fabry-q-submit:disabled { opacity: .5; cursor: default; }
+.fabry-q-done .fabry-q-answer { font-size: 13px; color: var(--accent); }
+.fabry-turn-notice { margin: 8px 0; padding: 9px 12px; border-radius: 8px; font-size: 12.5px; border: 1px solid var(--border); }
+.fabry-turn-notice-error { color: var(--danger-fg); border-color: var(--danger-border); background: var(--danger-bg); white-space: pre-wrap; }
+.fabry-turn-notice-warn { color: var(--warning-fg); border-color: var(--warning-border); background: var(--warning-bg); }
+.fabry-turn-notice-warn code { font-family: var(--font-mono); }
+.fabry-turn-notice-details { margin-top: 6px; }
+.fabry-turn-notice-details pre { margin-top: 4px; font-size: 11px; overflow-x: auto; }
+.fabry-turn-notice-muted { color: var(--text-secondary); font-style: italic; border: 0; background: none; padding: 0; }

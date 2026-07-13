@@ -101,4 +101,28 @@ describe('runDeepTurn', () => {
     const runCriticTurn = vi.fn().mockResolvedValue(null);
     expect(await runDeepTurn({ question: 'q', sendMainTurn, runCriticTurn, onPhase: () => {} })).toBeNull();
   });
+
+  it('skips verification when a REFINE round comes back as a question turn', async () => {
+    const sendMainTurn = vi.fn()
+      .mockResolvedValueOnce({ text: 'answer v1', verifiable: true })
+      .mockResolvedValueOnce({ text: '', verifiable: false });
+    const runCriticTurn = vi.fn().mockResolvedValue('VERDICT: FAIL\n- wrong');
+    const out = await runDeepTurn({ question: 'q', sendMainTurn, runCriticTurn, onPhase: () => {} });
+    expect(out).toEqual({ skipped: true });
+    expect(runCriticTurn).toHaveBeenCalledTimes(1); // only the first verify ran
+  });
+  it('skips verification when the first answer is a question turn', async () => {
+    const sendMainTurn = vi.fn().mockResolvedValue({ text: '', verifiable: false });
+    const runCriticTurn = vi.fn();
+    const out = await runDeepTurn({ question: 'q', sendMainTurn, runCriticTurn, onPhase: () => {} });
+    expect(out).toEqual({ skipped: true });
+    expect(runCriticTurn).not.toHaveBeenCalled();
+  });
+
+  it('still verifies a normal answer that omits the verifiable flag (back-compat)', async () => {
+    const sendMainTurn = vi.fn().mockResolvedValue({ text: 'answer' });
+    const runCriticTurn = vi.fn().mockResolvedValue('VERDICT: PASS');
+    const out = await runDeepTurn({ question: 'q', sendMainTurn, runCriticTurn, onPhase: () => {} });
+    expect(out.verdict).toBe('pass');
+  });
 });

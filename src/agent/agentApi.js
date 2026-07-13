@@ -38,6 +38,11 @@ export async function probeAgent() {
 }
 
 // POST /chats — new chat session.
+// NOTE: we intentionally never send an `mcp_mode` field — the backend defaults
+// each chat to read-only (ChatMetadata.mcp_mode), which disables write-tagged
+// MCP tools server-side. Do NOT add `mcp_mode: 'read-write'` here or in
+// streamMessage without a deliberate write-enablement decision (verified
+// 2026-07-13 against rossum-agent/rossum-mcp).
 export async function createChat() {
   const res = await fetch(`${AGENT_BASE}/chats`, {
     method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: '{}',

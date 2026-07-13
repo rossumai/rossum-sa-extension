@@ -15,7 +15,7 @@ vi.mock('../src/agent/agentApi.js', () => ({
 
 import * as agentApi from '../src/agent/agentApi.js';
 import * as store from '../src/fabry/store.js';
-import { loadChats, openChat, sendMessage, sendFeedback, stopStreaming } from '../src/fabry/chat.js';
+import { loadChats, openChat, sendMessage, sendFeedback, stopStreaming, formatAnswers, answerQuestions } from '../src/fabry/chat.js';
 
 function streamOk(reply) {
   agentApi.streamMessage.mockImplementation(async (id, content, { onEvent }) => {
@@ -255,5 +255,52 @@ describe('deep verify send path', () => {
     const ok = await p;
     expect(ok).toBe(false);
     expect(store.thread.value.filter((t) => t.role === 'assistant' && t.text === 'answer v1').length).toBe(1);
+  });
+});
+
+describe('formatAnswers', () => {
+  it('one question → bare answer', () => {
+    expect(formatAnswers([{ question: 'Name?', answer: 'Acme' }])).toBe('Acme');
+  });
+  it('multiple → numbered question → answer', () => {
+    expect(formatAnswers([{ question: 'Name?', answer: 'Acme' }, { question: 'Scope?', answer: 'All queues' }]))
+      .toBe('1. Name?\n   → Acme\n2. Scope?\n   → All queues');
+  });
+});
+
+describe('question turns', () => {
+  function streamQuestion() {
+    agentApi.streamMessage.mockImplementation(async (id, content, { onEvent }) => {
+      onEvent({ type: 'data-agent-question', data: { questions: [{ question: 'Name?', options: [], multi_select: false }] } });
+      onEvent({ type: 'finish' });
+    });
+  }
+  beforeEach(() => { store.personaChoice.value = 'default'; store.activeChatId.value = 'chat_main'; });
+
+  it('non-deep: pushes an assistant turn carrying questions, no text', async () => {
+    store.deepMode.value = false;
+    streamQuestion();
+    const ok = await sendMessage('draft an email', []);
+    expect(ok).toBe(true);
+    const last = store.thread.value.at(-1);
+    expect(last.role).toBe('assistant');
+    expect(last.questions).toEqual([{ question: 'Name?', options: [], multi_select: false }]);
+    expect(last.text).toBe('');
+  });
+
+  it('deep mode: a question turn is NOT verified (no verdict, no critic chat)', async () => {
+    store.deepMode.value = true; store.deepVerifyAllowed.value = true;
+    streamQuestion();
+    const ok = await sendMessage('draft an email', []);
+    expect(ok).toBe(true);
+    expect(agentApi.createChat).not.toHaveBeenCalled(); // no critic chat
+    expect(store.thread.value.at(-1).deep).toBeUndefined();
+  });
+
+  it('answerQuestions sends the formatted answer as a normal message', async () => {
+    store.deepMode.value = false;
+    agentApi.streamMessage.mockImplementation(async (id, content, { onEvent }) => { onEvent({ type: 'text-delta', delta: 'ok' }); onEvent({ type: 'finish' }); });
+    await answerQuestions([{ question: 'Name?', answer: 'Acme' }]);
+    expect(agentApi.streamMessage.mock.calls.at(-1)[1]).toBe('Acme');
   });
 });

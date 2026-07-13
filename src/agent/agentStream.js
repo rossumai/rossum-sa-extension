@@ -2,6 +2,12 @@
 // No network, no DOM — fully unit-testable. See spec §2 for the event vocabulary.
 import { stripFences, safeParseArray } from '../mdh/llmPipeline.js';
 
+// Known informational custom data-* parts (task plan snapshot / created-file
+// link) — ignored in foldEvents' unhandled-collection below to avoid a false
+// "unsupported interactive element" alarm. Surfacing them live is a future
+// enhancement (files already show via FilesStrip on reload).
+const BENIGN_DATA_PARTS = new Set(['data-task-snapshot', 'data-file-created']);
+
 const TOOL_LABELS = {
   load_skill: 'consulting reference',
   list_datasets: 'listing datasets',
@@ -23,6 +29,18 @@ const TOOL_LABELS = {
   rossum_get_schema: 'reading the schema',
   rossum_list_annotations: 'searching annotations',
   rossum_search_annotations: 'searching annotations',
+  ask_user_question: 'asking you a question',
+  write_file: 'writing a file',
+  search_knowledge_base: 'searching the knowledge base',
+  search_elis_docs: 'searching the API docs',
+  create_task: 'tracking tasks',
+  update_task: 'tracking tasks',
+  list_tasks: 'tracking tasks',
+  execute_python: 'running a script',
+  generate_mock_pdf: 'generating a test document',
+  load_tool: 'loading tools',
+  run_grep: 'processing output',
+  run_jq: 'processing output',
 };
 
 // Human status label for the compact live status line.
@@ -70,7 +88,7 @@ export function createSseParser() {
 }
 
 export function newAcc() {
-  return { reasoning: '', text: '', finalAnswer: null, status: '', done: false, tools: [] };
+  return { reasoning: '', text: '', finalAnswer: null, status: '', done: false, tools: [], questions: null, unhandled: [], error: null };
 }
 
 // Fold a batch of events into a mutable accumulator.
@@ -81,9 +99,23 @@ export function foldEvents(acc, events) {
       case 'reasoning-delta': acc.reasoning += e.delta || ''; break;
       case 'text-delta': acc.text += e.delta || ''; break;
       case 'data-final-answer': acc.finalAnswer = e.data?.text ?? acc.finalAnswer; break;
+      case 'data-agent-question': acc.questions = (e.data?.questions && e.data.questions.length) ? e.data.questions : acc.questions; break;
+      case 'error': case 'tool-output-error': {
+        const msg = e.errorText || e.error || e.message;
+        if (msg) acc.error = acc.error ? `${acc.error}\n${msg}` : String(msg);
+        break;
+      }
       case 'tool-input-start': acc.status = toolLabel(e.toolName); acc.tools.push(e.toolName); break;
       case 'finish': case '__done__': acc.done = true; break;
-      default: break;
+      default:
+        // Forward-compatible: any UNKNOWN custom data-* part (a future
+        // interactive element) is captured so the UI can show a named notice
+        // instead of rendering nothing. Known data-* are handled above.
+        if (typeof e?.type === 'string' && e.type.startsWith('data-') && !BENIGN_DATA_PARTS.has(e.type)
+          && !acc.unhandled.some((u) => u.type === e.type)) {
+          acc.unhandled.push({ type: e.type, data: e.data });
+        }
+        break;
     }
   }
   return acc;
@@ -91,6 +123,19 @@ export function foldEvents(acc, events) {
 
 export function replyText(acc) {
   return acc.finalAnswer != null ? acc.finalAnswer : acc.text;
+}
+
+// Decide what a FINISHED turn shows when it has nothing normally renderable.
+// null → the turn has text and/or questions; render those. Otherwise a notice,
+// in priority order: stream error, then an unsupported interactive element
+// (named, with raw payload), then a quiet empty note. Never render blank.
+export function fallbackNotice(turn) {
+  if ((turn.text && turn.text.length) || turn.questions) return null;
+  if (turn.error) return { kind: 'error', text: turn.error };
+  if (turn.unhandled && turn.unhandled.length) {
+    return { kind: 'unsupported', types: turn.unhandled.map((u) => u.type), payloads: turn.unhandled };
+  }
+  return { kind: 'empty' };
 }
 
 // Extract a MongoDB aggregation pipeline (JSON array) from the reply text.

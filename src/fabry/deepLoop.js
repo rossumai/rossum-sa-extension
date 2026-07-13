@@ -52,6 +52,7 @@ export function buildReviewerMessage(issues) {
 export async function runDeepTurn({ question, images, sendMainTurn, runCriticTurn, onPhase, maxRounds = 2 }) {
   let answer = await sendMainTurn(question, images);
   if (!answer) return null;
+  if (answer.verifiable === false) return { skipped: true };
 
   for (let round = 0; ; round += 1) {
     onPhase({ phase: 'verify', round });
@@ -70,5 +71,8 @@ export async function runDeepTurn({ question, images, sendMainTurn, runCriticTur
     onPhase({ phase: 'refine', round: round + 1 });
     answer = await sendMainTurn(buildReviewerMessage(issues));
     if (!answer) return null;
+    // A refine round can itself come back as a clarifying question (no answer
+    // to verify) — skip like the first-answer case rather than badge it.
+    if (answer.verifiable === false) return { skipped: true };
   }
 }

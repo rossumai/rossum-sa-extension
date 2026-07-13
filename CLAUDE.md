@@ -176,7 +176,11 @@ The server owns ALL chat state; the client holds it in signals only:
   Enter, paste/drop/pick image attachments (≤4, ≤5MB, png/jpeg/gif/webp), `/`
   autocomplete fed by `GET /commands`, Stop while streaming, standing
   write-capability notice.
-- **Feedback** 👍/👎 = `PUT /chats/{id}/feedback`; **files** = `ChatDetail.files`
+- **Feedback** 👍/👎 (`PUT /chats/{id}/feedback`): the UI is currently HIDDEN
+  (2026-07-13) — `turn_index` addresses the raw stored history but `GET /chats`
+  drops text-less tool-only steps, so a thread index mis-targets feedback on
+  tool-using turns (live-confirmed). Plumbing kept dormant; re-enable once the
+  backend exposes a stable per-message feedback id. **files** = `ChatDetail.files`
   strip + authenticated blob download.
 - **Concurrency** (`chat.js`): one module-level AbortController + monotonic
   `loadId` guard every await — a chat switch mid-stream can never write stale
@@ -217,6 +221,18 @@ The server owns ALL chat state; the client holds it in signals only:
   `Turn.chip` = display, `Turn.command` = index exclusion). Kill switch:
   `fabryDeepVerifyEnabled` (popup Experimental toggle, DEFAULT ON, only a
   stored false disables; mirrored live via onChanged; forces deepMode off).
+- **Agent interactive elements** (spec `docs/superpowers/specs/2026-07-13-fabry-agent-questions-design.md`):
+  the agent's `ask_user_question` tool emits a `data-agent-question` event
+  (`agentStream.foldEvents` → `acc.questions`); `AssistantTurn` renders it as an
+  inline `FabryQuestions` form (free-text / single-select / multi-select),
+  answered by ONE message back to the same chat (`chat.js answerQuestions`/
+  `formatAnswers`; a plain message IS the answer — verified; questions are NOT
+  persisted server-side). Deep verify skips question turns (`deepLoop` returns
+  `{skipped}` when `sendMainTurn` reports `verifiable:false`). **Never render
+  nothing:** `agentStream.fallbackNotice` + `src/ui/fabry/FabryNotice.jsx`
+  (`.fabry-turn-notice*`) turn any UNKNOWN `data-*` element or stream `error`
+  into a named notice (with raw payload in a Details expander) — the
+  forward-compatible catch-all for future interactive elements.
 - Read-only stance unchanged: cautious-default persona + standing notice are
   defense-in-depth; the server-side write-lock remains the ship-blocker before
   non-dogfood use.

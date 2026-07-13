@@ -1,5 +1,11 @@
 # Fabry Chat — "Deep verify" autonomous answer→verify→refine loop
 
+> **Consolidated:** the authoritative as-built spec is
+> `2026-07-10-fabry-chat-console-design.md` (this Deep Verify feature is summarized
+> there and that document governs on any conflict). This file is the detailed
+> design/rationale companion.
+
+
 **Date:** 2026-07-11
 **Status:** Shipped (as-built; §3/§2 amended post-review — see notes below).
 Consolidated summary lives in `2026-07-10-fabry-chat-console-design.md` §8.
