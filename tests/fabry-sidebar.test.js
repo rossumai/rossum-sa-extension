@@ -10,7 +10,6 @@ import * as chat from '../src/fabry/chat.js';
 import * as store from '../src/fabry/store.js';
 import Sidebar from '../src/fabry/components/Sidebar.jsx';
 
-const flush = () => new Promise((r) => setTimeout(r, 0));
 
 function mount() {
   const root = document.createElement('div');
@@ -32,13 +31,22 @@ beforeEach(() => {
 });
 
 describe('Sidebar', () => {
-  it('renders rows with title fallback chain and marks the active one', () => {
+  it('renders the Mr. Fabry brand title at the top', () => {
+    const root = mount();
+    expect(root.querySelector('.fabry-sidebar-name').textContent).toBe('Mr. Fabry');
+    expect(root.querySelector('.fabry-sidebar-title .fabry-sidebar-mark')).toBeTruthy();
+  });
+  it('renders rows with title fallback chain, no time-ago meta, and marks the active one', () => {
     const root = mount();
     const rows = [...root.querySelectorAll('.fabry-chat-row')];
     expect(rows.length).toBe(2);
     expect(rows[0].textContent).toContain('Failed exports triage'); // summary wins
     expect(rows[1].textContent).toContain('hello'); // first_message fallback
     expect(rows[1].classList.contains('active')).toBe(true);
+    expect(root.querySelector('.fabry-chat-meta')).toBeNull(); // time-ago removed
+  });
+  it('has no chat search box', () => {
+    expect(mount().querySelector('.fabry-search')).toBeNull();
   });
   it('clicking a row opens it; New chat resets', () => {
     const root = mount();
@@ -93,29 +101,7 @@ describe('Sidebar — infinite scroll', () => {
   });
 });
 
-describe('Sidebar — search & resize', () => {
-  it('filters loaded chats with highlighted matches and a status line', async () => {
-    const root = mount();
-    const input = root.querySelector('.fabry-search input');
-    input.value = 'failed';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    await flush();
-    const rows = [...root.querySelectorAll('.fabry-chat-row')];
-    expect(rows.length).toBe(1);
-    expect(rows[0].querySelector('mark').textContent.toLowerCase()).toBe('failed');
-    expect(root.querySelector('.fabry-search-status').textContent).toContain('1 of 2');
-  });
-  it('Escape clears the search', async () => {
-    const root = mount();
-    const input = root.querySelector('.fabry-search input');
-    input.value = 'zzz-no-match';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    await flush();
-    expect(root.querySelectorAll('.fabry-chat-row').length).toBe(0);
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    await flush();
-    expect(root.querySelectorAll('.fabry-chat-row').length).toBe(2);
-  });
+describe('Sidebar — resize', () => {
   it('dragging the edge resizes within clamps and persists on mouseup', () => {
     global.chrome = { storage: { local: { set: vi.fn(), get: vi.fn().mockResolvedValue({}) } } };
     store.sidebarWidth.value = 280;

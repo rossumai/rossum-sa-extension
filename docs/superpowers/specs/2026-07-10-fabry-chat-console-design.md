@@ -101,13 +101,15 @@ precedent, no retry button).
   scrollbar at the pane edge); ✦ band sticky top; composer sticky bottom;
   content centered at 860px; NO horizontal page scroll — wide tables/code/
   diagrams scroll inside their own frames; thin themed scrollbars.
-- **Sidebar (F1 "Search-first"):** collapsible (`«`/`»`, 52px icon rail) and
-  drag-resizable (200–420px, persisted); ghost "＋ New chat"; pinned search
-  filtering loaded chats live with `<mark>` highlights, Esc/× clears,
-  "N of M loaded chats match" status; flat recency list (no date groups),
-  two-line rows (sanitized title + relative time), soft `--info-bg` active
-  fill; **infinite scroll** (no Load more button; near-bottom auto-loads,
-  quiet loading row); scrollbar thumb invisible until list hover.
+- **Sidebar:** a "✦ Mr. Fabry" brand title on top (Claude/Gemini-style), then a
+  ghost "＋ New chat", then a flat recency list — **single-line rows, title only**
+  (no time-ago meta), soft `--info-bg` active fill, sanitized titles. Collapsible
+  (`«`/`»`, 52px icon rail keeping the ✦ mark) and drag-resizable (200–420px,
+  persisted). **Infinite scroll** (near-bottom auto-loads, quiet loading row);
+  scrollbar thumb invisible until list hover. (An earlier "F1 search-first"
+  iteration — a pinned search box with `<mark>` highlights — and the per-row
+  time-ago labels were REMOVED 2026-07-13 at the owner's request; `search.js`
+  deleted.)
 - **Header band:** ✦ mark, sanitized title, persona pill (only when set this
   session — the server strips persona turns from history), quiet token
   total.

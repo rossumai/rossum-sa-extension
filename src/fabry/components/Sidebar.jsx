@@ -1,9 +1,7 @@
 import { h } from 'preact';
-import { useState } from 'preact/hooks';
 import * as store from '../store.js';
 import { loadChats, openChat, startNewChat } from '../chat.js';
-import { tsToMs, relativeTime, chatTitle } from '../format.js';
-import { filterChats, titleSegments } from '../search.js';
+import { chatTitle } from '../format.js';
 
 // Drag the sidebar's right edge to resize (MDH SidebarResizer pattern, but
 // signal-driven since the width lives in the parent grid). Live drag updates
@@ -31,18 +29,16 @@ function startResize(e) {
   document.addEventListener('mouseup', onUp);
 }
 
-// Search-first sidebar (design round 6, F1): a pinned filter over the loaded
-// chats with highlighted matches; the list itself is a flat recency feed.
+// Chat sidebar: a Mr. Fabry brand header, a New chat button, and a flat
+// recency list of conversations (title only). Older chats load on scroll.
 export default function Sidebar() {
-  const [query, setQuery] = useState('');
-  const all = store.chats.value;
-  const list = filterChats(all, query);
-  const searching = query.trim().length > 0;
-  const hasMore = store.chatsTotal.value != null && all.length < store.chatsTotal.value;
+  const list = store.chats.value;
+  const hasMore = store.chatsTotal.value != null && list.length < store.chatsTotal.value;
 
   if (!store.sidebarOpen.value) {
     return (
       <aside class="fabry-sidebar collapsed">
+        <span class="fabry-sidebar-mark" title="Mr. Fabry">{'✦'}</span>
         <button type="button" class="fabry-sidebar-toggle" title="Expand chat list" onClick={() => store.setSidebarOpen(true)}>{'»'}</button>
         <button type="button" class="fabry-newchat icon" title="New chat" onClick={startNewChat}>{'＋'}</button>
       </aside>
@@ -50,21 +46,12 @@ export default function Sidebar() {
   }
   return (
     <aside class="fabry-sidebar">
-      <div class="fabry-sidebar-hd">
-        <button type="button" class="fabry-newchat" onClick={startNewChat}>{'＋ New chat'}</button>
+      <div class="fabry-sidebar-title">
+        <span class="fabry-sidebar-mark">{'✦'}</span>
+        <span class="fabry-sidebar-name">Mr. Fabry</span>
         <button type="button" class="fabry-sidebar-toggle" title="Collapse chat list" onClick={() => store.setSidebarOpen(false)}>{'«'}</button>
       </div>
-      <div class="fabry-search">
-        <span class="fabry-search-glyph">{'⌕'}</span>
-        <input
-          type="text"
-          placeholder="Search chats"
-          value={query}
-          onInput={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Escape') setQuery(''); }}
-        />
-        {searching && <button type="button" class="fabry-search-clear" title="Clear search" onClick={() => setQuery('')}>{'×'}</button>}
-      </div>
+      <button type="button" class="fabry-newchat" onClick={startNewChat}>{'＋ New chat'}</button>
       <div
         class="fabry-chatlist"
         onScroll={(e) => {
@@ -81,18 +68,10 @@ export default function Sidebar() {
             class={'fabry-chat-row' + (store.activeChatId.value === c.chat_id ? ' active' : '')}
             onClick={() => openChat(c.chat_id)}
           >
-            <span class="fabry-chat-title" title={chatTitle(c)}>
-              {titleSegments(chatTitle(c), query).map((seg, i) => (seg.hit ? <mark key={i}>{seg.text}</mark> : seg.text))}
-            </span>
-            <span class="fabry-chat-meta">{relativeTime(tsToMs(c.timestamp))}</span>
+            <span class="fabry-chat-title" title={chatTitle(c)}>{chatTitle(c)}</span>
           </button>
         ))}
-        {searching && (
-          <div class="fabry-search-status">
-            {list.length} of {all.length} loaded chats match
-          </div>
-        )}
-        {list.length === 0 && !searching && !store.chatsLoading.value && <div class="fabry-chat-empty">No conversations yet</div>}
+        {list.length === 0 && !store.chatsLoading.value && <div class="fabry-chat-empty">No conversations yet</div>}
       </div>
       {store.chatsLoading.value && <div class="fabry-chat-loadingrow">Loading{'…'}</div>}
       <div class="fabry-side-resizer" title="Drag to resize" onMouseDown={startResize} />
