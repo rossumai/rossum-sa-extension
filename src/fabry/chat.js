@@ -41,7 +41,10 @@ function abortInFlight() {
   return loadId;
 }
 
-export async function openChat(chatId) {
+// `restore: true` marks a silent session-restore open (from a persisted
+// fabryActiveChat id) — a 404 there just means the saved chat expired, so we
+// fall back to the new-chat greeting with no error noise.
+export async function openChat(chatId, { restore = false } = {}) {
   const id = abortInFlight();
   store.activeChatId.value = chatId;
   store.thread.value = [];
@@ -55,8 +58,17 @@ export async function openChat(chatId) {
     store.files.value = detail.files || [];
   } catch (err) {
     if (id !== loadId) return;
-    if (err?.status === 401) store.error.value = err.message;
-    else store.sendError.value = friendly(err);
+    if (err?.status === 401) { store.error.value = err.message; return; }
+    if (err?.status === 404) {
+      // Chat is gone (expired/deleted). Reset to the greeting rather than
+      // leaving a dead activeChatId + a raw 404 — the reset also clears the
+      // stale persisted id via the tabState effect. A gentle note only for an
+      // explicit user open, never for a silent restore.
+      store.resetChatView();
+      if (!restore) store.sendError.value = 'That conversation is no longer available.';
+      return;
+    }
+    store.sendError.value = friendly(err);
   } finally {
     if (id === loadId) store.threadLoading.value = false;
   }

@@ -24,7 +24,7 @@ export async function initFabry() {
   try {
     const stored = await chrome.storage.local.get('fabryActiveChat');
     const saved = resolveTabState(['fabryActiveChat'], stored).fabryActiveChat;
-    if (saved && typeof saved === 'string') openChat(saved).catch(() => {});
+    if (saved && typeof saved === 'string') openChat(saved, { restore: true }).catch(() => {});
   } catch { /* restore is best-effort */ }
 
   if (!wired) {

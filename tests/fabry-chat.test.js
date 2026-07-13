@@ -43,6 +43,19 @@ describe('loadChats / openChat', () => {
     expect(store.thread.value.map((t) => t.role)).toEqual(['user', 'assistant']);
     expect(store.files.value[0].filename).toBe('out.csv');
   });
+  it('404 on a restored chat falls back to the greeting silently', async () => {
+    agentApi.getChat.mockRejectedValueOnce(Object.assign(new Error('Agent error 404'), { status: 404 }));
+    store.sendError.value = null;
+    await openChat('gone_chat', { restore: true });
+    expect(store.activeChatId.value).toBeNull(); // greeting, not a dead chat
+    expect(store.sendError.value).toBeNull(); // silent
+  });
+  it('404 on a user-opened chat resets to the greeting with a gentle note', async () => {
+    agentApi.getChat.mockRejectedValueOnce(Object.assign(new Error('Agent error 404'), { status: 404 }));
+    await openChat('gone_chat');
+    expect(store.activeChatId.value).toBeNull();
+    expect(store.sendError.value).toMatch(/no longer available/i);
+  });
 });
 
 describe('sendMessage', () => {

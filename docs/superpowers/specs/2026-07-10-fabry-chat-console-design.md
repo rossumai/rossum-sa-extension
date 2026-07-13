@@ -16,9 +16,9 @@ cross-check). Where they differ, THIS document governs.
 A fifth Console app: a full conversational interface for Mr. Fabry (the Rossum
 Agent API). Two jobs, weighted equally: a general org assistant for SAs, and a
 dogfood/debug surface for the agent (reasoning, tool activity, per-turn
-feedback, token counts as first-class UI). Internal-org dogfood only: the
-agent's server-side write tools have no server-side write-lock — that remains
-the ship-blocker for anything beyond dogfood.
+feedback, token counts as first-class UI). Internal-org dogfood only. (The
+old "no server-side write-lock" ship-blocker is RETIRED — §10: writes are
+gated server-side and our chats default to read-only.)
 
 ## 2. Verified platform facts (live, 2026-07-10/13; see §10 backend cross-check)
 
@@ -34,12 +34,13 @@ the ship-blocker for anything beyond dogfood.
   "Autonomous", `cautious`); `POST /chats/{id}/messages` = AI-SDK SSE stream,
   429 documented; images sent as top-level `{content, images:[{media_type,
   data}]}`.
-- **Feedback `turn_index` = raw index into `ChatDetail.messages`**
-  (per-message storage, probe-verified). The server **strips `/`-command
-  turns and their acks** from history but **stores plain user messages**
-  (incl. Deep Verify's reviewer messages) — hence the client's
-  `Turn.chip` (display) vs `Turn.command` (index exclusion) split in
-  `thread.js serverMessageIndex`.
+- Feedback `turn_index` addresses the RAW stored history; the server
+  **strips `/`-command turns and their acks** but **stores plain user
+  messages** (incl. Deep Verify reviewer messages) — hence the client's
+  `Turn.chip` (display) vs `Turn.command` (index exclusion) split. BUT §10:
+  `GET /chats` also drops text-less tool-only steps, so a projection index
+  mis-targets feedback on tool-using turns → **the 👍/👎 UI is hidden**
+  (plumbing dormant) pending a backend feedback-id.  
 - **Client abort stops server-side generation** (user message persists, no
   reply is stored). Chat list is per user+org (single-org verified).
 - The agent runs an autonomous per-message TOOL loop server-side (8 steps
@@ -62,8 +63,8 @@ the ship-blocker for anything beyond dogfood.
   stale-guarded; `finally` resets only when still owner), `thread.js`
   (server Message → Turn view model; `serverMessageIndex`), `format.js`
   (`tsToMs` [seconds heuristic], `relativeTime`, `sanitizeTitle`,
-  `chatTitle`), `search.js` (sidebar filter + highlight segments),
-  `personas.js` (display names for wire values), `starters.js` (greeting
+  `chatTitle`), `personas.js` (display names for wire values),
+  `starters.js` (greeting
   prompts), `deepLoop.js` (§8), `mermaidEntry.js` (lazy bundle entry),
   `components/` (App, Sidebar, Thread, AssistantTurn, Composer, CommandMenu,
   ChatHeader, FilesStrip).
@@ -116,8 +117,8 @@ precedent, no retry button).
 - **Thread:** user turns as right-tinted blocks (images inline); `/`-command
   and `[deep-verify` reviewer turns render as system-style chips; assistant
   turns = collapsible Thinking strip (open while streaming) → ordered
-  tool-label chips → streaming markdown → footer (👍/👎 via raw-index
-  feedback, Copy, Deep-Verify verdict chip §8). Interrupted turns show
+  tool-label chips → streaming markdown → footer (Copy + Deep-Verify verdict
+  chip §8; the 👍/👎 buttons are hidden — §10). Interrupted turns show
   "Refresh from server". Pin-to-bottom scrolls the main pane only when
   near-bottom. New-chat greeting: ✦ + title + 4 Rossum-specific **starter
   prompt cards** (`starters.js` — org map / extension health / stuck
@@ -140,7 +141,10 @@ precedent, no retry button).
 
 Send: lazy `createChat` → optional `/persona cautious` priming turn (visible
 chip + ack) → streamed turn folded into `liveTurn` → sidebar refresh.
-Open chat: abort in-flight, render server history. Errors: 401 → app banner;
+Open chat: abort in-flight, render server history; a **404 (chat expired/
+deleted)** resets to the new-chat greeting — silently for a session restore
+(`openChat(id, {restore:true})`), with a gentle note for an explicit open — so a
+stale restored id never surfaces a raw "Agent error 404". Errors: 401 → app banner;
 429 → inline note (draft preserved); stream idle-timeout/Stop → interrupted
 turn + refresh affordance; sidebar/commands failures degrade silently.
 
