@@ -18,7 +18,7 @@ export const error = signal(null);
 // Non-error operation notice (in-progress / inconclusive) shown as a top stripe.
 // Shape: { message: string, kind: 'info' | 'warning' } | null
 export const opNotice = signal(null);
-export const modalContent = signal(null);
+export { modalContent } from '../ui/Modal.jsx'; // shared modal signal (see src/ui/Modal.jsx)
 // Connection state for the Dataset Management app. null = not yet checked
 // (shell shows a connecting state), true/false after the healthz probe. The
 // shell passes this to <App connected={...}/>.

@@ -236,6 +236,40 @@ The server owns ALL chat state; the client holds it in signals only:
 - Read-only stance unchanged: cautious-default persona + standing notice are
   defense-in-depth; the server-side write-lock remains the ship-blocker before
   non-dogfood use.
+- **Architect mode** (spec `docs/superpowers/specs/2026-07-13-fabry-architect-design.md`,
+  §Revision v2): a `[Chat | Architect]` segmented toggle in the sidebar (under
+  the ✦ brand) driven by the per-tab, content-free `fabryMode` signal swaps
+  `.fabry-main` — Chat is byte-identical. Architect (`src/fabry/architect/`)
+  keeps one per-org list of **deliverables** (Markdown SOW items) in the
+  `__mrfabry_architect` Data Storage system collection — one doc per deliverable
+  `{_id, kind:'requirement', text /*markdown*/, order, createdAt, editedAt,
+  lastVerdict, lastEvidence, lastChatId, ranAt}` (the collection name is a single
+  cosmetic constant in `architect/api.js` — no code parses the `__` prefix,
+  swappable). The deliverable **list lives in the sidebar** (`ArchitectSidebar`,
+  rendered by `Sidebar.jsx` in architect mode) with an inline run-status dot per
+  row + a **Run all ▷**/Stop control + "n/m checked" progress; **opening** a
+  deliverable fills the main pane (`ArchitectApp` → `DeliverableEditor`) with a
+  **CodeMirror Markdown-source editor** (`MarkdownEditor.jsx`, `@codemirror/lang-markdown`,
+  theme-aware; debounced `updateDeliverable` + flush-on-switch) and, below, the
+  check details (verdict chip + evidence via `FabryMarkdown` + "view
+  investigation" → Chat mode + `openChat`). The active sidebar row blends
+  seamlessly into the editor (shared `--bg-card` surface). `Run all`/per-row
+  `Re-run ▷` check each deliverable in its own fresh cautious-primed agent chat,
+  parse `VERDICT: PASS|FAIL|UNCERTAIN` + evidence (pure `check.js`; concurrency-3
+  abort-aware `run.js`; impure glue `actions.js` with a monotonic run-id guard
+  mirroring `chat.js`'s `loadId`), then **persist** the result onto the
+  deliverable's doc (`saveResult`). On reopen, persisted results show marked
+  **outdated** ("last checked {when} · may be outdated — re-run"; staleness =
+  `!ranAt || editedAt>ranAt || loaded-not-run-this-session`); editing a
+  deliverable marks its result stale. Run is **strictly read-only** against the
+  org (cautious persona + read-only framing + server-side read-only default — no
+  `mcp_mode` ever sent); Architect's only writes are its own deliverable docs
+  (content + last result). Nothing extra at rest in the browser (deliverables +
+  results live server-side per-org; only `fabryMode` persists; `activeId` is
+  in-memory). No new gate — inside the existing `experimentalUnlocked` Fabry app.
+  LIVE GATE before non-dogfood use: confirm the server accepts a `__`-prefixed
+  collection create + doc write on elis (client + MDH app verified clean;
+  DocumentDB reserves only `system.` — swap the constant if rejected).
 
 ### DevTools panel (Raw Object Editor) (`src/devtools/`)
 
@@ -264,10 +298,10 @@ Preact JSX. Detects current site (Rossum/NetSuite/Coupa) and dims irrelevant sec
 - Experimental unlock: `experimentalUnlocked` — flipped by 5 quick clicks on the popup's version hash; reveals the popup's Experimental section AND is the second half of the `annotateForMeEnabled` double-gate (`isAnnotateEnabled` in `src/rossum/features/annotate-for-me.js`): the Annotate-for-me feature injects only when BOTH are true. It also gates the Fabry Chat Console app's rail item (third gate consumer, live via `chrome.storage.onChanged`)
 - Console staging auth: `consoleAuth_<uuid>` (single-use, 24h TTL, removed on first read; carries `app` + optional DS pipeline prefill)
 - Console state: `consoleActiveApp` — per-tab (see MDH state below: session-first read with a `chrome.storage.local` seed)
-- MDH state: `mdhPipelineWidth`, `mdhSidebarWidth`, `mdhUploadsColumnWidths`, `mdhOverviewChartsScale`, `mdhResultsView`, `mdhStagesAutoscroll`, `mdhStagesSampleSize`, `mdhStagesShowDef` are **global** (shared across tabs, persisted in `chrome.storage.local`). The **navigation** keys `mdhActiveView`, `mdhSelectedCollection`, `mdhActivePanel`, `mdhOpsSearch` (and the Console-level `consoleActiveApp`), plus `fabryActiveChat` (per-tab, content-free server chat id for the Fabry Chat app), are **per-tab**: read session-first from `sessionStorage`, written to BOTH `sessionStorage` (this tab's truth on reload) and `chrome.storage.local` (cross-session seed for a freshly-opened tab), via `src/console/tabState.js`. `mdhLastPipeline::<scope>::<collection>` is keyed per-org **and per-collection** (legacy un-collection-scoped `mdhLastPipeline::<scope>` entries from older builds are orphaned, not migrated).
+- MDH state: `mdhPipelineWidth`, `mdhSidebarWidth`, `mdhUploadsColumnWidths`, `mdhOverviewChartsScale`, `mdhResultsView`, `mdhStagesAutoscroll`, `mdhStagesSampleSize`, `mdhStagesShowDef` are **global** (shared across tabs, persisted in `chrome.storage.local`). The **navigation** keys `mdhActiveView`, `mdhSelectedCollection`, `mdhActivePanel`, `mdhOpsSearch` (and the Console-level `consoleActiveApp`), plus `fabryActiveChat` (per-tab, content-free server chat id for the Fabry Chat app), `fabryMode` (per-tab, content-free Chat|Architect sub-app selection), and `fabryArchitectActive` (per-tab, content-free open-deliverable id for Architect), are **per-tab**: read session-first from `sessionStorage`, written to BOTH `sessionStorage` (this tab's truth on reload) and `chrome.storage.local` (cross-session seed for a freshly-opened tab), via `src/console/tabState.js`. `mdhLastPipeline::<scope>::<collection>` is keyed per-org **and per-collection** (legacy un-collection-scoped `mdhLastPipeline::<scope>` entries from older builds are orphaned, not migrated).
 - Audit state: `auditActiveSource`, `auditFiltersBySource`
 - Galaxy state: none (no persisted state in v1)
-- Fabry Chat state: `fabrySidebarOpen` + `fabrySidebarWidth` are **global** layout prefs (collapse toggle + drag-resize, clamp 200–420); `fabryActiveChat` is the only other persisted value; chat content/images/transcripts never touch storage (server-owned; privacy constraint)
+- Fabry Chat state: `fabrySidebarWidth` is a **global** layout pref (sidebar drag-resize, clamp 200–420; the sidebar collapse toggle was removed, so the former `fabrySidebarOpen` key is orphaned/unused); `fabryActiveChat` (open chat id), `fabryMode` (Chat|Architect sub-app selection), and `fabryArchitectActive` (open Architect deliverable id) are the only other persisted values — all per-tab (tabState pattern) and content-free; chat content/images/transcripts and Architect deliverable text/evidence never touch storage (server-owned; privacy constraint — deliverables + their last results live in the `__mrfabry_architect` Data Storage collection, in-memory otherwise)
 - Inspector state: `rossumViewedAnnotations` — annotations the user OPENED IN THE ROSSUM UI (`{id, origin, at}`, deduped by (origin,id), newest-first, cap 12), written by the always-on `track-viewed` content-script feature (pure tracker, no DOM) and read by the Inspector landing, which also live-refreshes via `chrome.storage.onChanged`, which filters to the connected org's origin (cap 8 shown) and enriches file/queue/status via ONE sideloaded call (`/annotations?id=<csv>&sideload=documents,queues` — verified live). Clear-all removes only the current origin's entries. Opening the Inspector lands on this list — only an explicitly staged `pendingAnnotationId` (deep-link) auto-loads. (Legacy keys `inspectorRecents` [investigated-recents, retired 2026-07-04] and the older per-tab `consoleInspectorAnn` are orphaned, not migrated.)
 - AI pipeline input availability: cached in **`sessionStorage`** (key `mdhAiAvailable_<org>`), NOT `chrome.storage` — ephemeral per-session result of the `/internal/llmchat` probe, so availability is never persisted at rest.
 
@@ -281,7 +315,7 @@ Preact JSX. Detects current site (Rossum/NetSuite/Coupa) and dims irrelevant sec
 ## Dependencies
 
 - **preact** + **@preact/signals** — UI rendering and reactive state for the popup and Console apps (MDH, Audit, Galaxy)
-- **codemirror** + **@codemirror/lang-json** + **@codemirror/theme-one-dark** — JSON/pipeline editor with MongoDB operator autocompletion
+- **codemirror** + **@codemirror/lang-json** + **@codemirror/lang-markdown** + **@codemirror/theme-one-dark** — JSON/pipeline editor with MongoDB operator autocompletion (lang-json); the Fabry Architect deliverable Markdown-source editor (`MarkdownEditor.jsx`, lang-markdown; ~+100KB to `console.js`)
 - **json5** — lenient JSON parsing (allows trailing commas, unquoted keys in pipeline editor)
 - **beautiful-mermaid** — diagram rendering for Fabry chat replies (replaced the 3.3MB `mermaid` package). SYNCHRONOUS `renderMermaidSVG(text, themeOpts)` (flat `{bg, fg, accent, ...}` theme read live from the console tokens — `themeFromTokens`); escapes label text itself (probe-verified); throws on invalid input → code-fence fallback. Ships one flat ~1.5MB module (no tree-shakable subpaths), so it's bundled as its OWN lazy entry (`src/fabry/mermaidEntry.js` → `dist/console/mermaid.js`, registers `window.__fabryMermaidSvg`) script-injected on the first mermaid fence (`src/ui/fabry/mermaidLoader.js`); output parsed via DOMParser text/html (no innerHTML sinks)
 - **three** + **d3-force-3d** — WebGL rendering + force-directed layout for the Galaxy app. The scene is hand-rolled on these directly; `3d-force-graph` was deliberately avoided (its bundled ngraph engine uses `new Function`, which the Console page's default MV3 CSP forbids). Adds ~360KB to `console.js`.

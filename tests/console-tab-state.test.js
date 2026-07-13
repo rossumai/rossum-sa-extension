@@ -12,9 +12,9 @@ beforeEach(() => {
 });
 
 describe('TAB_SCOPED_KEYS', () => {
-  it('lists exactly the six navigation keys', () => {
+  it('lists exactly the eight navigation keys', () => {
     expect([...TAB_SCOPED_KEYS].sort()).toEqual(
-      ['consoleActiveApp', 'fabryActiveChat', 'mdhActivePanel', 'mdhActiveView', 'mdhOpsSearch', 'mdhSelectedCollection'],
+      ['consoleActiveApp', 'fabryActiveChat', 'fabryArchitectActive', 'fabryMode', 'mdhActivePanel', 'mdhActiveView', 'mdhOpsSearch', 'mdhSelectedCollection'],
     );
   });
 });

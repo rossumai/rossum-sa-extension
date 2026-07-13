@@ -27,7 +27,6 @@ beforeEach(() => {
   store.chatsTotal.value = 10;
   store.activeChatId.value = 'chat_2';
   store.chatsLoading.value = false;
-  store.sidebarOpen.value = true;
 });
 
 describe('Sidebar', () => {
@@ -57,27 +56,12 @@ describe('Sidebar', () => {
   });
 });
 
-describe('Sidebar — collapse', () => {
-  it('collapsed variant hides the list and expands on toggle', () => {
-    store.sidebarOpen.value = false;
+describe('Sidebar — no collapse', () => {
+  it('always renders expanded (no collapse toggle)', () => {
     const root = mount();
-    const aside = root.querySelector('.fabry-sidebar');
-    expect(aside.classList.contains('collapsed')).toBe(true);
-    expect(root.querySelector('.fabry-chatlist')).toBeNull();
-    root.querySelector('.fabry-sidebar-toggle').click();
-    expect(store.sidebarOpen.value).toBe(true);
-  });
-  it('expanded variant shows a collapse toggle and an icon New chat when collapsed', () => {
-    const root = mount();
-    const toggle = root.querySelector('.fabry-sidebar-toggle');
-    expect(toggle.getAttribute('title')).toBe('Collapse chat list');
-    toggle.click();
-    expect(store.sidebarOpen.value).toBe(false);
-    const root2 = mount();
-    const newBtn = root2.querySelector('.fabry-newchat.icon');
-    expect(newBtn).toBeTruthy();
-    newBtn.click();
-    expect(chat.startNewChat).toHaveBeenCalled();
+    expect(root.querySelector('.fabry-sidebar.collapsed')).toBeNull();
+    expect(root.querySelector('.fabry-sidebar-toggle')).toBeNull();
+    expect(root.querySelector('.fabry-chatlist')).toBeTruthy();
   });
 });
 

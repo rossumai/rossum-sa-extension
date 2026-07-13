@@ -18,6 +18,8 @@
 export const TAB_SCOPED_KEYS = [
   'consoleActiveApp',
   'fabryActiveChat',
+  'fabryMode',
+  'fabryArchitectActive',
   'mdhActiveView',
   'mdhSelectedCollection',
   'mdhActivePanel',

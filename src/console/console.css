@@ -4181,7 +4181,8 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .fabry-root { display: flex; flex-direction: column; min-height: 0; }
 .fabry-error { background: var(--danger-bg); color: var(--danger-fg); border: 1px solid var(--danger-border); border-radius: var(--radius); padding: 8px 12px; margin: 8px; font-size: 12px; }
 .fabry-layout { display: grid; grid-template-columns: 280px 1fr; flex: 1; min-height: 0; }
-.fabry-sidebar { position: relative; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--border); padding: 10px; gap: 8px; }
+/* No divider: the active row's --bg-card surface blends into the content pane. */
+.fabry-sidebar { position: relative; display: flex; flex-direction: column; min-height: 0; padding: 10px; gap: 8px; }
 .fabry-side-resizer { position: absolute; top: 0; right: -3px; width: 6px; height: 100%; cursor: col-resize; z-index: 5; }
 .fabry-side-resizer:hover, .fabry-side-resizer.dragging { background: var(--info-border); }
 /* Sidebar (final: F1 search-first over N3 two-line rows, blue scheme):
@@ -4189,16 +4190,18 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
    + accent title; ghost New chat. */
 .fabry-newchat { border: 1px solid var(--border); color: var(--accent); background: none; border-radius: 10px; padding: 8px 12px; font-weight: 600; cursor: pointer; text-align: center; }
 .fabry-newchat:hover { background: var(--bg-hover); border-color: var(--info-border); }
-.fabry-chatlist { flex: 1; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 2px; overscroll-behavior: contain; }
-.fabry-chat-row { display: flex; flex-direction: column; gap: 2px; text-align: left; border: 0; background: none; border-radius: 10px; padding: 8px 11px; cursor: pointer; color: var(--text-primary); }
+/* Break out of the sidebar's right padding + hide the scrollbar so the active
+   row runs flush into the content pane (same blend as Architect). */
+.fabry-chatlist { flex: 1; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 2px; overscroll-behavior: contain; margin-right: -10px; scrollbar-width: none; }
+.fabry-chat-row { display: flex; flex-direction: column; gap: 2px; text-align: left; border: 0; background: none; border-radius: 10px 0 0 10px; padding: 8px 16px 8px 11px; cursor: pointer; color: var(--text-primary); }
 .fabry-chat-row:hover { background: var(--bg-hover); }
-.fabry-chat-row.active { background: var(--info-bg); }
+.fabry-chat-row.active { background: var(--bg-card); }
 .fabry-chat-row.active .fabry-chat-title { color: var(--accent); font-weight: 500; }
 .fabry-chat-title { min-width: 0; font-size: 12.5px; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fabry-chat-empty { font-size: 12px; color: var(--text-secondary); padding: 12px; text-align: center; }
 .fabry-chat-loadingrow { font-size: 10.5px; color: var(--text-secondary); text-align: center; padding: 6px; }
 .fabry-working { position: relative; flex: 1; align-self: stretch; min-height: 20px; }
-.fabry-main { display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow-y: auto; overscroll-behavior: contain; }
+.fabry-main { display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow-y: auto; overscroll-behavior: contain; background: var(--bg-card); }
 .fabry-thread { flex: 1 0 auto; padding: 18px 22px; display: flex; flex-direction: column; gap: 14px; max-width: 860px; width: 100%; margin: 0 auto; overflow-wrap: break-word; }
 .fabry-turn-chip { align-self: center; font-size: 10.5px; color: var(--text-secondary); background: var(--bg-hover); border-radius: 999px; padding: 3px 12px; font-family: var(--font-mono, monospace); }
 .fabry-turn-user { align-self: flex-end; max-width: 78%; background: var(--info-bg); border: 1px solid var(--info-border); border-radius: 12px 12px 4px 12px; padding: 9px 12px; font-size: 13px; white-space: pre-wrap; }
@@ -4252,7 +4255,7 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .fabry-greeting-mark { font-size: 28px; color: var(--accent); }
 .fabry-greeting-title { font-size: 16px; font-weight: 700; color: var(--text-primary); }
 .fabry-thread-loading { text-align: center; color: var(--text-secondary); font-size: 12px; }
-.fabry-composer { position: sticky; bottom: 0; z-index: 10; background: var(--bg-base); padding: 10px 22px 14px; max-width: 860px; width: 100%; margin: 0 auto; }
+.fabry-composer { position: sticky; bottom: 0; z-index: 10; background: var(--bg-card); padding: 10px 22px 14px; max-width: 860px; width: 100%; margin: 0 auto; }
 .fabry-senderr { color: var(--danger-fg); font-size: 12px; margin-bottom: 6px; }
 .fabry-persona { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 11px; color: var(--text-secondary); }
 .fabry-persona-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
@@ -4292,29 +4295,21 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .fabry-sidebar-title { display: flex; align-items: center; gap: 7px; padding: 4px 4px 2px; }
 .fabry-sidebar-mark { color: var(--accent); font-size: 15px; }
 .fabry-sidebar-name { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
-.fabry-sidebar-title .fabry-sidebar-toggle { margin-left: auto; }
-.fabry-sidebar.collapsed .fabry-sidebar-mark { margin-bottom: 4px; }
-.fabry-sidebar-toggle { border: 1px solid var(--border); background: none; border-radius: 8px; padding: 4px 9px; cursor: pointer; color: var(--text-secondary); font-size: 12px; }
-.fabry-sidebar-toggle:hover { background: var(--bg-hover); color: var(--text-primary); }
-.fabry-layout.sidebar-collapsed { grid-template-columns: 52px 1fr; }
-.fabry-sidebar.collapsed { align-items: center; padding: 10px 6px; gap: 6px; }
-.fabry-newchat.icon { padding: 5px 10px; }
 .fabry-persona-hint { color: var(--text-secondary); font-size: 10.5px; }
 .fabry-starters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 20px; max-width: 580px; width: 100%; padding: 0 20px; }
-.fabry-starter { text-align: left; border: 1px solid var(--border); background: var(--bg-card); border-radius: 12px; padding: 11px 13px; cursor: pointer; font-size: 11.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 2px; }
+/* Grey fill so the starter cards read as cards on the white content pane. */
+.fabry-starter { text-align: left; border: 1px solid var(--border); background: var(--bg-base); border-radius: 12px; padding: 11px 13px; cursor: pointer; font-size: 11.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 2px; }
 .fabry-starter b { font-size: 12.5px; font-weight: 600; color: var(--text-primary); }
 .fabry-starter:hover { border-color: var(--info-border); background: var(--info-bg); }
 .fabry-starter:hover b { color: var(--accent); }
 
-.fabry-main::-webkit-scrollbar, .fabry-chatlist::-webkit-scrollbar, .fabry-md-code::-webkit-scrollbar, .fabry-md-mermaid::-webkit-scrollbar, .fabry-md-tablewrap::-webkit-scrollbar { width: 9px; height: 9px; }
-.fabry-main::-webkit-scrollbar-thumb, .fabry-chatlist::-webkit-scrollbar-thumb, .fabry-md-code::-webkit-scrollbar-thumb, .fabry-md-mermaid::-webkit-scrollbar-thumb, .fabry-md-tablewrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
-.fabry-main::-webkit-scrollbar-thumb:hover, .fabry-chatlist::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); border: 2px solid transparent; background-clip: content-box; }
-.fabry-main::-webkit-scrollbar-track, .fabry-chatlist::-webkit-scrollbar-track { background: transparent; }
+.fabry-main::-webkit-scrollbar, .fabry-md-code::-webkit-scrollbar, .fabry-md-mermaid::-webkit-scrollbar, .fabry-md-tablewrap::-webkit-scrollbar { width: 9px; height: 9px; }
+.fabry-main::-webkit-scrollbar-thumb, .fabry-md-code::-webkit-scrollbar-thumb, .fabry-md-mermaid::-webkit-scrollbar-thumb, .fabry-md-tablewrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+.fabry-main::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); border: 2px solid transparent; background-clip: content-box; }
+.fabry-main::-webkit-scrollbar-track { background: transparent; }
 
-/* Sidebar scrollbar: invisible until the list is hovered (no layout shift —
-   the gutter width stays reserved, only the thumb paints on hover). */
-.fabry-chatlist::-webkit-scrollbar-thumb { background: transparent; border: 0; }
-.fabry-chatlist:hover::-webkit-scrollbar-thumb { background: var(--border); border: 2px solid transparent; background-clip: content-box; }
+/* Chat list scrollbar fully hidden so the active row runs flush into the pane. */
+.fabry-chatlist::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
 /* Deep verify: composer toggle, live-phase chip, per-turn verdict chip + critic strip. */
 .fabry-deep-toggle { margin-left: auto; border: 1px solid var(--border); background: none; color: var(--text-secondary); border-radius: 999px; padding: 3px 12px; font-size: 11px; cursor: pointer; }
@@ -4345,3 +4340,107 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .fabry-turn-notice-details { margin-top: 6px; }
 .fabry-turn-notice-details pre { margin-top: 4px; font-size: 11px; overflow-x: auto; }
 .fabry-turn-notice-muted { color: var(--text-secondary); font-style: italic; border: 0; background: none; padding: 0; }
+
+/* ── Fabry Architect (v2) ─────────────────────────────────────────────── */
+/* Sidebar deliverable list */
+.fabry-arch-side { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+/* Bottom panel (B2): full-width Run (same width as Stop — no jump), results
+   summary, then New at the very bottom. */
+.fabry-arch-foot { display: flex; flex-direction: column; align-items: stretch; gap: 7px; padding-top: 9px; margin-top: 8px; border-top: 1px solid var(--border); }
+.fabry-arch-runall { width: 100%; border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 8px; padding: 8px 12px; font-weight: 600; font-size: 12.5px; cursor: pointer; }
+.fabry-arch-runall:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+.fabry-arch-runall:disabled { opacity: 0.5; cursor: default; }
+.fabry-arch-summary { font-size: 11.5px; color: var(--text-secondary); text-align: center; font-variant-numeric: tabular-nums; }
+.fabry-arch-summary .ok { color: var(--success-fg); font-weight: 600; }
+.fabry-arch-summary .bad { color: var(--danger-fg); font-weight: 600; }
+.fabry-arch-summary .warn { color: var(--warning-fg); font-weight: 600; }
+.fabry-arch-new { width: 100%; text-align: center; border: 1px dashed var(--border); color: var(--accent); background: none; border-radius: 8px; padding: 7px 10px; font-weight: 600; font-size: 12.5px; cursor: pointer; }
+.fabry-arch-new:hover { background: var(--bg-hover); border-style: solid; }
+/* flex:1 pushes the footer down; the list breaks out of the sidebar's right
+   padding (margin-right:-10px) and hides its scrollbar so the active row's
+   surface runs flush into the editor with no seam. */
+.fabry-arch-list { flex: 1; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; min-height: 0; overscroll-behavior: none; margin-right: -10px; scrollbar-width: none; }
+.fabry-arch-list::-webkit-scrollbar { width: 0; height: 0; display: none; }
+.fabry-arch-empty { color: var(--text-secondary); font-size: 12.5px; padding: 8px 6px; }
+.fabry-arch-item { position: relative; display: flex; align-items: center; gap: 8px; color: var(--text-primary); font-size: 13px; padding: 7px 6px 7px 10px; border-radius: 10px 0 0 10px; cursor: pointer; }
+.fabry-arch-item:hover { background: var(--bg-hover); }
+/* Active row blends into the editor: same --bg-card surface, no right seam. */
+.fabry-arch-item.active { background: var(--bg-card); }
+.fabry-arch-item.active:hover { background: var(--bg-card); }
+.fabry-arch-item.dragging { opacity: 0.45; }
+/* Indicator edge matches where the row will land (see ArchitectSidebar). */
+.fabry-arch-item.dragover-before { box-shadow: inset 0 2px 0 var(--accent); }
+.fabry-arch-item.dragover-after { box-shadow: inset 0 -2px 0 var(--accent); }
+.fabry-arch-item-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fabry-arch-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--border); }
+.fabry-arch-dot.pass { background: var(--success); }
+.fabry-arch-dot.fail { background: var(--danger); }
+.fabry-arch-dot.uncertain { background: var(--warning); }
+.fabry-arch-dot.stale { box-shadow: inset 0 0 0 2px var(--bg-card); opacity: 0.75; } /* hollow = outdated */
+/* Visible ring spinner (a solid rotating circle shows no motion). */
+.fabry-arch-dot.running { box-sizing: border-box; background: transparent; border: 2px solid var(--border); border-top-color: var(--accent); animation: spin 0.7s linear infinite; }
+/* Per-row kebab (⋮) menu holding Re-run + Delete (Delete confirms inline). */
+.fabry-arch-kebab { flex: none; border: 0; background: none; color: var(--text-secondary); cursor: pointer; font-size: 15px; line-height: 1; padding: 2px 5px; border-radius: 6px; opacity: 0; }
+.fabry-arch-item:hover .fabry-arch-kebab, .fabry-arch-item.active .fabry-arch-kebab, .fabry-arch-item.menuopen .fabry-arch-kebab { opacity: 0.55; }
+.fabry-arch-kebab:hover { opacity: 1; background: var(--bg-hover); }
+.fabry-arch-menu { position: absolute; right: 6px; top: 30px; z-index: 20; background: var(--bg-card); border: 1px solid var(--border); border-radius: 9px; box-shadow: var(--shadow); padding: 4px; min-width: 132px; display: flex; flex-direction: column; gap: 1px; }
+.fabry-arch-menu.up { top: auto; bottom: 30px; }
+.fabry-arch-menu-item { border: 0; background: none; font: inherit; font-size: 12px; text-align: left; padding: 7px 10px; border-radius: 6px; color: var(--text-primary); cursor: pointer; }
+.fabry-arch-menu-item:hover { background: var(--bg-hover); }
+.fabry-arch-menu-item:disabled { opacity: 0.5; cursor: default; }
+.fabry-arch-menu-item.danger { color: var(--danger-fg); }
+.fabry-arch-menu-item.danger:hover { background: var(--danger-bg); }
+
+/* Main pane: editor blends from the active sidebar row (shared --bg-card) */
+.fabry-arch { display: flex; flex-direction: column; height: 100%; min-height: 0; background: var(--bg-card); }
+.fabry-arch-placeholder { margin: auto; max-width: 420px; text-align: center; color: var(--text-secondary); padding: 24px; }
+.fabry-arch-placeholder-title { font-size: 15px; font-weight: 650; color: var(--text-primary); margin: 0 0 4px; }
+.fabry-arch-placeholder-sub { font-size: 13px; margin: 0; }
+/* The whole right side scrolls (so an expanded verdict shows fully). */
+.fabry-arch-editor { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow-y: auto; }
+/* Split: Markdown source (left) | rendered preview (right). Fills the pane when
+   the verdict is collapsed; keeps a usable height (doesn't shrink) so the whole
+   editor scrolls when the verdict is expanded. */
+.fabry-arch-editor-body { flex: 1 0 auto; min-height: 55%; display: flex; align-items: stretch; }
+.fabry-arch-source { flex: 1; min-width: 0; overflow: auto; padding: 4px 14px; border-right: 1px solid var(--border); }
+.fabry-arch-preview { flex: 1; min-width: 0; overflow: auto; padding: 10px 18px; }
+.fabry-arch-md { height: 100%; }
+.fabry-arch-md .cm-editor { height: 100%; }
+/* Smaller rendered-markdown so the preview + evidence sit better in the UI. */
+.fabry-arch-preview .fabry-md, .fabry-arch-evidence .fabry-md { font-size: 12px; }
+.fabry-arch-preview .fabry-md h3.fabry-md-h, .fabry-arch-evidence .fabry-md h3.fabry-md-h { font-size: 14px; margin: 14px 0 6px; }
+.fabry-arch-preview .fabry-md h4.fabry-md-h, .fabry-arch-evidence .fabry-md h4.fabry-md-h { font-size: 12.5px; }
+.fabry-arch-preview .fabry-md h5.fabry-md-h, .fabry-arch-preview .fabry-md h6.fabry-md-h,
+.fabry-arch-evidence .fabry-md h5.fabry-md-h, .fabry-arch-evidence .fabry-md h6.fabry-md-h { font-size: 11.5px; }
+/* Verdict banner (V1): top of the editor, semantic tint, collapsible. */
+.fabry-arch-details { padding: 12px 18px 0; flex: none; }
+.fabry-arch-banner { border: 1px solid var(--border); border-left-width: 3px; border-radius: 8px; overflow: hidden; }
+.fabry-arch-banner.pass { background: var(--success-bg); border-color: var(--success); }
+.fabry-arch-banner.fail { background: var(--danger-bg); border-color: var(--danger); }
+.fabry-arch-banner.uncertain { background: var(--warning-bg); border-color: var(--warning); }
+.fabry-arch-banner.running { display: flex; align-items: center; background: var(--bg-hover); border-color: var(--border); padding: 9px 14px; font-size: 12.5px; color: var(--text-secondary); }
+.fabry-arch-banner-hd { width: 100%; display: flex; align-items: center; gap: 10px; background: none; border: 0; font: inherit; cursor: pointer; padding: 9px 14px; text-align: left; }
+.fabry-arch-banner-verdict { flex: none; font-weight: 700; font-size: 12.5px; }
+.fabry-arch-banner.pass .fabry-arch-banner-verdict { color: var(--success-fg); }
+.fabry-arch-banner.fail .fabry-arch-banner-verdict { color: var(--danger-fg); }
+.fabry-arch-banner.uncertain .fabry-arch-banner-verdict { color: var(--warning-fg); }
+.fabry-arch-banner-sum { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--text-secondary); }
+/* Stale note shown in the header, so it's visible even when collapsed. Wraps
+   (rather than ellipsizing) so the "· re-run" call-to-action is never cut off. */
+.fabry-arch-banner-stale { flex: 1; min-width: 0; font-size: 12px; color: var(--warning-fg); }
+.fabry-arch-banner-more { flex: none; font-size: 12px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.fabry-arch-banner-body { background: var(--bg-card); border-top: 1px solid var(--border); padding: 10px 14px 12px; } /* expands fully; the editor scrolls the whole right side */
+.fabry-arch-banner-foot { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.fabry-arch-credit { font-size: 11px; color: var(--text-secondary); }
+.fabry-arch-evidence { font-size: 12px; }
+.fabry-arch-viewchat { border: none; background: none; color: var(--accent); cursor: pointer; font-size: 12px; font-weight: 600; padding: 0; }
+.fabry-arch-viewchat:hover { text-decoration: underline; }
+.fabry-arch-error { background: var(--danger-bg); color: var(--danger-fg); border: 1px solid var(--danger); border-radius: 8px; padding: 6px 10px; margin: 0 4px 8px; font-size: 12px; }
+.fabry-arch-spin { display: inline-block; width: 11px; height: 11px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 6px; vertical-align: -1px; }
+
+/* Chat/Architect switcher (S1: segmented pill; inactive is full-contrast text
+   so it never disappears against the track). */
+.fabry-mode { display: flex; gap: 3px; background: var(--bg-hover); border-radius: 10px; padding: 3px; margin: 0 4px 8px; }
+.fabry-mode-opt { flex: 1; border: 0; background: none; border-radius: 8px; padding: 6px 0; font: inherit; font-weight: 600; font-size: 12.5px; color: var(--text-primary); cursor: pointer; }
+.fabry-mode-opt:not(.on):hover { background: var(--bg-card); color: var(--accent); }
+.fabry-mode-opt.on { background: var(--bg-card); color: var(--accent); box-shadow: var(--shadow); }

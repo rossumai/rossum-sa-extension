@@ -23,6 +23,13 @@ export const streaming = signal(false);
 export const commands = signal([]); // from GET /commands ([] = hide autocomplete)
 export const personaChoice = signal('cautious'); // applies to the NEXT new chat
 
+// Fabry sub-app mode: 'chat' (existing chat app) | 'architect' (SOW checks).
+// Per-tab navigation state (persisted via tabState in index.jsx), content-free.
+export const fabryMode = signal('chat');
+export function setFabryMode(m) {
+  fabryMode.value = m === 'architect' ? 'architect' : 'chat';
+}
+
 // Deep verify (spec 2026-07-11): per-session mode (never persisted), the
 // popup kill switch mirror (fabryDeepVerifyEnabled, default ON — only a
 // stored false disables), and the live phase indicator for the chips.
@@ -34,14 +41,9 @@ export const deepPhase = signal(null); // null | {phase: 'verify'|'refine', roun
 export const error = signal(null);
 export const sendError = signal(null);
 
-// Layout preferences: chat sidebar expanded/collapsed + width. Persisted
-// globally (like mdhSidebarWidth) — genuine preferences, not per-tab navigation.
-export const sidebarOpen = signal(true);
-export function setSidebarOpen(open) {
-  sidebarOpen.value = !!open;
-  try { chrome.storage.local.set({ fabrySidebarOpen: !!open }); } catch { /* pref is best-effort */ }
-}
-
+// Layout preference: sidebar width (drag-resize). Persisted globally (like
+// mdhSidebarWidth) — a genuine preference, not per-tab navigation. The sidebar
+// is always expanded (collapse was removed).
 export function clampSidebarWidth(w) {
   return Math.max(200, Math.min(420, Number(w) || 280));
 }

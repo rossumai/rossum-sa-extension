@@ -1,4 +1,4 @@
-import { h } from 'preact';
+import { h, Fragment } from 'preact';
 import { useEffect } from 'preact/hooks';
 import * as store from '../store.js';
 import { loadChats } from '../chat.js';
@@ -7,6 +7,8 @@ import ChatHeader from './ChatHeader.jsx';
 import Thread from './Thread.jsx';
 import FilesStrip from './FilesStrip.jsx';
 import Composer from './Composer.jsx';
+import ArchitectApp from '../architect/components/ArchitectApp.jsx';
+import Modal from '../../ui/Modal.jsx';
 
 export default function App({ connected }) {
   // Switching Console apps unmounts/remounts this component, so a mount is
@@ -31,17 +33,24 @@ export default function App({ connected }) {
     <div class="app-root fabry-root">
       {store.error.value && <div class="fabry-error">{store.error.value}</div>}
       <div
-        class={'fabry-layout' + (store.sidebarOpen.value ? '' : ' sidebar-collapsed')}
-        style={{ gridTemplateColumns: (store.sidebarOpen.value ? store.sidebarWidth.value + 'px' : '52px') + ' 1fr' }}
+        class="fabry-layout"
+        style={{ gridTemplateColumns: store.sidebarWidth.value + 'px 1fr' }}
       >
         <Sidebar />
         <main class="fabry-main">
-          <ChatHeader />
-          <Thread />
-          <FilesStrip />
-          <Composer />
+          {store.fabryMode.value === 'architect' ? (
+            <ArchitectApp />
+          ) : (
+            <>
+              <ChatHeader />
+              <Thread />
+              <FilesStrip />
+              <Composer />
+            </>
+          )}
         </main>
       </div>
+      <Modal />
     </div>
   );
 }
