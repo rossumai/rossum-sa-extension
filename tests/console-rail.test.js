@@ -44,6 +44,11 @@ describe('Rail', () => {
     expect(idx('Annotation Inspector')).toBeLessThan(idx('Org Galaxy'));  // above Galaxy
   });
 
+  it('renders Galaxy as the last rail item', () => {
+    const items = [...mount().querySelectorAll('.app-rail-item')];
+    expect(items[items.length - 1].getAttribute('title')).toBe('Org Galaxy');
+  });
+
   it('renders the Galaxy app button and switches to it on click', () => {
     const root = mount();
     const btn = [...root.querySelectorAll('.app-rail-item')]
@@ -59,12 +64,11 @@ describe('Rail', () => {
     expect(active.getAttribute('title')).toBe('Dataset Management');
   });
 
-  it('Galaxy rail item contains a beta badge', () => {
+  it('Galaxy rail item has no beta badge', () => {
     const root = mount();
     const btn = [...root.querySelectorAll('.app-rail-item')]
       .find((b) => b.getAttribute('title') === 'Org Galaxy');
-    expect(btn.querySelector('.app-rail-beta')).toBeTruthy();
-    expect(btn.querySelector('.app-rail-beta').textContent).toBe('beta');
+    expect(btn.querySelector('.app-rail-beta')).toBeNull();
   });
 
   it('clicking the Audit button sets activeApp to audit', () => {

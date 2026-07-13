@@ -46,9 +46,9 @@ const APPS = [
   { id: 'mdh', label: 'Data', title: 'Dataset Management', icon: DATA_ICON },
   { id: 'audit', label: 'Audit', title: 'Audit Log Viewer', icon: AUDIT_ICON },
   { id: 'inspector', label: 'Inspector', title: 'Annotation Inspector', icon: INSPECTOR_ICON, beta: true },
-  { id: 'galaxy', label: 'Galaxy', title: 'Org Galaxy', icon: GALAXY_ICON, beta: true },
   // `exp` only gates visibility on experimentalUnlocked; the visible badge is `beta`.
   { id: 'fabry', label: 'Fabry', title: 'Mr. Fabry', icon: FABRY_ICON, beta: true, exp: true },
+  { id: 'galaxy', label: 'Galaxy', title: 'Org Galaxy', icon: GALAXY_ICON },
 ];
 
 export default function Rail() {
