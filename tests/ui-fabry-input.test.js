@@ -37,6 +37,13 @@ describe('FabryInput', () => {
     expect(el.querySelector('.' + styles.loader)).toBeTruthy();
     expect(el.querySelector('.' + styles.spark + '.' + styles.loading)).toBeTruthy();
   });
+  it('disabled prop disables the input even when not busy (value still shown, no loader)', () => {
+    const el = mount({ value: 'x', onInput: vi.fn(), onSubmit: vi.fn(), busy: false, disabled: true, placeholder: '', gerunds: ['G'] });
+    const input = el.querySelector('input');
+    expect(input.disabled).toBe(true);
+    expect(input.value).toBe('x');
+    expect(el.querySelector('.' + styles.loader)).toBeNull();
+  });
   it('size="sm" adds the compact variant class to the row', () => {
     const el = mount({ value: '', onInput: vi.fn(), onSubmit: vi.fn(), busy: false, placeholder: '', gerunds: ['G'], size: 'sm' });
     const row = el.querySelector('.' + styles.row);

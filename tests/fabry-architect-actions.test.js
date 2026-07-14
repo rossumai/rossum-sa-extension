@@ -14,7 +14,7 @@ vi.mock('../src/fabry/architect/api.js', () => ({
 import * as agentApi from '../src/agent/agentApi.js';
 import * as api from '../src/fabry/architect/api.js';
 import * as store from '../src/fabry/architect/store.js';
-import { loadArchitect, addDeliverable, openDeliverable, updateDeliverable, deleteDeliverable, runAll, reorder, moveDeliverable } from '../src/fabry/architect/actions.js';
+import { loadArchitect, addDeliverable, openDeliverable, updateDeliverable, deleteDeliverable, runAll, reorder, moveDeliverable, refineTurn, answerRefine } from '../src/fabry/architect/actions.js';
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
 function scriptReplies(map) {
@@ -83,6 +83,54 @@ describe('add/open/update/delete', () => {
     const d = store.deliverables.value[store.deliverables.value.length - 1];
     expect(d.text).toBe('');
     expect(d.id).not.toBe('x');
+  });
+  it('refineTurn: first turn opens a cautious chat and applies the first instruction', async () => {
+    scriptReplies({ INSTRUCTION: '# Invoices queue is automated\n\nThe Invoices queue processes documents automatically.' });
+    const res = await refineTurn({ chatId: null, deliverableText: 'the invoices Q should be automatic', instruction: 'tighten it' });
+    expect(res.chatId).toBeTruthy();
+    expect(res.proposal).toMatch(/Invoices queue/);
+    const contents = agentApi.streamMessage.mock.calls.map((c) => c[1]);
+    expect(contents[0]).toContain('/persona'); // primed cautious first
+    expect(contents.some((c) => /REQUIREMENT:/.test(c) && /tighten it/.test(c))).toBe(true); // setup + first instruction
+  });
+  it('refineTurn: a follow-up reuses the chat and sends just the instruction (no re-setup)', async () => {
+    scriptReplies({ INSTRUCTION: '# revised' });
+    const res = await refineTurn({ chatId: 'chat_existing', deliverableText: 'base', instruction: 'also name the field' });
+    expect(res.chatId).toBe('chat_existing');
+    expect(agentApi.createChat).not.toHaveBeenCalled();
+    const contents = agentApi.streamMessage.mock.calls.map((c) => c[1]);
+    expect(contents.some((c) => /also name the field/.test(c) && !/REQUIREMENT:/.test(c))).toBe(true);
+  });
+  it('refineTurn: surfaces agent questions (interactive elements) instead of a proposal when the agent asks', async () => {
+    let n = 0;
+    agentApi.createChat.mockImplementation(async () => 'chat_' + (n++));
+    agentApi.streamMessage.mockImplementation(async (id, content, { onEvent }) => {
+      if (content.startsWith('/persona')) { onEvent({ type: 'finish' }); return; }
+      onEvent({ type: 'data-agent-question', data: { questions: [{ question: 'Which queue?' }] } });
+      onEvent({ type: 'finish' });
+    });
+    const res = await refineTurn({ chatId: null, deliverableText: 'base', instruction: 'tighten' });
+    expect(res.questions).toEqual([{ question: 'Which queue?' }]);
+    expect(res.proposal).toBeUndefined();
+  });
+  it('answerRefine: sends the formatted answers to the SAME chat and returns the revised proposal', async () => {
+    agentApi.streamMessage.mockImplementation(async (id, content, { onEvent }) => {
+      onEvent({ type: 'text-delta', delta: '# revised for the Invoices queue' });
+      onEvent({ type: 'finish' });
+    });
+    const res = await answerRefine({ chatId: 'chat_existing', answers: [{ question: 'Which queue?', answer: 'Invoices' }] });
+    expect(agentApi.createChat).not.toHaveBeenCalled();
+    expect(res.chatId).toBe('chat_existing');
+    expect(res.proposal).toMatch(/Invoices queue/);
+    expect(agentApi.streamMessage.mock.calls[0][1]).toBe('Invoices'); // single answer → bare answer (formatAnswers)
+  });
+  it('answerRefine: can surface a follow-up question too', async () => {
+    agentApi.streamMessage.mockImplementation(async (id, content, { onEvent }) => {
+      onEvent({ type: 'data-agent-question', data: { questions: [{ question: 'Which field?' }] } });
+      onEvent({ type: 'finish' });
+    });
+    const res = await answerRefine({ chatId: 'c', answers: [{ question: 'Which queue?', answer: 'Invoices' }] });
+    expect(res.questions).toEqual([{ question: 'Which field?' }]);
   });
   it('openDeliverable sets activeId', () => { openDeliverable('z'); expect(store.activeId.value).toBe('z'); });
   it('updateDeliverable updates store text live, marks its result stale, and persists editedAt', async () => {

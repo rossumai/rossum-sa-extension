@@ -7,6 +7,7 @@ globalThis.cancelAnimationFrame = () => {};
 vi.mock('../src/fabry/architect/actions.js', () => ({
   loadArchitect: vi.fn().mockResolvedValue(undefined),
   updateDeliverable: vi.fn(), deleteDeliverable: vi.fn(), reRun: vi.fn(), stopRun: vi.fn(),
+  refineTurn: vi.fn(), answerRefine: vi.fn(),
 }));
 vi.mock('../src/fabry/architect/components/MarkdownEditor.jsx', () => ({
   default: ({ value, onChange }) => h('textarea', { class: 'md-mock', value, onInput: (e) => onChange && onChange(e.currentTarget.value) }),
@@ -17,6 +18,7 @@ import * as astore from '../src/fabry/architect/store.js';
 import * as fstore from '../src/fabry/store.js';
 import * as chat from '../src/fabry/chat.js';
 import ArchitectApp from '../src/fabry/architect/components/ArchitectApp.jsx';
+import { modalContent } from '../src/ui/Modal.jsx';
 const flush = () => new Promise((r) => setTimeout(r, 0));
 function mount() { const root = document.createElement('div'); document.body.appendChild(root); act(() => { render(h(ArchitectApp, null), root); }); return root; }
 beforeEach(() => {
@@ -25,6 +27,7 @@ beforeEach(() => {
   astore.loaded.value = true; astore.running.value = false; astore.loadError.value = null;
   astore.verdictExpanded.value = false; // shared expand pref — reset for per-test isolation
   fstore.fabryMode.value = 'architect';
+  modalContent.value = null;
 });
 
 describe('ArchitectApp', () => {
@@ -133,5 +136,20 @@ describe('ArchitectApp', () => {
     render(h(ArchitectApp, null), root);
     await flush();
     expect(actions.updateDeliverable).not.toHaveBeenCalled();
+  });
+  it('the docked refine bar disables its AI input for an empty deliverable', () => {
+    astore.deliverables.value = [{ id: 'e', text: '', order: 1 }];
+    astore.activeId.value = 'e';
+    expect(mount().querySelector('.fabry-arch-dock input').disabled).toBe(true);
+  });
+  it('the docked refine bar renders inline (no modal) and its AI input is enabled for a deliverable with text', () => {
+    astore.deliverables.value = [{ id: 'a', text: '# Original requirement about the queue', order: 1 }];
+    astore.activeId.value = 'a';
+    const root = mount();
+    const input = root.querySelector('.fabry-arch-dock input');
+    expect(input).toBeTruthy();
+    expect(input.disabled).toBe(false);
+    expect(modalContent.value).toBeNull(); // inline, no modal
+    expect(actions.refineTurn).not.toHaveBeenCalled(); // nothing runs until an instruction is sent
   });
 });

@@ -4214,6 +4214,14 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
    the verdict is collapsed; keeps a usable height (doesn't shrink) so the whole
    editor scrolls when the verdict is expanded. */
 .fabry-arch-editor-body { flex: 1 0 auto; min-height: 55%; display: flex; align-items: stretch; }
+/* Docked, inline "Refine wording" bar — pinned at the bottom of the deliverable pane
+   (the design-system FabryInput lives here; the diff card rises above it). */
+.fabry-arch-dock { flex: none; position: sticky; bottom: 0; z-index: 1; border-top: 1px solid var(--border); background: var(--bg-sidebar); padding: 10px 16px; }
+.fabry-arch-dock-hint { font-size: 11px; color: var(--text-secondary); margin: 6px 2px 0; }
+.fabry-arch-dock-err { font-size: 12px; color: var(--danger-fg); margin: 0 2px 8px; }
+.fabry-arch-refine-card { border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); box-shadow: var(--shadow); padding: 12px 14px; margin-bottom: 10px; }
+.fabry-arch-refine-card-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.fabry-arch-refine-card-actions .fabry-arch-credit { margin-right: auto; }
 .fabry-arch-source { flex: 1; min-width: 0; overflow: auto; padding: 4px 14px; border-right: 1px solid var(--border); }
 .fabry-arch-preview { flex: 1; min-width: 0; overflow: auto; padding: 10px 18px; }
 .fabry-arch-md { height: 100%; }

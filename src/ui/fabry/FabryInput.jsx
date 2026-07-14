@@ -7,7 +7,7 @@ import styles from '../aiInput.module.css';
 // gerund loader while busy. Store-agnostic — the parent owns value/submit.
 // `size="sm"` renders the compact form used inside Inspector/Audit and the MDH
 // transcript's continue box (replaces the old .inspector-ask/.audit-fabry overrides).
-export default function FabryInput({ value, onInput, onSubmit, busy, placeholder, gerunds, size, className }) {
+export default function FabryInput({ value, onInput, onSubmit, busy, disabled, placeholder, gerunds, size, className }) {
   const row = styles.row + (size === 'sm' ? ' ' + styles.sm : '') + (className ? ' ' + className : '');
   return (
     <div class={row}>
@@ -18,7 +18,7 @@ export default function FabryInput({ value, onInput, onSubmit, busy, placeholder
           type="text"
           placeholder={placeholder}
           value={busy ? '' : value}
-          disabled={busy}
+          disabled={busy || disabled}
           onInput={(e) => onInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') onSubmit(e.target.value); if (e.key === 'Escape') onInput(''); }}
         />

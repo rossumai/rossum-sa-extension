@@ -8,6 +8,8 @@ import * as check from './check.js';
 import { runChecks } from './run.js';
 import * as store from './store.js';
 import { EXAMPLE_DELIVERABLE } from './example.js';
+import * as refine from './refine.js';
+import { formatAnswers } from '../chat.js';
 
 let controller = null;
 let runId = 0;
@@ -112,6 +114,61 @@ export async function deleteDeliverable(id) {
     await api.deleteDeliverable(id);
   } catch (err) {
     store.loadError.value = err?.message || 'Could not delete deliverable.';
+  }
+}
+
+// Fold one refine turn's stream into an accumulator (reasoning/text/questions).
+async function foldRefine(id, content, signal) {
+  const acc = newAcc();
+  await agentApi.streamMessage(id, content, { signal, onEvent: (e) => foldEvents(acc, [e]) });
+  return acc;
+}
+
+// Interpret a folded turn: the agent may ask clarifying questions (interactive
+// elements) INSTEAD of revising — surface those so the caller can answer; otherwise
+// return the revised Markdown proposal (possibly empty — the caller guards Accept).
+function refineResult(id, acc) {
+  if (acc.questions) return { chatId: id, questions: acc.questions };
+  return { chatId: id, proposal: refine.parseRefinedText(replyText(acc)) };
+}
+
+// One turn of the ITERATIVE "Refine wording" flow. First turn (no chatId) opens a
+// fresh cautious, read-only chat and applies the first instruction; later turns reuse
+// the chat so Fabry builds on its last proposal (chat memory). Returns
+// { chatId, proposal } OR { chatId, questions } (agent asked), or null if the caller
+// aborted. The caller (RefineDock) owns the AbortController; nothing is written here.
+export async function refineTurn({ chatId, deliverableText, instruction, signal }) {
+  try {
+    let id = chatId;
+    if (!id) {
+      id = await agentApi.createChat();
+      if (signal?.aborted) return null;
+      await foldRefine(id, '/persona cautious', signal);
+      if (signal?.aborted) return null;
+      const acc = await foldRefine(id, refine.buildRefineFirst(deliverableText, instruction), signal);
+      if (signal?.aborted) return null;
+      return refineResult(id, acc);
+    }
+    const acc = await foldRefine(id, refine.buildRefineNext(instruction), signal);
+    if (signal?.aborted) return null;
+    return refineResult(id, acc);
+  } catch (err) {
+    if (signal?.aborted || err?.name === 'AbortError') return null;
+    throw err;
+  }
+}
+
+// Answer the agent's clarifying questions (interactive elements) as the next message
+// in the SAME refine chat — a plain message IS the answer. Returns the same shape as
+// refineTurn (a proposal, or a further round of questions), or null if aborted.
+export async function answerRefine({ chatId, answers, signal }) {
+  try {
+    const acc = await foldRefine(chatId, formatAnswers(answers), signal);
+    if (signal?.aborted) return null;
+    return refineResult(chatId, acc);
+  } catch (err) {
+    if (signal?.aborted || err?.name === 'AbortError') return null;
+    throw err;
   }
 }
 

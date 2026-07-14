@@ -7,6 +7,7 @@ import { updateDeliverable } from '../actions.js';
 import { relativeTime, summaryLine } from '../format.js';
 import MarkdownEditor from './MarkdownEditor.jsx';
 import FabryMarkdown from '../../../ui/fabry/FabryMarkdown.jsx';
+import RefineDock from './RefineDock.jsx';
 
 const CHIP = { pass: { cls: 'pass', label: '✓ Met' }, fail: { cls: 'fail', label: '✗ Not met' }, uncertain: { cls: 'uncertain', label: '? Uncertain' } };
 
@@ -77,6 +78,7 @@ export default function DeliverableEditor({ deliverable }) {
         <div class="fabry-arch-source"><MarkdownEditor key={deliverable.id} value={deliverable.text} onChange={onChange} /></div>
         <div class="fabry-arch-preview"><FabryMarkdown text={preview} streaming={false} /></div>
       </div>
+      <RefineDock key={deliverable.id} deliverable={deliverable} />
     </div>
   );
 }

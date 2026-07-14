@@ -1,0 +1,12 @@
+/* Self-contained styles for the shared inline word-diff view. Removed words are
+   struck (danger tint), added words highlighted (success tint); unchanged text plain.
+   Monospace + pre-wrap because it diffs source text (e.g. Markdown). Design tokens central. */
+.diff {
+  font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6;
+  white-space: pre-wrap; word-break: break-word;
+  max-height: 52vh; overflow: auto;
+  background: var(--bg-code); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; color: var(--text-primary);
+}
+.add { background: var(--success-bg); color: var(--success-fg); text-decoration: none; border-radius: 3px; }
+.del { background: var(--danger-bg); color: var(--danger-fg); text-decoration: line-through; border-radius: 3px; }
