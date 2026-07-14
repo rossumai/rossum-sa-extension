@@ -4,6 +4,7 @@ import { analyzeDocs } from '../importFile.js';
 import { collectFieldPaths, countRowsMissingKeys } from '../importPlan.js';
 import { validateAgainstShape } from '../shape.js';
 import { Segmented } from './ImportControls.jsx';
+import { ModalActions, ModalFieldLabel } from './Modal.jsx';
 import MatchKeyPicker from './MatchKeyPicker.jsx';
 import PlanSummary from './PlanSummary.jsx';
 import SpecialText from './SpecialText.jsx';
@@ -85,7 +86,7 @@ export default function ImportConfirm({
 
       {isUpdate && (
         <Fragment>
-          <div class="modal-field-label" style="margin-top:10px">Match existing records by</div>
+          <ModalFieldLabel style="margin-top:10px">Match existing records by</ModalFieldLabel>
           <MatchKeyPicker paths={fieldPaths.filter((p) => p !== '_id')} keys={keys} setKeys={setKeys} />
         </Fragment>
       )}
@@ -182,11 +183,11 @@ export default function ImportConfirm({
         </div>
       )}
 
-      <div class="modal-actions">
+      <ModalActions>
         {onBack && <button class="btn btn-secondary" style="margin-right:auto" data-testid="import-back" onClick={onBack}>{'←'} Back</button>}
         <button class="btn btn-secondary" onClick={onCancel}>Cancel</button>
         <button class={`btn ${goClass}`} data-testid="import-go" disabled={!canImport} onClick={onImport}>{goLabel}</button>
-      </div>
+      </ModalActions>
     </Fragment>
   );
 }

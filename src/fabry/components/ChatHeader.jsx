@@ -3,6 +3,7 @@ import * as store from '../store.js';
 import { chatTitle } from '../format.js';
 import { personaOf } from '../thread.js';
 import { personaLabel } from '../personas.js';
+import FabryMark from '../../ui/FabryMark.jsx';
 
 function kTokens(s) {
   const n = (s?.total_input_tokens || 0) + (s?.total_output_tokens || 0);
@@ -19,7 +20,7 @@ export default function ChatHeader() {
   const tokens = kTokens(summary);
   return (
     <header class="fabry-hd">
-      <span class="fabry-hd-mark">{'✦'}</span>
+      <span class="fabry-hd-mark"><FabryMark /></span>
       <span class="fabry-hd-title" title={title}>{title}</span>
       {persona && <span class="fabry-hd-persona" title="Persona set in this session (the server does not keep persona turns in chat history)">{personaLabel(persona)}</span>}
       {tokens && <span class="fabry-hd-tokens">{tokens}</span>}

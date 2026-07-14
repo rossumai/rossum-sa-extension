@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { h, render } from 'preact';
+import aiStyles from '../src/ui/aiInput.module.css';
 
 // AgentBox imports extractFieldNames from JsonEditor — mock so CodeMirror isn't pulled in.
 vi.mock('../src/mdh/components/JsonEditor.jsx', () => ({
@@ -16,7 +17,7 @@ vi.mock('../src/mdh/agent/agentQuery.js', () => ({
 }));
 // Capture transcript-modal opens.
 const openModal = vi.fn();
-vi.mock('../src/mdh/components/Modal.jsx', () => ({ openModal: (...a) => openModal(...a) }));
+vi.mock('../src/mdh/components/Modal.jsx', async (orig) => ({ ...(await orig()), openModal: (...a) => openModal(...a) }));
 // Schema hints are fetched before the run — stub to avoid real API calls.
 vi.mock('../src/mdh/agent/aiContext.js', () => ({
   getSchemaHints: vi.fn(async () => ({ fieldTypes: {}, numericStringFields: [], arrayPaths: [], knownValues: {}, topValues: {}, ranges: {}, searchIndexes: [] })),
@@ -145,9 +146,9 @@ describe('AgentBox (drop-in)', () => {
     fireInput(input, 'slow query');
     fireEnter(input);
 
-    await waitFor(() => root.querySelector('input.loading') && root.querySelector('.nl-gerund'));
+    await waitFor(() => root.querySelector('input.' + aiStyles.loading) && root.querySelector('.' + aiStyles.gerund));
     // sparkle twinkles during the run
-    expect(root.querySelector('.agent-spark.loading')).toBeTruthy();
+    expect(root.querySelector('.' + aiStyles.spark + '.' + aiStyles.loading)).toBeTruthy();
     // phase tracker starts with the 3 base steps (no Refine until one happens)
     await waitFor(() => root.querySelectorAll('.agent-phase').length === 3);
     await waitFor(() => typeof emitPhase === 'function'); // schema hints resolve before the loop starts
@@ -163,7 +164,7 @@ describe('AgentBox (drop-in)', () => {
     expect(root.querySelector('.agent-phase.active')?.textContent).toBe('Refine');
 
     resolveRun({ pipelineText: null, note: { kind: 'declined' } });
-    await waitFor(() => !root.querySelector('input.loading'));
+    await waitFor(() => !root.querySelector('input.' + aiStyles.loading));
     // tracker is replaced by the result line
     expect(root.querySelector('.agent-phases')).toBeNull();
     expect(root.querySelector('.agent-result')).toBeTruthy();

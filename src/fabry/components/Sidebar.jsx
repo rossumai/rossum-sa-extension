@@ -3,6 +3,7 @@ import * as store from '../store.js';
 import { loadChats, openChat, startNewChat } from '../chat.js';
 import { chatTitle } from '../format.js';
 import ArchitectSidebar from '../architect/components/ArchitectSidebar.jsx';
+import FabryMark from '../../ui/FabryMark.jsx';
 
 // Drag the sidebar's right edge to resize (MDH SidebarResizer pattern, but
 // signal-driven since the width lives in the parent grid). Live drag updates
@@ -40,7 +41,7 @@ export default function Sidebar() {
   return (
     <aside class="fabry-sidebar">
       <div class="fabry-sidebar-title">
-        <span class="fabry-sidebar-mark">{'✦'}</span>
+        <span class="fabry-sidebar-mark"><FabryMark /></span>
         <span class="fabry-sidebar-name">Mr. Fabry</span>
       </div>
       <div class="fabry-mode" role="tablist">

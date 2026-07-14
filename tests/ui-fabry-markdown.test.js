@@ -4,6 +4,7 @@ import { h, render } from 'preact';
 import { parseInline, parseMarkdown } from '../src/ui/fabry/markdown.js';
 import { renderMermaidSVG } from 'beautiful-mermaid';
 import FabryMarkdown from '../src/ui/fabry/FabryMarkdown.jsx';
+import styles from '../src/ui/fabry/FabryMarkdown.module.css';
 
 // MermaidBlock resolves its renderer from this global (lazy bundle in prod).
 window.__fabryMermaidSvg = renderMermaidSVG;
@@ -76,20 +77,20 @@ describe('FabryMarkdown', () => {
   it('renders code blocks and a streaming caret', () => {
     const root = mount({ text: '```\ncode\n```', streaming: true });
     expect(root.querySelector('pre code').textContent).toBe('code');
-    expect(root.querySelector('.fabry-caret')).toBeTruthy();
+    expect(root.querySelector('.' + styles.caret)).toBeTruthy();
   });
   it('code fences show a language tag and highlighted tokens', () => {
     const root = mount({ text: '```json\n{"a": true}\n```' });
-    expect(root.querySelector('.fabry-md-lang').textContent).toBe('json');
-    expect(root.querySelector('.fabry-md-code .hl-key').textContent).toBe('"a"');
-    expect(root.querySelector('.fabry-md-code .hl-lit').textContent).toBe('true');
+    expect(root.querySelector('.' + styles.lang).textContent).toBe('json');
+    expect(root.querySelector('.' + styles.code + ' .' + styles['hl-key']).textContent).toBe('"a"');
+    expect(root.querySelector('.' + styles.code + ' .' + styles['hl-lit']).textContent).toBe('true');
   });
   it('mermaid fences render a diagram block when done, a code fence while streaming', () => {
     const rootDone = mount({ text: '```mermaid\ngraph TD\nA-->B\n```', streaming: false });
-    expect(rootDone.querySelector('.fabry-md-mermaid')).toBeTruthy();
+    expect(rootDone.querySelector('.' + styles.mermaid)).toBeTruthy();
     const rootLive = mount({ text: '```mermaid\ngraph TD\nA-->B\n```', streaming: true });
-    expect(rootLive.querySelector('.fabry-md-mermaid')).toBeNull();
-    expect(rootLive.querySelector('.fabry-md-codewrap .fabry-md-lang').textContent).toBe('mermaid');
+    expect(rootLive.querySelector('.' + styles.mermaid)).toBeNull();
+    expect(rootLive.querySelector('.' + styles.codewrap + ' .' + styles.lang).textContent).toBe('mermaid');
   });
   it('links open in a new tab with rel protection', () => {
     const root = mount({ text: '[d](https://r8.example)' });

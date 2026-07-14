@@ -23,6 +23,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   astore.deliverables.value = []; astore.results.value = {}; astore.activeId.value = null;
   astore.loaded.value = true; astore.running.value = false; astore.loadError.value = null;
+  astore.verdictExpanded.value = false; // shared expand pref — reset for per-test isolation
   fstore.fabryMode.value = 'architect';
 });
 
@@ -73,6 +74,21 @@ describe('ArchitectApp', () => {
     act(() => { root.querySelector('.fabry-arch-banner-hd').click(); });
     expect(root.querySelector('.fabry-arch-banner-more').textContent).toMatch(/hide/i);
     expect(root.querySelector('.fabry-arch-evidence').textContent).toMatch(/missing hook/);
+  });
+  it('remembers the expanded verdict: expanding one opens other deliverables expanded by default', () => {
+    astore.deliverables.value = [{ id: 'a', text: '# A', order: 1 }, { id: 'b', text: '# B', order: 2 }];
+    astore.results.value = {
+      a: { verdict: 'fail', evidence: 'missing hook', chatId: 'c1', ranAt: 1, stale: false },
+      b: { verdict: 'pass', evidence: 'all good', chatId: 'c2', ranAt: 1, stale: false },
+    };
+    astore.activeId.value = 'a';
+    const root = mount();
+    expect(root.querySelector('.fabry-arch-evidence')).toBeNull(); // collapsed by default
+    act(() => { root.querySelector('.fabry-arch-banner-hd').click(); }); // expand A
+    expect(root.querySelector('.fabry-arch-evidence').textContent).toMatch(/missing hook/);
+    // Switch to B: it should open ALREADY expanded (remembered preference).
+    act(() => { astore.activeId.value = 'b'; render(h(ArchitectApp, null), root); });
+    expect(root.querySelector('.fabry-arch-evidence').textContent).toMatch(/all good/);
   });
   it('shows a Checking banner while a result is running', () => {
     astore.deliverables.value = [{ id: 'a', text: '# A', order: 1 }]; astore.activeId.value = 'a';

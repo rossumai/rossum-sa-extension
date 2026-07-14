@@ -1,7 +1,7 @@
 import { h } from 'preact';
 import { useRef } from 'preact/hooks';
 import { selectedCollection, loading, error } from '../store.js';
-import { openModal, closeModal } from './Modal.jsx';
+import { openModal, closeModal, ModalBody, ModalActions, ModalFieldLabel } from './Modal.jsx';
 import JsonEditor from './JsonEditor.jsx';
 import { stripEmptyOperators } from '../updateExpr.js';
 import * as api from '../api.js';
@@ -76,14 +76,14 @@ function Body({ mode, record, onSuccess, fieldsFn }) {
   }
 
   return (
-    <div class="modal-body">
-      <div class="modal-field-label">{label}</div>
+    <ModalBody>
+      <ModalFieldLabel>{label}</ModalFieldLabel>
       <JsonEditor value={initialValue} minHeight="200px" fields={fieldsFn} editorRef={editorRef} />
       <div ref={hintRef} class="input-hint"></div>
-      <div class="modal-actions">
+      <ModalActions>
         <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>
         <button class="btn btn-primary" onClick={handleSubmit}>{mode === 'edit' ? 'Update' : 'Replace'}</button>
-      </div>
-    </div>
+      </ModalActions>
+    </ModalBody>
   );
 }

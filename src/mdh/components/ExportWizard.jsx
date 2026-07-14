@@ -1,6 +1,6 @@
 import { h, Fragment } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
-import { closeModal } from './Modal.jsx';
+import { closeModal, ModalBody, ModalActions, ModalFieldLabel } from './Modal.jsx';
 import { Segmented } from './ImportControls.jsx';
 import PlanSummary from './PlanSummary.jsx';
 import { EXPORT_FORMATS, getExportFormat, exportFilename } from '../exportFormats.jsx';
@@ -127,14 +127,14 @@ export default function ExportWizard({ collection, filterState, totalCount, reco
   ];
 
   return (
-    <div class="modal-body export-wizard">
-      <div class="modal-field-label">Scope</div>
+    <ModalBody class="export-wizard">
+      <ModalFieldLabel>Scope</ModalFieldLabel>
       <Segmented value={scope} options={scopeSeg} onChange={setScope} ariaLabel="Export scope" testid="export-scope" tabs />
       {!filterState.available && filterState.reason && (
         <div class="import-shape-neutral" style="margin-top:4px">{filterState.reason}</div>
       )}
 
-      <div class="modal-field-label" style="margin-top:10px">Format</div>
+      <ModalFieldLabel style="margin-top:10px">Format</ModalFieldLabel>
       <Segmented value={formatId} options={FORMAT_SEG} onChange={switchFormat} ariaLabel="Export format" testid="export-format" tabs />
 
       {fmt.OptionsControls && (
@@ -200,15 +200,15 @@ export default function ExportWizard({ collection, filterState, totalCount, reco
         </ul>
       </PlanSummary>
 
-      <div class="modal-actions">
+      <ModalActions>
         <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>
         <button class="btn btn-primary" data-testid="export-download" onClick={download}>
           {count.value !== null
             ? `Download ${count.value.toLocaleString()} record${count.value === 1 ? '' : 's'} \u00b7 ${fmt.label}`
             : `Download ${fmt.label}`}
         </button>
-      </div>
-    </div>
+      </ModalActions>
+    </ModalBody>
   );
 }
 

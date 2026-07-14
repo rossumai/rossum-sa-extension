@@ -8,6 +8,7 @@ vi.mock('../src/fabry/chat.js', () => ({
 
 import * as chat from '../src/fabry/chat.js';
 import * as store from '../src/fabry/store.js';
+import aiStyles from '../src/ui/aiInput.module.css';
 import Composer from '../src/fabry/components/Composer.jsx';
 import CommandMenu from '../src/fabry/components/CommandMenu.jsx';
 
@@ -81,7 +82,7 @@ describe('Composer', () => {
     const root = mount(Composer, {});
     // Verbs share ONE line with the deep toggle (same .fabry-persona row).
     const row = root.querySelector('.fabry-persona');
-    expect(row.querySelector('.fabry-working .nl-search-loading')).toBeTruthy();
+    expect(row.querySelector('.fabry-working .' + aiStyles.loader)).toBeTruthy();
     expect(row.querySelector('.fabry-deep-toggle')).toBeTruthy();
     expect(row.querySelector('.fabry-persona-seg')).toBeNull(); // picker yields to the verbs while streaming
     const ta = root.querySelector('textarea');

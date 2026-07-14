@@ -5,6 +5,7 @@ import { askFabry } from '../index.jsx';
 import FabryInput from '../../ui/fabry/FabryInput.jsx';
 import FabryNarrative from '../../ui/fabry/FabryNarrative.jsx';
 import FabryTranscript from '../../ui/fabry/FabryTranscript.jsx';
+import FabryMark from '../../ui/FabryMark.jsx';
 
 function flashEvidence(id, section) {
   const el = document.querySelector(`[data-evidence-id="${id}"]`) || (section ? document.querySelector(`[data-evidence-section="${section}"]`) : null);
@@ -50,6 +51,7 @@ function FollowupThread({ syn }) {
         </div>
       ))}
       <FabryInput
+        size="sm"
         className="inspector-ask"
         value={input}
         onInput={setInput}
@@ -74,7 +76,7 @@ export default function DiagnosisPanel() {
   return (
     <div class="inspector-diag">
       <div class="inspector-diag-hd">
-        {'✨'} Diagnosis <span class="inspector-diag-credit">by Mr. Fabry</span>
+        <FabryMark /> Diagnosis <span class="inspector-diag-credit">by Mr. Fabry</span>
         {waiting ? <span class="inspector-diag-phase">starts after attribution finishes{'…'}</span> : null}
         {syn?.status === 'streaming' ? <span class="inspector-diag-phase">writing{'…'}</span> : null}
         {syn?.status === 'done' ? (

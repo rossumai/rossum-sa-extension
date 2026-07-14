@@ -27,7 +27,12 @@ cpSync('icons', 'dist/icons', { recursive: true });
 cpSync('src/popup/popup.html', 'dist/popup/popup.html');
 cpSync('src/popup/popup.css', 'dist/popup/popup.css');
 cpSync('src/console/console.html', 'dist/console/console.html');
-cpSync('src/console/console.css', 'dist/console/console.css');
+// The hand-written monolith is the LEGACY base stylesheet, copied as-is. esbuild
+// emits dist/console/console.css from imported CSS Modules (self-contained
+// design-system component styles), so the monolith is renamed to avoid the clash.
+// As components migrate their rules into CSS Modules, console.base.css shrinks and
+// is eventually retired. console.html links both (base first, then the modules).
+cpSync('src/console/console.css', 'dist/console/console.base.css');
 cpSync('src/devtools/devtools.html', 'dist/devtools/devtools.html');
 cpSync('src/devtools/panel.html', 'dist/devtools/panel.html');
 cpSync('src/devtools/panel.css', 'dist/devtools/panel.css');

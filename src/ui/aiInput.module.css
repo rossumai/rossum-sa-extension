@@ -1,0 +1,121 @@
+/* Shared "Mr. Fabry ask input" primitive — the AI-input subsystem, owned by the
+   design system. Imported by FabryInput (row/wrapper/input/spark) and GerundLoader
+   (loader/gerund*). One module so the `.row .loader` context selectors resolve.
+   Consumers pick the compact form with the `size="sm"` prop (no more app context
+   overrides like .inspector-ask / .audit-fabry). Design tokens stay central. */
+
+/* ── input ─────────────────────────────────────────────────────────────── */
+.input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+.input:focus { border-color: var(--accent); outline: none; }
+.input:disabled { opacity: 0.6; cursor: default; }
+.input::placeholder { color: var(--text-secondary); }
+.input.loading {
+  /* Slim pastel conic border spinning at half the old speed, with a breathing glow. */
+  border: 1px solid transparent;
+  color: transparent;
+  background:
+    linear-gradient(var(--bg-input), var(--bg-input)) padding-box,
+    conic-gradient(from var(--ai-angle), #a78bfa, #f0abfc, #fda4af, #fcd34d, #93c5fd, #67e8f9, #a78bfa) border-box;
+  animation: borderSpin 3.2s linear infinite, breathe 3.2s ease-in-out infinite;
+}
+.input.loading:disabled { opacity: 1; } /* the border animation carries the disabled look */
+.input.loading::placeholder { color: transparent; }
+@property --ai-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+@keyframes borderSpin { to { --ai-angle: 360deg; } }
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 8px -5px rgba(167, 139, 250, 0.50); }
+  50%      { box-shadow: 0 0 16px -4px rgba(240, 171, 252, 0.55); }
+}
+
+/* ── gerund loader (rendered by GerundLoader) ──────────────────────────── */
+.loader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 9.5px;
+  font-size: 11px;
+  pointer-events: none;
+}
+.gerund {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  background: linear-gradient(90deg, #8b5cf6, #ec4899, #3b82f6, #8b5cf6);
+  background-size: 280% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: shimmer 3.4s linear infinite;
+}
+.gerundIn { animation: shimmer 3.4s linear infinite, gerundRise 0.45s ease both; }
+.gerundOut { position: absolute; left: 9.5px; animation: shimmer 3.4s linear infinite, gerundDrift 0.45s ease both; }
+@keyframes shimmer { 0% { background-position: 0% 50%; } 100% { background-position: 280% 50%; } }
+@keyframes gerundRise { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@keyframes gerundDrift { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-5px); } }
+
+/* ── row layout (FabryInput) ───────────────────────────────────────────── */
+.wrapper { position: relative; }
+.row { display: flex; gap: 8px; align-items: center; }
+.row .wrapper { flex: 1; }
+/* The ✦ sparkle marks the input as AI even when idle; room for it on the left. */
+.row .input { padding-left: 24px; }
+.row .loader { padding-left: 24px; }
+.row .gerundOut { left: 24px; }
+/* Quiet gradient focus ring (agent row only). */
+.row .input:focus:not(.loading) {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--bg-input), var(--bg-input)) padding-box,
+    linear-gradient(120deg, rgba(139, 92, 246, 0.55), rgba(236, 72, 153, 0.45), rgba(59, 130, 246, 0.55)) border-box;
+  box-shadow: 0 0 12px -6px rgba(139, 92, 246, 0.5);
+}
+
+/* ── spark (FabryInput; wraps the shared FabryMark) ────────────────────── */
+.spark {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 1;
+  color: var(--accent); /* child mark's reduced-motion fallback */
+  opacity: 0.75;
+  transition: opacity 0.2s;
+}
+.wrapper:hover .spark, .wrapper:focus-within .spark { opacity: 1; }
+/* Loading: the span twinkles (transform); the child FabryMark handles color. */
+.spark.loading { opacity: 1; animation: twinkle 1.6s ease-in-out infinite; }
+@keyframes twinkle {
+  0%, 100% { transform: translateY(-50%) scale(1) rotate(0deg); opacity: 0.7; }
+  50%      { transform: translateY(-50%) scale(1.25) rotate(90deg); opacity: 1; }
+}
+
+/* ── sm variant (was .inspector-ask / .audit-fabry / .agent-chat-continue) ─ */
+.row.sm .input { font-size: 12px; padding-top: 7px; padding-bottom: 7px; padding-left: 27px; }
+.row.sm .loader { font-size: 12px; padding-left: 27px; }
+.row.sm .gerundOut { left: 27px; }
+.row.sm .spark { left: 10px; font-size: 12px; }
+
+/* Audit packs the ask input a touch tighter (context margin kept co-located). */
+:global(.audit-fabry-body) .row { margin-top: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .input.loading { animation: none; }
+  .gerund { animation: none; -webkit-text-fill-color: var(--text-secondary); color: var(--text-secondary); }
+  .gerundOut { display: none; }
+  .spark.loading { animation: none; }
+}

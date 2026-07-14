@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { h, render } from 'preact';
 import { ImportProgress, ImportSummary, formatBytes, formatDuration } from '../src/mdh/components/ImportStages.jsx';
+import mstyles from '../src/ui/Modal.module.css';
 
 function mount(node) { const r = document.createElement('div'); document.body.appendChild(r); render(node, r); return r; }
 
@@ -77,7 +78,7 @@ describe('ImportProgress indeterminate', () => {
     expect(root.textContent).toMatch(/data\.json/);
     expect(root.textContent).toMatch(/30\.0 KB/); // file size shown (30715 B → 30.0 KB)
     // The stop-watching affordance reads as leaving, not killing the job.
-    expect([...root.querySelectorAll('.modal-actions button')].some((b) => /stop watching/i.test(b.textContent))).toBe(true);
+    expect([...root.querySelectorAll('.' + mstyles.actions + ' button')].some((b) => /stop watching/i.test(b.textContent))).toBe(true);
   });
 });
 

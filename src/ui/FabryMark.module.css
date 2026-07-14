@@ -1,0 +1,27 @@
+/* Shared Mr. Fabry identity mark — the first design-system component to own its
+   CSS as a co-located CSS Module (see docs/superpowers/specs/2026-07-14-fabry-mark-shared-icon-design.md).
+   esbuild scopes these class names at build time; consumers reference the imported
+   `styles` object, never these literal names. Design tokens (--accent, etc.) stay
+   central in console.css for now — this module owns only its own rules. */
+
+.mark {
+  display: inline-block;
+  vertical-align: middle;
+  flex: none;
+  /* No own color: fill inherits currentColor so each surface's color still applies
+     (incl. the rail's white-when-active and the reduced-motion fallback). */
+  fill: currentColor;
+}
+
+/* Slow, always-on color cycle, kept strictly within a blue → indigo → violet band. */
+.animated { animation: hue 8s ease-in-out infinite; }
+
+@keyframes hue {
+  0%, 100% { color: #4270db; } /* blue (matches --accent) */
+  33%      { color: #5b6be6; }
+  66%      { color: #8b5cf6; } /* violet */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animated { animation: none; } /* static; shows the inherited (in-band) color */
+}

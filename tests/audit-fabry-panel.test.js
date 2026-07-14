@@ -3,6 +3,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { h, render } from 'preact';
 import { act } from 'preact/test-utils';
+import narrativeStyles from '../src/ui/fabry/FabryNarrative.module.css';
+import aiStyles from '../src/ui/aiInput.module.css';
 
 const askAuditFabry = vi.fn();
 const runDefaultSummary = vi.fn();
@@ -42,7 +44,7 @@ describe('FabryPanel', () => {
   it('collapsed by default: shows the toggle but no ask input or turns', () => {
     const el = mount();
     expect(el.querySelector('.audit-fabry-toggle')).toBeTruthy();
-    expect(el.querySelector('.nl-search-input')).toBeFalsy();
+    expect(el.querySelector(('.' + aiStyles.input))).toBeFalsy();
     expect(el.querySelector('.audit-fabry-turn')).toBeFalsy();
   });
 
@@ -86,7 +88,7 @@ describe('FabryPanel', () => {
   it('expanding while idle triggers the lazy default summary exactly once', () => {
     const el = mount();
     expandToggle(el);
-    expect(el.querySelector('.nl-search-input')).toBeTruthy();
+    expect(el.querySelector(('.' + aiStyles.input))).toBeTruthy();
     expect(runDefaultSummary).toHaveBeenCalledTimes(1);
   });
 
@@ -96,7 +98,7 @@ describe('FabryPanel', () => {
     ] };
     const el = mount();
     expandToggle(el);
-    expect(el.querySelector('.nl-search-input')).toBeTruthy();
+    expect(el.querySelector(('.' + aiStyles.input))).toBeTruthy();
     expect(el.querySelector('.audit-fabry-turn')).toBeTruthy();
     expect(runDefaultSummary).not.toHaveBeenCalled();
   });
@@ -108,7 +110,7 @@ describe('FabryPanel', () => {
     ] };
     const el = mount();
     expandToggle(el);
-    expect(el.querySelectorAll('.inspector-diag-list li').length).toBe(2);
+    expect(el.querySelectorAll('.' + narrativeStyles.list + ' li').length).toBe(2);
     const roles = [...el.querySelectorAll('.inspector-followup-role')].map((n) => n.textContent);
     expect(roles[0]).toContain('Latest activity');
     expect(roles[1]).toContain('You');
@@ -127,7 +129,7 @@ describe('FabryPanel', () => {
     const turns = [...body.querySelectorAll('.audit-fabry-turn')];
     expect(turns.length).toBe(2);
     // The input wrapper is the body's last child, after every turn.
-    expect(body.lastElementChild.querySelector('.nl-search-input')).toBeTruthy();
+    expect(body.lastElementChild.querySelector(('.' + aiStyles.input))).toBeTruthy();
     const lastTurn = turns[turns.length - 1];
     // Sanity: the last turn precedes the input in document order.
     expect(lastTurn.compareDocumentPosition(body.lastElementChild) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -144,7 +146,7 @@ describe('FabryPanel', () => {
     store.fabry.value = { status: 'done', chatId: 'c1', error: null, turns: [{ id: 1, question: null, text: 'x', reasoning: '', tools: [], state: 'done' }] };
     const el = mount();
     expandToggle(el);
-    const input = el.querySelector('.nl-search-input');
+    const input = el.querySelector(('.' + aiStyles.input));
     fireInput(input, 'who deleted users');
     fireEnter(input);
     expect(askAuditFabry).toHaveBeenCalledWith('who deleted users');
@@ -180,9 +182,9 @@ describe('FabryPanel', () => {
     store.fabry.value = { status: 'done', chatId: 'c1', error: null, turns: [{ id: 1, question: null, text: 'x', reasoning: '', tools: [], state: 'done' }] };
     const el = mount();
     expandToggle(el); // expand
-    expect(el.querySelector('.nl-search-input')).toBeTruthy();
+    expect(el.querySelector(('.' + aiStyles.input))).toBeTruthy();
     expandToggle(el); // collapse
-    expect(el.querySelector('.nl-search-input')).toBeFalsy();
+    expect(el.querySelector(('.' + aiStyles.input))).toBeFalsy();
   });
 });
 

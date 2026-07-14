@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { h, render } from 'preact';
 import Rail from '../src/console/components/Rail.jsx';
 import { activeApp, experimentalUnlocked } from '../src/console/store.js';
+import markStyles from '../src/ui/FabryMark.module.css';
 
 // Render via h() rather than JSX literals: the repo's test discovery only
 // transforms .jsx sources, and every other .test.js renders components with
@@ -44,9 +45,17 @@ describe('Rail', () => {
     expect(idx('Annotation Inspector')).toBeLessThan(idx('Org Galaxy'));  // above Galaxy
   });
 
-  it('renders Galaxy as the last rail item', () => {
+  it('renders Galaxy as the last rail item, after the experimental Fabry item when unlocked', () => {
+    // Assert in the UNLOCKED state: Fabry (exp-gated) is the only item that sits
+    // between Inspector and Galaxy, so under the locked default it is filtered out
+    // and Galaxy is trivially last regardless of ordering. Only with Fabry visible
+    // does this exercise the "Galaxy positioned after Fabry" placement.
+    experimentalUnlocked.value = true;
     const items = [...mount().querySelectorAll('.app-rail-item')];
-    expect(items[items.length - 1].getAttribute('title')).toBe('Org Galaxy');
+    const title = (b) => b.getAttribute('title');
+    const idx = (t) => items.findIndex((b) => title(b) === t);
+    expect(title(items[items.length - 1])).toBe('Org Galaxy');
+    expect(idx('Mr. Fabry')).toBeLessThan(idx('Org Galaxy'));
   });
 
   it('renders the Galaxy app button and switches to it on click', () => {
@@ -62,6 +71,16 @@ describe('Rail', () => {
     const root = mount();
     const active = root.querySelector('.app-rail-item.active');
     expect(active.getAttribute('title')).toBe('Dataset Management');
+  });
+
+  it('renders the Fabry rail icon as a STATIC shared FabryMark (no color cycle)', () => {
+    experimentalUnlocked.value = true;
+    const root = mount();
+    const btn = [...root.querySelectorAll('.app-rail-item')]
+      .find((b) => b.getAttribute('title') === 'Mr. Fabry');
+    const svg = btn.querySelector('svg');
+    expect(svg.classList.contains(markStyles.mark)).toBe(true);      // it's the shared mark
+    expect(svg.classList.contains(markStyles.animated)).toBe(false); // rail is static
   });
 
   it('Galaxy rail item has no beta badge', () => {

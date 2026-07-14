@@ -1,11 +1,43 @@
 // Shared modal system (extracted from src/mdh so any Console app can reuse it —
-// MDH re-exports this; Fabry Architect uses confirmModal for deletes). Styling
-// is the shared console.css `.modal-*` / `.btn-*` rules. Nothing app-specific.
+// MDH re-exports this; Fabry Architect uses confirmModal for deletes). Styling is
+// the self-contained CSS Module Modal.module.css; consumers compose modal content
+// with the presentational sub-components below (ModalBody / ModalActions / …) and
+// never reference the (now-scoped) class names. .btn-* live in console.css.
 import { h } from 'preact';
 import { signal } from '@preact/signals';
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks';
+import styles from './Modal.module.css';
 
 export const modalContent = signal(null);
+
+// ── Presentational building blocks (own the scoped modal-* styles) ──────────
+export function ModalBody({ children, class: cls, style, rootRef }) {
+  return <div class={styles.body + (cls ? ' ' + cls : '')} style={style} ref={rootRef}>{children}</div>;
+}
+export function ModalActions({ children }) {
+  return <div class={styles.actions}>{children}</div>;
+}
+export function ModalMessage({ children }) {
+  return <p class={styles.message}>{children}</p>;
+}
+export function ModalFieldLabel({ children, style }) {
+  return <div class={styles.fieldLabel} style={style}>{children}</div>;
+}
+export function ModalLoading({ children }) {
+  return <div class={styles.message + ' ' + styles.messageLoading}><span class={styles.inlineSpinner} aria-hidden="true" />{children}</div>;
+}
+export function ModalClose({ onClick, label }) {
+  return <button type="button" class={styles.close} aria-label={label || 'Close'} onClick={onClick}>{'×'}</button>;
+}
+// The import wizard's header identity strip (file name · size · rows · cols).
+export function ModalFileTitle({ name, meta }) {
+  return (
+    <span class={styles.titleSource} data-testid="source-strip">
+      <span class={styles.titleFile}>{name}</span>
+      <span class={styles.titleMeta}>{meta}</span>
+    </span>
+  );
+}
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -28,13 +60,13 @@ export function confirmModal(title, message, onConfirm) {
     modalContent.value = {
       title,
       render: () => (
-        <div class="modal-body">
-          <p class="modal-message">{message}</p>
-          <div class="modal-actions">
+        <ModalBody>
+          <ModalMessage>{message}</ModalMessage>
+          <ModalActions>
             <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>
             <button class="btn btn-danger" onClick={() => { confirmed = true; closeModal(); }}>Confirm</button>
-          </div>
-        </div>
+          </ModalActions>
+        </ModalBody>
       ),
       onClose: () => {
         if (confirmed && onConfirm) onConfirm();
@@ -89,8 +121,8 @@ function PromptBody({ message, placeholder, initialValue, submitLabel, submitCla
   }
 
   return (
-    <div class="modal-body">
-      {message && <p class="modal-message">{message}</p>}
+    <ModalBody>
+      {message && <ModalMessage>{message}</ModalMessage>}
       <input
         ref={inputRef}
         class="input"
@@ -100,11 +132,11 @@ function PromptBody({ message, placeholder, initialValue, submitLabel, submitCla
         onKeyDown={(e) => { if (e.key === 'Enter') doSubmit(); }}
       />
       <div ref={hintRef} class="input-hint"></div>
-      <div class="modal-actions">
+      <ModalActions>
         <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>
         <button class={`btn ${submitClass || 'btn-primary'}`} onClick={doSubmit}>{submitLabel || 'OK'}</button>
-      </div>
-    </div>
+      </ModalActions>
+    </ModalBody>
   );
 }
 
@@ -177,22 +209,22 @@ export default function Modal() {
 
   return (
     <div
-      class="modal-overlay visible"
+      class={styles.overlay}
       onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => e.preventDefault()}
     >
       <div
-        class="modal-card"
+        class={styles.card}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
         tabIndex={-1}
         ref={cardRef}
       >
-        <div class="modal-header">
-          <span class="modal-title" id="modal-title">{modal.title}</span>
-          <button class="modal-close" aria-label="Close" onClick={closeModal}>{'×'}</button>
+        <div class={styles.header}>
+          <span class={styles.title} id="modal-title">{modal.title}</span>
+          <ModalClose onClick={closeModal} />
         </div>
         {modal.render()}
       </div>

@@ -6,6 +6,7 @@ import { askAuditFabry, runDefaultSummary, refreshSummary, viewSignature } from 
 import FabryInput from '../../ui/fabry/FabryInput.jsx';
 import FabryNarrative from '../../ui/fabry/FabryNarrative.jsx';
 import FabryTranscript from '../../ui/fabry/FabryTranscript.jsx';
+import FabryMark from '../../ui/FabryMark.jsx';
 
 const GERUNDS = ['Summoning Mr. Fabry', 'Reading the audit log', 'Tracing activity', 'Cross-checking events', 'Almost there'];
 
@@ -100,7 +101,7 @@ export default function FabryPanel() {
     <div class="audit-fabry">
       <div class="audit-fabry-bar">
         <button type="button" class="audit-fabry-toggle" aria-expanded={open ? 'true' : 'false'} onClick={toggle}>
-          <span class="audit-fabry-title"><span class="audit-fabry-mark">{'✦'}</span> Audit insights</span>
+          <span class="audit-fabry-title"><span class="audit-fabry-mark"><FabryMark /></span> Audit insights</span>
           <span class="inspector-diag-credit">by Mr. Fabry</span>
           {!open && preview ? <span class="audit-fabry-preview">{'— ' + preview}</span> : null}
           {!open && preview && stale ? <span class="audit-fabry-stale">{'· view changed'}</span> : null}
@@ -112,6 +113,7 @@ export default function FabryPanel() {
         <div class="audit-fabry-body">
           {f.turns.map((t) => <Turn key={t.id} turn={t} />)}
           <FabryInput
+            size="sm"
             value={input}
             onInput={setInput}
             onSubmit={send}

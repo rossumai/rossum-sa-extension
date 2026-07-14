@@ -4,6 +4,7 @@ import * as store from '../store.js';
 import { sendMessage } from '../chat.js';
 import { STARTERS } from '../starters.js';
 import AssistantTurn from './AssistantTurn.jsx';
+import FabryMark from '../../ui/FabryMark.jsx';
 
 function UserTurn({ turn }) {
   if (turn.chip) return <div class="fabry-turn-chip">{turn.text}</div>;
@@ -33,7 +34,7 @@ export default function Thread() {
   if (!store.activeChatId.value && turns.length === 0) {
     return (
       <div class="fabry-greeting">
-        <div class="fabry-greeting-mark">{'✦'}</div>
+        <div class="fabry-greeting-mark"><FabryMark /></div>
         <div class="fabry-greeting-title">Ask Mr. Fabry about this organization</div>
         <div class="fabry-greeting-sub">Queues, extensions, documents, data {'—'} Fabry investigates with its own tools.</div>
         <div class="fabry-starters">

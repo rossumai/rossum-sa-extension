@@ -1,4 +1,5 @@
 import { h, Fragment } from 'preact';
+import { ModalMessage, ModalActions } from './Modal.jsx';
 
 // Shared progress / summary components used by ImportWizard.
 // StageConfirm / StageImporting / StageDone were retired when the per-format
@@ -34,27 +35,27 @@ export function ImportProgress({ progress, onCancel }) {
     if (elapsedMs != null) bits.push(`${formatDuration(elapsedMs)} elapsed`);
     return (
       <Fragment>
-        <div class="modal-message">{label}{'…'}</div>
+        <ModalMessage>{label}{'…'}</ModalMessage>
         <div class="import-progress"><div class="import-progress-track"><div class="import-progress-fill indeterminate"></div></div></div>
         {file?.filename && (
           <div class="input-hint">{file.filename}{file.size != null ? ` · ${formatBytes(file.size)}` : ''}</div>
         )}
         {bits.length > 0 && <div class="import-progress-status" data-testid="import-progress-status">{bits.join(' · ')}</div>}
         <div class="input-hint">Typically 30{'–'}60 s. You can close this {'—'} the outcome appears in <strong>Operation Logs</strong>.</div>
-        {onCancel && <div class="modal-actions"><button class="btn btn-secondary" onClick={onCancel}>Stop watching</button></div>}
+        {onCancel && <ModalActions><button class="btn btn-secondary" onClick={onCancel}>Stop watching</button></ModalActions>}
       </Fragment>
     );
   }
   const pct = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
   return (
     <Fragment>
-      <div class="modal-message">{label}{'…'}</div>
+      <ModalMessage>{label}{'…'}</ModalMessage>
       <div class="import-progress">
         <div class="import-progress-track"><div class="import-progress-fill" style={`width:${pct}%`}></div></div>
         <div class="import-progress-counts"><span>{processed.toLocaleString()} / {total.toLocaleString()}</span><span>{pct}%</span></div>
       </div>
       {onCancel && (
-        <div class="modal-actions"><button class="btn btn-secondary" onClick={onCancel}>Cancel</button></div>
+        <ModalActions><button class="btn btn-secondary" onClick={onCancel}>Cancel</button></ModalActions>
       )}
     </Fragment>
   );
@@ -74,7 +75,7 @@ export function ImportSummary({ result, fileMeta, onClose }) {
           <ul class="import-result-list">
             <li>Stopped waiting for the server. If the upload already reached the server it may still {action} the collection in the background.</li>
           </ul>
-          <div class="modal-actions"><button class="btn btn-primary" onClick={onClose}>Close</button></div>
+          <ModalActions><button class="btn btn-primary" onClick={onClose}>Close</button></ModalActions>
         </Fragment>
       );
     }
@@ -87,7 +88,7 @@ export function ImportSummary({ result, fileMeta, onClose }) {
         <ul class="import-result-list">
           <li>Uploaded <strong>{(result.sent || 0).toLocaleString()}</strong> row{result.sent === 1 ? '' : 's'} {'—'} the server {verb} the collection.</li>
         </ul>
-        <div class="modal-actions"><button class="btn btn-primary" onClick={onClose}>Close</button></div>
+        <ModalActions><button class="btn btn-primary" onClick={onClose}>Close</button></ModalActions>
       </Fragment>
     );
   }
@@ -123,7 +124,7 @@ export function ImportSummary({ result, fileMeta, onClose }) {
           </li>
         )}
       </ul>
-      <div class="modal-actions"><button class="btn btn-primary" onClick={onClose}>Close</button></div>
+      <ModalActions><button class="btn btn-primary" onClick={onClose}>Close</button></ModalActions>
     </Fragment>
   );
 }

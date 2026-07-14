@@ -2,7 +2,7 @@ import { h } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { selectedCollection, records, sampledFields, error } from '../store.js';
 import { extractFieldNames } from './JsonEditor.jsx';
-import { openModal } from './Modal.jsx';
+import { openModal, ModalBody } from './Modal.jsx';
 import * as agentApi from '../../agent/agentApi.js';
 import * as api from '../api.js';
 import { runAgentQuery, continueAgentQuery } from '../agent/agentQuery.js';
@@ -143,25 +143,22 @@ export function TranscriptModal({ session, editorRef, onUpdate }) {
   }
 
   return (
-    <div class="modal-body agent-chat-modal">
+    <ModalBody class="agent-chat-modal">
       <div class="agent-chat" ref={scrollRef}>
         {turns.map((t, i) => <Turn key={i} t={t} />)}
       </div>
       <div class="agent-chat-continue">
-        <div class="nl-search-wrapper">
-          <input
-            class={'nl-search-input' + (busy ? ' loading' : '')}
-            type="text"
-            placeholder="Continue — refine this query…"
-            value={busy ? '' : input}
-            disabled={busy}
-            onInput={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') send(e.target.value); }}
-          />
-          {busy && <div class="nl-search-loading"><span class="nl-gerund">Refining…</span></div>}
-        </div>
+        <FabryInput
+          size="sm"
+          value={input}
+          onInput={setInput}
+          onSubmit={send}
+          busy={busy}
+          placeholder="Continue — refine this query…"
+          gerunds={['Refining']}
+        />
       </div>
-    </div>
+    </ModalBody>
   );
 }
 

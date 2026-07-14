@@ -7,6 +7,7 @@ import FileDropArea, {
   extensionMatches,
 } from '../src/mdh/components/FileDropArea.jsx';
 import Modal, { openModal, closeModal } from '../src/mdh/components/Modal.jsx';
+import mstyles from '../src/ui/Modal.module.css';
 import ImportWizard from '../src/mdh/components/ImportWizard.jsx';
 
 function mount(node) {
@@ -127,7 +128,7 @@ describe('Modal overlay mis-drop guard', () => {
   it('swallows a file drop on the overlay so the browser never opens the file', () => {
     openModal('Drag test', () => h('div', { class: 'inner' }, 'body'));
     const root = mount(h(Modal, null));
-    const overlay = root.querySelector('.modal-overlay');
+    const overlay = root.querySelector(('.' + mstyles.overlay));
     expect(overlay).toBeTruthy();
     const ev = dragEvent('drop', { files: [], types: ['Files'] });
     overlay.dispatchEvent(ev);
@@ -162,8 +163,8 @@ describe('Import wizards accept dropped files', () => {
     const area = root.querySelector('.file-input-area');
     const file = new File(['name,age\nAlice,30'], 'people.csv', { type: 'text/csv' });
     area.dispatchEvent(dragEvent('drop', { files: [file] }));
-    await waitFor(() => root.querySelector('.modal-title [data-testid="source-strip"]'));
-    const title = root.querySelector('.modal-title');
+    await waitFor(() => root.querySelector('.' + mstyles.title + ' [data-testid="source-strip"]'));
+    const title = root.querySelector('.' + mstyles.title);
     expect(title.textContent).toContain('people.csv');
     expect(title.textContent).toMatch(/1 row/);
     closeModal();

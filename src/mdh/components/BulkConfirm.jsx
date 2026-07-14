@@ -3,6 +3,7 @@ import { useRef } from 'preact/hooks';
 import { useSignal } from '@preact/signals';
 import { effect } from '@preact/signals';
 import { UNDO_LIMIT } from '../bulkOps.js';
+import { ModalActions } from './Modal.jsx';
 
 // One-click threshold below which no type-gate is required.
 const ONE_CLICK_LIMIT = 10;
@@ -99,7 +100,7 @@ export default function BulkConfirm({
           Waiting for record count{'…'}
         </div>
       )}
-      <div class="modal-actions">
+      <ModalActions>
         <button class="btn btn-secondary" data-testid="bulk-cancel" onClick={onCancel}>Cancel</button>
         <button
           ref={submitRef}
@@ -108,7 +109,7 @@ export default function BulkConfirm({
           disabled={submitDisabled}
           onClick={onSubmit}
         >{submitLabel}</button>
-      </div>
+      </ModalActions>
     </div>
   );
 }

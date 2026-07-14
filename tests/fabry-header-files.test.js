@@ -28,7 +28,7 @@ beforeEach(() => {
 describe('ChatHeader', () => {
   it('shows the band mark, title, persona pill and token stat', () => {
     const root = mount(ChatHeader);
-    expect(root.querySelector('.fabry-hd-mark').textContent).toBe('\u2726');
+    expect(root.querySelector('.fabry-hd-mark svg')).toBeTruthy(); // shared <FabryMark> (SVG), no longer a text glyph
     expect(root.textContent).toContain('Failed exports triage');
     expect(root.querySelector('.fabry-hd-persona').textContent).toBe('Cautious');
     expect(root.querySelector('.fabry-hd-tokens').textContent).toContain('2.0k');

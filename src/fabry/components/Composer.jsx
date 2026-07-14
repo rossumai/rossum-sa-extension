@@ -5,6 +5,7 @@ import { sendMessage, stopStreaming } from '../chat.js';
 import GerundLoader from '../../ui/GerundLoader.jsx';
 import CommandMenu from './CommandMenu.jsx';
 import { PERSONAS } from '../personas.js';
+import FabryMark from '../../ui/FabryMark.jsx';
 
 const MAX_IMAGES = 4;
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -88,7 +89,7 @@ export default function Composer() {
             title="Verifies each answer in a fresh chat and auto-fixes issues. Roughly 2–3× tokens and latency per message."
             onClick={() => { store.deepMode.value = !store.deepMode.value; }}
           >
-            {'✦'} Deep verify
+            <FabryMark /> Deep verify
           </button>
         )}
       </div>}

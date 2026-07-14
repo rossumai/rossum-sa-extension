@@ -1,7 +1,7 @@
 import { h } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { selectedCollection, activePanel, loading, error } from '../store.js';
-import { openModal, closeModal } from './Modal.jsx';
+import { openModal, closeModal, ModalBody, ModalActions, ModalFieldLabel } from './Modal.jsx';
 import JsonEditor from './JsonEditor.jsx';
 import IndexCard from './IndexCard.jsx';
 import { toCreateSearchIndexDefinition } from '../searchIndexDef.js';
@@ -83,15 +83,15 @@ export default function SearchIndexPanel() {
       }
 
       return (
-        <div class="modal-body">
-          <div class="modal-field-label">collectionName is set automatically from the selected collection</div>
+        <ModalBody>
+          <ModalFieldLabel>collectionName is set automatically from the selected collection</ModalFieldLabel>
           <JsonEditor value={defaultTemplate()} minHeight="250px" editorRef={editorRef} />
           <div ref={hintRef} class="input-hint"></div>
-          <div class="modal-actions">
+          <ModalActions>
             <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>
             <button class="btn btn-primary" onClick={handleCreate}>Create Search Index</button>
-          </div>
-        </div>
+          </ModalActions>
+        </ModalBody>
       );
     });
   }

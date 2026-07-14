@@ -1,7 +1,7 @@
 import { h, Fragment } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { selectedCollection } from '../store.js';
-import { closeModal, setModalTitle } from './Modal.jsx';
+import { closeModal, setModalTitle, ModalBody, ModalActions, ModalFieldLabel, ModalFileTitle } from './Modal.jsx';
 import FileDropArea from './FileDropArea.jsx';
 import JsonEditor from './JsonEditor.jsx';
 import { CsvPreview, JsonPreview, Segmented } from './ImportControls.jsx';
@@ -27,10 +27,7 @@ function sourceTitle(fileMeta, parsed) {
   bits.push(`${parsed.docs.length.toLocaleString()} row${parsed.docs.length === 1 ? '' : 's'}`);
   if ((parsed.columns || []).length > 0) bits.push(`${parsed.columns.length} column${parsed.columns.length === 1 ? '' : 's'}`);
   return (
-    <span class="modal-title-source" data-testid="source-strip">
-      <span class="modal-title-file">{fileMeta?.name}</span>
-      <span class="modal-title-meta">{bits.join(' · ')}</span>
-    </span>
+    <ModalFileTitle name={fileMeta?.name} meta={bits.join(' · ')} />
   );
 }
 
@@ -258,7 +255,7 @@ export default function ImportWizard({ onSuccess, fieldsFn }) {
 
   // ---- render ----
   return (
-    <div class="modal-body import-wizard">
+    <ModalBody class="import-wizard">
       {stage === STAGE.PICK && (
         <Fragment>
           <Segmented value={source} options={SOURCE_SEG} onChange={switchSource} ariaLabel="Import source" testid="import-source" tabs />
@@ -269,17 +266,17 @@ export default function ImportWizard({ onSuccess, fieldsFn }) {
             </FileDropArea>
           ) : (
             <Fragment>
-              <div class="modal-field-label" style="margin-top:10px">Paste JSON {'—'} array, object, or JSON-lines</div>
+              <ModalFieldLabel style="margin-top:10px">Paste JSON {'—'} array, object, or JSON-lines</ModalFieldLabel>
               <JsonEditor value={clipboardText ?? '[\n  \n]'} minHeight="200px" fields={fieldsFn} editorRef={editorRef} jsonLines />
             </Fragment>
           )}
           {errorMsg && <div class="input-hint" style="color:var(--danger)">{errorMsg}</div>}
-          <div class="modal-actions">
+          <ModalActions>
             <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>
             {source === 'clipboard' && (
               <button class="btn btn-primary" data-testid="clipboard-next" onClick={clipboardNext}>Next {'→'}</button>
             )}
-          </div>
+          </ModalActions>
         </Fragment>
       )}
 
@@ -294,10 +291,10 @@ export default function ImportWizard({ onSuccess, fieldsFn }) {
             ? <CsvPreview parsed={parsed} />
             : <JsonPreview docs={parsed.docs} />}
           {(parsed.error || !parsed.docs.length) ? (
-            <div class="modal-actions">
+            <ModalActions>
               <button class="btn btn-secondary" style="margin-right:auto" data-testid="import-back" onClick={decideBack}>{'←'} Back</button>
               <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>
-            </div>
+            </ModalActions>
           ) : (
             <ImportConfirm
               docs={parsed.docs}
@@ -320,6 +317,6 @@ export default function ImportWizard({ onSuccess, fieldsFn }) {
       {stage === STAGE.DONE && importResult && (
         <ImportSummary result={importResult} fileMeta={fileMeta} onClose={closeModal} />
       )}
-    </div>
+    </ModalBody>
   );
 }

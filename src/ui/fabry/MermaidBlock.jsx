@@ -1,13 +1,14 @@
 import { h } from 'preact';
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { getMermaidRenderer, loadMermaidRenderer, themeFromTokens } from './mermaidLoader.js';
+import styles from './FabryMarkdown.module.css';
 
 // A mermaid fence rendered as an SVG diagram (beautiful-mermaid, themed from
 // the live console tokens). The renderer is synchronous once the lazy bundle
 // is in; it escapes label text itself (probe-verified) and we parse its output
 // with DOMParser — no innerHTML sinks. States: bundle loading (dimmed source
 // in the diagram box), rendered, or fallback code fence (invalid diagram /
-// failed bundle load).
+// failed bundle load). Shares the markdown module (same code-fence chrome).
 export default function MermaidBlock({ code }) {
   const [ready, setReady] = useState(() => !!getMermaidRenderer());
   const [failed, setFailed] = useState(false);
@@ -38,24 +39,24 @@ export default function MermaidBlock({ code }) {
 
   if (failed || svgEl === undefined) {
     return (
-      <div class="fabry-md-codewrap">
-        <span class="fabry-md-lang">mermaid</span>
-        <pre class="fabry-md-code"><code>{code}</code></pre>
+      <div class={styles.codewrap}>
+        <span class={styles.lang}>mermaid</span>
+        <pre class={styles.code}><code>{code}</code></pre>
       </div>
     );
   }
   if (svgEl == null) {
     return (
-      <div class="fabry-md-mermaid loading">
-        <span class="fabry-md-lang">mermaid</span>
-        <pre class="fabry-md-mermaid-src">{code}</pre>
+      <div class={styles.mermaid + ' loading'}>
+        <span class={styles.lang}>mermaid</span>
+        <pre class={styles.mermaidSrc}>{code}</pre>
       </div>
     );
   }
   return (
-    <div class="fabry-md-mermaid">
-      <span class="fabry-md-lang">mermaid</span>
-      <div class="fabry-md-mermaid-box" ref={(el) => { if (el && el.firstChild !== svgEl) el.replaceChildren(svgEl); }} />
+    <div class={styles.mermaid}>
+      <span class={styles.lang}>mermaid</span>
+      <div class={styles.mermaidBox} ref={(el) => { if (el && el.firstChild !== svgEl) el.replaceChildren(svgEl); }} />
     </div>
   );
 }

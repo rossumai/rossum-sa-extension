@@ -1,5 +1,6 @@
 import { h } from 'preact';
 import { parseNarrative } from './narrative.js';
+import styles from './FabryNarrative.module.css';
 
 // Renders one Fabry narrative body: takeaway paragraph, "- " bullet list, and a
 // trailing "Next step:" line, streaming-safe. resolveCite is optional — when
@@ -9,8 +10,8 @@ function Segment({ seg, resolveCite }) {
   if (seg.type !== 'cite') return <span>{seg.text}</span>;
   if (!resolveCite) return <span>{seg.id}</span>;
   const hit = resolveCite(seg.id);
-  if (!hit) return <span class="inspector-cite unresolved" title="cited evidence not found">{seg.id}</span>;
-  return <button type="button" class="inspector-cite" title={hit.title || seg.id} onClick={hit.onClick}>{seg.id}</button>;
+  if (!hit) return <span class={styles.cite + ' ' + styles.unresolved} title="cited evidence not found">{seg.id}</span>;
+  return <button type="button" class={styles.cite} title={hit.title || seg.id} onClick={hit.onClick}>{seg.id}</button>;
 }
 
 export default function FabryNarrative({ text, streaming, resolveCite }) {
@@ -18,16 +19,16 @@ export default function FabryNarrative({ text, streaming, resolveCite }) {
   const out = [];
   let bullets = [];
   const seg = (segments) => segments.map((s) => <Segment seg={s} resolveCite={resolveCite} />);
-  const flush = () => { if (bullets.length) { out.push(<ul class="inspector-diag-list">{bullets}</ul>); bullets = []; } };
+  const flush = () => { if (bullets.length) { out.push(<ul class={styles.list}>{bullets}</ul>); bullets = []; } };
   for (const b of blocks) {
     if (b.type === 'li') bullets.push(<li>{seg(b.segments)}</li>);
     else { flush(); out.push(<p>{seg(b.segments)}</p>); }
   }
   flush();
   return (
-    <div class="inspector-diag-body">
+    <div class={styles.body}>
       {out}
-      {streaming ? <span class="inspector-caret" /> : null}
+      {streaming ? <span class={styles.caret} /> : null}
     </div>
   );
 }

@@ -9,6 +9,8 @@ vi.mock('../src/fabry/chat.js', () => ({
 import * as chat from '../src/fabry/chat.js';
 import * as store from '../src/fabry/store.js';
 import Thread from '../src/fabry/components/Thread.jsx';
+import noticeStyles from '../src/ui/fabry/FabryNotice.module.css';
+import mdStyles from '../src/ui/fabry/FabryMarkdown.module.css';
 
 function mount() {
   const root = document.createElement('div');
@@ -38,7 +40,7 @@ describe('Thread', () => {
     const root = mount();
     expect(root.querySelector('.fabry-turn-chip').textContent).toContain('/persona cautious');
     expect(root.querySelectorAll('.fabry-turn-user').length).toBe(1); // chip is not a user bubble
-    expect(root.querySelector('.fabry-turn-assistant .fabry-md strong').textContent).toBe('answer');
+    expect(root.querySelector('.fabry-turn-assistant .' + mdStyles.md + ' strong').textContent).toBe('answer');
     expect(root.querySelector('.fabry-tools').textContent).toContain('reading the queue');
     expect(root.querySelector('.fabry-thinking')).toBeTruthy();
   });
@@ -53,7 +55,7 @@ describe('Thread', () => {
     store.streaming.value = true;
     store.liveTurn.value = { reasoning: 'r', text: 'partial', tools: [], status: 'thinking', done: false };
     const root = mount();
-    expect(root.querySelector('.fabry-turn-live .fabry-caret')).toBeTruthy();
+    expect(root.querySelector('.fabry-turn-live .' + mdStyles.caret)).toBeTruthy();
     store.streaming.value = false;
     store.liveTurn.value = null;
     store.thread.value = [...store.thread.value, { role: 'assistant', chip: false, text: 'par', images: [], feedback: null, reasoning: '', tools: [], interrupted: true }];
@@ -111,7 +113,7 @@ describe('Thread', () => {
         unhandled: [{ type: 'data-agent-confirmation', data: { prompt: 'ok?' } }] },
     ];
     const root = mount();
-    expect(root.querySelector('.fabry-turn-notice-warn').textContent).toContain('data-agent-confirmation');
+    expect(root.querySelector('.' + noticeStyles.warn).textContent).toContain('data-agent-confirmation');
     expect(root.querySelector('.fabry-turn-foot')).toBeNull();
   });
 });

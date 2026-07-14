@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import mstyles from '../src/ui/Modal.module.css';
 vi.mock('../src/mdh/store.js', () => ({ selectedCollection: { value: 'vendors' }, modalContent: { value: null } }));
 vi.mock('../src/mdh/api.js', () => ({
   find: vi.fn().mockResolvedValue({ result: [] }),
@@ -219,7 +220,7 @@ describe('ImportWizard routing', () => {
     // Once the server-processing (indeterminate) stage shows, click "Stop watching".
     const cancelBtn = await waitFor(() => {
       if (!root.querySelector('.import-progress-fill.indeterminate')) return null;
-      return [...root.querySelectorAll('.modal-actions button')].find((b) => b.textContent.trim() === 'Stop watching') || null;
+      return [...root.querySelectorAll('.' + mstyles.actions + ' button')].find((b) => b.textContent.trim() === 'Stop watching') || null;
     });
     cancelBtn.click();
 

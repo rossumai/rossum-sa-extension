@@ -2,6 +2,7 @@ import { h } from 'preact';
 import { activeSource, rows, selectedRow } from '../store.js';
 import { SOURCES } from '../sources/index.js';
 import { makeCtx } from '../ctx.js';
+import { ModalClose } from '../../ui/Modal.jsx';
 
 export default function DetailPanel() {
   const idx = selectedRow.value;
@@ -15,7 +16,7 @@ export default function DetailPanel() {
       <div class="audit-detail-head">
         <span>Detail</span>
         {row && (
-          <button class="modal-close" aria-label="Close" onClick={() => (selectedRow.value = null)}>{'×'}</button>
+          <ModalClose onClick={() => (selectedRow.value = null)} />
         )}
       </div>
       <div class="audit-detail-body">

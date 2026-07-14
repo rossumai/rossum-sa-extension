@@ -1246,64 +1246,9 @@ body {
 .input-error { border-color: var(--danger) !important; }
 .input-hint { font-size: 11px; color: var(--danger); margin-top: 4px; }
 
-.modal-overlay {
-  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4);
-  display: none; align-items: center; justify-content: center; z-index: 200;
-}
-
-.modal-overlay.visible { display: flex; }
-
-.modal-card {
-  background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: 10px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
-  min-width: 500px; max-width: 800px; width: 90vw; max-height: 85vh;
-  display: flex; flex-direction: column; overflow: hidden;
-}
-
-.modal-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 18px; border-bottom: 1px solid var(--border);
-}
-
-.modal-title { font-size: 14px; font-weight: 600; }
-/* Import wizard surfaces the picked file in the header (name · size · rows · cols). */
-.modal-title-source { display: inline-flex; align-items: baseline; gap: 8px; min-width: 0; }
-.modal-title-file { font-family: var(--font-mono); font-size: 12px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.modal-title-meta { font-size: 12px; font-weight: 400; color: var(--text-secondary); white-space: nowrap; flex: none; }
-
-.modal-close {
-  background: none; border: none; font-size: 20px;
-  color: var(--text-secondary); cursor: pointer; padding: 0 4px; line-height: 1;
-}
-
-.modal-close:hover { color: var(--text-primary); }
-
-.modal-body {
-  padding: 16px 18px; overflow-y: auto;
-  display: flex; flex-direction: column; gap: 12px;
-}
-
-.modal-message { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
-
-/* "Counting documents…" placeholder shown while the modal opens and the
-   real message is still loading. */
-.modal-message-loading {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.modal-inline-spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  flex-shrink: 0;
-}
-
-.modal-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
+/* The whole .modal-* system moved to the self-contained CSS Module
+   src/ui/Modal.module.css. Consumers compose modals with its sub-components
+   (ModalBody / ModalActions / ModalMessage / ModalFieldLabel / …). */
 
 .btn:disabled {
   opacity: 0.5;
@@ -1353,7 +1298,7 @@ body {
 
 .match-field-option input { width: 12px; height: 12px; margin: 0; }
 
-.modal-field-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+/* .modal-field-label → ModalFieldLabel in src/ui/Modal.module.css */
 
 /* --- Import from JSON file wizard --- */
 
@@ -1477,11 +1422,8 @@ body {
 }
 
 /* CSV import — Configure stage */
-/* The Configure stage shows a toolbar + (2-column) Advanced panel above a
-   hero preview table, so give this modal more room than the default 800px cap.
-   width:90vw (from .modal-card) still caps it on narrow screens. The export
-   wizard shares the same footprint (format previews benefit equally). */
-.modal-card:has(.import-wizard), .modal-card:has(.export-wizard) { max-width: 1100px; }
+/* (The wider-card overrides for .import-wizard/.export-wizard/.agent-chat moved
+   into src/ui/Modal.module.css as .card:has(:global(...)).) */
 /* AI run-trace detail modal — a touch wider so candidate pipelines breathe. */
 
 /* ── In-view "Stages" debug view (a RecordList results-view mode) ──────────── */
@@ -3736,18 +3678,14 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 /* IntakeSection / WorkflowSection / DriftSection */
 .inspector-ev { padding: 4px 0; }
 .inspector-ev-id { font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); opacity: .55; margin-right: 8px; }
-/* Mr. Fabry follow-up thread (AgentBox-style input reuses .nl-search-* / .agent-spark) */
+/* Mr. Fabry follow-up thread (uses the shared <FabryInput size="sm">) */
 .inspector-followups { margin-top: 10px; border-top: 1px dashed var(--diag-border); padding-top: 10px; }
 .inspector-followup { margin-bottom: 8px; }
 .inspector-followup-q { font-weight: 600; margin-bottom: 4px; }
 .inspector-followup-role { display: inline-block; background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; font-size: 10.5px; font-weight: 700; color: var(--text-secondary); margin-right: 6px; text-transform: uppercase; letter-spacing: .4px; }
-/* Ask-Mr.-Fabry input: agent-input-row provides the 24px sparkle clearance +
-   gradient focus ring; these overrides size it as a chat input in the panel. */
+/* The ask input is now <FabryInput size="sm">; the sizing lives in aiInput.module.css.
+   .inspector-ask only supplies the panel spacing now. */
 .inspector-ask { margin-top: 8px; }
-.inspector-ask .nl-search-input { font-size: 12px; padding-top: 7px; padding-bottom: 7px; padding-left: 27px; }
-.inspector-ask .nl-search-loading { font-size: 12px; padding-left: 27px; }
-.inspector-ask .nl-gerund-out { left: 27px; }
-.inspector-ask .agent-spark { left: 10px; font-size: 12px; }
 .inspector-wf-current { font-weight: 700; }
 .inspector-drift-add { color: var(--success-fg); }
 .inspector-drift-del { color: var(--danger-fg); }
@@ -3776,11 +3714,8 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .inspector-diag-credit { font-weight: 500; font-size: 11.5px; color: var(--text-secondary); }
 .inspector-diag-phase { margin-left: auto; font-weight: 500; font-size: 11.5px; color: var(--text-secondary); font-style: italic; }
 .inspector-diag p { margin: 0 0 8px; }
-.inspector-diag-list { margin: 0 0 8px; padding-left: 18px; }
-.inspector-diag-list li { margin: 3px 0; }
-.inspector-cite { display: inline-flex; align-items: center; gap: 3px; background: var(--bg-card); border: 1px solid var(--info-border); color: var(--info-fg); border-radius: 999px; padding: 0 8px; font-size: 11px; font-weight: 600; cursor: pointer; vertical-align: 1px; }
-.inspector-cite::before { content: '\2316'; font-size: 11px; }
-.inspector-cite.unresolved { background: var(--bg-code); border-color: var(--border); color: var(--text-secondary); cursor: default; text-decoration: line-through; }
+/* .inspector-diag-list / .inspector-cite* / .inspector-caret (+ its keyframe) migrated
+   to the self-contained CSS Module src/ui/fabry/FabryNarrative.module.css. */
 .inspector-ev-flash { animation: inspector-ev-flash 1.6s ease-out; }
 @keyframes inspector-ev-flash { 0% { background: var(--info-bg); } 100% { background: transparent; } }
 /* confidence bar */
@@ -3804,12 +3739,8 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
   .inspector-layout { display: block; }
   .inspector-pagerail { display: none; }
 }
-.inspector-caret { display: inline-block; width: 7px; height: 14px; background: var(--accent); vertical-align: -2px; animation: inspector-blink 1s steps(1) infinite; }
-@keyframes inspector-blink { 50% { opacity: 0; } }
-.inspector-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; z-index: 50; }
-.inspector-modal { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--glass-shadow); max-width: 720px; width: 90%; max-height: 80vh; overflow: auto; padding: 14px 16px; }
-.inspector-modal-hd { display: flex; align-items: center; justify-content: space-between; font-weight: 700; margin-bottom: 8px; }
-.inspector-modal-x { background: none; border: none; font-size: 17px; cursor: pointer; color: var(--text-secondary); }
+/* .inspector-modal* migrated to the self-contained CSS Module
+   src/ui/fabry/FabryTranscript.module.css (the only renderer of the transcript modal). */
 
 /* Record table view */
 .record-table-wrap { width: 100%; overflow: auto; }
@@ -3871,115 +3802,21 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .record-table tbody tr.record-table-row-selected { background: var(--bg-hover); box-shadow: inset 2px 0 0 var(--accent); }
 .record-table-check { width: 1%; white-space: nowrap; text-align: center; }
 
-/* AI pipeline input base style (reused by the agent input row — see .agent-* below) */
-.nl-search-input {
-  width: 100%;
-  padding: 4px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font-family: var(--font-sans);
-  font-size: 11px;
-  transition: border-color 0.2s;
-  box-sizing: border-box;
-}
-.nl-search-input:focus { border-color: var(--accent); outline: none; }
-.nl-search-input:disabled { opacity: 0.6; cursor: default; }
-.nl-search-input::placeholder { color: var(--text-secondary); }
-.nl-search-input.loading {
-  /* Slim pastel conic border spinning at half the old speed, with a breathing glow. */
-  border: 1px solid transparent;
-  color: transparent;
-  background:
-    linear-gradient(var(--bg-input), var(--bg-input)) padding-box,
-    conic-gradient(from var(--ai-angle), #a78bfa, #f0abfc, #fda4af, #fcd34d, #93c5fd, #67e8f9, #a78bfa) border-box;
-  animation: ai-border-spin 3.2s linear infinite, ai-breathe 3.2s ease-in-out infinite;
-}
-.nl-search-input.loading:disabled { opacity: 1; } /* the border animation carries the disabled look */
-.nl-search-input.loading::placeholder { color: transparent; }
-@property --ai-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
-@keyframes ai-border-spin { to { --ai-angle: 360deg; } }
-@keyframes ai-breathe {
-  0%, 100% { box-shadow: 0 0 8px -5px rgba(167, 139, 250, 0.50); }
-  50%      { box-shadow: 0 0 16px -4px rgba(240, 171, 252, 0.55); }
-}
-/* Shimmering gradient "gerund" loader overlaid on the input while a query runs.
-   Two stacked spans crossfade on rotation (in rises up as out drifts away). */
-.nl-search-loading {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  padding: 0 9.5px;
-  font-size: 11px;
-  pointer-events: none;
-}
-.nl-gerund {
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  background: linear-gradient(90deg, #8b5cf6, #ec4899, #3b82f6, #8b5cf6);
-  background-size: 280% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-  animation: ai-text-shimmer 3.4s linear infinite;
-}
-.nl-gerund-in { animation: ai-text-shimmer 3.4s linear infinite, ai-gerund-in 0.45s ease both; }
-.nl-gerund-out { position: absolute; left: 9.5px; animation: ai-text-shimmer 3.4s linear infinite, ai-gerund-out 0.45s ease both; }
-@keyframes ai-text-shimmer { 0% { background-position: 0% 50%; } 100% { background-position: 280% 50%; } }
-@keyframes ai-gerund-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
-@keyframes ai-gerund-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-5px); } }
-@media (prefers-reduced-motion: reduce) {
-  .nl-search-input.loading { animation: none; }
-  .nl-gerund { animation: none; -webkit-text-fill-color: var(--text-secondary); color: var(--text-secondary); }
-  .nl-gerund-out { display: none; }
-  .agent-spark.loading { animation: none; }
-}
+/* The AI-input subsystem (.nl-search-input base + loading border, the gerund
+   loader, and their keyframes) moved to the self-contained CSS Module
+   src/ui/aiInput.module.css (shared by FabryInput + GerundLoader). */
 
-/* Agent surface ("Mr. Fabry") — compact drop-in query builder: a sparkle-marked input,
-   an animated pastel loader while a query is generated + verified, and a footer
-   lifecycle slot (hidden idle → phase tracker running → compact result line done). */
-.nl-search-wrapper { position: relative; }
+/* NOTE: the Fabry mark (src/ui/FabryMark.module.css) and the AI-input primitive
+   (src/ui/aiInput.module.css — input/spark/loader/row) are self-contained CSS
+   Modules. Only AgentBox's own MDH layout (.agent-box / .agent-footer / .agent-chat-*)
+   stays here. */
+
+/* Agent surface ("Mr. Fabry") — AgentBox's own layout around the shared <FabryInput>:
+   a footer lifecycle slot (hidden idle → phase tracker running → result line done). */
 .agent-box { display: flex; flex-direction: column; gap: 3px; padding: 6px 0; }
-.agent-input-row { display: flex; gap: 8px; align-items: center; }
-.agent-input-row .nl-search-wrapper { flex: 1; }
-/* The ✦ sparkle marks the input as AI even when idle; room for it on the left. */
-.agent-input-row .nl-search-input { padding-left: 24px; }
-.agent-input-row .nl-search-loading { padding-left: 24px; }
-.agent-input-row .nl-gerund-out { left: 24px; }
-.agent-spark {
-  position: absolute;
-  left: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 11px;
-  line-height: 1;
-  pointer-events: none;
-  z-index: 1;
-  background: linear-gradient(120deg, #8b5cf6, #ec4899);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-  opacity: 0.75;
-  transition: opacity 0.2s;
-}
-.nl-search-wrapper:hover .agent-spark, .nl-search-wrapper:focus-within .agent-spark { opacity: 1; }
-.agent-spark.loading { opacity: 1; animation: ai-spark-twinkle 1.6s ease-in-out infinite; }
-@keyframes ai-spark-twinkle {
-  0%, 100% { transform: translateY(-50%) scale(1) rotate(0deg); opacity: 0.7; }
-  50%      { transform: translateY(-50%) scale(1.25) rotate(90deg); opacity: 1; }
-}
-/* Quiet gradient focus ring (agent row only — the modal's continue input stays plain). */
-.agent-input-row .nl-search-input:focus:not(.loading) {
-  border-color: transparent;
-  background:
-    linear-gradient(var(--bg-input), var(--bg-input)) padding-box,
-    linear-gradient(120deg, rgba(139, 92, 246, 0.55), rgba(236, 72, 153, 0.45), rgba(59, 130, 246, 0.55)) border-box;
-  box-shadow: 0 0 12px -6px rgba(139, 92, 246, 0.5);
-}
+/* .nl-search-wrapper / .agent-input-row (+ sparkle clearance) / .agent-spark (+ loading
+   twinkle) / the gradient focus ring all moved to src/ui/aiInput.module.css — FabryInput
+   owns the AI-input primitive. .agent-box + .agent-footer stay (AgentBox's own layout). */
 /* Footer lifecycle slot (only rendered while running or once a result exists). */
 .agent-footer { display: flex; align-items: center; gap: 8px; min-height: 15px; }
 .agent-phases { display: flex; align-items: center; gap: 7px; }
@@ -4001,7 +3838,6 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .agent-transcript-link { margin-left: auto; white-space: nowrap; font-size: 10px; color: var(--accent); background: none; border: none; padding: 0; cursor: pointer; text-decoration: underline; font-family: var(--font-sans); }
 .agent-transcript-link:hover { color: var(--accent-hover, var(--accent)); }
 /* Transcript modal (opened from "View transcript") */
-.modal-card:has(.agent-chat) { max-width: 720px; width: 92vw; }
 .agent-chat { display: flex; flex-direction: column; gap: 12px; max-height: 62vh; overflow-y: auto; }
 .agent-chat-turn { display: flex; flex-direction: column; gap: 3px; }
 .agent-chat-role { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-secondary); font-weight: 600; }
@@ -4013,8 +3849,7 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .agent-chat-code { margin: 0; font-family: var(--font-mono); font-size: 11px; line-height: 1.5; color: var(--text-primary); background: var(--bg-code); border-radius: var(--radius); padding: 8px 10px; white-space: pre-wrap; word-break: break-word; overflow-x: auto; }
 /* Interactive transcript modal: scrolling transcript + a "continue this chat" input. */
 .agent-chat-modal { display: flex; flex-direction: column; gap: 10px; }
-.agent-chat-continue { border-top: 1px solid var(--border); padding-top: 10px; }
-.agent-chat-continue .nl-search-input { font-size: 12px; padding: 6px 9px; }
+.agent-chat-continue { border-top: 1px solid var(--border); padding-top: 10px; } /* input sizing now via <FabryInput size="sm"> */
 
 /* ── Stats panel: summary dashboard ───────────────────────────── */
 .stats-band-label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-secondary); font-weight: 600; margin: 0 2px 4px; }
@@ -4168,14 +4003,10 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .audit-fabry-tx { flex-shrink: 0; }
 .audit-fabry-body { display: flex; flex-direction: column; gap: 10px; padding: 2px 0 12px; }
 .audit-fabry-turn + .audit-fabry-turn { border-top: 1px dashed var(--diag-border); padding-top: 10px; }
-.audit-fabry-body .agent-input-row { margin-top: 2px; }
-.audit-fabry .nl-search-input { padding: 6px 8px 6px 27px; font-size: 12px; }
-.audit-fabry .nl-search-loading { font-size: 12px; padding-left: 27px; }
-.audit-fabry .nl-gerund-out { left: 27px; }
-.audit-fabry .agent-spark { left: 10px; font-size: 12px; }
-.audit-fabry .inspector-diag-body { font-size: 12.5px; }
-.audit-fabry .inspector-diag-body p { margin: 0 0 7px; }
-.audit-fabry .inspector-diag-body p:last-child { margin-bottom: 0; }
+/* Audit ask-input sizing is now <FabryInput size="sm">; the .audit-fabry-body margin
+   moved into aiInput.module.css as :global(.audit-fabry-body) .row. */
+/* .audit-fabry .inspector-diag-body* overrides moved into FabryNarrative.module.css
+   as :global(.audit-fabry) .body (co-located with the component they style). */
 
 /* ==== Fabry chat app ==== */
 .fabry-root { display: flex; flex-direction: column; min-height: 0; }
@@ -4211,41 +4042,10 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .fabry-thinking-body { font-size: 11px; color: var(--text-secondary); border-left: 2px solid var(--info-border); padding: 4px 10px; margin: 6px 0; white-space: pre-wrap; max-height: 240px; overflow-y: auto; }
 .fabry-tools { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
 .fabry-tool-chip { font-size: 10px; color: var(--accent); border: 1px solid var(--info-border); border-radius: 999px; padding: 1px 8px; }
-/* R1 "Aligned" markdown (design round 4): real heading scale (parser maps
-   # / ## / ### / #### to h3–h6), indented lists, framed tables, --bg-code
-   blocks with a language tag + hand-rolled token highlighting, mermaid. */
-.fabry-md p { margin: 8px 0; }
-.fabry-md h3.fabry-md-h { font-size: 16.5px; font-weight: 700; margin: 20px 0 8px; }
-.fabry-md h4.fabry-md-h { font-size: 14.5px; font-weight: 650; margin: 18px 0 6px; }
-.fabry-md h5.fabry-md-h { font-size: 13px; font-weight: 650; margin: 14px 0 4px; }
-.fabry-md h6.fabry-md-h { font-size: 12px; font-weight: 650; margin: 12px 0 4px; color: var(--text-secondary); }
-.fabry-md ul, .fabry-md ol { padding-left: 22px; margin: 8px 0; }
-.fabry-md li { margin: 3px 0; }
-.fabry-md li::marker { color: var(--text-secondary); }
-.fabry-md-codewrap { position: relative; margin: 10px 0; }
-.fabry-md-lang { position: absolute; top: 6px; right: 10px; font-family: var(--font-mono); font-size: 9.5px; color: var(--text-secondary); user-select: none; }
-.fabry-md-code { background: var(--bg-code); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; overflow-x: auto; font-size: 12px; margin: 0; }
-.fabry-md-code .hl-kw { color: var(--mdh-special-bidi); }
-.fabry-md-code .hl-str { color: var(--success); }
-.fabry-md-code .hl-key { color: var(--info-fg); }
-.fabry-md-code .hl-num { color: var(--accent); }
-.fabry-md-code .hl-com { color: var(--text-secondary); font-style: italic; }
-.fabry-md-code .hl-lit { color: var(--warning); }
-.fabry-md-code .hl-dec { color: var(--info-fg); }
-.fabry-md-icode { background: var(--bg-code); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; font-size: 12px; }
-.fabry-md-tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; margin: 10px 0; }
-.fabry-md-table { border-collapse: collapse; font-size: 12px; width: 100%; }
-.fabry-md-table th { background: var(--bg-hover); font-weight: 600; font-size: 11.5px; }
-.fabry-md-table th, .fabry-md-table td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
-.fabry-md-table tr:last-child td { border-bottom: 0; }
-.fabry-md-quote { border-left: 3px solid var(--info-border); margin: 8px 0; padding: 2px 10px; color: var(--text-secondary); }
-.fabry-md-h { margin: 10px 0 4px; }
-.fabry-md-hr { border: 0; border-top: 1px solid var(--border); margin: 18px 0; }
-.fabry-md-mermaid { position: relative; margin: 10px 0; border: 1px solid var(--border); border-radius: 8px; background: transparent; padding: 14px; overflow-x: auto; }
-.fabry-md-mermaid-box svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
-.fabry-md-mermaid-src { font-family: var(--font-mono); font-size: 11px; line-height: 1.3; margin: 0; color: var(--text-secondary); opacity: .6; }
-.fabry-caret { display: inline-block; width: 7px; height: 14px; background: var(--accent); margin-left: 2px; animation: fabry-blink 1s steps(1) infinite; vertical-align: text-bottom; }
-@keyframes fabry-blink { 50% { opacity: 0; } }
+/* R1 "Aligned" markdown + code highlighting + mermaid + streaming caret migrated
+   to the self-contained CSS Module src/ui/fabry/FabryMarkdown.module.css (shared by
+   FabryMarkdown + MermaidBlock). The .fabry-main chat scrollbar rule below keeps its
+   own declaration; the .fabry-md-* scrollbars moved into the module. */
 .fabry-turn-foot { display: flex; gap: 6px; margin-top: 6px; }
 .fabry-turn-foot button { border: 1px solid var(--border); background: none; border-radius: 6px; padding: 2px 8px; font-size: 11px; cursor: pointer; opacity: .7; }
 .fabry-turn-foot button:hover, .fabry-turn-foot button.on { opacity: 1; border-color: var(--info-border); color: var(--accent); }
@@ -4303,8 +4103,8 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .fabry-starter:hover { border-color: var(--info-border); background: var(--info-bg); }
 .fabry-starter:hover b { color: var(--accent); }
 
-.fabry-main::-webkit-scrollbar, .fabry-md-code::-webkit-scrollbar, .fabry-md-mermaid::-webkit-scrollbar, .fabry-md-tablewrap::-webkit-scrollbar { width: 9px; height: 9px; }
-.fabry-main::-webkit-scrollbar-thumb, .fabry-md-code::-webkit-scrollbar-thumb, .fabry-md-mermaid::-webkit-scrollbar-thumb, .fabry-md-tablewrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+.fabry-main::-webkit-scrollbar { width: 9px; height: 9px; } /* .fabry-md-* scrollbars moved to FabryMarkdown.module.css */
+.fabry-main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
 .fabry-main::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); border: 2px solid transparent; background-clip: content-box; }
 .fabry-main::-webkit-scrollbar-track { background: transparent; }
 
@@ -4333,13 +4133,8 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .fabry-q-submit { align-self: flex-start; border: 0; background: var(--accent); color: var(--bg-card); font-weight: 650; border-radius: 8px; padding: 7px 16px; cursor: pointer; }
 .fabry-q-submit:disabled { opacity: .5; cursor: default; }
 .fabry-q-done .fabry-q-answer { font-size: 13px; color: var(--accent); }
-.fabry-turn-notice { margin: 8px 0; padding: 9px 12px; border-radius: 8px; font-size: 12.5px; border: 1px solid var(--border); }
-.fabry-turn-notice-error { color: var(--danger-fg); border-color: var(--danger-border); background: var(--danger-bg); white-space: pre-wrap; }
-.fabry-turn-notice-warn { color: var(--warning-fg); border-color: var(--warning-border); background: var(--warning-bg); }
-.fabry-turn-notice-warn code { font-family: var(--font-mono); }
-.fabry-turn-notice-details { margin-top: 6px; }
-.fabry-turn-notice-details pre { margin-top: 4px; font-size: 11px; overflow-x: auto; }
-.fabry-turn-notice-muted { color: var(--text-secondary); font-style: italic; border: 0; background: none; padding: 0; }
+/* Fabry fallback-notice styles migrated to the self-contained CSS Module
+   src/ui/fabry/FabryNotice.module.css. */
 
 /* ── Fabry Architect (v2) ─────────────────────────────────────────────── */
 /* Sidebar deliverable list */
@@ -4407,11 +4202,8 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .fabry-arch-md { height: 100%; }
 .fabry-arch-md .cm-editor { height: 100%; }
 /* Smaller rendered-markdown so the preview + evidence sit better in the UI. */
-.fabry-arch-preview .fabry-md, .fabry-arch-evidence .fabry-md { font-size: 12px; }
-.fabry-arch-preview .fabry-md h3.fabry-md-h, .fabry-arch-evidence .fabry-md h3.fabry-md-h { font-size: 14px; margin: 14px 0 6px; }
-.fabry-arch-preview .fabry-md h4.fabry-md-h, .fabry-arch-evidence .fabry-md h4.fabry-md-h { font-size: 12.5px; }
-.fabry-arch-preview .fabry-md h5.fabry-md-h, .fabry-arch-preview .fabry-md h6.fabry-md-h,
-.fabry-arch-evidence .fabry-md h5.fabry-md-h, .fabry-arch-evidence .fabry-md h6.fabry-md-h { font-size: 11.5px; }
+/* .fabry-arch-preview/.fabry-arch-evidence .fabry-md* size overrides moved into
+   FabryMarkdown.module.css as :global(.fabry-arch-*) .md (co-located with the component). */
 /* Verdict banner (V1): top of the editor, semantic tint, collapsible. */
 .fabry-arch-details { padding: 12px 18px 0; flex: none; }
 .fabry-arch-banner { border: 1px solid var(--border); border-left-width: 3px; border-radius: 8px; overflow: hidden; }

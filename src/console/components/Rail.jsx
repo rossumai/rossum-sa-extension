@@ -1,6 +1,7 @@
 // src/console/components/Rail.jsx
 import { h } from 'preact';
 import { activeApp, experimentalUnlocked } from '../store.js';
+import FabryMark from '../../ui/FabryMark.jsx';
 
 const DATA_ICON = (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -36,11 +37,9 @@ const INSPECTOR_ICON = (
   </svg>
 );
 
-const FABRY_ICON = (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
-    <path d="M12 3l2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2z" />
-  </svg>
-);
+// The rail Fabry icon is the shared mark, rendered STATIC (no color cycle) at rail
+// size; fill inherits the rail's currentColor (incl. white-when-active).
+const FABRY_ICON = <FabryMark size={20} animated={false} />;
 
 const APPS = [
   { id: 'mdh', label: 'Data', title: 'Dataset Management', icon: DATA_ICON },

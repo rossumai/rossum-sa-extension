@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../src/mdh/api.js', () => ({ aggregate: vi.fn() }));
-vi.mock('../src/mdh/components/Modal.jsx', () => ({ closeModal: vi.fn() }));
+// Keep the real presentational sub-components (ModalBody/ModalActions/…); only spy closeModal.
+vi.mock('../src/mdh/components/Modal.jsx', async (orig) => ({ ...(await orig()), closeModal: vi.fn() }));
 import { h, render } from 'preact';
 import ExportWizard from '../src/mdh/components/ExportWizard.jsx';
 import * as api from '../src/mdh/api.js';

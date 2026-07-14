@@ -36,9 +36,10 @@ export default function DeliverableEditor({ deliverable }) {
   const [preview, setPreview] = useState(deliverable.text);
   useEffect(() => { setPreview(deliverable.text); }, [deliverable.id]);
 
-  // Verdict banner at the TOP, collapsed by default; reset on a switch.
-  const [open, setOpen] = useState(false);
-  useEffect(() => { setOpen(false); }, [deliverable.id]);
+  // Verdict banner at the TOP. Its expand/collapse state is a SHARED preference
+  // (store.verdictExpanded): expanding one deliverable's verdict opens the others
+  // expanded by default too — so it's deliberately NOT reset on a switch.
+  const open = store.verdictExpanded.value;
 
   const chip = result && !result.running ? CHIP[result.verdict] : null;
   const now = Date.now();
@@ -53,7 +54,7 @@ export default function DeliverableEditor({ deliverable }) {
       {chip && (
         <div class="fabry-arch-details">
           <div class={'fabry-arch-banner ' + chip.cls}>
-            <button type="button" class="fabry-arch-banner-hd" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+            <button type="button" class="fabry-arch-banner-hd" aria-expanded={open} onClick={() => { store.verdictExpanded.value = !store.verdictExpanded.value; }}>
               <span class="fabry-arch-banner-verdict">{chip.label}</span>
               {result.stale
                 ? <span class="fabry-arch-banner-stale">{'last checked '}{relativeTime(result.ranAt, now) || 'previously'}{' · may be outdated — re-run'}</span>

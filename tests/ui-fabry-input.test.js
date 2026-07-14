@@ -3,6 +3,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { h, render } from 'preact';
 import FabryInput from '../src/ui/fabry/FabryInput.jsx';
+import styles from '../src/ui/aiInput.module.css';
 
 let root;
 afterEach(() => { if (root) { render(null, root); root.remove(); } });
@@ -14,9 +15,9 @@ describe('FabryInput', () => {
   it('reflects value, calls onInput, and submits on Enter', () => {
     const onInput = vi.fn(); const onSubmit = vi.fn();
     const el = mount({ value: 'hi', onInput, onSubmit, busy: false, placeholder: 'Ask…', gerunds: ['G'] });
-    const input = el.querySelector('input.nl-search-input');
+    const input = el.querySelector('input.' + styles.input);
     expect(input.value).toBe('hi');
-    expect(el.querySelector('.agent-spark')).toBeTruthy();
+    expect(el.querySelector('.' + styles.spark)).toBeTruthy();
     fireInput(input, 'who deleted users');
     expect(onInput).toHaveBeenCalledWith('who deleted users');
     fireKey(input, 'Enter');
@@ -33,17 +34,22 @@ describe('FabryInput', () => {
     const input = el.querySelector('input');
     expect(input.value).toBe('');
     expect(input.disabled).toBe(true);
-    expect(el.querySelector('.nl-search-loading')).toBeTruthy();
-    expect(el.querySelector('.agent-spark.loading')).toBeTruthy();
+    expect(el.querySelector('.' + styles.loader)).toBeTruthy();
+    expect(el.querySelector('.' + styles.spark + '.' + styles.loading)).toBeTruthy();
   });
-  it('appends an optional className to the row; omitted leaves just the base class', () => {
+  it('size="sm" adds the compact variant class to the row', () => {
+    const el = mount({ value: '', onInput: vi.fn(), onSubmit: vi.fn(), busy: false, placeholder: '', gerunds: ['G'], size: 'sm' });
+    const row = el.querySelector('.' + styles.row);
+    expect(row.classList.contains(styles.sm)).toBe(true);
+  });
+  it('appends an optional (global) className to the row; omitted leaves just the base class', () => {
     const withClass = mount({ value: '', onInput: vi.fn(), onSubmit: vi.fn(), busy: false, placeholder: '', gerunds: ['G'], className: 'inspector-ask' });
-    const row = withClass.querySelector('.agent-input-row');
+    const row = withClass.querySelector('.' + styles.row);
     expect(row.classList.contains('inspector-ask')).toBe(true);
-    expect(row.className).toBe('agent-input-row inspector-ask');
+    expect(row.className).toBe(styles.row + ' inspector-ask');
     render(null, root); root.remove(); // mount() reuses the module-level root; tear down before remounting
 
     const withoutClass = mount({ value: '', onInput: vi.fn(), onSubmit: vi.fn(), busy: false, placeholder: '', gerunds: ['G'] });
-    expect(withoutClass.querySelector('.agent-input-row').className).toBe('agent-input-row');
+    expect(withoutClass.querySelector('.' + styles.row).className).toBe(styles.row);
   });
 });

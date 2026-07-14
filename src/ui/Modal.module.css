@@ -1,0 +1,54 @@
+/* Self-contained styles for the shared Modal system. The old .modal-* classes were
+   a public layout vocabulary written by 13 consumers; they now go through the
+   presentational sub-components exported by Modal.jsx (ModalBody/ModalActions/…),
+   so these names are private to the module. Content-width overrides key off the
+   consumer's own (global) content class via :has(:global(...)). Design tokens stay
+   central in console.css; .btn-* / form classes are NOT modal's and stay global. */
+
+.overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4);
+  display: flex; align-items: center; justify-content: center; z-index: 200;
+}
+.card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+  min-width: 500px; max-width: 800px; width: 90vw; max-height: 85vh;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+/* Wider cards for specific content (consumer content classes stay global). */
+.card:has(:global(.import-wizard)), .card:has(:global(.export-wizard)) { max-width: 1100px; }
+.card:has(:global(.agent-chat)) { max-width: 720px; width: 92vw; }
+
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+}
+.title { font-size: 14px; font-weight: 600; }
+/* Import wizard surfaces the picked file in the header (name · size · rows · cols). */
+.titleSource { display: inline-flex; align-items: baseline; gap: 8px; min-width: 0; }
+.titleFile { font-family: var(--font-mono); font-size: 12px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.titleMeta { font-size: 12px; font-weight: 400; color: var(--text-secondary); white-space: nowrap; flex: none; }
+
+.close {
+  background: none; border: none; font-size: 20px;
+  color: var(--text-secondary); cursor: pointer; padding: 0 4px; line-height: 1;
+}
+.close:hover { color: var(--text-primary); }
+
+.body {
+  padding: 16px 18px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.message { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+
+/* "Counting documents…" placeholder while the real message loads. */
+.messageLoading { display: flex; align-items: center; gap: 10px; }
+.inlineSpinner {
+  width: 14px; height: 14px;
+  border: 2px solid var(--border); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
+.fieldLabel { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }

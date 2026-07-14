@@ -1,7 +1,7 @@
 import { h } from 'preact';
 import { useState, useEffect, useLayoutEffect, useRef } from 'preact/hooks';
 import { selectedCollection, loading, error } from '../store.js';
-import { openModal, closeModal } from './Modal.jsx';
+import { openModal, closeModal, ModalBody, ModalFieldLabel } from './Modal.jsx';
 import JsonEditor from './JsonEditor.jsx';
 import BulkConfirm from './BulkConfirm.jsx';
 import * as api from '../api.js';
@@ -113,8 +113,8 @@ function Body({ collection, mode, ids, initialFilter, onSuccess, fieldsFn }) {
     : 'You’ll have a few seconds to undo.';
 
   return (
-    <div ref={rootRef} class="modal-body">
-      <div class="modal-field-label">Filter:</div>
+    <ModalBody rootRef={rootRef}>
+      <ModalFieldLabel>Filter:</ModalFieldLabel>
       {isSelection ? (
         <pre class="bulk-filter-readonly-pre">{JSON.stringify(effectiveFilter, null, 2)}</pre>
       ) : (
@@ -169,6 +169,6 @@ function Body({ collection, mode, ids, initialFilter, onSuccess, fieldsFn }) {
         onSubmit={handleSubmit}
         onCancel={closeModal}
       />
-    </div>
+    </ModalBody>
   );
 }

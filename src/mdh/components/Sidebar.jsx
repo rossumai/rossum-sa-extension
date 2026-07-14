@@ -1,7 +1,7 @@
 import { h } from 'preact';
 import { useEffect, useState, useRef } from 'preact/hooks';
 import { collections, selectedCollection, activeView, loading, error } from '../store.js';
-import { promptModal, closeModal, openModal } from './Modal.jsx';
+import { promptModal, closeModal, openModal, ModalBody, ModalActions, ModalMessage, ModalLoading } from './Modal.jsx';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
 import { showUndo } from '../undo.js';
@@ -177,19 +177,18 @@ function DropConfirmBody({ name }) {
   let messageEl;
   if (!countKnown) {
     messageEl = (
-      <p class="modal-message modal-message-loading">
-        <span class="modal-inline-spinner" aria-hidden="true"></span>
+      <ModalLoading>
         <span>Counting documents{'…'}</span>
-      </p>
+      </ModalLoading>
     );
   } else if (count === false) {
-    messageEl = <p class="modal-message">This will permanently delete "{name}" and all its data.</p>;
+    messageEl = <ModalMessage>This will permanently delete "{name}" and all its data.</ModalMessage>;
   } else if (count === 0) {
-    messageEl = <p class="modal-message">This will permanently delete the empty collection "{name}".</p>;
+    messageEl = <ModalMessage>This will permanently delete the empty collection "{name}".</ModalMessage>;
   } else if (canUndo) {
-    messageEl = <p class="modal-message">{count.toLocaleString()} document{count !== 1 ? 's' : ''} will be deleted. You'll have a few seconds to undo.</p>;
+    messageEl = <ModalMessage>{count.toLocaleString()} document{count !== 1 ? 's' : ''} will be deleted. You'll have a few seconds to undo.</ModalMessage>;
   } else {
-    messageEl = <p class="modal-message">{count.toLocaleString()} documents will be permanently deleted. Undo is unavailable above {UNDO_LIMIT.toLocaleString()} documents.</p>;
+    messageEl = <ModalMessage>{count.toLocaleString()} documents will be permanently deleted. Undo is unavailable above {UNDO_LIMIT.toLocaleString()} documents.</ModalMessage>;
   }
 
   async function doSubmit() {
@@ -223,7 +222,7 @@ function DropConfirmBody({ name }) {
   }
 
   return (
-    <div class="modal-body">
+    <ModalBody>
       {messageEl}
       <input
         ref={inputRef}
@@ -235,11 +234,11 @@ function DropConfirmBody({ name }) {
         onKeyDown={(e) => { if (e.key === 'Enter') doSubmit(); }}
       />
       <div class="input-hint" style={hintMessage ? 'color: var(--danger)' : ''}>{hintMessage}</div>
-      <div class="modal-actions">
+      <ModalActions>
         <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>
         <button class="btn btn-danger" onClick={doSubmit} disabled={submitDisabled}>Drop</button>
-      </div>
-    </div>
+      </ModalActions>
+    </ModalBody>
   );
 }
 
