@@ -2726,16 +2726,8 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 }
 
 /* Immediate custom tooltip (Tip.jsx) — no native-title delay, viewport-clamped. */
-.stats-tip-trigger { display: inline-flex; align-items: center; }
-.stats-tip-trigger.is-block { display: block; }
-.stats-tip-pop {
-  position: fixed; z-index: 1000; pointer-events: none;
-  max-width: 280px; white-space: normal; text-align: left;
-  background: #0f172a; color: #fff;
-  border-radius: 6px; padding: 7px 9px;
-  font-size: 11px; line-height: 1.45;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
-}
+/* .stats-tip-* (the custom tooltip) moved to the self-contained CSS Module
+   src/ui/Tip.module.css when Tip was promoted to the design system. */
 
 /* Undo toast — bottom-center, fixed, above modal-overlay (z=1000-ish);
    single instance, replaces previous on new operation. */
@@ -4031,7 +4023,7 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .fabry-chat-title { min-width: 0; font-size: 12.5px; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fabry-chat-empty { font-size: 12px; color: var(--text-secondary); padding: 12px; text-align: center; }
 .fabry-chat-loadingrow { font-size: 10.5px; color: var(--text-secondary); text-align: center; padding: 6px; }
-.fabry-working { position: relative; flex: 1; align-self: stretch; min-height: 20px; }
+.fabry-working { position: relative; height: 22px; min-width: 132px; } /* inline streaming gerund in the composer bar */
 .fabry-main { display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow-y: auto; overscroll-behavior: contain; background: var(--bg-card); }
 .fabry-thread { flex: 1 0 auto; padding: 18px 22px; display: flex; flex-direction: column; gap: 14px; max-width: 860px; width: 100%; margin: 0 auto; overflow-wrap: break-word; }
 .fabry-turn-chip { align-self: center; font-size: 10.5px; color: var(--text-secondary); background: var(--bg-hover); border-radius: 999px; padding: 3px 12px; font-family: var(--font-mono, monospace); }
@@ -4051,31 +4043,47 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .fabry-turn-foot button:hover, .fabry-turn-foot button.on { opacity: 1; border-color: var(--info-border); color: var(--accent); }
 .fabry-interrupted { font-size: 11px; color: var(--warning-fg, #92600a); margin-top: 6px; }
 .fabry-refresh { border: 0; background: none; color: var(--accent); cursor: pointer; text-decoration: underline; font-size: 11px; }
-.fabry-greeting { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--text-secondary); }
-.fabry-greeting-mark { font-size: 28px; color: var(--accent); }
-.fabry-greeting-title { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+/* .fabry-greeting* removed — the empty state is now the centered .fabry-welcome (below). */
 .fabry-thread-loading { text-align: center; color: var(--text-secondary); font-size: 12px; }
 .fabry-composer { position: sticky; bottom: 0; z-index: 10; background: var(--bg-card); padding: 10px 22px 14px; max-width: 860px; width: 100%; margin: 0 auto; }
 .fabry-senderr { color: var(--danger-fg); font-size: 12px; margin-bottom: 6px; }
-.fabry-persona { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 11px; color: var(--text-secondary); }
-.fabry-persona-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
-.fabry-persona-seg button { border: 0; background: none; color: var(--text-secondary); padding: 3px 12px; font-size: 11px; cursor: pointer; }
-.fabry-persona-seg button.on { background: var(--info-bg); color: var(--accent); font-weight: 600; }
+/* Attachment thumbnails now sit INSIDE the box, above the textarea. */
 .fabry-attach-row { display: flex; gap: 8px; margin-bottom: 8px; }
 .fabry-attach { position: relative; }
 .fabry-attach img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
 .fabry-attach button { position: absolute; top: -6px; right: -6px; border: 1px solid var(--border); background: var(--bg-card); border-radius: 999px; width: 18px; height: 18px; line-height: 1; font-size: 11px; cursor: pointer; }
-.fabry-input-wrap { position: relative; display: flex; gap: 8px; align-items: flex-end; }
-.fabry-field { position: relative; flex: 1; display: flex; align-items: flex-end; gap: 8px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 16px; padding: 8px 10px 8px 14px; box-shadow: var(--shadow); }
-.fabry-field:focus-within { border-color: var(--info-border); }
-.fabry-input { flex: 1; resize: none; border: 0; padding: 6px 0; font-size: 13px; font-family: inherit; background: none; color: var(--text-primary); max-height: 180px; }
+/* Claude-style single rounded box: textarea on top, all controls in a bar below, inside. */
+.fabry-composer-box { background: var(--bg-input); border: 1px solid var(--border); border-radius: 20px; padding: 10px 12px 8px; box-shadow: var(--shadow); }
+.fabry-composer-box:focus-within { border-color: var(--info-border); }
+.fabry-input-wrap { position: relative; }
+.fabry-input { display: block; width: 100%; box-sizing: border-box; resize: none; border: 0; padding: 4px 4px 2px; font-size: 14px; line-height: 1.5; font-family: inherit; background: none; color: var(--text-primary); min-height: 46px; max-height: 180px; }
 .fabry-input:focus { outline: none; }
-.fabry-input-actions { display: flex; gap: 6px; align-items: center; }
-.fabry-attach-btn { cursor: pointer; font-size: 15px; opacity: .7; }
-.fabry-attach-btn:hover { opacity: 1; }
-.fabry-send { border: 0; border-radius: 10px; padding: 7px 16px; font-weight: 650; cursor: pointer; color: var(--bg-card); background: var(--accent); }
-.fabry-stop { border: 1px solid var(--info-border); border-radius: 10px; padding: 7px 16px; font-weight: 600; cursor: pointer; color: var(--accent); background: var(--info-bg); }
-.fabry-send:disabled { opacity: .5; cursor: default; }
+.fabry-bar { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.fabry-bar-spacer { flex: 1; }
+.fabry-bar-ico { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; display: block; }
+/* + attach icon button */
+.fabry-attach-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 9px; color: var(--text-secondary); cursor: pointer; flex: none; }
+.fabry-attach-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+/* persona chip → dropdown (replaces the old segmented control) */
+.fabry-persona-wrap { position: relative; flex: none; }
+.fabry-persona-chip { display: inline-flex; align-items: center; gap: 3px; height: 32px; padding: 0 7px 0 10px; border: 0; border-radius: 9px; background: none; color: var(--text-primary); font-family: inherit; font-size: 13px; cursor: pointer; }
+.fabry-persona-chip:hover { background: var(--bg-hover); }
+/* the caret: mid-sized — clearly a menu affordance, not oversized */
+.fabry-persona-caret { width: 14px; height: 14px; fill: none; stroke: var(--text-secondary); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; display: block; }
+.fabry-persona-menu { position: absolute; bottom: calc(100% + 6px); right: 0; min-width: 232px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); padding: 5px; z-index: 20; }
+.fabry-persona-menu-item { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; border: 0; background: none; border-radius: 7px; padding: 7px 9px; cursor: pointer; }
+.fabry-persona-menu-item:hover { background: var(--bg-hover); }
+.fabry-persona-menu-label { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.fabry-persona-menu-item.on .fabry-persona-menu-label { color: var(--accent); }
+.fabry-persona-check { color: var(--accent); font-size: 12px; }
+.fabry-persona-menu-hint { font-size: 11px; color: var(--text-secondary); line-height: 1.35; }
+/* send (accent square, up-arrow) / stop (square) */
+.fabry-send { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; border-radius: 9px; cursor: pointer; color: #fff; background: var(--accent); flex: none; }
+.fabry-send:hover:not(:disabled) { background: var(--accent-hover, #3560c5); }
+.fabry-send:disabled { background: var(--bg-hover); color: var(--text-secondary); cursor: default; }
+.fabry-stop { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 9px; cursor: pointer; background: var(--bg-card); color: var(--text-primary); flex: none; }
+.fabry-stop:hover { background: var(--bg-hover); }
+.fabry-stop-sq { width: 11px; height: 11px; background: currentColor; border-radius: 2.5px; }
 .fabry-cmdmenu { position: absolute; bottom: 100%; left: 0; right: 0; margin-bottom: 6px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); padding: 6px; max-height: 260px; overflow-y: auto; z-index: 5; }
 .fabry-cmd-row { display: flex; gap: 10px; width: 100%; text-align: left; border: 0; background: none; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
 .fabry-cmd-row:hover { background: var(--bg-hover); }
@@ -4095,13 +4103,19 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .fabry-sidebar-title { display: flex; align-items: center; gap: 7px; padding: 4px 4px 2px; }
 .fabry-sidebar-mark { color: var(--accent); font-size: 15px; }
 .fabry-sidebar-name { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
-.fabry-persona-hint { color: var(--text-secondary); font-size: 10.5px; }
-.fabry-starters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 20px; max-width: 580px; width: 100%; padding: 0 20px; }
-/* Grey fill so the starter cards read as cards on the white content pane. */
-.fabry-starter { text-align: left; border: 1px solid var(--border); background: var(--bg-base); border-radius: 12px; padding: 11px 13px; cursor: pointer; font-size: 11.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 2px; }
-.fabry-starter b { font-size: 12.5px; font-weight: 600; color: var(--text-primary); }
-.fabry-starter:hover { border-color: var(--info-border); background: var(--info-bg); }
-.fabry-starter:hover b { color: var(--accent); }
+/* .fabry-persona-hint retired — the persona hints now live in the dropdown menu. */
+/* Centered "welcome" empty state (new chat): the composer is the hero, centered
+   under a greeting, with starter prompts as pills below. Replaces the old
+   .fabry-greeting / .fabry-starters block. */
+.fabry-welcome { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; min-height: 0; overflow-y: auto; }
+.fabry-welcome-inner { display: flex; flex-direction: column; align-items: center; gap: 12px; max-width: 680px; width: 100%; }
+.fabry-welcome-mark { color: var(--accent); line-height: 0; }
+.fabry-welcome-title { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
+/* the composer is a normal centered block here — undo its sticky-bottom layout */
+.fabry-welcome .fabry-composer { position: static; padding: 0; max-width: 640px; }
+.fabry-welcome-pills { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.fabry-welcome-pill { border: 1px solid var(--border); background: var(--bg-card); border-radius: 999px; padding: 6px 13px; font-size: 12px; color: var(--text-primary); cursor: pointer; }
+.fabry-welcome-pill:hover { border-color: var(--info-border); background: var(--info-bg); color: var(--accent); }
 
 .fabry-main::-webkit-scrollbar { width: 9px; height: 9px; } /* .fabry-md-* scrollbars moved to FabryMarkdown.module.css */
 .fabry-main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
@@ -4112,8 +4126,11 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .fabry-chatlist::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
 /* Deep verify: composer toggle, live-phase chip, per-turn verdict chip + critic strip. */
-.fabry-deep-toggle { margin-left: auto; border: 1px solid var(--border); background: none; color: var(--text-secondary); border-radius: 999px; padding: 3px 12px; font-size: 11px; cursor: pointer; }
-.fabry-deep-toggle.on { border-color: var(--info-border); color: var(--accent); background: var(--info-bg); font-weight: 600; }
+/* Deep verify: an in-bar icon toggle (the ✦ FabryMark, static). Dim when off,
+   accent-filled when on — the star's fill inherits this button's color. */
+.fabry-deep-toggle { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; border-radius: 9px; background: none; color: #a9afb9; cursor: pointer; flex: none; }
+.fabry-deep-toggle:hover { background: var(--bg-hover); color: var(--text-secondary); }
+.fabry-deep-toggle.on { color: var(--accent); background: var(--info-bg); }
 .fabry-deep-phase { align-self: flex-start; font-size: 10.5px; color: var(--accent); border: 1px dashed var(--info-border); border-radius: 999px; padding: 2px 10px; }
 .fabry-deep-chip { border: 1px solid var(--border); background: none; border-radius: 6px; padding: 2px 8px; font-size: 11px; cursor: pointer; }
 .fabry-deep-chip.pass { color: var(--success-fg); border-color: var(--success-border); background: var(--success-bg); }

@@ -7,6 +7,7 @@ import ChatHeader from './ChatHeader.jsx';
 import Thread from './Thread.jsx';
 import FilesStrip from './FilesStrip.jsx';
 import Composer from './Composer.jsx';
+import Welcome from './Welcome.jsx';
 import ArchitectApp from '../architect/components/ArchitectApp.jsx';
 import Modal from '../../ui/Modal.jsx';
 
@@ -40,6 +41,11 @@ export default function App({ connected }) {
         <main class="fabry-main">
           {store.fabryMode.value === 'architect' ? (
             <ArchitectApp />
+          ) : (!store.activeChatId.value && store.thread.value.length === 0 && !store.liveTurn.value) ? (
+            // Empty new chat → centered welcome (the composer is the hero). Not gated
+            // on `streaming` so a failed first send keeps the draft; the layout flips
+            // to the thread stack the moment activeChatId/thread/liveTurn appears.
+            <Welcome />
           ) : (
             <>
               <ChatHeader />

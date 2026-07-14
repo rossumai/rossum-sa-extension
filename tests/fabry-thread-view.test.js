@@ -63,17 +63,8 @@ describe('Thread', () => {
     root2.querySelector('.fabry-refresh').click();
     expect(chat.openChat).toHaveBeenCalledWith('chat_1');
   });
-  it('empty new chat shows the greeting with Rossum starter prompts; clicking one sends it', () => {
-    store.activeChatId.value = null;
-    store.thread.value = [];
-    const root = mount();
-    expect(root.querySelector('.fabry-greeting')).toBeTruthy();
-    const starters = [...root.querySelectorAll('.fabry-starter')];
-    expect(starters.length).toBe(4);
-    expect(starters[0].textContent).toContain('Map this organization');
-    starters[0].click();
-    expect(chat.sendMessage).toHaveBeenCalledWith(expect.stringMatching(/overview of this organization/));
-  });
+  // The empty-new-chat greeting + starters moved to <Welcome> (App renders it
+  // instead of Thread when empty) — covered by tests/fabry-welcome.test.js.
   it('shows the deep phase chip while verifying', () => {
     store.streaming.value = true;
     store.liveTurn.value = { reasoning: '', text: 'x', tools: [] };

@@ -41,7 +41,11 @@ describe('Fabry App — chat-list refresh on activation', () => {
 });
 
 describe('Fabry App states', () => {
-  beforeEach(() => { store.agentAvailable.value = true; store.error.value = null; });
+  beforeEach(() => {
+    store.agentAvailable.value = true; store.error.value = null;
+    store.activeChatId.value = null; store.thread.value = []; store.liveTurn.value = null;
+    store.fabryMode.value = 'chat';
+  });
   it('not connected message', () => {
     expect(mount({ connected: false }).textContent).toContain('Not connected');
   });
@@ -57,5 +61,13 @@ describe('Fabry App states', () => {
   it('app-level error shows the banner', () => {
     store.error.value = 'Session expired. Reconnect.';
     expect(mount({ connected: true }).querySelector('.fabry-error').textContent).toContain('Session expired');
+  });
+  it('empty new chat renders the centered welcome; a non-empty chat renders the thread', () => {
+    expect(mount({ connected: true }).querySelector('.fabry-welcome')).toBeTruthy();
+    store.activeChatId.value = 'chat_1';
+    store.thread.value = [{ role: 'user', text: 'hi', images: [], chip: false }];
+    const root = mount({ connected: true });
+    expect(root.querySelector('.fabry-welcome')).toBeNull();
+    expect(root.querySelector('.fabry-thread')).toBeTruthy();
   });
 });

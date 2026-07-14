@@ -1,7 +1,7 @@
 import { h } from 'preact';
 import { healthLabel } from '../statsSummary.js';
 import { formatBytes } from './StatsBits.jsx';
-import Tip from './Tip.jsx';
+import Tip from '../../ui/Tip.jsx';
 
 const LARGE_COLLECTION_WARN = 100000;
 

@@ -35,6 +35,14 @@ beforeEach(() => {
 });
 
 describe('Composer', () => {
+  it('renders one rounded box with the textarea and the bottom bar inside it', () => {
+    const root = mount(Composer, {});
+    const box = root.querySelector('.fabry-composer-box');
+    expect(box).toBeTruthy();
+    expect(box.querySelector('textarea.fabry-input')).toBeTruthy();
+    expect(box.querySelector('.fabry-bar')).toBeTruthy();
+    expect(box.querySelector('.fabry-bar .fabry-attach-btn')).toBeTruthy(); // + attach inside the bar
+  });
   it('Enter sends and clears; Shift+Enter does not send', async () => {
     const root = mount(Composer, {});
     const ta = root.querySelector('textarea');
@@ -45,6 +53,14 @@ describe('Composer', () => {
     await flush();
     expect(chat.sendMessage).toHaveBeenCalledWith('hello', []);
     expect(root.querySelector('textarea').value).toBe('');
+  });
+  it('the send button is disabled until there is text', async () => {
+    const root = mount(Composer, {});
+    expect(root.querySelector('.fabry-send').disabled).toBe(true);
+    const ta = root.querySelector('textarea');
+    ta.value = 'hi'; ta.dispatchEvent(new Event('input', { bubbles: true }));
+    await flush();
+    expect(root.querySelector('.fabry-send').disabled).toBe(false);
   });
   it('Stop does not clobber a newer draft typed while streaming', async () => {
     let resolveSend;
@@ -69,22 +85,22 @@ describe('Composer', () => {
     await flush();
     expect(root.querySelector('textarea').value).toBe('draft');
   });
-  it('shows Stop while streaming and calls stopStreaming', () => {
+  it('shows Stop (not Send) while streaming and calls stopStreaming', () => {
     store.streaming.value = true;
     const root = mount(Composer, {});
+    expect(root.querySelector('.fabry-send')).toBeNull();
     const stop = root.querySelector('.fabry-stop');
     expect(stop).toBeTruthy();
     stop.click();
     expect(chat.stopStreaming).toHaveBeenCalled();
   });
-  it('while streaming: draft stays editable, verbs show above the input, Enter does not send', async () => {
+  it('while streaming: draft editable, gerund shows inline in the bar, deep toggle present, persona chip hidden, Enter does not send', async () => {
     store.streaming.value = true;
     const root = mount(Composer, {});
-    // Verbs share ONE line with the deep toggle (same .fabry-persona row).
-    const row = root.querySelector('.fabry-persona');
-    expect(row.querySelector('.fabry-working .' + aiStyles.loader)).toBeTruthy();
-    expect(row.querySelector('.fabry-deep-toggle')).toBeTruthy();
-    expect(row.querySelector('.fabry-persona-seg')).toBeNull(); // picker yields to the verbs while streaming
+    const bar = root.querySelector('.fabry-bar');
+    expect(bar.querySelector('.fabry-working .' + aiStyles.loader)).toBeTruthy();
+    expect(bar.querySelector('.fabry-deep-toggle')).toBeTruthy();
+    expect(root.querySelector('.fabry-persona-chip')).toBeNull(); // persona hidden while streaming
     const ta = root.querySelector('textarea');
     expect(ta.disabled).toBe(false);
     expect(ta.getAttribute('placeholder')).toMatch(/next message/i);
@@ -95,22 +111,28 @@ describe('Composer', () => {
     expect(chat.sendMessage).not.toHaveBeenCalled();
     expect(root.querySelector('textarea').value).toBe('my next question');
   });
-  it('persona buttons carry descriptive labels', () => {
+  it('persona chip opens a dropdown of both personas with hints; selecting flips the signal and closes', async () => {
     const root = mount(Composer, {});
-    const seg = [...root.querySelectorAll('.fabry-persona-seg button')];
-    expect(seg.map((b) => b.textContent)).toEqual(['Cautious', 'Autonomous']);
-    expect(root.querySelector('.fabry-persona-hint').textContent).toMatch(/asks before every write/i);
-  });
-  it('persona picker renders only for a new chat and flips the signal', () => {
-    const root = mount(Composer, {});
-    const seg = root.querySelectorAll('.fabry-persona-seg button');
-    expect(seg.length).toBe(2);
-    seg[1].click();
+    const chip = root.querySelector('.fabry-persona-chip');
+    expect(chip.textContent).toMatch(/Cautious/);
+    expect(root.querySelector('.fabry-persona-menu')).toBeNull(); // closed initially
+    chip.click();
+    await flush();
+    const items = [...root.querySelectorAll('.fabry-persona-menu-item')];
+    expect(items.map((i) => i.textContent.replace(/\s+/g, ' ').trim())).toEqual([
+      expect.stringContaining('Cautious'),
+      expect.stringContaining('Autonomous'),
+    ]);
+    expect(root.querySelector('.fabry-persona-menu').textContent).toMatch(/asks before every write/i);
+    items.find((i) => /Autonomous/.test(i.textContent)).click();
+    await flush();
     expect(store.personaChoice.value).toBe('default');
+    expect(root.querySelector('.fabry-persona-menu')).toBeNull(); // closed after select
+  });
+  it('persona chip renders only for a new chat', () => {
+    expect(mount(Composer, {}).querySelector('.fabry-persona-chip')).toBeTruthy();
     store.activeChatId.value = 'chat_1';
-    const root2 = mount(Composer, {});
-    expect(root2.querySelector('.fabry-persona-seg')).toBeNull();
-    expect(root2.querySelector('.fabry-persona-hint')).toBeNull();
+    expect(mount(Composer, {}).querySelector('.fabry-persona-chip')).toBeNull();
   });
   it('typing / opens the command menu; inline send error renders', async () => {
     const root = mount(Composer, {});
@@ -128,7 +150,7 @@ describe('Composer', () => {
 });
 
 describe('deep verify toggle', () => {
-  it('renders when allowed, flips deepMode, hidden when killed', async () => {
+  it('renders when allowed, flips deepMode, hidden when killed', () => {
     store.deepVerifyAllowed.value = true;
     store.deepMode.value = false;
     const root = mount(Composer, {});

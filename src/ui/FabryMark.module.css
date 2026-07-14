@@ -13,13 +13,20 @@
   fill: currentColor;
 }
 
-/* Slow, always-on color cycle, kept strictly within a blue → indigo → violet band. */
-.animated { animation: hue 8s ease-in-out infinite; }
+/* Slow, always-on color cycle. Starts + ends on the brand blue (--accent #4270db)
+   and journeys through a wide cool→purple→magenta range (cyan · blue · indigo ·
+   violet · purple · fuchsia). ~12s keeps it gentle despite the extra stops. Kept
+   off warm hues (no yellow/orange/red/green) so it still reads as "Fabry". */
+.animated { animation: hue 12s ease-in-out infinite; }
 
 @keyframes hue {
-  0%, 100% { color: #4270db; } /* blue (matches --accent) */
-  33%      { color: #5b6be6; }
-  66%      { color: #8b5cf6; } /* violet */
+  0%, 100% { color: #4270db; } /* brand blue (start/end) */
+  14%      { color: #22d3ee; } /* cyan */
+  28%      { color: #3b82f6; } /* blue */
+  43%      { color: #6366f1; } /* indigo */
+  57%      { color: #8b5cf6; } /* violet */
+  71%      { color: #a855f7; } /* purple */
+  86%      { color: #d946ef; } /* fuchsia */
 }
 
 @media (prefers-reduced-motion: reduce) {

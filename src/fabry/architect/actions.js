@@ -7,6 +7,7 @@ import * as api from './api.js';
 import * as check from './check.js';
 import { runChecks } from './run.js';
 import * as store from './store.js';
+import { EXAMPLE_DELIVERABLE } from './example.js';
 
 let controller = null;
 let runId = 0;
@@ -45,6 +46,9 @@ export async function loadArchitect() {
 }
 
 export async function addDeliverable(text = '') {
+  // Seed the very FIRST deliverable with a self-describing demo (so a new user
+  // sees how Architect works); once any deliverable exists, new ones start blank.
+  if (!text && store.deliverables.value.length === 0) text = EXAMPLE_DELIVERABLE;
   const order = store.deliverables.value.reduce((m, d) => Math.max(m, d.order || 0), 0) + 1;
   const d = { id: newId(), text: String(text || ''), order };
   store.deliverables.value = [...store.deliverables.value, d];

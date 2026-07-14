@@ -2,7 +2,7 @@ import { h } from 'preact';
 import { friendlyType, rangeBar, spanBar, buildValueFilterPipeline } from '../statsView.js';
 import { FieldName, formatDate, formatValue, FormattedValue, isSpecialValue } from './StatsBits.jsx';
 import { selectedCollection, activePanel, pendingPipelineLoad, limit } from '../store.js';
-import Tip from './Tip.jsx';
+import Tip from '../../ui/Tip.jsx';
 
 function humanSpan(ms) {
   const day = 86400000;

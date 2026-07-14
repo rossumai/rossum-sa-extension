@@ -69,12 +69,20 @@ describe('loadArchitect', () => {
 });
 
 describe('add/open/update/delete', () => {
-  it('addDeliverable creates an empty deliverable and opens it', async () => {
-    await addDeliverable();
+  it('addDeliverable seeds the FIRST deliverable with the demo example and opens it', async () => {
+    await addDeliverable(); // list is empty (beforeEach)
     expect(store.deliverables.value.length).toBe(1);
     const d = store.deliverables.value[0];
     expect(store.activeId.value).toBe(d.id);
-    expect(api.addDeliverable).toHaveBeenCalledWith(expect.objectContaining({ id: d.id, text: '', order: 1 }));
+    expect(d.text).toMatch(/Example deliverable/); // the demo callout
+    expect(api.addDeliverable).toHaveBeenCalledWith(expect.objectContaining({ id: d.id, text: d.text, order: 1 }));
+  });
+  it('addDeliverable creates a BLANK deliverable once one already exists', async () => {
+    store.deliverables.value = [{ id: 'x', text: '# existing', order: 1 }];
+    await addDeliverable();
+    const d = store.deliverables.value[store.deliverables.value.length - 1];
+    expect(d.text).toBe('');
+    expect(d.id).not.toBe('x');
   });
   it('openDeliverable sets activeId', () => { openDeliverable('z'); expect(store.activeId.value).toBe('z'); });
   it('updateDeliverable updates store text live, marks its result stale, and persists editedAt', async () => {

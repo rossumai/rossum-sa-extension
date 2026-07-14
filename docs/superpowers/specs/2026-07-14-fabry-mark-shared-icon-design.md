@@ -94,14 +94,17 @@ which drifts out of the blue/purple band. Lives in `FabryMark.module.css` (local
 
 ```css
 .mark { display:inline-block; vertical-align:middle; flex:none; fill:currentColor; }
-.animated { animation: hue 8s ease-in-out infinite; }
-@keyframes hue {              /* stays strictly in blue → indigo → violet */
-  0%, 100% { color:#4270db; } /* blue (matches --accent) */
-  33%      { color:#5b6be6; }
-  66%      { color:#8b5cf6; } /* violet */
+.animated { animation: hue 12s ease-in-out infinite; }
+/* Rich cool→purple→magenta loop; starts + ends on the brand blue (--accent). */
+@keyframes hue {
+  0%, 100% { color:#4270db; } /* brand blue */   14% { color:#22d3ee; } /* cyan */
+  28% { color:#3b82f6; } /* blue */               43% { color:#6366f1; } /* indigo */
+  57% { color:#8b5cf6; } /* violet */             71% { color:#a855f7; } /* purple */
+  86% { color:#d946ef; } /* fuchsia */
 }
 @media (prefers-reduced-motion: reduce) { .animated { animation:none; } }
 ```
+(The palette widened over two owner requests — originally a 3-stop blue→violet band; "more colors"/"even more colors" grew it to the 7-stop cyan→fuchsia loop above, anchored on the brand blue.)
 
 - ~8s loop = "slowly." No pink (`#ec4899` dropped per instruction).
 - Under reduced-motion the animation is off and the mark shows the **inherited** color.

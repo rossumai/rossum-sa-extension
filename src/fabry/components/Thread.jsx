@@ -1,10 +1,7 @@
 import { h } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import * as store from '../store.js';
-import { sendMessage } from '../chat.js';
-import { STARTERS } from '../starters.js';
 import AssistantTurn from './AssistantTurn.jsx';
-import FabryMark from '../../ui/FabryMark.jsx';
 
 function UserTurn({ turn }) {
   if (turn.chip) return <div class="fabry-turn-chip">{turn.text}</div>;
@@ -31,24 +28,8 @@ export default function Thread() {
     if (nearBottom) scroller.scrollTop = scroller.scrollHeight;
   }, [turns, live && live.text, live && live.reasoning]);
 
-  if (!store.activeChatId.value && turns.length === 0) {
-    return (
-      <div class="fabry-greeting">
-        <div class="fabry-greeting-mark"><FabryMark /></div>
-        <div class="fabry-greeting-title">Ask Mr. Fabry about this organization</div>
-        <div class="fabry-greeting-sub">Queues, extensions, documents, data {'—'} Fabry investigates with its own tools.</div>
-        <div class="fabry-starters">
-          {STARTERS.map((s) => (
-            <button type="button" key={s.label} class="fabry-starter" title={s.prompt} onClick={() => sendMessage(s.prompt)}>
-              <b>{s.label}</b>
-              <span>{s.desc}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
+  // The empty-new-chat greeting now lives in <Welcome> (App renders it instead of
+  // this thread stack while the chat is empty), so Thread only renders turns + live.
   return (
     <div class="fabry-thread" ref={ref}>
       {store.threadLoading.value && <div class="fabry-thread-loading">Loading conversation{'…'}</div>}
