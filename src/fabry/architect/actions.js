@@ -9,7 +9,12 @@ import { runChecks } from './run.js';
 import * as store from './store.js';
 import { EXAMPLE_DELIVERABLE } from './example.js';
 import * as refine from './refine.js';
+import * as title from './title.js';
 import { formatAnswers } from '../chat.js';
+import { summaryLine } from './format.js';
+import * as plan from './plan.js';
+import { runImplement } from './implementLoop.js';
+import * as audit from './audit.js';
 
 let controller = null;
 let runId = 0;
@@ -23,6 +28,11 @@ function clearSpinners() {
   const cleaned = {};
   for (const [k, v] of Object.entries(store.results.value)) cleaned[k] = v?.running ? { ...v, running: false } : v;
   store.results.value = cleaned;
+}
+function clearImplementSpinners() {
+  const cleaned = {};
+  for (const [k, v] of Object.entries(store.implement.value)) cleaned[k] = v?.running ? { ...v, running: false } : v;
+  store.implement.value = cleaned;
 }
 
 export async function loadArchitect() {
@@ -45,6 +55,10 @@ export async function loadArchitect() {
   } finally {
     loading = false;
   }
+  // Backfill AI titles for any untitled deliverables — fire-and-forget so a
+  // slow/offline agent never blocks load; failures stay silent (derived
+  // fallback title is already showing).
+  if (store.loaded.value) backfillTitles().catch(() => {});
 }
 
 export async function addDeliverable(text = '') {
@@ -99,9 +113,44 @@ export async function updateDeliverable(id, text) {
   if (r && !r.running && !r.stale) store.setResult(id, { ...r, stale: true });
   try {
     await api.updateDeliverable(id, t, Date.now());
+    generateTitle(id); // fire-and-forget; self-guards (existing title / short text / in-flight)
   } catch (err) {
     store.loadError.value = err?.message || 'Could not save edit.';
   }
+}
+
+const titleInFlight = new Set();
+
+// Manual rename (persists the explicit title).
+export async function renameDeliverable(id, newTitle) {
+  const clean = String(newTitle ?? '').trim();
+  store.deliverables.value = store.deliverables.value.map((d) => (d.id === id ? { ...d, title: clean } : d));
+  try { await api.saveTitle(id, clean); }
+  catch (err) { store.loadError.value = err?.message || 'Could not save title.'; }
+}
+
+// Read-only AI title generation — only when the deliverable has meaningful text and
+// no title yet. Offline/error → silently keep the derived fallback. Guarded against
+// duplicate in-flight calls.
+export async function generateTitle(id) {
+  const d = store.deliverables.value.find((x) => x.id === id);
+  if (!d || (d.title && d.title.trim()) || d.text.trim().length < 8 || titleInFlight.has(id)) return;
+  titleInFlight.add(id);
+  try {
+    const chatId = await agentApi.createChat();
+    const acc = newAcc();
+    await agentApi.streamMessage(chatId, title.buildTitlePrompt(d.text), { onEvent: (e) => foldEvents(acc, [e]) });
+    const t = title.parseTitle(replyText(acc));
+    if (t && !store.deliverables.value.find((x) => x.id === id)?.title) await renameDeliverable(id, t);
+  } catch { /* offline / error → keep the derived fallback */ }
+  finally { titleInFlight.delete(id); }
+}
+
+// Backfill titles for all untitled-with-text deliverables (bounded concurrency 3).
+export async function backfillTitles() {
+  const q = store.deliverables.value.filter((d) => !(d.title && d.title.trim()) && d.text.trim().length >= 8).map((d) => d.id);
+  const worker = async () => { while (q.length) await generateTitle(q.shift()); };
+  await Promise.all([worker(), worker(), worker()]);
 }
 
 export async function deleteDeliverable(id) {
@@ -248,4 +297,106 @@ export function stopRun() {
   controller = null;
   store.running.value = false;
   clearSpinners();
+}
+
+// ── Implement loop (ralph-style, write-enabled) ─────────────────────────────
+let implController = null;
+let implRunId = 0;
+
+// READ-ONLY planning turn (DEFAULT persona — the model plans best autonomously; no writes).
+async function planOne(d, signal) {
+  const chatId = await agentApi.createChat();
+  if (signal?.aborted) return null;
+  const acc = newAcc();
+  await agentApi.streamMessage(chatId, plan.buildPlanPrompt(d.text), { signal, onEvent: (e) => foldEvents(acc, [e]) });
+  if (signal?.aborted) return null;
+  return plan.parsePlan(replyText(acc));
+}
+
+// WRITE task turn — the ONLY write call site (mcpMode:'read-write'), DEFAULT persona, NO priming.
+async function implementTaskOne(d, task, { attempt, journal, doneTasks }, signal) {
+  const chatId = await agentApi.createChat();
+  if (signal?.aborted) return null;
+  const acc = newAcc();
+  const folder = audit.makeAuditFolder();
+  await agentApi.streamMessage(chatId, plan.buildTaskPrompt(d.text, task, { journal, doneTasks }), {
+    signal, mcpMode: 'read-write', onEvent: (e) => { foldEvents(acc, [e]); folder.feed(e); },
+  });
+  if (signal?.aborted) return null;
+  const text = replyText(acc);
+  return { writes: folder.writes, summary: summaryLine(text) || '(no summary)', discovered: plan.parseDiscovered(text), chatId };
+}
+
+// READ-ONLY per-task check (fresh cautious chat).
+async function checkTaskOne(d, task, signal) {
+  const chatId = await agentApi.createChat();
+  if (signal?.aborted) return null;
+  const fold = async (content) => { const acc = newAcc(); await agentApi.streamMessage(chatId, content, { signal, onEvent: (e) => foldEvents(acc, [e]) }); return replyText(acc); };
+  await fold('/persona cautious');
+  if (signal?.aborted) return null;
+  const text = await fold(plan.buildTaskCheckPrompt(task.text, task.acceptance));
+  if (signal?.aborted) return null;
+  return check.parseCheckVerdict(text);
+}
+
+// Apply a loop patch to the store; reflect a check verdict in the shared banner;
+// persist on `done`.
+function applyImplementPatch(id, patch) {
+  const cur = store.implement.value[id] || {};
+  const next = { ...cur, ...patch, stale: false };
+  if (patch.writes) next.writes = [...(cur.writes || []), ...patch.writes];
+  if (patch.tasks) next.tasks = patch.tasks; // full replace each time — never concatenated
+  if (patch.note) { next.notes = [...(cur.notes || []), patch.note]; delete next.note; }
+  store.implement.value = { ...store.implement.value, [id]: next };
+  if (patch.verdict) {
+    const v = patch.verdict;
+    const ranAt = Date.now();
+    store.setResult(id, { verdict: v.verdict, evidence: v.evidence, chatId: v.chatId, ranAt, stale: false, running: false });
+    // Persist the roll-up as the deliverable's Check result so the post-implementation
+    // verdict survives reload (mirrors the standalone check's persist()). Disjoint $set
+    // from the implement fields, so it never clobbers saveImplementResult. A transport-
+    // errored roll-up is shown but NOT persisted — preserve last-known-good, like persist().
+    if (!patch.verdictErrored) api.saveResult(id, { verdict: v.verdict, evidence: v.evidence, chatId: v.chatId, ranAt }).catch(() => {});
+  }
+  if (patch.done) {
+    const ranAt = Date.now();
+    const tasks = next.tasks || [];
+    api.saveImplementResult(id, {
+      status: next.status, attempts: tasks.reduce((s, t) => s + (t.attempts || 0), 0), writes: next.writes || [],
+      summary: next.summary || '', chatId: next.chatId || (store.results.value[id]?.chatId) || null,
+      ranAt, journal: [], tasks,
+    }).catch(() => {});
+  }
+}
+
+async function runImplementList(ds) {
+  if (store.implementRunning.value || !ds.length) return;
+  implRunId += 1; const rid = implRunId;
+  const ctrl = new AbortController(); implController = ctrl;
+  store.implementRunning.value = true;
+  for (const d of ds) store.setImplement(d.id, { status: 'running', running: true, writes: [], error: null });
+  try {
+    await runImplement(ds, {
+      maxAttemptsPerTask: 5, maxPlanTasks: 12, maxTotalTasks: 20, maxTotalWrites: 50, maxRollupRounds: 3,
+      signal: ctrl.signal,
+      planOne: (dd) => planOne(dd, ctrl.signal),
+      implementTaskOne: (dd, task, cx) => implementTaskOne(dd, task, cx, ctrl.signal),
+      checkTaskOne: (dd, task) => checkTaskOne(dd, task, ctrl.signal),
+      checkDeliverable: (dd) => runOne(dd, ctrl.signal),
+      onEvent: (eid, patch) => { if (rid === implRunId) applyImplementPatch(eid, patch); },
+    });
+  } finally { if (rid === implRunId) { clearImplementSpinners(); store.implementRunning.value = false; implController = null; } }
+}
+
+export function reImplement(id) {
+  const d = store.deliverables.value.find((x) => x.id === id);
+  return d ? runImplementList([d]) : undefined;
+}
+
+export function stopImplement() {
+  implRunId += 1;
+  if (implController) implController.abort();
+  implController = null;
+  store.implementRunning.value = false;
+  clearImplementSpinners();
 }

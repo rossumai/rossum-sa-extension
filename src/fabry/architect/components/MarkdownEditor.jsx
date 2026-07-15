@@ -56,6 +56,9 @@ export default function MarkdownEditor({ value = '', onChange, editorRef }) {
     if (editorRef) editorRef.current = {
       getValue: () => v.state.doc.toString(),
       setValue: (text) => v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: text } }),
+      // CodeMirror mis-measures when revealed from a hidden (display:none) container
+      // (e.g. the Architect Edit/Preview toggle) — call after un-hiding.
+      refresh: () => { try { view.current?.requestMeasure(); } catch {} },
     };
     return () => v.destroy();
   }, []);

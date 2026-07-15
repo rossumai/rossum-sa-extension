@@ -123,7 +123,7 @@ describe('Composer', () => {
       expect.stringContaining('Cautious'),
       expect.stringContaining('Autonomous'),
     ]);
-    expect(root.querySelector('.fabry-persona-menu').textContent).toMatch(/asks before every write/i);
+    expect(root.querySelector('.fabry-persona-menu').textContent).toMatch(/verifies as it goes/i);
     items.find((i) => /Autonomous/.test(i.textContent)).click();
     await flush();
     expect(store.personaChoice.value).toBe('default');
@@ -145,7 +145,7 @@ describe('Composer', () => {
     expect(root2.querySelector('.fabry-senderr').textContent).toMatch(/Rate-limited/);
   });
   it('always shows the standing capability notice', () => {
-    expect(mount(Composer, {}).querySelector('.fabry-notice').textContent).toMatch(/can .*modif/i);
+    expect(mount(Composer, {}).querySelector('.fabry-notice').textContent).toMatch(/read-only/i);
   });
 });
 

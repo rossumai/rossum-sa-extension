@@ -6,6 +6,7 @@ export function buildCheckPrompt(requirement) {
   return [
     'You are auditing a Rossum organization against a single requirement from a Statement of Work (SOW).',
     'Using YOUR TOOLS, inspect the live organization (queues, schemas, extensions/hooks, rules, engines, settings) and determine whether this requirement is correctly implemented. Stay strictly READ-ONLY — never create, update, or delete anything.',
+    'Inspect THOROUGHLY before you conclude — search broadly and do not assume something is missing without checking; a hasty "not met" is a false negative.',
     'Reply with a FIRST LINE that is exactly one of:',
     '  VERDICT: PASS       (the requirement is met)',
     '  VERDICT: FAIL       (the requirement is not met)',

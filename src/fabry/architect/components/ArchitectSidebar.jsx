@@ -1,9 +1,11 @@
 import { h, Fragment } from 'preact';
 import { useEffect, useState, useRef } from 'preact/hooks';
 import * as store from '../store.js';
-import { loadArchitect, addDeliverable, openDeliverable, runAll, stopRun, moveDeliverable, reRun, deleteDeliverable } from '../actions.js';
-import { deliverableTitle } from '../format.js';
-import { confirmModal } from '../../../ui/Modal.jsx';
+import { loadArchitect, addDeliverable, openDeliverable, runAll, stopRun, moveDeliverable, reRun, deleteDeliverable, reImplement, renameDeliverable } from '../actions.js';
+import { displayTitle } from '../format.js';
+import { confirmModal, promptModal } from '../../../ui/Modal.jsx';
+import * as fstore from '../../store.js';
+import { openArmDialog } from './ArmDialog.jsx';
 
 function dotClass(r) {
   if (!r) return 'none';
@@ -45,6 +47,8 @@ export default function ArchitectSidebar() {
   const ds = store.deliverables.value;
   const results = store.results.value;
   const running = store.running.value;
+  const implementAllowed = fstore.implementAllowed.value;
+  const implementRunning = store.implementRunning.value;
 
   // Drag-and-drop reordering.
   const [dragId, setDragId] = useState(null);
@@ -114,7 +118,7 @@ export default function ArchitectSidebar() {
             onDragEnd={() => { setDragId(null); setOverId(null); }}
           >
             <span class={'fabry-arch-dot ' + dotClass(results[d.id])} />
-            <span class="fabry-arch-item-title">{deliverableTitle(d.text)}</span>
+            <span class="fabry-arch-item-title">{displayTitle(d)}</span>
             <button
               type="button"
               class="fabry-arch-kebab"
@@ -125,6 +129,13 @@ export default function ArchitectSidebar() {
             {menuId === d.id && (
               <div class={'fabry-arch-menu' + (menuUp ? ' up' : '')} onClick={(e) => e.stopPropagation()}>
                 <button type="button" class="fabry-arch-menu-item" disabled={running || results[d.id]?.running} onClick={() => { reRun(d.id); closeMenu(); }}>{'Re-run ▷'}</button>
+                {implementAllowed && (
+                  <button type="button" class="fabry-arch-menu-item" disabled={implementRunning}
+                    onClick={() => { closeMenu(); openArmDialog(1, () => reImplement(d.id)); }}>
+                    {'Implement ▷'}
+                  </button>
+                )}
+                <button type="button" class="fabry-arch-menu-item" onClick={() => { closeMenu(); promptModal('Rename deliverable', { initialValue: (d.title || '').trim(), placeholder: 'Deliverable title', submitLabel: 'Rename' }, (v) => renameDeliverable(d.id, v)); }}>{'Rename…'}</button>
                 <button type="button" class="fabry-arch-menu-item danger" onClick={() => confirmDelete(d.id)}>Delete</button>
               </div>
             )}

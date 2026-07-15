@@ -37,12 +37,12 @@ export async function probeAgent() {
   } catch { return false; } finally { clearTimeout(t); }
 }
 
-// POST /chats — new chat session.
-// NOTE: we intentionally never send an `mcp_mode` field — the backend defaults
-// each chat to read-only (ChatMetadata.mcp_mode), which disables write-tagged
-// MCP tools server-side. Do NOT add `mcp_mode: 'read-write'` here or in
-// streamMessage without a deliberate write-enablement decision (verified
-// 2026-07-13 against rossum-agent/rossum-mcp).
+// POST /chats — new chat session. Chats are read-only by default; write-enablement
+// is a per-MESSAGE decision via streamMessage({ mcpMode: 'read-write' }) — the backend
+// reads mcp_mode from the MESSAGE body, not the create body (verified against
+// rossum-agent api/stream.py resolve_mcp_mode). The ONLY caller that enables writes is
+// the Architect implement loop (implementTaskOne in architect/actions.js). Do NOT add
+// write-enablement here.
 export async function createChat() {
   const res = await fetch(`${AGENT_BASE}/chats`, {
     method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: '{}',
@@ -54,7 +54,9 @@ export async function createChat() {
 
 // POST /chats/{id}/messages — stream one turn. onEvent(event) per parsed event.
 // Resolves when the stream ends; aborts on `signal` or IDLE_TIMEOUT of silence.
-export async function streamMessage(chatId, content, { onEvent = () => {}, signal, images } = {}) {
+// mcpMode: pass 'read-write' to enable write-tagged MCP tools for THIS turn only
+// (the Architect implement loop is the sole caller — see agentApi.createChat above).
+export async function streamMessage(chatId, content, { onEvent = () => {}, signal, images, mcpMode } = {}) {
   const ctrl = new AbortController();
   const onAbort = () => ctrl.abort();
   if (signal) {
@@ -71,7 +73,11 @@ export async function streamMessage(chatId, content, { onEvent = () => {}, signa
     res = await fetch(`${AGENT_BASE}/chats/${chatId}/messages`, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(images && images.length ? { content, images } : { content }),
+      body: JSON.stringify({
+        content,
+        ...(images && images.length ? { images } : {}),
+        ...(mcpMode ? { mcp_mode: mcpMode } : {}),
+      }),
       signal: ctrl.signal,
     });
   } catch (err) { cleanup(); throw err; }

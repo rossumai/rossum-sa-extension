@@ -10,11 +10,15 @@ vi.mock('../src/fabry/architect/api.js', () => ({
   deleteDeliverable: vi.fn().mockResolvedValue({}),
   saveResult: vi.fn().mockResolvedValue({}),
   setOrder: vi.fn().mockResolvedValue({}),
+  saveTitle: vi.fn().mockResolvedValue({}),
 }));
 import * as agentApi from '../src/agent/agentApi.js';
 import * as api from '../src/fabry/architect/api.js';
 import * as store from '../src/fabry/architect/store.js';
-import { loadArchitect, addDeliverable, openDeliverable, updateDeliverable, deleteDeliverable, runAll, reorder, moveDeliverable, refineTurn, answerRefine } from '../src/fabry/architect/actions.js';
+import {
+  loadArchitect, addDeliverable, openDeliverable, updateDeliverable, deleteDeliverable, runAll, reorder,
+  moveDeliverable, refineTurn, answerRefine, renameDeliverable, generateTitle, backfillTitles,
+} from '../src/fabry/architect/actions.js';
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
 function scriptReplies(map) {
@@ -140,6 +144,7 @@ describe('add/open/update/delete', () => {
     expect(store.deliverables.value[0].text).toBe('# new body');
     expect(store.results.value.a.stale).toBe(true);
     expect(api.updateDeliverable).toHaveBeenCalledWith('a', '# new body', expect.any(Number));
+    await flush(); // let the fire-and-forget generateTitle() side effect settle before the next test
   });
   it('updateDeliverable no-ops when unchanged', async () => {
     store.deliverables.value = [{ id: 'a', text: 'same', order: 1 }];
@@ -223,5 +228,62 @@ describe('runAll', () => {
     expect(store.results.value.a.error).toBe(true);
     expect(api.saveResult).toHaveBeenCalledWith('b', expect.objectContaining({ verdict: 'pass' }));
     expect(api.saveResult).not.toHaveBeenCalledWith('a', expect.anything());
+  });
+});
+
+describe('renameDeliverable / generateTitle / backfillTitles', () => {
+  it('renameDeliverable sets the store title (trimmed) and persists it', async () => {
+    store.deliverables.value = [{ id: 'a', text: 'Add a VAT rule', order: 1 }];
+    await renameDeliverable('a', '  Add VAT Rule  ');
+    expect(store.deliverables.value[0].title).toBe('Add VAT Rule');
+    expect(api.saveTitle).toHaveBeenCalledWith('a', 'Add VAT Rule');
+  });
+
+  it('generateTitle opens a READ-ONLY chat and sets the parsed title on an untitled deliverable', async () => {
+    store.deliverables.value = [{ id: 'a', text: 'Add a VAT rule to the Invoices queue', order: 1 }];
+    let n = 0;
+    agentApi.createChat.mockImplementation(async () => 'chat_' + (n++));
+    agentApi.streamMessage.mockImplementation(async (chatId, content, { onEvent }) => {
+      onEvent({ type: 'text-delta', delta: '"Add VAT Rule"' });
+      onEvent({ type: 'finish' });
+    });
+    await generateTitle('a');
+    expect(store.deliverables.value[0].title).toBe('Add VAT Rule');
+    expect(api.saveTitle).toHaveBeenCalledWith('a', 'Add VAT Rule');
+    // read-only contract: no write-enabling flag on the chat or the message
+    expect(agentApi.createChat).toHaveBeenCalledWith();
+    const opts = agentApi.streamMessage.mock.calls[0][2];
+    expect(opts.mcpMode).toBeUndefined();
+    expect('mcp_mode' in opts).toBe(false);
+  });
+
+  it('generateTitle is a no-op when the deliverable already has a title', async () => {
+    store.deliverables.value = [{ id: 'a', text: 'Add a VAT rule to the Invoices queue', order: 1, title: 'Existing' }];
+    await generateTitle('a');
+    expect(agentApi.createChat).not.toHaveBeenCalled();
+  });
+
+  it('generateTitle is a no-op when the deliverable text is too short', async () => {
+    store.deliverables.value = [{ id: 'a', text: 'short', order: 1 }];
+    await generateTitle('a');
+    expect(agentApi.createChat).not.toHaveBeenCalled();
+  });
+
+  it('backfillTitles generates titles only for untitled deliverables with enough text', async () => {
+    store.deliverables.value = [
+      { id: 'a', text: 'Add a VAT rule to the Invoices queue', order: 1 },
+      { id: 'b', text: 'Add a currency rule to the Invoices queue', order: 2, title: 'Already Titled' },
+      { id: 'c', text: 'short', order: 3 },
+    ];
+    agentApi.createChat.mockResolvedValue('chat_x');
+    agentApi.streamMessage.mockImplementation(async (chatId, content, { onEvent }) => {
+      onEvent({ type: 'text-delta', delta: 'Generated Title' });
+      onEvent({ type: 'finish' });
+    });
+    await backfillTitles();
+    expect(store.deliverables.value.find((d) => d.id === 'a').title).toBe('Generated Title');
+    expect(store.deliverables.value.find((d) => d.id === 'b').title).toBe('Already Titled'); // untouched
+    expect(store.deliverables.value.find((d) => d.id === 'c').title).toBeUndefined(); // too short, untouched
+    expect(agentApi.createChat).toHaveBeenCalledTimes(1); // only 'a' qualified
   });
 });

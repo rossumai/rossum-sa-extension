@@ -4168,6 +4168,42 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .fabry-arch-summary .warn { color: var(--warning-fg); font-weight: 600; }
 .fabry-arch-new { width: 100%; text-align: center; border: 1px dashed var(--border); color: var(--accent); background: none; border-radius: 8px; padding: 7px 10px; font-weight: 600; font-size: 12.5px; cursor: pointer; }
 .fabry-arch-new:hover { background: var(--bg-hover); border-style: solid; }
+
+/* Implement loop (ralph-style, write-enabled): footer control + editor panel + arm dialog.
+   Danger-tinted to signal it WRITES to the live org (distinct from the accent check button). */
+.fabry-arch-implementall { width: 100%; border: 1px solid var(--danger); background: var(--danger-bg); color: var(--danger-fg); border-radius: 8px; padding: 8px 12px; font-weight: 600; font-size: 12.5px; cursor: pointer; }
+.fabry-arch-implementall:hover:not(:disabled) { background: var(--danger); color: #fff; border-color: var(--danger); }
+.fabry-arch-implementall:disabled { opacity: 0.5; cursor: default; }
+.fabry-arch-implement { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+.fabry-arch-implement-hd { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fabry-arch-implement-title { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-secondary); }
+.fabry-arch-implement-run { border: 1px solid var(--danger); background: none; color: var(--danger-fg); border-radius: 8px; padding: 6px 12px; font-weight: 600; font-size: 12px; cursor: pointer; }
+.fabry-arch-implement-run:hover:not(:disabled) { background: var(--danger-bg); }
+.fabry-arch-implement-run:disabled { opacity: 0.5; cursor: default; }
+.fabry-arch-implement-body { font-size: 12px; color: var(--text-primary); border-left: 3px solid var(--border); padding-left: 10px; display: flex; flex-direction: column; gap: 6px; }
+.fabry-arch-implement-body.status-passing { border-left-color: var(--success); }
+.fabry-arch-implement-body.status-failed { border-left-color: var(--danger); }
+.fabry-arch-implement-body.status-blocked { border-left-color: var(--warning); }
+.fabry-arch-implement-body.status-uncertain { border-left-color: var(--warning); }
+.fabry-arch-implement-status { font-weight: 600; display: flex; align-items: center; }
+.fabry-arch-implement-err { color: var(--danger-fg); font-weight: 400; }
+.fabry-arch-implement-summary { color: var(--text-secondary); white-space: pre-wrap; }
+.fabry-arch-implement-audit { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; }
+.fabry-arch-implement-audit li { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.fabry-arch-implement-audit li.pending { opacity: 0.6; }
+.fabry-arch-implement-audit li code { color: var(--text-primary); background: var(--bg-hover); border-radius: 4px; padding: 0 4px; font-size: 11px; }
+/* Task decomposition (fix_plan) list in the Implement panel. */
+.fabry-arch-implement-body.status-planning, .fabry-arch-implement-body.status-running { border-left-color: var(--accent); }
+.fabry-arch-implement-note { font-size: 11px; color: var(--warning-fg); }
+.fabry-arch-tasklist { list-style: none; margin: 6px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.fabry-arch-task { display: flex; align-items: baseline; gap: 7px; font-size: 12px; color: var(--text-primary); }
+.fabry-arch-task-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; margin-top: 3px; border: 1.5px solid var(--border); background: transparent; }
+.fabry-arch-task.task-doing .fabry-arch-task-dot { border-color: var(--border); border-top-color: var(--accent); background: transparent; animation: spin 0.7s linear infinite; }
+.fabry-arch-task.task-done .fabry-arch-task-dot { border-color: var(--success); background: var(--success); }
+.fabry-arch-task.task-failed .fabry-arch-task-dot { border-color: var(--danger); background: var(--danger); }
+.fabry-arch-task.task-done .fabry-arch-task-text { color: var(--text-secondary); }
+.fabry-arch-task-text { flex: 1 1 auto; }
+.fabry-arch-task-origin { flex: 0 0 auto; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
 /* flex:1 pushes the footer down; the list breaks out of the sidebar's right
    padding (margin-right:-10px) and hides its scrollbar so the active row's
    surface runs flush into the editor with no seam. */
@@ -4209,11 +4245,7 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .fabry-arch-placeholder-title { font-size: 15px; font-weight: 650; color: var(--text-primary); margin: 0 0 4px; }
 .fabry-arch-placeholder-sub { font-size: 13px; margin: 0; }
 /* The whole right side scrolls (so an expanded verdict shows fully). */
-.fabry-arch-editor { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow-y: auto; }
-/* Split: Markdown source (left) | rendered preview (right). Fills the pane when
-   the verdict is collapsed; keeps a usable height (doesn't shrink) so the whole
-   editor scrolls when the verdict is expanded. */
-.fabry-arch-editor-body { flex: 1 0 auto; min-height: 55%; display: flex; align-items: stretch; }
+.fabry-arch-editor { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
 /* Docked, inline "Refine wording" bar — pinned at the bottom of the deliverable pane
    (the design-system FabryInput lives here; the diff card rises above it). */
 .fabry-arch-dock { flex: none; position: sticky; bottom: 0; z-index: 1; border-top: 1px solid var(--border); background: var(--bg-sidebar); padding: 10px 16px; }
@@ -4222,32 +4254,78 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .fabry-arch-refine-card { border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); box-shadow: var(--shadow); padding: 12px 14px; margin-bottom: 10px; }
 .fabry-arch-refine-card-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
 .fabry-arch-refine-card-actions .fabry-arch-credit { margin-right: auto; }
-.fabry-arch-source { flex: 1; min-width: 0; overflow: auto; padding: 4px 14px; border-right: 1px solid var(--border); }
-.fabry-arch-preview { flex: 1; min-width: 0; overflow: auto; padding: 10px 18px; }
+/* Proposal A: source + preview are one toggled area (full width), not a split. */
+.fabry-arch-source { height: 100%; min-width: 0; overflow: auto; padding: 6px 16px; }
+.fabry-arch-preview { height: 100%; min-width: 0; overflow: auto; padding: 14px 20px; }
+
+/* ── Proposal A layout: header · Edit/Preview doc · tabbed console ── */
+.fabry-arch-phead { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--border); flex: none; }
+.fabry-arch-titlebtn { flex: 1; min-width: 0; text-align: left; background: none; border: 0; font: inherit; font-size: 14.5px; font-weight: 680; letter-spacing: -.01em; color: var(--text-primary); cursor: text; padding: 3px 6px; margin: -3px -6px; border-radius: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fabry-arch-titlebtn:hover { background: var(--bg-hover); }
+/* Header stays neutral; the verdict shows in the compact pill here and, loudest,
+   in the action console below (top rail + tinted Check banner). */
+.fabry-arch-pill { flex: none; display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 700; padding: 4px 12px; border-radius: 20px; border: 1px solid; white-space: nowrap; }
+.fabry-arch-pill.pass { color: var(--success-fg); background: var(--success-bg); border-color: var(--success); }
+.fabry-arch-pill.fail { color: var(--danger-fg); background: var(--danger-bg); border-color: var(--danger); }
+.fabry-arch-pill.uncertain { color: var(--warning-fg); background: var(--warning-bg); border-color: var(--warning); }
+.fabry-arch-pill.run { color: var(--accent); background: var(--info-bg); border-color: var(--accent); }
+.fabry-arch-doc { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.fabry-arch-doc-bar { display: flex; align-items: center; gap: 10px; padding: 7px 14px; border-bottom: 1px solid var(--border); flex: none; }
+.fabry-arch-doc-lbl { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-secondary); margin-right: auto; }
+.fabry-arch-viewtoggle { display: inline-flex; background: var(--bg-hover); border-radius: 7px; padding: 2px; gap: 2px; }
+.fabry-arch-viewtoggle button { border: 0; background: none; color: var(--text-secondary); font: inherit; font-size: 11.5px; font-weight: 600; padding: 4px 11px; border-radius: 5px; cursor: pointer; }
+.fabry-arch-viewtoggle button[aria-pressed="true"] { background: var(--bg-card); color: var(--text-primary); box-shadow: var(--shadow); }
+.fabry-arch-doc-body { flex: 1; min-height: 0; overflow: hidden; }
+.fabry-arch-doc-body > [hidden] { display: none; }
+/* Fixed height (set inline from store.consoleHeight so it doesn't jump between tabs)
+   and drag-resizable via .fabry-arch-console-grip on its top edge. */
+.fabry-arch-console { flex: none; display: flex; flex-direction: column; border-top: 1px solid var(--border); background: var(--bg-sidebar); }
+/* The action console is where users look during analysis, so the verdict is loudest
+   here: a bold colored top rail (always visible) + the tinted Check banner below. */
+.fabry-arch-console.verdict-pass { border-top: 3px solid var(--success); }
+.fabry-arch-console.verdict-fail { border-top: 3px solid var(--danger); }
+.fabry-arch-console.verdict-uncertain { border-top: 3px solid var(--warning); }
+.fabry-arch-console.verdict-run { border-top: 3px solid var(--accent); }
+.fabry-arch-console-grip { flex: none; height: 9px; margin-top: -5px; cursor: ns-resize; display: flex; align-items: center; justify-content: center; position: relative; z-index: 1; }
+.fabry-arch-console-grip::after { content: ''; width: 34px; height: 3px; border-radius: 2px; background: var(--border); transition: background .12s; }
+.fabry-arch-console-grip:hover::after { background: var(--accent); }
+.fabry-arch-ctabs { display: flex; gap: 2px; padding: 7px 12px 0; flex: none; }
+.fabry-arch-ctab { border: 0; background: none; color: var(--text-secondary); font: inherit; font-size: 12px; font-weight: 600; padding: 7px 13px; border-radius: 8px 8px 0 0; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.fabry-arch-ctab[aria-selected="true"] { background: var(--bg-card); color: var(--text-primary); box-shadow: inset 0 -1px 0 var(--border); }
+.fabry-arch-ctab-dot { width: 7px; height: 7px; border-radius: 50%; }
+.fabry-arch-ctab-dot.pass { background: var(--success); }
+.fabry-arch-ctab-dot.fail { background: var(--danger); }
+.fabry-arch-ctab-dot.uncertain { background: var(--warning); }
+.fabry-arch-cbody { background: var(--bg-card); border-top: 1px solid var(--border); flex: 1; min-height: 0; overflow: auto; }
+.fabry-arch-cbody > [hidden] { display: none; }
+.fabry-arch-cpanel { padding: 13px 16px; }
+/* Prominent verdict banner inside the Check tab — the main analysis surface. */
+.fabry-arch-check-hd { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 9px 12px; border-radius: 8px; border: 1px solid transparent; }
+.fabry-arch-check-hd.pass { background: var(--success-bg); border-color: var(--success); }
+.fabry-arch-check-hd.fail { background: var(--danger-bg); border-color: var(--danger); }
+.fabry-arch-check-hd.uncertain { background: var(--warning-bg); border-color: var(--warning); }
+.fabry-arch-check-verdict { font-weight: 800; font-size: 14px; }
+.fabry-arch-check-hd.pass .fabry-arch-check-verdict { color: var(--success-fg); }
+.fabry-arch-check-hd.fail .fabry-arch-check-verdict { color: var(--danger-fg); }
+.fabry-arch-check-hd.uncertain .fabry-arch-check-verdict { color: var(--warning-fg); }
+.fabry-arch-check-stale { font-size: 11.5px; color: var(--warning-fg); }
+.fabry-arch-rerun { margin-left: auto; border: 1px solid var(--accent); background: none; color: var(--accent); border-radius: 7px; padding: 4px 11px; font: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer; }
+.fabry-arch-rerun:hover:not(:disabled) { background: var(--accent); color: #fff; }
+.fabry-arch-rerun:disabled { opacity: .5; cursor: default; }
+.fabry-arch-check-foot { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.fabry-arch-check-empty { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-secondary); }
+.fabry-arch-implement-stop { margin-left: auto; border: 1px solid var(--danger); background: var(--danger-bg); color: var(--danger-fg); border-radius: 8px; padding: 5px 13px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.fabry-arch-implement-hint { font-size: 12px; color: var(--text-secondary); margin: 4px 0 0; }
+/* RefineDock rendered inside the Refine tab: drop the sticky-dock chrome. */
+.fabry-arch-console .fabry-arch-dock { position: static; border-top: 0; background: none; padding: 0; }
 .fabry-arch-md { height: 100%; }
 .fabry-arch-md .cm-editor { height: 100%; }
 /* Smaller rendered-markdown so the preview + evidence sit better in the UI. */
 /* .fabry-arch-preview/.fabry-arch-evidence .fabry-md* size overrides moved into
    FabryMarkdown.module.css as :global(.fabry-arch-*) .md (co-located with the component). */
-/* Verdict banner (V1): top of the editor, semantic tint, collapsible. */
-.fabry-arch-details { padding: 12px 18px 0; flex: none; }
-.fabry-arch-banner { border: 1px solid var(--border); border-left-width: 3px; border-radius: 8px; overflow: hidden; }
-.fabry-arch-banner.pass { background: var(--success-bg); border-color: var(--success); }
-.fabry-arch-banner.fail { background: var(--danger-bg); border-color: var(--danger); }
-.fabry-arch-banner.uncertain { background: var(--warning-bg); border-color: var(--warning); }
-.fabry-arch-banner.running { display: flex; align-items: center; background: var(--bg-hover); border-color: var(--border); padding: 9px 14px; font-size: 12.5px; color: var(--text-secondary); }
-.fabry-arch-banner-hd { width: 100%; display: flex; align-items: center; gap: 10px; background: none; border: 0; font: inherit; cursor: pointer; padding: 9px 14px; text-align: left; }
-.fabry-arch-banner-verdict { flex: none; font-weight: 700; font-size: 12.5px; }
-.fabry-arch-banner.pass .fabry-arch-banner-verdict { color: var(--success-fg); }
-.fabry-arch-banner.fail .fabry-arch-banner-verdict { color: var(--danger-fg); }
-.fabry-arch-banner.uncertain .fabry-arch-banner-verdict { color: var(--warning-fg); }
-.fabry-arch-banner-sum { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--text-secondary); }
-/* Stale note shown in the header, so it's visible even when collapsed. Wraps
-   (rather than ellipsizing) so the "· re-run" call-to-action is never cut off. */
-.fabry-arch-banner-stale { flex: 1; min-width: 0; font-size: 12px; color: var(--warning-fg); }
-.fabry-arch-banner-more { flex: none; font-size: 12px; font-weight: 700; color: var(--accent); white-space: nowrap; }
-.fabry-arch-banner-body { background: var(--bg-card); border-top: 1px solid var(--border); padding: 10px 14px 12px; } /* expands fully; the editor scrolls the whole right side */
-.fabry-arch-banner-foot { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+/* (The old collapsible verdict banner `.fabry-arch-details`/`.fabry-arch-banner*`
+   was removed 2026-07-15 — the verdict now lives in the Check tab of the redesigned
+   pane. `.fabry-arch-credit/-evidence/-viewchat` below are still used there.) */
 .fabry-arch-credit { font-size: 11px; color: var(--text-secondary); }
 .fabry-arch-evidence { font-size: 12px; }
 .fabry-arch-viewchat { border: none; background: none; color: var(--accent); cursor: pointer; font-size: 12px; font-weight: 600; padding: 0; }

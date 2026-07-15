@@ -165,7 +165,7 @@ export default function Composer() {
         </div>
       </div>
       <div class="fabry-notice">
-        Mr. Fabry can read this organization and, as Autonomous, act on it {'—'} including modifications. Cautious asks before every write.
+        Mr. Fabry works read-only here {'—'} it inspects this organization to answer you, but won't change anything. The persona sets its working style.
       </div>
     </div>
   );

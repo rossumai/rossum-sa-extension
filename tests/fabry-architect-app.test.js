@@ -7,27 +7,30 @@ globalThis.cancelAnimationFrame = () => {};
 vi.mock('../src/fabry/architect/actions.js', () => ({
   loadArchitect: vi.fn().mockResolvedValue(undefined),
   updateDeliverable: vi.fn(), deleteDeliverable: vi.fn(), reRun: vi.fn(), stopRun: vi.fn(),
-  refineTurn: vi.fn(), answerRefine: vi.fn(),
+  refineTurn: vi.fn(), answerRefine: vi.fn(), renameDeliverable: vi.fn(), reImplement: vi.fn(), stopImplement: vi.fn(),
 }));
 vi.mock('../src/fabry/architect/components/MarkdownEditor.jsx', () => ({
   default: ({ value, onChange }) => h('textarea', { class: 'md-mock', value, onInput: (e) => onChange && onChange(e.currentTarget.value) }),
 }));
 vi.mock('../src/fabry/chat.js', () => ({ openChat: vi.fn() }));
+// promptModal is spied directly (rename flow) rather than exercised through a
+// real mounted Modal — ArmDialog.jsx also imports from this module but its
+// exports (openModal/closeModal/…) are never invoked in this file (Implement
+// is not clicked here), so leaving them undefined under the mock is safe.
+vi.mock('../src/ui/Modal.jsx', () => ({ promptModal: vi.fn() }));
 import * as actions from '../src/fabry/architect/actions.js';
 import * as astore from '../src/fabry/architect/store.js';
 import * as fstore from '../src/fabry/store.js';
 import * as chat from '../src/fabry/chat.js';
+import { promptModal } from '../src/ui/Modal.jsx';
 import ArchitectApp from '../src/fabry/architect/components/ArchitectApp.jsx';
-import { modalContent } from '../src/ui/Modal.jsx';
 const flush = () => new Promise((r) => setTimeout(r, 0));
 function mount() { const root = document.createElement('div'); document.body.appendChild(root); act(() => { render(h(ArchitectApp, null), root); }); return root; }
 beforeEach(() => {
   vi.clearAllMocks();
   astore.deliverables.value = []; astore.results.value = {}; astore.activeId.value = null;
   astore.loaded.value = true; astore.running.value = false; astore.loadError.value = null;
-  astore.verdictExpanded.value = false; // shared expand pref — reset for per-test isolation
   fstore.fabryMode.value = 'architect';
-  modalContent.value = null;
 });
 
 describe('ArchitectApp', () => {
@@ -36,21 +39,44 @@ describe('ArchitectApp', () => {
     expect(actions.loadArchitect).toHaveBeenCalled();
     expect(root.querySelector('.fabry-arch-placeholder')).toBeTruthy();
   });
-  it('shows the source editor and a rendered preview side by side', () => {
+
+  it('shows the deliverable title in the header', () => {
     astore.deliverables.value = [{ id: 'a', text: '# Heading A', order: 1 }];
     astore.activeId.value = 'a';
     const root = mount();
-    expect(root.querySelector('.fabry-arch-source .md-mock')).toBeTruthy();
-    const preview = root.querySelector('.fabry-arch-preview');
-    expect(preview).toBeTruthy();
-    expect(preview.textContent).toMatch(/Heading A/); // FabryMarkdown renders the source
+    const head = root.querySelector('.fabry-arch-phead');
+    expect(head).toBeTruthy();
+    expect(head.textContent).toMatch(/Heading A/);
   });
-  it('typing updates the rendered preview live', () => {
+
+  it('renders Edit + Preview both mounted (Edit visible by default) and typing live-updates the preview', () => {
     astore.deliverables.value = [{ id: 'a', text: '# A', order: 1 }]; astore.activeId.value = 'a';
     const root = mount();
+    const source = root.querySelector('.fabry-arch-source');
+    const preview = root.querySelector('.fabry-arch-preview');
+    expect(source).toBeTruthy();
+    expect(preview).toBeTruthy();
+    expect(source.hidden).toBe(false);
+    expect(preview.hidden).toBe(true); // both mounted, only one shown
     act(() => { const ta = root.querySelector('.md-mock'); ta.value = '# Renamed'; ta.dispatchEvent(new Event('input', { bubbles: true })); });
-    expect(root.querySelector('.fabry-arch-preview').textContent).toMatch(/Renamed/);
+    expect(preview.textContent).toMatch(/Renamed/); // live even while hidden
   });
+
+  it('the Edit|Preview toggle flips which of the two is hidden (only one shown at a time)', () => {
+    astore.deliverables.value = [{ id: 'a', text: '# Heading A', order: 1 }]; astore.activeId.value = 'a';
+    const root = mount();
+    const source = root.querySelector('.fabry-arch-source');
+    const preview = root.querySelector('.fabry-arch-preview');
+    const [editBtn, previewBtn] = root.querySelectorAll('.fabry-arch-viewtoggle button');
+    act(() => { previewBtn.click(); });
+    expect(source.hidden).toBe(true);
+    expect(preview.hidden).toBe(false);
+    expect(preview.textContent).toMatch(/Heading A/);
+    act(() => { editBtn.click(); });
+    expect(source.hidden).toBe(false);
+    expect(preview.hidden).toBe(true);
+  });
+
   it('editing the markdown calls updateDeliverable (debounced)', async () => {
     vi.useFakeTimers();
     astore.deliverables.value = [{ id: 'a', text: '# A', order: 1 }]; astore.activeId.value = 'a';
@@ -61,53 +87,62 @@ describe('ArchitectApp', () => {
     expect(actions.updateDeliverable).toHaveBeenCalledWith('a', '# A edited');
     vi.useRealTimers();
   });
-  it('shows the verdict banner (V1) at the top, collapsed, with an obvious Show-evidence affordance', () => {
+
+  it('the Check tab is default-active and shows the verdict + evidence with no extra click', () => {
     astore.deliverables.value = [{ id: 'a', text: '# A', order: 1 }]; astore.activeId.value = 'a';
     astore.results.value = { a: { verdict: 'fail', evidence: 'missing hook', chatId: 'c1', ranAt: 1, stale: true } };
     const root = mount();
-    const editor = root.querySelector('.fabry-arch-editor');
-    const banner = editor.querySelector('.fabry-arch-banner.fail');
-    const body = editor.querySelector('.fabry-arch-editor-body');
-    expect(banner).toBeTruthy();
-    expect(banner.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(); // banner before the split
-    expect(root.querySelector('.fabry-arch-banner-verdict').textContent).toMatch(/not met/i);
-    expect(root.querySelector('.fabry-arch-banner-more').textContent).toMatch(/show evidence/i);
-    expect(root.querySelector('.fabry-arch-banner-stale').textContent).toMatch(/may be outdated/i); // stale note visible while collapsed
-    expect(root.querySelector('.fabry-arch-evidence')).toBeNull(); // collapsed by default
-    act(() => { root.querySelector('.fabry-arch-banner-hd').click(); });
-    expect(root.querySelector('.fabry-arch-banner-more').textContent).toMatch(/hide/i);
-    expect(root.querySelector('.fabry-arch-evidence').textContent).toMatch(/missing hook/);
+    const tabs = [...root.querySelectorAll('.fabry-arch-ctab')];
+    const checkTab = tabs.find((t) => /^Check/.test(t.textContent));
+    expect(checkTab.getAttribute('aria-selected')).toBe('true');
+    const refineTab = tabs.find((t) => /Refine/.test(t.textContent));
+    expect(refineTab.getAttribute('aria-selected')).toBe('false');
+    expect(root.querySelector('.fabry-arch-check-verdict').textContent).toMatch(/not met/i);
+    expect(root.querySelector('.fabry-arch-check-stale').textContent).toMatch(/may be outdated/i);
+    expect(root.querySelector('.fabry-arch-evidence').textContent).toMatch(/missing hook/); // shown, no expand step
   });
-  it('remembers the expanded verdict: expanding one opens other deliverables expanded by default', () => {
-    astore.deliverables.value = [{ id: 'a', text: '# A', order: 1 }, { id: 'b', text: '# B', order: 2 }];
-    astore.results.value = {
-      a: { verdict: 'fail', evidence: 'missing hook', chatId: 'c1', ranAt: 1, stale: false },
-      b: { verdict: 'pass', evidence: 'all good', chatId: 'c2', ranAt: 1, stale: false },
-    };
-    astore.activeId.value = 'a';
-    const root = mount();
-    expect(root.querySelector('.fabry-arch-evidence')).toBeNull(); // collapsed by default
-    act(() => { root.querySelector('.fabry-arch-banner-hd').click(); }); // expand A
-    expect(root.querySelector('.fabry-arch-evidence').textContent).toMatch(/missing hook/);
-    // Switch to B: it should open ALREADY expanded (remembered preference).
-    act(() => { astore.activeId.value = 'b'; render(h(ArchitectApp, null), root); });
-    expect(root.querySelector('.fabry-arch-evidence').textContent).toMatch(/all good/);
-  });
-  it('shows a Checking banner while a result is running', () => {
+
+  it('shows a Checking state on the Check tab (and pill) while a result is running', () => {
     astore.deliverables.value = [{ id: 'a', text: '# A', order: 1 }]; astore.activeId.value = 'a';
     astore.results.value = { a: { running: true } };
     const root = mount();
-    expect(root.querySelector('.fabry-arch-banner.running')).toBeTruthy();
+    expect(root.querySelector('.fabry-arch-pill.run').textContent).toMatch(/checking/i);
+    expect(root.querySelector('.fabry-arch-check-empty').textContent).toMatch(/checking/i);
   });
-  it('view-investigation (in the expanded banner) switches to chat mode + opens the chat', () => {
+
+  it('the console tabs are all kept mounted (hidden, not unmounted); clicking Refine un-hides its panel', () => {
+    astore.deliverables.value = [{ id: 'a', text: '# base requirement', order: 1 }]; astore.activeId.value = 'a';
+    const root = mount();
+    const dock = root.querySelector('.fabry-arch-dock'); // RefineDock is always mounted (kept alive across tabs)
+    expect(dock).toBeTruthy();
+    const refinePanel = dock.closest('.fabry-arch-cpanel');
+    expect(refinePanel.hidden).toBe(true); // hidden while Check (default) is active
+    const refineTab = [...root.querySelectorAll('.fabry-arch-ctab')].find((t) => /Refine/.test(t.textContent));
+    act(() => { refineTab.click(); });
+    expect(refinePanel.hidden).toBe(false);
+  });
+
+  it('clicking the title opens promptModal; submitting the new value calls renameDeliverable', () => {
+    astore.deliverables.value = [{ id: 'a', text: '# A', order: 1, title: 'Old title' }]; astore.activeId.value = 'a';
+    const root = mount();
+    act(() => { root.querySelector('.fabry-arch-titlebtn').click(); });
+    expect(promptModal).toHaveBeenCalledTimes(1);
+    const [title, opts, onSubmit] = promptModal.mock.calls[0];
+    expect(title).toBe('Rename deliverable');
+    expect(opts.initialValue).toBe('Old title');
+    onSubmit('New title');
+    expect(actions.renameDeliverable).toHaveBeenCalledWith('a', 'New title');
+  });
+
+  it('View investigation switches to chat mode + opens the chat', () => {
     astore.deliverables.value = [{ id: 'a', text: '# A', order: 1 }]; astore.activeId.value = 'a';
     astore.results.value = { a: { verdict: 'pass', evidence: 'ok', chatId: 'c1', ranAt: 1, stale: false } };
     const root = mount();
-    act(() => { root.querySelector('.fabry-arch-banner-hd').click(); }); // expand to reveal the link
     root.querySelector('.fabry-arch-viewchat').click();
     expect(fstore.fabryMode.value).toBe('chat');
     expect(chat.openChat).toHaveBeenCalledWith('c1');
   });
+
   it('flushes only the edited deliverable on switch; a viewed-only deliverable never stale-writes', async () => {
     // Real timers: the 600ms debounce never elapses within the test's microtask
     // window, so a pending edit stays pending; `flush()` (one macrotask) only lets
@@ -136,20 +171,5 @@ describe('ArchitectApp', () => {
     render(h(ArchitectApp, null), root);
     await flush();
     expect(actions.updateDeliverable).not.toHaveBeenCalled();
-  });
-  it('the docked refine bar disables its AI input for an empty deliverable', () => {
-    astore.deliverables.value = [{ id: 'e', text: '', order: 1 }];
-    astore.activeId.value = 'e';
-    expect(mount().querySelector('.fabry-arch-dock input').disabled).toBe(true);
-  });
-  it('the docked refine bar renders inline (no modal) and its AI input is enabled for a deliverable with text', () => {
-    astore.deliverables.value = [{ id: 'a', text: '# Original requirement about the queue', order: 1 }];
-    astore.activeId.value = 'a';
-    const root = mount();
-    const input = root.querySelector('.fabry-arch-dock input');
-    expect(input).toBeTruthy();
-    expect(input.disabled).toBe(false);
-    expect(modalContent.value).toBeNull(); // inline, no modal
-    expect(actions.refineTurn).not.toHaveBeenCalled(); // nothing runs until an instruction is sent
   });
 });

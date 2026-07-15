@@ -218,9 +218,10 @@ The server owns ALL chat state; the client holds it in signals only:
   independent self-verification — fresh-context criticism is the gap this
   fills. Reviewer messages are display CHIPS but COUNTED in
   `serverMessageIndex` (the server STORES them, unlike `/`-commands →
-  `Turn.chip` = display, `Turn.command` = index exclusion). Kill switch:
-  `fabryDeepVerifyEnabled` (popup Experimental toggle, DEFAULT ON, only a
-  stored false disables; mirrored live via onChanged; forces deepMode off).
+  `Turn.chip` = display, `Turn.command` = index exclusion). Deep-verify is
+  **always available** (`store.deepVerifyAllowed` defaults true; its popup
+  kill-switch `fabryDeepVerifyEnabled` was REMOVED 2026-07-14); the in-composer
+  ✦ toggle (`deepMode`) is the per-message on/off.
 - **Agent interactive elements** (spec `docs/superpowers/specs/2026-07-13-fabry-agent-questions-design.md`):
   the agent's `ask_user_question` tool emits a `data-agent-question` event
   (`agentStream.foldEvents` → `acc.questions`); `AssistantTurn` renders it as an
@@ -246,14 +247,20 @@ The server owns ALL chat state; the client holds it in signals only:
   lastVerdict, lastEvidence, lastChatId, ranAt}` (the collection name is a single
   cosmetic constant in `architect/api.js` — no code parses the `__` prefix,
   swappable). The deliverable **list lives in the sidebar** (`ArchitectSidebar`,
-  rendered by `Sidebar.jsx` in architect mode) with an inline run-status dot per
-  row + a **Run all ▷**/Stop control + "n/m checked" progress; **opening** a
-  deliverable fills the main pane (`ArchitectApp` → `DeliverableEditor`) with a
-  **CodeMirror Markdown-source editor** (`MarkdownEditor.jsx`, `@codemirror/lang-markdown`,
-  theme-aware; debounced `updateDeliverable` + flush-on-switch) and, below, the
-  check details (verdict chip + evidence via `FabryMarkdown` + "view
-  investigation" → Chat mode + `openChat`). The active sidebar row blends
-  seamlessly into the editor (shared `--bg-card` surface). `Run all`/per-row
+  rendered by `Sidebar.jsx` in architect mode). Each row shows a concise **title**
+  (`format.displayTitle` — an AI-generated title via read-only `generateTitle`/
+  `backfillTitles` [`title.js` prompt; persisted `title`], or a manual **Rename…**
+  from the kebab; falls back to the Markdown first line) + a run-status dot + a
+  kebab (Re-run / Implement / Rename… / Delete); the footer has **Run all ▷**/Stop
+  (the read-only check) — there is **NO "Implement all"** (implement is
+  per-deliverable). **Deliverable pane — redesigned 2026-07-15 (Proposal A):** a
+  header (title button → rename + a compact status **pill**) over a full-width
+  **Edit / Preview toggle** — the CodeMirror `MarkdownEditor` source and the
+  `FabryMarkdown` preview are MERGED into one toggled area (both stay mounted,
+  `hidden` toggles which shows; `MarkdownEditor.refresh()` re-measures CodeMirror on
+  reveal) — over a **tabbed action console `[Check | Refine | Implement]` (Check
+  first, default-active)**: Check = verdict + evidence + Re-run + view-investigation;
+  Refine = the `RefineDock` bar; Implement = Run/Stop + task list + audit. `Run all`/per-row
   `Re-run ▷` check each deliverable in its own fresh cautious-primed agent chat,
   parse `VERDICT: PASS|FAIL|UNCERTAIN` + evidence (pure `check.js`; concurrency-3
   abort-aware `run.js`; impure glue `actions.js` with a monotonic run-id guard
@@ -262,14 +269,74 @@ The server owns ALL chat state; the client holds it in signals only:
   **outdated** ("last checked {when} · may be outdated — re-run"; staleness =
   `!ranAt || editedAt>ranAt || loaded-not-run-this-session`); editing a
   deliverable marks its result stale. Run is **strictly read-only** against the
-  org (cautious persona + read-only framing + server-side read-only default — no
-  `mcp_mode` ever sent); Architect's only writes are its own deliverable docs
+  org (cautious persona + read-only framing + server-side read-only default — the
+  check/refine paths never send `mcp_mode`; the separate write-enabled **implement
+  loop** below is the one place that does); Architect's only writes (from the check)
+  are its own deliverable docs
   (content + last result). Nothing extra at rest in the browser (deliverables +
   results live server-side per-org; only `fabryMode` persists; `activeId` is
   in-memory). No new gate — inside the existing `experimentalUnlocked` Fabry app.
   LIVE GATE before non-dogfood use: confirm the server accepts a `__`-prefixed
   collection create + doc write on elis (client + MDH app verified clean;
   DocumentDB reserves only `system.` — swap the constant if rejected).
+- **Architect implement loop** (ralph-style, write-enabled; spec
+  `docs/superpowers/specs/2026-07-14-architect-implement-loop-design.md`, plan
+  `docs/superpowers/plans/2026-07-14-architect-implement-loop.md`): an autonomous
+  loop that drives each deliverable toward PASS by actually WRITING to the org (the
+  read-only check answers "is it done?"; this makes it done). **Double-gated** —
+  `experimentalUnlocked` (the whole Fabry app) + a per-run **Arm** dialog. It is ON
+  by default within the experimental Fabry app (the popup kill-switch
+  `fabryArchitectImplementEnabled` was REMOVED 2026-07-14; `store.implementAllowed`
+  defaults true). **Task-decomposition loop** (ghuntley "one thing per loop"; folded
+  into the same consolidated spec — the earlier separate task-decomposition doc was
+  merged in 2026-07-15): per deliverable, one Arm → autonomous. A read-only **PLAN** turn (`plan.buildPlanPrompt`)
+  decomposes the deliverable into a small ordered **task list** (the `fix_plan`, persisted
+  on the deliverable doc as `implementTasks`), then a **dynamic task loop**: each task →
+  a fresh **write-enabled** turn (the SOLE write call site — `implementTaskOne` in
+  `actions.js` sends `agentApi.streamMessage(chat, prompt, { mcpMode:'read-write' })`, i.e.
+  `mcp_mode` in the MESSAGE body per `rossum-agent api/stream.py resolve_mcp_mode`, DEFAULT
+  persona, no priming; enforced by `tests/fabry-write-boundary.test.js` + a bundle grep) →
+  `audit.js` records every write → a fresh **read-only per-task check** → PASS or retry
+  (≤`maxAttemptsPerTask`) with journal-seeded learnings; the turn may append **discovered**
+  prerequisite tasks (dynamic fix_plan). When no task is pending, the existing read-only
+  **roll-up check** (`runOne`) verifies the whole deliverable → PASS persists; FAIL appends
+  **remediation** tasks (re-plan) and re-loops. The task prompt (`plan.buildTaskPrompt`)
+  carries the ralph guardrails — INSPECT-before-assume (failure mode #1) + FULL/no-placeholder
+  (#2) + **BACKWARD COMPATIBILITY** + **NEVER lose customer data/documents** (owner) — the
+  primary safety, since there is no per-plan human review and no per-op scope (the
+  `allowedOps` allowlist was removed 2026-07-14; appropriate for a brownfield, not
+  greenfield, org). **Bounds (runaway guards for the autonomous dynamic loop):**
+  `maxAttemptsPerTask=5`, `maxPlanTasks=12`, `maxTotalTasks=20` (caps plan+discovered+
+  remediation; overflow dropped + surfaced via a note), `maxTotalWrites=50` (global),
+  `maxRollupRounds=3`; **Sequential** (writes must not race); always-live **Stop**. Pure
+  modules `plan.js` (prompts/parsers)/`audit.js`/`implementLoop.js` (the plan→task→roll-up
+  state machine); impure glue + `runId` guard +
+  `clearImplementSpinners` in `actions.js`; availability signal `fabryStore.implementAllowed`
+  (default true; popup kill-switch removed 2026-07-14). State on the deliverable doc (
+  `implementStatus`, `attempts`, `implementJournal` [cap 10], `lastImplement*`) — all
+  optional/back-compat; nothing extra at rest in the browser. The roll-up verdict is
+  **persisted as the deliverable's Check result** (`saveResult`, disjoint `$set` from
+  the implement fields) so the Check tab reflects the post-implementation state on
+  reload; a transport-errored roll-up is shown but not persisted (preserves
+  last-known-good). UI: sidebar per-row kebab **Implement ▷** (the footer **Run all ▷**
+  is the read-only check — there is **NO "Implement all"**); editor **Implement panel**
+  in the Check-first tabbed action console (status + task list + audit log). **Live
+  gates — VERIFIED on elis 2026-07-14** (against the `rossum-agent`
+  backend source + live probe): **G1** ✓ writes are client-enablable via the MESSAGE
+  body `mcp_mode:"read-write"` (there is NO server-side write-lock — `resolve_mcp_mode`
+  honors the client value with no permission check; the only gates are token validity +
+  an api-URL host allowlist); **G2** ✓ a live `create_workspace`+`delete` executed and
+  succeeded with the SA token, then self-cleaned; **G3** ✓ read-only holds when
+  `mcp_mode` is omitted (so Chat is safe ONLY by client discipline); **G4** ✓ reads are
+  generic `get`/`search`, writes are entity-specific (`create_hook`/`patch_schema`/…)
+  plus a generic `delete`. **WRITE-BOUNDARY
+  INVARIANT (owner):** Chat is strictly read-only; ONLY the Architect implement loop may
+  write. Because the backend has no write-lock, this is enforced client-side: no surface
+  other than the transport (`agentApi.js`) and `src/fabry/architect/**` may reference
+  `read-write` — guarded by `tests/fabry-write-boundary.test.js`. Remaining pre-non-
+  dogfood item: a stable customer-facing rollout decision (this is an autonomous
+  write-to-prod-org capability; ON by default within the experimental Fabry app,
+  Arm-gated per run).
 
 ### DevTools panel (Raw Object Editor) (`src/devtools/`)
 
@@ -294,14 +361,14 @@ Preact JSX. Detects current site (Rossum/NetSuite/Coupa) and dims irrelevant sec
 
 ## Chrome Storage Keys
 
-- Feature toggles: `fabryDeepVerifyEnabled` (default ON; gates the Fabry chat's deep-verify loop), `schemaAnnotationsEnabled`, `expandFormulasEnabled`, `expandReasoningFieldsEnabled`, `scrollLockEnabled`, `resourceIdsEnabled`, `annotateForMeEnabled`, `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled` (the short-lived `inspectAnnotationEnabled` toggle was removed 2026-07-04 along with the floating button, and the in-page `rawObjectEditorEnabled` toggle was removed 2026-07 with the in-page Raw Object Editor surface; any stored values are orphaned)
+- Feature toggles: `schemaAnnotationsEnabled`, `expandFormulasEnabled`, `expandReasoningFieldsEnabled`, `scrollLockEnabled`, `resourceIdsEnabled`, `annotateForMeEnabled`, `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled` (the short-lived `inspectAnnotationEnabled` toggle was removed 2026-07-04 along with the floating button, and the in-page `rawObjectEditorEnabled` toggle was removed 2026-07 with the in-page Raw Object Editor surface; the `fabryDeepVerifyEnabled` + `fabryArchitectImplementEnabled` popup toggles were removed 2026-07-14 — both features are now ON by default within the experimental Fabry app; any stored values are orphaned)
 - Experimental unlock: `experimentalUnlocked` — flipped by 5 quick clicks on the popup's version hash; reveals the popup's Experimental section AND is the second half of the `annotateForMeEnabled` double-gate (`isAnnotateEnabled` in `src/rossum/features/annotate-for-me.js`): the Annotate-for-me feature injects only when BOTH are true. It also gates the Fabry Chat Console app's rail item (third gate consumer, live via `chrome.storage.onChanged`)
 - Console staging auth: `consoleAuth_<uuid>` (single-use, 24h TTL, removed on first read; carries `app` + optional DS pipeline prefill)
 - Console state: `consoleActiveApp` — per-tab (see MDH state below: session-first read with a `chrome.storage.local` seed)
 - MDH state: `mdhPipelineWidth`, `mdhSidebarWidth`, `mdhUploadsColumnWidths`, `mdhOverviewChartsScale`, `mdhResultsView`, `mdhStagesAutoscroll`, `mdhStagesSampleSize`, `mdhStagesShowDef` are **global** (shared across tabs, persisted in `chrome.storage.local`). The **navigation** keys `mdhActiveView`, `mdhSelectedCollection`, `mdhActivePanel`, `mdhOpsSearch` (and the Console-level `consoleActiveApp`), plus `fabryActiveChat` (per-tab, content-free server chat id for the Fabry Chat app), `fabryMode` (per-tab, content-free Chat|Architect sub-app selection), and `fabryArchitectActive` (per-tab, content-free open-deliverable id for Architect), are **per-tab**: read session-first from `sessionStorage`, written to BOTH `sessionStorage` (this tab's truth on reload) and `chrome.storage.local` (cross-session seed for a freshly-opened tab), via `src/console/tabState.js`. `mdhLastPipeline::<scope>::<collection>` is keyed per-org **and per-collection** (legacy un-collection-scoped `mdhLastPipeline::<scope>` entries from older builds are orphaned, not migrated).
 - Audit state: `auditActiveSource`, `auditFiltersBySource`
 - Galaxy state: none (no persisted state in v1)
-- Fabry Chat state: `fabrySidebarWidth` is a **global** layout pref (sidebar drag-resize, clamp 200–420; the sidebar collapse toggle was removed, so the former `fabrySidebarOpen` key is orphaned/unused); `fabryActiveChat` (open chat id), `fabryMode` (Chat|Architect sub-app selection), and `fabryArchitectActive` (open Architect deliverable id) are the only other persisted values — all per-tab (tabState pattern) and content-free; chat content/images/transcripts and Architect deliverable text/evidence never touch storage (server-owned; privacy constraint — deliverables + their last results live in the `__mrfabry_architect` Data Storage collection, in-memory otherwise)
+- Fabry Chat state: `fabrySidebarWidth` is a **global** layout pref (sidebar drag-resize, clamp 200–420; the sidebar collapse toggle was removed, so the former `fabrySidebarOpen` key is orphaned/unused); `fabryArchConsoleHeight` is a **global** layout pref too (the Architect deliverable pane's action-console height — fixed so tabs don't jump, drag-resizable via its top-edge grip, clamp 140–620); `fabryActiveChat` (open chat id), `fabryMode` (Chat|Architect sub-app selection), and `fabryArchitectActive` (open Architect deliverable id) are the only other persisted values — all per-tab (tabState pattern) and content-free; chat content/images/transcripts and Architect deliverable text/evidence never touch storage (server-owned; privacy constraint — deliverables + their last results live in the `__mrfabry_architect` Data Storage collection, in-memory otherwise)
 - Inspector state: `rossumViewedAnnotations` — annotations the user OPENED IN THE ROSSUM UI (`{id, origin, at}`, deduped by (origin,id), newest-first, cap 12), written by the always-on `track-viewed` content-script feature (pure tracker, no DOM) and read by the Inspector landing, which also live-refreshes via `chrome.storage.onChanged`, which filters to the connected org's origin (cap 8 shown) and enriches file/queue/status via ONE sideloaded call (`/annotations?id=<csv>&sideload=documents,queues` — verified live). Clear-all removes only the current origin's entries. Opening the Inspector lands on this list — only an explicitly staged `pendingAnnotationId` (deep-link) auto-loads. (Legacy keys `inspectorRecents` [investigated-recents, retired 2026-07-04] and the older per-tab `consoleInspectorAnn` are orphaned, not migrated.)
 - AI pipeline input availability: cached in **`sessionStorage`** (key `mdhAiAvailable_<org>`), NOT `chrome.storage` — ephemeral per-session result of the `/internal/llmchat` probe, so availability is never persisted at rest.
 

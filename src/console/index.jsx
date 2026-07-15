@@ -91,18 +91,15 @@ async function boot() {
     ...(authKey ? [authKey] : []),
     'consoleActiveApp',
     'experimentalUnlocked',
-    'fabryDeepVerifyEnabled',
   ]);
   const entry = authKey ? stored[authKey] : null;
 
+  // Fabry deep-verify + Architect implement are ON by default (their popup
+  // kill-switches were removed 2026-07-14); the store signals default true.
   experimentalUnlocked.value = !!stored.experimentalUnlocked;
-  fabryStore.deepVerifyAllowed.value = stored.fabryDeepVerifyEnabled !== false;
   chrome.storage.onChanged?.addListener((changes, area) => {
     if (area === 'local' && changes.experimentalUnlocked) {
       experimentalUnlocked.value = !!changes.experimentalUnlocked.newValue;
-    }
-    if (area === 'local' && changes.fabryDeepVerifyEnabled) {
-      fabryStore.deepVerifyAllowed.value = changes.fabryDeepVerifyEnabled.newValue !== false;
     }
   });
   // Re-locking the gate while Fabry is the active app falls back to Dataset

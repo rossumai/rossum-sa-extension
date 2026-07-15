@@ -5,6 +5,13 @@ export function deliverableTitle(text) {
   return line.replace(/^#+\s*/, '').replace(/[*_`>]/g, '').trim().slice(0, 80) || 'Untitled';
 }
 
+// The title to show for a deliverable: an explicit (AI-generated or renamed)
+// title if present, else derived from the Markdown first line.
+export function displayTitle(d) {
+  const t = d && typeof d.title === 'string' ? d.title.trim() : '';
+  return t || deliverableTitle(d ? d.text : '');
+}
+
 // One-line plain-text summary of Markdown evidence for the collapsed verdict
 // banner: first non-empty, non-fence line, stripped of markdown marks + capped.
 export function summaryLine(text, max = 120) {

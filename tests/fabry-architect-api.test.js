@@ -30,14 +30,22 @@ describe('architect api v2', () => {
     ] });
     const { deliverables, results } = await api.loadDeliverables();
     expect(mdh.find).toHaveBeenCalledWith('__mrfabry_architect', { query: { kind: 'requirement' }, sort: { order: 1 }, limit: 1000 });
-    expect(deliverables).toEqual([{ id: 'a', text: '# A', order: 1 }, { id: 'b', text: '# B', order: 2 }]);
+    expect(deliverables).toEqual([{ id: 'a', text: '# A', order: 1, title: '' }, { id: 'b', text: '# B', order: 2, title: '' }]);
     expect(results.a).toEqual({ verdict: 'pass', evidence: 'ok', chatId: 'c1', ranAt: 111, stale: true });
     expect(results.b).toBeUndefined(); // no lastVerdict → no result
   });
 
+  it('loadDeliverables maps a persisted title verbatim', async () => {
+    mdh.find.mockResolvedValueOnce({ result: [
+      { _id: 'a', kind: 'requirement', text: '# A', order: 1, title: 'A Nice Title' },
+    ] });
+    const { deliverables } = await api.loadDeliverables();
+    expect(deliverables).toEqual([{ id: 'a', text: '# A', order: 1, title: 'A Nice Title' }]);
+  });
+
   it('loadDeliverables tolerates a missing result envelope', async () => {
     mdh.find.mockResolvedValueOnce({});
-    expect(await api.loadDeliverables()).toEqual({ deliverables: [], results: {} });
+    expect(await api.loadDeliverables()).toEqual({ deliverables: [], results: {}, implement: {} });
   });
 
   it('addDeliverable inserts the documented shape', async () => {
@@ -59,5 +67,9 @@ describe('architect api v2', () => {
   it('setOrder $sets order by _id', async () => {
     await api.setOrder('x', 4);
     expect(mdh.updateOne).toHaveBeenCalledWith('__mrfabry_architect', { _id: 'x' }, { $set: { order: 4 } });
+  });
+  it('saveTitle $sets title by _id', async () => {
+    await api.saveTitle('x', 'A Nice Title');
+    expect(mdh.updateOne).toHaveBeenCalledWith('__mrfabry_architect', { _id: 'x' }, { $set: { title: 'A Nice Title' } });
   });
 });
