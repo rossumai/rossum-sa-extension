@@ -359,6 +359,25 @@ Two strategies: JSON metadata extraction from `#initial_full_react_data` script 
 
 Preact JSX. Detects current site (Rossum/NetSuite/Coupa) and dims irrelevant sections. Two toggle types: storage-backed (persist in chrome.storage.local, reload tab on change) and page-flag-backed (devFeatures/devDebug, written into the page's localStorage via `chrome.scripting.executeScript` without reload). All tab IO uses `chrome.scripting.executeScript` rather than `chrome.tabs.sendMessage` so popup operations survive content-script orphaning across extension upgrades.
 
+The popup also self-detects (Rossum context, annotation URLs only) when the open
+annotation is held in `reviewing` by ANOTHER user — `status === 'reviewing' &&
+modified_by !== me`, live-verified: `POST /start` on a held annotation 409s
+(`conflict_user`), so the viewer is genuinely stuck read-only — and shows a warning
+banner (`ReviewingLockBanner.jsx` + pure `reviewingLock.js`): SVG lock icon in a
+tinted squircle, "Document locked by {plain name}" (username fallback, else "another user"),
+"Read-only while they review", and a one-click **Unlock** button (owner-picked
+"variant C one-step" redesign 2026-07-16 — NO confirmation, NO time/staleness line,
+NO consequence caption; the earlier `session_timeout` staleness helpers were removed
+as dead code). Unlock = `PATCH /annotations/{id} {status:'to_review'}` — the ONLY
+non-holder-capable release (`/cancel` 409s for non-holders; patching `queue` to
+itself is a no-op); it triggers NO re-extraction and to the holder is
+indistinguishable from a normal session timeout (in-flight edit lost, saved edits
+kept). On success the popup reloads the Rossum tab (whose frontend then auto-starts
+the annotation, so the clicker takes over the lock). No storage keys, no toggle
+(always on), degrades to rendering nothing on any failed read. Spec:
+`docs/superpowers/specs/2026-07-16-popup-unlock-reviewing-annotation-design.md` (+ v2
+revision note).
+
 ## Chrome Storage Keys
 
 - Feature toggles: `schemaAnnotationsEnabled`, `expandFormulasEnabled`, `expandReasoningFieldsEnabled`, `scrollLockEnabled`, `resourceIdsEnabled`, `annotateForMeEnabled`, `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled` (the short-lived `inspectAnnotationEnabled` toggle was removed 2026-07-04 along with the floating button, and the in-page `rawObjectEditorEnabled` toggle was removed 2026-07 with the in-page Raw Object Editor surface; the `fabryDeepVerifyEnabled` + `fabryArchitectImplementEnabled` popup toggles were removed 2026-07-14 — both features are now ON by default within the experimental Fabry app; any stored values are orphaned)

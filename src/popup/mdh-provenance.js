@@ -14,6 +14,22 @@ export async function fetchJson(url, token) {
   return resp.json();
 }
 
+// Single write helper for the popup (the reviewing-lock force-release).
+// Same auth + error contract as fetchJson above.
+export async function apiPatch(url, token, body) {
+  const resp = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `token ${token}`,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  return resp.json();
+}
+
 async function runAggregate(domain, token, dataset, pipeline, externalSignal, timeoutMs = 8000) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);

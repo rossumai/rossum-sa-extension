@@ -2,6 +2,7 @@ import { h, Fragment } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import Toggle from './Toggle.jsx';
 import MdhProvenancePanel from './MdhProvenancePanel.jsx';
+import ReviewingLockBanner from './ReviewingLockBanner.jsx';
 import { openConsoleTab, runInTab, detectSite, findRossumTabs, activateTab, isConsoleTab } from '../utils.js';
 import { readAuthInfo, readPageFlag, togglePageFlag } from '../tab-readers.js';
 import { createUnlockCounter } from '../experimental.js';
@@ -366,6 +367,7 @@ export default function App({ tab }) {
               ) : null}
             </div>
           </div>
+          {site === 'rossum' ? <ReviewingLockBanner tab={tab} /> : null}
         </div>
       )}
 
