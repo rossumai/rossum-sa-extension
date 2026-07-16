@@ -24,16 +24,15 @@ function newId() {
   try { if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID(); } catch { /* fall through */ }
   return 'r' + Date.now() + Math.random().toString(36).slice(2, 8);
 }
-function clearSpinners() {
+// Flip every dangling `running` flag off in a { [id]: entry } signal (both the
+// check results and the implement state share this shape).
+function clearRunningFlags(sig) {
   const cleaned = {};
-  for (const [k, v] of Object.entries(store.results.value)) cleaned[k] = v?.running ? { ...v, running: false } : v;
-  store.results.value = cleaned;
+  for (const [k, v] of Object.entries(sig.value)) cleaned[k] = v?.running ? { ...v, running: false } : v;
+  sig.value = cleaned;
 }
-function clearImplementSpinners() {
-  const cleaned = {};
-  for (const [k, v] of Object.entries(store.implement.value)) cleaned[k] = v?.running ? { ...v, running: false } : v;
-  store.implement.value = cleaned;
-}
+function clearSpinners() { clearRunningFlags(store.results); }
+function clearImplementSpinners() { clearRunningFlags(store.implement); }
 
 export async function loadArchitect() {
   if (store.loaded.value || loading) return;
@@ -41,9 +40,13 @@ export async function loadArchitect() {
   store.loadError.value = null;
   try {
     await api.ensureCollection();
-    const { deliverables, results } = await api.loadDeliverables();
+    const { deliverables, results, implement } = await api.loadDeliverables();
     store.deliverables.value = deliverables;
     store.results.value = results;
+    // Rehydrate persisted implement-loop state (status / task list / write audit)
+    // so a completed Implement run survives a reload instead of vanishing. See
+    // finding actions.js:44.
+    store.implement.value = implement || {};
     // First open (no active selection) OR a restored id that no longer exists
     // (deleted elsewhere): land on the first deliverable, not the placeholder.
     if (deliverables.length && !deliverables.some((d) => d.id === store.activeId.value)) {
@@ -254,6 +257,10 @@ function persist(id, r) {
 
 export async function runAll() {
   if (store.running.value) return;
+  // A read-only check and the write-enabled implement loop both persist the
+  // deliverable's Check verdict; running them at once lets a stale pre-change
+  // verdict clobber the post-implementation one. Keep them mutually exclusive.
+  if (store.implementRunning.value) return;
   if (Object.values(store.results.value).some((r) => r && r.running)) return;
   const ds = store.deliverables.value;
   if (!ds.length) return;
@@ -280,6 +287,9 @@ export async function runAll() {
 export async function reRun(id) {
   const d = store.deliverables.value.find((x) => x.id === id);
   if (!d) return;
+  // Never run a check on a deliverable that an implement run is actively driving —
+  // its roll-up owns the verdict (see runAll). UI gating backs this up.
+  if (store.implementRunning.value) return;
   const ctrl = new AbortController();
   store.setResult(id, { ...(store.results.value[id] || { verdict: null, evidence: '', chatId: null }), running: true });
   try {
@@ -319,10 +329,22 @@ async function implementTaskOne(d, task, { attempt, journal, doneTasks }, signal
   if (signal?.aborted) return null;
   const acc = newAcc();
   const folder = audit.makeAuditFolder();
-  await agentApi.streamMessage(chatId, plan.buildTaskPrompt(d.text, task, { journal, doneTasks }), {
-    signal, mcpMode: 'read-write', onEvent: (e) => { foldEvents(acc, [e]); folder.feed(e); },
-  });
-  if (signal?.aborted) return null;
+  try {
+    await agentApi.streamMessage(chatId, plan.buildTaskPrompt(d.text, task, { journal, doneTasks }), {
+      signal, mcpMode: 'read-write', onEvent: (e) => { foldEvents(acc, [e]); folder.feed(e); },
+    });
+  } catch (err) {
+    // The stream threw (Stop / idle timeout / transport error) AFTER the agent may
+    // have already executed writes against the live org. Attach what was audited so
+    // the loop still counts + records them — losing them would defeat the write
+    // audit and under-count the write budget. See finding actions.js:322.
+    if (err && typeof err === 'object') err.writes = folder.writes;
+    throw err;
+  }
+  // NB: do NOT early-return null on a late `signal.aborted` here. The stream already
+  // RESOLVED, so any writes in the audit folder really happened; returning them lets
+  // the loop count + record them before it honors the abort (its own post-write abort
+  // check stops the run). Discarding them here would silently lose audited prod writes.
   const text = replyText(acc);
   return { writes: folder.writes, summary: summaryLine(text) || '(no summary)', discovered: plan.parseDiscovered(text), chatId };
 }
@@ -346,6 +368,7 @@ function applyImplementPatch(id, patch) {
   const next = { ...cur, ...patch, stale: false };
   if (patch.writes) next.writes = [...(cur.writes || []), ...patch.writes];
   if (patch.tasks) next.tasks = patch.tasks; // full replace each time — never concatenated
+  if (patch.journal) next.journal = patch.journal; // full replace (loop sends the accumulated journal)
   if (patch.note) { next.notes = [...(cur.notes || []), patch.note]; delete next.note; }
   store.implement.value = { ...store.implement.value, [id]: next };
   if (patch.verdict) {
@@ -364,17 +387,26 @@ function applyImplementPatch(id, patch) {
     api.saveImplementResult(id, {
       status: next.status, attempts: tasks.reduce((s, t) => s + (t.attempts || 0), 0), writes: next.writes || [],
       summary: next.summary || '', chatId: next.chatId || (store.results.value[id]?.chatId) || null,
-      ranAt, journal: [], tasks,
+      ranAt, journal: next.journal || [], tasks,
     }).catch(() => {});
   }
 }
 
 async function runImplementList(ds) {
   if (store.implementRunning.value || !ds.length) return;
+  // Don't start writing while ANY read-only check is in flight — a global Run all
+  // (store.running) OR a single per-deliverable Re-run (results[id].running, which does
+  // NOT set store.running). Otherwise that check's late persist(verdict) can clobber the
+  // implement roll-up's persisted verdict. See finding actions.js:397.
+  if (store.running.value || Object.values(store.results.value).some((r) => r && r.running)) return;
   implRunId += 1; const rid = implRunId;
   const ctrl = new AbortController(); implController = ctrl;
   store.implementRunning.value = true;
-  for (const d of ds) store.setImplement(d.id, { status: 'running', running: true, writes: [], error: null });
+  // Reset the FULL prior-run state (tasks/notes/summary/journal too — not just
+  // writes/status), so a re-implement whose planning turn fails can't leave the
+  // previous run's task list + notes showing under a fresh status. See finding
+  // actions.js:377.
+  for (const d of ds) store.setImplement(d.id, { status: 'running', running: true, writes: [], tasks: [], notes: [], summary: '', journal: [], error: null });
   try {
     await runImplement(ds, {
       maxAttemptsPerTask: 5, maxPlanTasks: 12, maxTotalTasks: 20, maxTotalWrites: 50, maxRollupRounds: 3,
@@ -394,7 +426,11 @@ export function reImplement(id) {
 }
 
 export function stopImplement() {
-  implRunId += 1;
+  // Do NOT bump implRunId here. The aborting loop emits ONE terminal `stopped`
+  // patch as it unwinds; keeping the run id lets that patch through the onEvent
+  // guard so the deliverable's status is reset to 'stopped' and its write audit is
+  // PERSISTED (findings actions.js:361 / actions.js:396). A NEW run bumps the id
+  // itself (runImplementList), which supersedes any late patch from this one.
   if (implController) implController.abort();
   implController = null;
   store.implementRunning.value = false;

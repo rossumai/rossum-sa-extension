@@ -15,7 +15,7 @@ function Segment({ seg, resolveCite }) {
 }
 
 export default function FabryNarrative({ text, streaming, resolveCite }) {
-  const blocks = parseNarrative(text);
+  const blocks = parseNarrative(text, streaming);
   const out = [];
   let bullets = [];
   const seg = (segments) => segments.map((s) => <Segment seg={s} resolveCite={resolveCite} />);

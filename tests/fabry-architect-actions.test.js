@@ -34,6 +34,7 @@ function scriptReplies(map) {
 beforeEach(() => {
   vi.clearAllMocks();
   store.deliverables.value = []; store.results.value = {}; store.activeId.value = null;
+  store.implement.value = {};
   store.loaded.value = false; store.loadError.value = null; store.running.value = false;
 });
 
@@ -45,6 +46,22 @@ describe('loadArchitect', () => {
     expect(store.deliverables.value.length).toBe(1);
     expect(store.results.value.a.stale).toBe(true);
     expect(store.loaded.value).toBe(true);
+  });
+  it('rehydrates persisted implement-loop state (status / tasks / write audit)', async () => {
+    api.loadDeliverables.mockResolvedValueOnce({
+      deliverables: [{ id: 'a', text: '# A', order: 1 }],
+      results: {},
+      implement: { a: { status: 'passing', tasks: [{ id: 'k1', text: 't1', status: 'done' }], writes: [{ tool: 'create_rule', ok: true }], stale: true } },
+    });
+    await loadArchitect();
+    expect(store.implement.value.a).toMatchObject({ status: 'passing', stale: true });
+    expect(store.implement.value.a.tasks).toHaveLength(1);
+    expect(store.implement.value.a.writes[0]).toMatchObject({ tool: 'create_rule' });
+  });
+  it('tolerates a loadDeliverables result with no implement map (older shape)', async () => {
+    api.loadDeliverables.mockResolvedValueOnce({ deliverables: [{ id: 'a', text: 'A', order: 1 }], results: {} });
+    await loadArchitect();
+    expect(store.implement.value).toEqual({});
   });
   it('records loadError without throwing', async () => {
     api.ensureCollection.mockRejectedValueOnce(new Error('nope'));

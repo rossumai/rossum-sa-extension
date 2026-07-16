@@ -1,5 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { intakeEvidence, workflowEvidence } from '../src/inspector/evidence.js';
+import { intakeEvidence, workflowEvidence, arrivalLabel } from '../src/inspector/evidence.js';
+
+describe('arrivalLabel (compact Intake header, not the raw attachment_status)', () => {
+  it('maps verified statuses to short human labels', () => {
+    expect(arrivalLabel(null)).toBe('upload');
+    expect(arrivalLabel('processed')).toBe('email attachment'); // not the raw "processed"
+    expect(arrivalLabel('extracted_archive')).toBe('archive');
+    expect(arrivalLabel('hook_failed')).toBe('import (hook failed)');
+  });
+  it('falls back to the raw value for an unknown status', () => {
+    expect(arrivalLabel('some_future_status')).toBe('some_future_status');
+  });
+});
 
 const base = { annotation: { id: 1 }, document: null, parentDocument: null, relations: [], email: null, workflowRuns: [], workflowSteps: [], enrichment: {} };
 

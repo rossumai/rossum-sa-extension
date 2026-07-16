@@ -18,6 +18,11 @@ function idFromUrl(url) { const m = String(url || '').match(/\/(\d+)\/?$/); retu
 // synthesizing → complete (or agent-offline). Aborts any prior in-flight run
 // (superseded by a newer annotation load) so it never writes a stale result.
 let attrController = null;
+// The agent health probe, kicked off once in initInspector. Held as a promise so
+// prefetchAndOrchestrate can AWAIT it before deciding "agent offline" — otherwise a
+// fast gather reads the default-false aiAvailable while the probe is still in flight
+// and wrongly skips synthesis (the probe's .then sets aiAvailable exactly once).
+let aiProbe = null;
 const SOURCES = ['workflow', 'notes', 'hookLogs', 'ruleLogs', 'hooks', 'labels', 'rules', 'workflowCtx', 'intakeCtx'];
 async function prefetchAndOrchestrate() {
   if (attrController) attrController.abort();
@@ -33,6 +38,12 @@ async function prefetchAndOrchestrate() {
     tick(loadWorkflowContext()), tick(loadIntakeContext()),
   ]);
   if (signal.aborted) return;
+  // Settle the agent health probe BEFORE attribution AND synthesis: a fast gather
+  // must not run orchestrateAttributions (which skips the whole AI tier when
+  // aiAvailable is false — orchestrate.js:110) OR the offline decision on a
+  // still-default value. The probe starts in initInspector, so this is normally
+  // already resolved (no stall); a slow/hung /health is bounded by probeAgent's 10s.
+  if (aiProbe) { await aiProbe; if (signal.aborted) return; }
   store.setInvestigation({ stage: 'attributing' });
   await orchestrateAttributions({ store, api, agentApi, signal });
   if (signal.aborted) return;
@@ -81,7 +92,9 @@ export async function initInspector() {
   catch (err) { store.error.value = err.message || 'Failed to verify session'; store.connected.value = false; return; }
   store.connected.value = true;
   enrichRecents(api).catch(() => {}); // resolve names for the viewed list (non-blocking)
-  agentApi.probeAgent().then((ok) => { store.aiAvailable.value = ok; }).catch(() => {}); // non-blocking
+  // Non-blocking, but held so prefetchAndOrchestrate can await it (avoids the
+  // fast-gather → false agent-offline race). Sets aiAvailable exactly once.
+  aiProbe = agentApi.probeAgent().then((ok) => { store.aiAvailable.value = ok; return ok; }).catch(() => false);
   if (store.annotationId.value) loadAnnotation(store.annotationId.value); // not awaited
 }
 

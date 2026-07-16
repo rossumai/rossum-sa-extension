@@ -128,9 +128,9 @@ export default function ArchitectSidebar() {
             >{'⋮'}</button>
             {menuId === d.id && (
               <div class={'fabry-arch-menu' + (menuUp ? ' up' : '')} onClick={(e) => e.stopPropagation()}>
-                <button type="button" class="fabry-arch-menu-item" disabled={running || results[d.id]?.running} onClick={() => { reRun(d.id); closeMenu(); }}>{'Re-run ▷'}</button>
+                <button type="button" class="fabry-arch-menu-item" disabled={running || implementRunning || results[d.id]?.running} onClick={() => { reRun(d.id); closeMenu(); }}>{'Re-run ▷'}</button>
                 {implementAllowed && (
-                  <button type="button" class="fabry-arch-menu-item" disabled={implementRunning}
+                  <button type="button" class="fabry-arch-menu-item" disabled={implementRunning || running || results[d.id]?.running}
                     onClick={() => { closeMenu(); openArmDialog(1, () => reImplement(d.id)); }}>
                     {'Implement ▷'}
                   </button>
@@ -146,7 +146,7 @@ export default function ArchitectSidebar() {
         <button
           type="button"
           class="fabry-arch-runall"
-          disabled={!running && ds.length === 0}
+          disabled={implementRunning || (!running && ds.length === 0)}
           onClick={() => (running ? stopRun() : runAll())}
         >
           {running ? 'Stop' : 'Run all ▷'}

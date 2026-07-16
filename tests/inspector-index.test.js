@@ -14,6 +14,7 @@ vi.mock('../src/agent/agentApi.js', () => ({
 }));
 import * as api from '../src/inspector/api.js';
 import * as store from '../src/inspector/store.js';
+import * as agentApi from '../src/agent/agentApi.js';
 import { orchestrateAttributions } from '../src/inspector/orchestrate.js';
 import { initInspector, loadAnnotation, loadQueueRules, askFabry, closeAnnotation } from '../src/inspector/index.jsx';
 
@@ -114,6 +115,36 @@ describe('staged lifecycle', () => {
     await loadAnnotation('1');
     await waitFor(() => store.investigation.value.stage === 'agent-offline');
     expect(store.synthesis.value.status).toBe('offline');
+  });
+
+  it('a load superseded mid-synthesis never writes a stale "done" (abort guard)', async () => {
+    store.aiAvailable.value = true;
+    mockAllSources();
+    // Control the synthesis stream: persona returns; the diagnosis turn emits a partial
+    // then HANGS until released, so we can supersede the load while it is mid-stream.
+    const saved = agentApi.streamMessage.getMockImplementation();
+    let release;
+    agentApi.streamMessage.mockImplementation(async (_id, content, { onEvent } = {}) => {
+      if (content === '/persona cautious') return;
+      onEvent?.({ type: 'text-delta', delta: 'partial…' });
+      await new Promise((r) => { release = r; });
+      onEvent?.({ type: 'text-delta', delta: 'FINAL — must not appear' });
+      onEvent?.({ type: 'finish' });
+    });
+    try {
+      store.setAnnotationId('1');
+      loadAnnotation('1'); // not awaited — synthesis runs in the background
+      await waitFor(() => store.synthesis.value?.status === 'streaming' && store.synthesis.value.text === 'partial…');
+      // Supersede: navigating to another annotation aborts the in-flight synthesis.
+      api.getAnnotation.mockReturnValue(new Promise(() => {})); // '2' never resolves
+      loadAnnotation('2');
+      release(); // let the now-stale synthesis stream finish AFTER the abort
+      await new Promise((r) => setTimeout(r, 20));
+      expect(store.synthesis.value.status).not.toBe('done');       // stale 'done' never written
+      expect(store.synthesis.value.text).toBe('partial…');         // late delta was dropped by the guard
+    } finally {
+      agentApi.streamMessage.mockImplementation(saved); // restore so sibling tests keep the default stream
+    }
   });
 });
 

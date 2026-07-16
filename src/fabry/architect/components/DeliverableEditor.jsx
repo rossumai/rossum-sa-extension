@@ -60,11 +60,12 @@ export default function DeliverableEditor({ deliverable }) {
     e.preventDefault();
     const startY = e.clientY;
     const startH = store.consoleHeight.value;
-    const onMove = (ev) => store.setConsoleHeight(startH + (startY - ev.clientY));
+    const onMove = (ev) => { store.consoleHeight.value = store.clampConsoleHeight(startH + (startY - ev.clientY)); };
     const onUp = () => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
       document.body.style.userSelect = '';
+      store.setConsoleHeight(store.consoleHeight.value); // persist ONCE on release, not per mousemove
     };
     document.body.style.userSelect = 'none';
     document.addEventListener('mousemove', onMove);
@@ -110,7 +111,7 @@ export default function DeliverableEditor({ deliverable }) {
                 <div class={'fabry-arch-check-hd ' + chip.cls}>
                   <span class="fabry-arch-check-verdict">{chip.label}</span>
                   {result.stale && <span class="fabry-arch-check-stale">{'last checked '}{relativeTime(result.ranAt, now) || 'previously'}{' · may be outdated'}</span>}
-                  <button type="button" class="fabry-arch-rerun" disabled={store.running.value} onClick={() => reRun(deliverable.id)}>{'Re-run ▷'}</button>
+                  <button type="button" class="fabry-arch-rerun" disabled={store.running.value || store.implementRunning.value} onClick={() => reRun(deliverable.id)}>{'Re-run ▷'}</button>
                 </div>
                 <div class="fabry-arch-evidence"><FabryMarkdown text={result.evidence || '(no evidence returned)'} streaming={false} /></div>
                 <div class="fabry-arch-check-foot">
@@ -119,7 +120,7 @@ export default function DeliverableEditor({ deliverable }) {
                 </div>
               </div>
             ) : (
-              <div class="fabry-arch-check-empty">{'Not checked yet. '}<button type="button" class="fabry-arch-rerun" disabled={store.running.value} onClick={() => reRun(deliverable.id)}>{'Run check ▷'}</button></div>
+              <div class="fabry-arch-check-empty">{'Not checked yet. '}<button type="button" class="fabry-arch-rerun" disabled={store.running.value || store.implementRunning.value} onClick={() => reRun(deliverable.id)}>{'Run check ▷'}</button></div>
             )}
           </div>
 
@@ -131,7 +132,7 @@ export default function DeliverableEditor({ deliverable }) {
                 <span class="fabry-arch-implement-title">{'Implement this deliverable'}</span>
                 {implActive
                   ? <button type="button" class="fabry-arch-implement-stop" onClick={stopImplement}>{'Stop'}</button>
-                  : <button type="button" class="fabry-arch-implement-run" disabled={store.implementRunning.value} onClick={onImplement}>{'Implement ▷'}</button>}
+                  : <button type="button" class="fabry-arch-implement-run" disabled={store.implementRunning.value || store.running.value || result?.running} onClick={onImplement}>{'Implement ▷'}</button>}
               </div>
               {!impl && <p class="fabry-arch-implement-hint">{'Mr. Fabry plans this deliverable into tasks and implements them autonomously — write-enabled, bounded, and audited. You confirm before it starts.'}</p>}
               {impl && (
@@ -142,6 +143,7 @@ export default function DeliverableEditor({ deliverable }) {
                       : impl.status === 'failed' ? '✗ could not satisfy'
                       : impl.status === 'blocked' ? '⚠ blocked'
                       : impl.status === 'uncertain' ? '? could not verify (check error)'
+                      : impl.status === 'stopped' ? '■ stopped'
                       : impl.status === 'planning' ? 'Planning tasks…'
                       : impl.status === 'running' ? 'Implementing tasks…' : ''}
                     {impl.error && <span class="fabry-arch-implement-err">{' — '}{impl.error}</span>}

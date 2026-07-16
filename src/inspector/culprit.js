@@ -41,7 +41,12 @@ export function explainBlocker(item, ctx = {}) {
 
   if (type === 'low_score') {
     const score = sample?.details?.score;
-    const threshold = sample?.details?.threshold ?? ctx.queue?.default_score_threshold;
+    // Threshold fallback chain UNIFIED with computeVerdict (evidence.js): the
+    // per-field score_threshold sits BETWEEN the sample value and the queue
+    // default, so the Blockers section and the VerdictCard never show different
+    // numbers for the same low_score blocker. ctx.fieldThresholds is the
+    // bySchemaId map from fieldThresholds(); absent (older callers) → queue default.
+    const threshold = sample?.details?.threshold ?? ctx.fieldThresholds?.[schemaId] ?? ctx.queue?.default_score_threshold;
     explanation = `Extraction confidence ${fmtNum(score)} is below the threshold ${fmtNum(threshold)}.`;
     culprit = { kind: 'engine', id: null, name: 'extraction engine' };
   } else if (type === 'automation_disabled') {

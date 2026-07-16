@@ -13,7 +13,7 @@ vi.mock('../src/fabry/architect/api.js', () => ({
 import * as agentApi from '../src/agent/agentApi.js';
 import * as api from '../src/fabry/architect/api.js';
 import * as store from '../src/fabry/architect/store.js';
-import { reImplement, stopImplement } from '../src/fabry/architect/actions.js';
+import { reImplement, stopImplement, reRun } from '../src/fabry/architect/actions.js';
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
@@ -118,6 +118,88 @@ describe('reImplement (task-decomposition loop, audited)', () => {
     await p;                                // let runImplementList settle
     expect(store.implement.value.a.running).toBe(false);   // spinner cleared
     expect(store.implementRunning.value).toBe(false);
+  });
+
+  it('Stop persists a terminal "stopped" result WITH the writes the interrupted turn already executed', async () => {
+    agentApi.createChat.mockReset();
+    let n = 0; agentApi.createChat.mockImplementation(async () => 'chat_' + (n++));
+    agentApi.streamMessage.mockReset();
+    agentApi.streamMessage.mockImplementation((id, content, { signal, onEvent } = {}) => {
+      if (content.startsWith('/persona')) { onEvent({ type: 'finish' }); return Promise.resolve(); }
+      if (content.includes('break the requirement into')) {
+        onEvent({ type: 'text-delta', delta: '[{"text":"t1","acceptance":"a"}]' });
+        onEvent({ type: 'finish' });
+        return Promise.resolve();
+      }
+      if (content.includes('implementing ONE task')) {
+        // The agent executes a write, then the turn hangs until the run is aborted,
+        // at which point the transport THROWS AbortError (as agentApi.js does).
+        onEvent({ type: 'tool-input-start', toolCallId: 'w1', toolName: 'create_hook' });
+        onEvent({ type: 'tool-input-available', toolCallId: 'w1', input: { name: 'H' } });
+        onEvent({ type: 'tool-output-available', toolCallId: 'w1', output: 'ok' });
+        return new Promise((_, reject) => {
+          if (signal) signal.addEventListener('abort', () => { const e = new Error('aborted'); e.name = 'AbortError'; reject(e); });
+        });
+      }
+      onEvent({ type: 'finish' }); return Promise.resolve();
+    });
+    const p = reImplement('a');
+    await flush();
+    stopImplement();
+    await p;
+    // The write is not lost, and the run is persisted at a terminal 'stopped' state.
+    expect(store.implement.value.a.status).toBe('stopped');
+    expect(store.implement.value.a.writes.some((w) => w.tool === 'create_hook')).toBe(true);
+    expect(api.saveImplementResult).toHaveBeenCalled();
+    const saved = api.saveImplementResult.mock.calls.at(-1)[1];
+    expect(saved.status).toBe('stopped');
+    expect(saved.writes.some((w) => w.tool === 'create_hook')).toBe(true);
+    expect(store.implement.value.a.running).toBe(false);
+    expect(store.implementRunning.value).toBe(false);
+  });
+
+  it('a write from a turn that RESOLVED just as Stop fired is still audited (no resolve-then-abort loss)', async () => {
+    agentApi.createChat.mockReset();
+    let n = 0; agentApi.createChat.mockImplementation(async () => 'chat_' + (n++));
+    agentApi.streamMessage.mockReset();
+    agentApi.streamMessage.mockImplementation((id, content, { onEvent } = {}) => {
+      if (content.startsWith('/persona')) { onEvent({ type: 'finish' }); return Promise.resolve(); }
+      if (content.includes('break the requirement into')) {
+        onEvent({ type: 'text-delta', delta: '[{"text":"t1","acceptance":"a"}]' }); onEvent({ type: 'finish' }); return Promise.resolve();
+      }
+      if (content.includes('implementing ONE task')) {
+        onEvent({ type: 'tool-input-start', toolCallId: 'w1', toolName: 'create_hook' });
+        onEvent({ type: 'tool-input-available', toolCallId: 'w1', input: { name: 'H' } });
+        onEvent({ type: 'tool-output-available', toolCallId: 'w1', output: 'ok' });
+        onEvent({ type: 'text-delta', delta: 'done' });
+        stopImplement();            // Stop fires exactly as this turn completes...
+        onEvent({ type: 'finish' });
+        return Promise.resolve();   // ...and the stream RESOLVES (does not throw)
+      }
+      onEvent({ type: 'finish' }); return Promise.resolve();
+    });
+    await reImplement('a');
+    await flush();
+    expect(store.implement.value.a.status).toBe('stopped');
+    expect(store.implement.value.a.writes.some((w) => w.tool === 'create_hook')).toBe(true);
+    const saved = api.saveImplementResult.mock.calls.at(-1)[1];
+    expect(saved.writes.some((w) => w.tool === 'create_hook')).toBe(true);
+  });
+
+  it('an in-flight per-deliverable Re-run blocks Implement from starting (no verdict clobber)', async () => {
+    // reRun sets only results[a].running (NOT store.running); Implement must still refuse
+    // to start, else the stale check's late persist could clobber the implement roll-up.
+    agentApi.streamMessage.mockImplementation((id, content) => {
+      if (content.startsWith('/persona')) return Promise.resolve();
+      return new Promise(() => {}); // the check turn hangs → reRun stays in-flight
+    });
+    reRun('a'); // not awaited — starts a read-only check
+    await flush();
+    expect(store.results.value.a.running).toBe(true);
+    await reImplement('a'); // must be blocked
+    expect(store.implementRunning.value).toBe(false);
+    expect(agentApi.streamMessage.mock.calls.some((c) => c[1].includes('break the requirement into'))).toBe(false); // no plan turn
+    expect(api.saveImplementResult).not.toHaveBeenCalled();
   });
 
   it('a transport-errored roll-up updates the banner but does NOT persist (preserves last-known-good)', async () => {

@@ -19,18 +19,19 @@ describe('runImplement (dynamic task-decomposition state machine)', () => {
     expect(taskByText(ev.d0.tasks, 't1').status).toBe('done');
   });
 
-  it('2. empty plan falls back to a single whole-deliverable task', async () => {
+  it('2. empty plan (already satisfied) does NOT write — goes straight to the read-only roll-up', async () => {
     const planOne = vi.fn().mockResolvedValue([]);
     const implementTaskOne = vi.fn().mockResolvedValue({ writes: [], summary: 's', discovered: [] });
     const checkTaskOne = vi.fn().mockResolvedValue({ verdict: 'pass' });
     const checkDeliverable = vi.fn().mockResolvedValue({ verdict: 'pass' });
     const { onEvent, ev } = collect();
-    const [deliverable] = oneD();
-    await runImplement([deliverable], { planOne, implementTaskOne, checkTaskOne, checkDeliverable, onEvent });
-    expect(ev.d0.tasks.length).toBe(1);
-    expect(ev.d0.tasks[0].text).toBe(deliverable.text);
-    expect(implementTaskOne).toHaveBeenCalledTimes(1);
-    expect(implementTaskOne.mock.calls[0][1].text).toBe(deliverable.text);
+    await runImplement(oneD(), { planOne, implementTaskOne, checkTaskOne, checkDeliverable, onEvent });
+    expect(implementTaskOne).not.toHaveBeenCalled();   // no write-enabled turn for an already-satisfied deliverable
+    expect(checkTaskOne).not.toHaveBeenCalled();
+    expect(checkDeliverable).toHaveBeenCalledTimes(1); // read-only roll-up confirms it
+    expect(ev.d0.tasks).toEqual([]);
+    expect(ev.d0.status).toBe('passing');
+    expect(ev.d0.done).toBe(true);
   });
 
   it('3. per-task retry: checkTaskOne fails once then passes', async () => {
@@ -242,6 +243,48 @@ describe('runImplement (dynamic task-decomposition state machine)', () => {
     expect(ev.d2.status).toBe('blocked');
     expect(ev.d2.done).toBe(true);
     expect(implementTaskOne).toHaveBeenCalledTimes(2); // d0 + d1; d2 never reaches implement
+  });
+
+  it('19. abort mid-task emits a terminal "stopped" patch (so the glue can persist the audit)', async () => {
+    const ctrl = new AbortController();
+    const planOne = vi.fn().mockResolvedValue([{ text: 't1', acceptance: 'a' }]);
+    // The write turn executes a write, THEN the run is aborted before the turn returns.
+    const implementTaskOne = vi.fn().mockImplementation(async () => { ctrl.abort(); return { writes: [{ tool: 'create_rule' }], summary: 's', discovered: [] }; });
+    const checkTaskOne = vi.fn().mockResolvedValue({ verdict: 'pass' });
+    const checkDeliverable = vi.fn().mockResolvedValue({ verdict: 'pass' });
+    const { onEvent, ev } = collect();
+    await runImplement(oneD(), { planOne, implementTaskOne, checkTaskOne, checkDeliverable, onEvent, signal: ctrl.signal });
+    expect(ev.d0.status).toBe('stopped');   // honest terminal, not stuck at 'running'
+    expect(ev.d0.done).toBe(true);          // done:true → the glue persists the audit
+    expect(ev.d0.writes).toEqual([{ tool: 'create_rule' }]); // the interrupted turn's write is still recorded
+  });
+
+  it('20. a write executed in an interrupted (throwing) turn is still counted + audited', async () => {
+    const ctrl = new AbortController();
+    const planOne = vi.fn().mockResolvedValue([{ text: 't1', acceptance: 'a' }]);
+    // The turn throws AFTER a write — the error carries the audited writes (as actions.js attaches).
+    const implementTaskOne = vi.fn().mockImplementation(async () => {
+      ctrl.abort();
+      const err = new Error('aborted'); err.writes = [{ tool: 'create_hook' }]; throw err;
+    });
+    const checkTaskOne = vi.fn().mockResolvedValue({ verdict: 'pass' });
+    const checkDeliverable = vi.fn().mockResolvedValue({ verdict: 'pass' });
+    const { onEvent, ev } = collect();
+    await runImplement(oneD(), { planOne, implementTaskOne, checkTaskOne, checkDeliverable, onEvent, signal: ctrl.signal });
+    expect(ev.d0.status).toBe('stopped');
+    expect(ev.d0.writes).toEqual([{ tool: 'create_hook' }]); // not lost despite the throw
+  });
+
+  it('21. terminal patch carries the accumulated learnings journal (so it can be persisted)', async () => {
+    const planOne = vi.fn().mockResolvedValue([{ text: 't1', acceptance: 'a' }]);
+    const implementTaskOne = vi.fn().mockResolvedValue({ writes: [], summary: 's', discovered: [] });
+    const checkTaskOne = vi.fn()
+      .mockResolvedValueOnce({ verdict: 'fail', evidence: 'nope' })
+      .mockResolvedValueOnce({ verdict: 'pass', evidence: 'ok' });
+    const checkDeliverable = vi.fn().mockResolvedValue({ verdict: 'pass' });
+    const { onEvent, ev } = collect();
+    await runImplement(oneD(), { planOne, implementTaskOne, checkTaskOne, checkDeliverable, onEvent });
+    expect(ev.d0.journal).toEqual([{ attempt: 1, summary: 's', verdict: 'fail', learnings: 'nope' }]);
   });
 
   it('18. maxPlanTasks slices an oversized plan', async () => {

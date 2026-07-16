@@ -160,6 +160,48 @@ describe('buildEvidence — core items', () => {
     expect(items.find((i) => i.id === 'field:total').data.threshold).toBe(0.8);
     expect(items.find((i) => i.id === 'field:note')).toBeTruthy();
   });
+  it('aggregates a repeated line-item schema_id into ONE item (no colliding ids / prompt bloat)', () => {
+    // A line-item COLUMN (item_amount) repeats across rows. Old behavior emitted one item
+    // per cell, all sharing id "field:item_amount" (citation/anchor collision + prompt bloat).
+    const input = baseInput({
+      content: { content: [{ category: 'section', children: [
+        { category: 'datapoint', id: 1, schema_id: 'total', content: { value: '99', rir_confidence: 0.97 }, validation_sources: ['score'] },
+        { category: 'multivalue', id: 'line_items', children: [
+          { category: 'tuple', children: [{ category: 'datapoint', id: 10, schema_id: 'item_amount', content: { value: '5', rir_confidence: 0.6 }, validation_sources: ['score'] }] },
+          { category: 'tuple', children: [{ category: 'datapoint', id: 11, schema_id: 'item_amount', content: { value: '7', rir_confidence: 0.95 }, validation_sources: ['score'] }] },
+          { category: 'tuple', children: [{ category: 'datapoint', id: 12, schema_id: 'item_amount', content: { value: '9', rir_confidence: 0.5 }, validation_sources: ['score'] }] },
+        ] },
+      ] }] },
+      schema: { content: [{ category: 'section', children: [
+        { category: 'datapoint', id: 'total' },
+        { category: 'multivalue', id: 'line_items', children: { category: 'tuple', children: [{ category: 'datapoint', id: 'item_amount', score_threshold: 0.9 }] } },
+      ] }] },
+    });
+    const { items } = buildEvidence(input);
+    const li = items.filter((i) => i.id === 'field:item_amount');
+    expect(li).toHaveLength(1);                        // exactly one — no collision
+    expect(li[0].data.lineItem).toBe(true);
+    expect(li[0].data.cells).toBe(3);
+    expect(li[0].data.below).toBe(2);                  // 0.6 and 0.5 are below the 0.9 field threshold
+    expect(li[0].fact).toContain('3 cells');
+    expect(items.find((i) => i.id === 'field:total')).toBeTruthy(); // scalar field unchanged
+  });
+  it('low_score threshold is UNIFIED between the verdict reason and the Blockers section (field threshold, not queue default)', () => {
+    // Regression: computeVerdict used sample→field→queue-default, but explainBlocker (which
+    // backs the Blockers-section item) used only sample→queue-default — so the VerdictCard
+    // and the Blockers section showed DIFFERENT thresholds for the SAME blocker. Both must
+    // now resolve to the per-field score_threshold (0.9), never the queue default (0.8).
+    const input = baseInput({
+      blocker: { content: [{ type: 'low_score', schema_id: 'recipient', samples: [{ datapoint_id: 5, details: { score: 0.5 } }] }] },
+      schema: { content: [{ category: 'section', children: [{ category: 'datapoint', id: 'recipient', score_threshold: 0.9 }] }] },
+    });
+    const { items, verdict } = buildEvidence(input);
+    const blockerItem = items.find((i) => i.id === 'blocker:0');
+    expect(blockerItem.fact).toContain('0.9');
+    expect(blockerItem.fact).not.toContain('0.8');   // was the queue default before the fix
+    const reason = verdict.reasons.find((r) => r.evidenceId === 'blocker:0');
+    expect(reason.fact).toContain('0.9');            // and the verdict reason agrees
+  });
   it('unavailable enrichment produces an explicit gap item', () => {
     const input = baseInput({ enrichment: { workflow: [], notes: [], hookLogs: 'unavailable', ruleLogs: [] } });
     const gap = buildEvidence(input).items.find((i) => i.id === 'gap:hookLogs');

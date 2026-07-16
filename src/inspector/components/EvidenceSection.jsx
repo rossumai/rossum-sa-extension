@@ -13,7 +13,14 @@ export default function EvidenceSection({ id, title, count = null, status = 'loa
   const showBody = open && status !== 'pending' && status !== 'na';
   return (
     <div class="inspector-esec" data-evidence-section={id}>
-      <div class="inspector-esec-hd" onClick={() => setOpen(!open)}>
+      <div
+        class="inspector-esec-hd"
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(!open); } }}
+      >
         <span class="inspector-esec-tri">{open ? '▾' : '▸'}</span>
         <span class="inspector-esec-nm">{title}</span>
         {count != null ? <span class="inspector-esec-cnt">{count}</span> : null}

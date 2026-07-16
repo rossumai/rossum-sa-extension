@@ -1,6 +1,7 @@
 // Pure prompt builders + parsers for the Architect task-decomposition loop
 // (ghuntley "one thing per loop"). No network, no DOM. See
 // docs/superpowers/specs/2026-07-14-architect-implement-loop-design.md.
+import { stripFences, safeParseArray } from '../../mdh/llmPipeline.js';
 
 export const MAX_PLAN_TASKS = 12;
 export const MAX_TOTAL_TASKS = 20;
@@ -79,11 +80,17 @@ export function parseDiscovered(text, cap = MAX_TOTAL_TASKS) {
   if (!m) return [];
   const out = [];
   for (const raw of m[1].split('\n')) {
-    const line = raw.trim().replace(/^[-*]\s*/, '');
-    // Skip the header/verdict lines and whole-line no-op markers ("none",
-    // "none needed", "n/a", "no new tasks") so a "NEW TASKS: none needed" reply
-    // yields no phantom task. (Whole-line match — a real task like "Nonexistent…" is kept.)
-    if (!line || /^(new tasks:|verdict:)/i.test(line) || /^(none|n\/a|no new tasks)( needed)?\.?$/i.test(line)) continue;
+    // Only structured list items are tasks: a bullet ("- "/"* ") OR a numbered marker
+    // ("1. "/"1) "). This is the format the prompt asks for and rejects the free-form
+    // prose the model commonly emits after "NEW TASKS:" (e.g. "none required — the queue
+    // was already configured"), which would otherwise become a phantom write-enabled
+    // task run against the LIVE org.
+    const bullet = raw.trim().match(/^(?:[-*]|\d{1,3}[.)])\s+(.+)$/);
+    if (!bullet) continue;
+    const line = bullet[1].trim();
+    // Skip the header/verdict echoes and whole-line no-op markers ("none",
+    // "none needed/required", "n/a", "no new tasks", "nothing").
+    if (!line || /^(new tasks:|verdict:)/i.test(line) || /^(none|n\/a|no new tasks|nothing)( needed| required)?\.?$/i.test(line)) continue;
     const idx = line.indexOf('::');
     const text2 = (idx >= 0 ? line.slice(0, idx) : line).trim();
     const acc = idx >= 0 ? line.slice(idx + 2).trim() : '';
@@ -93,13 +100,16 @@ export function parseDiscovered(text, cap = MAX_TOTAL_TASKS) {
   return out;
 }
 
+// Extract a JSON array from a reply — fenced ```json block first, then the whole
+// fence-stripped text, then the outermost [ … ] substring. Parsing is delegated to
+// the shared lenient helpers (mdh/llmPipeline, also used by agentStream.extractPipeline
+// and the annotate proposal parser), so a JSON-tolerance fix applies everywhere.
 function extractArray(text) {
   const s = String(text ?? '').trim();
-  const tryp = (x) => { try { const a = JSON.parse(x); return Array.isArray(a) ? a : null; } catch { return null; } };
   const fence = s.match(/```(?:json)?\s*\n?([\s\S]*?)```/i);
-  if (fence) { const a = tryp(fence[1].trim()); if (a) return a; }
-  const whole = tryp(s); if (whole) return whole;
+  if (fence) { const a = safeParseArray(fence[1].trim()); if (a) return a; }
+  const whole = safeParseArray(stripFences(s)); if (whole) return whole;
   const i = s.indexOf('['); const j = s.lastIndexOf(']');
-  if (i >= 0 && j > i) { const a = tryp(s.slice(i, j + 1)); if (a) return a; }
+  if (i >= 0 && j > i) { const a = safeParseArray(s.slice(i, j + 1).trim()); if (a) return a; }
   return null;
 }

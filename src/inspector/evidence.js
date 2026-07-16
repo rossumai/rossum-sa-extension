@@ -37,7 +37,9 @@ export function fieldThresholds(schema, queue) {
 }
 
 // Deterministic "why (not) automated" verdict — never guesses (spec §4.2).
-export function computeVerdict({ annotation, blocker, content, queue, schema }) {
+// `thr` (fieldThresholds result) may be passed in to avoid re-walking the schema when
+// the caller already computed it (buildEvidence); omitted callers compute it themselves.
+export function computeVerdict({ annotation, blocker, content, queue, schema, thr }) {
   const a = annotation || {};
   const reasons = [];
   if (a.status === 'rejected') {
@@ -58,13 +60,13 @@ export function computeVerdict({ annotation, blocker, content, queue, schema }) 
   }
   const items = blocker?.content || [];
   if (items.length) {
-    const thr = fieldThresholds(schema, queue);
+    const thresholds = thr || fieldThresholds(schema, queue);
     items.forEach((raw, i) => {
-      const b = explainBlocker(raw, { queue });
+      const b = explainBlocker(raw, { queue, fieldThresholds: thresholds.bySchemaId });
       if (b.type === 'low_score') {
         const sample = Array.isArray(raw?.samples) ? raw.samples[0] : null;
         const score = sample?.details?.score;
-        const threshold = sample?.details?.threshold ?? thr.bySchemaId[b.schemaId] ?? thr.defaultThreshold;
+        const threshold = sample?.details?.threshold ?? thresholds.bySchemaId[b.schemaId] ?? thresholds.defaultThreshold;
         reasons.push({
           fact: `${b.schemaId || 'a field'} extraction confidence ${fmt(score)} is below the threshold ${fmt(threshold)}`,
           culprit: b.culprit, reliability: b.reliability, evidenceId: `blocker:${i}`,
@@ -106,6 +108,7 @@ export function buildEvidence(input) {
   const a = annotation || {};
   const items = [];
   const push = (it) => items.push(applyAttribution(it, attributions[it.id]));
+  const thr = fieldThresholds(schema, queue); // per-field + default thresholds; shared by blockers and fields
 
   // messages → blockers section
   (a.messages || []).forEach((raw, i) => {
@@ -121,7 +124,7 @@ export function buildEvidence(input) {
 
   // automation blockers
   (blocker?.content || []).forEach((raw, i) => {
-    const b = explainBlocker(raw, { queue });
+    const b = explainBlocker(raw, { queue, fieldThresholds: thr.bySchemaId });
     const field = b.schemaId || schemaIdForDatapoint(content?.content, b.datapointId);
     push({
       id: `blocker:${i}`, section: 'blockers',
@@ -131,22 +134,49 @@ export function buildEvidence(input) {
     });
   });
 
-  // fields (all datapoints with a schema_id; automation-written ones get attribution ids)
-  const thr = fieldThresholds(schema, queue);
+  // fields (all datapoints with a schema_id; automation-written ones get attribution ids).
+  // Group by schema_id: a line-item COLUMN repeats its schema_id across rows, which used to
+  // emit one item (and one prompt line) PER CELL — all sharing the SAME `field:<schemaId>`
+  // id, so citations/anchors collided on the first and the synthesis prompt bloated toward
+  // the 48k cap on invoices. One aggregated item per schema_id fixes both (spec follow-up).
   const hooks = Object.values(resolved.hooksById || {});
+  const byField = new Map();
   for (const dp of walkDatapoints(content?.content)) {
     const p = fieldProvenance(dp);
     if (!p.schemaId) continue;
-    const threshold = thr.bySchemaId[p.schemaId] ?? thr.defaultThreshold;
-    const configs = p.primary === 'data_matching' ? matchConfigsForField(p.schemaId, hooks) : [];
+    const g = byField.get(p.schemaId) || [];
+    g.push(p);
+    byField.set(p.schemaId, g);
+  }
+  for (const [schemaId, group] of byField) {
+    const threshold = thr.bySchemaId[schemaId] ?? thr.defaultThreshold;
+    const configs = group.some((p) => p.primary === 'data_matching') ? matchConfigsForField(schemaId, hooks) : [];
     const via = configs.length ? ` via ${configs.map((c) => c.hookName + (c.configName ? ` · ${c.configName}` : '')).join(', ')}` : '';
-    push({
-      id: `field:${p.schemaId}`, section: 'fields',
-      fact: `field ${p.schemaId} = ${JSON.stringify(p.value ?? null)} (source: ${p.primary}${via}${p.confidence != null ? `, confidence ${fmt(p.confidence)}${threshold != null ? ` vs threshold ${fmt(threshold)}` : ''}` : ''})`,
-      reliability: REL.VERIFIED, culprit: null,
-      sourceRef: `/api/v1/annotations/${a.id}/content`,
-      data: { primary: p.primary, value: p.value, confidence: p.confidence, threshold, configs },
-    });
+    if (group.length === 1) {
+      const p = group[0];
+      push({
+        id: `field:${schemaId}`, section: 'fields',
+        fact: `field ${schemaId} = ${JSON.stringify(p.value ?? null)} (source: ${p.primary}${via}${p.confidence != null ? `, confidence ${fmt(p.confidence)}${threshold != null ? ` vs threshold ${fmt(threshold)}` : ''}` : ''})`,
+        reliability: REL.VERIFIED, culprit: null,
+        sourceRef: `/api/v1/annotations/${a.id}/content`,
+        data: { primary: p.primary, value: p.value, confidence: p.confidence, threshold, configs },
+      });
+    } else {
+      // Line-item column: one summary item across its cells (unique id, no per-cell bloat).
+      const sources = [...new Set(group.map((p) => p.primary))];
+      const confs = group.map((p) => p.confidence).filter((c) => typeof c === 'number');
+      const below = threshold != null ? confs.filter((c) => c < threshold).length : 0;
+      const confSummary = confs.length
+        ? `, confidence ${fmt(Math.min(...confs))}–${fmt(Math.max(...confs))}${threshold != null ? ` vs threshold ${fmt(threshold)} (${below} below)` : ''}`
+        : '';
+      push({
+        id: `field:${schemaId}`, section: 'fields',
+        fact: `line-item field ${schemaId}: ${group.length} cells (source: ${sources.join('/')}${via}${confSummary})`,
+        reliability: REL.VERIFIED, culprit: null,
+        sourceRef: `/api/v1/annotations/${a.id}/content`,
+        data: { primary: sources[0], lineItem: true, cells: group.length, sources, threshold, below, configs },
+      });
+    }
   }
 
   // labels
@@ -223,7 +253,7 @@ export function buildEvidence(input) {
   items.push(...intakeEvidence(input));
   items.push(...workflowEvidence(input));
 
-  const verdict = computeVerdict({ annotation, blocker, content, queue, schema });
+  const verdict = computeVerdict({ annotation, blocker, content, queue, schema, thr });
   return { items, verdict };
 }
 
@@ -236,6 +266,21 @@ const ARRIVAL = {
   hook_failed: 'imported (an intake hook failed on it)',
   filtered_by_hook_custom: 'imported (filtered by an intake hook)',
 };
+
+// Compact human label for the Intake section HEADER chip — so the header no longer
+// shows the raw attachment_status ("processed") while the body fact says "email
+// attachment". Same vocabulary as ARRIVAL, shortened.
+const ARRIVAL_LABEL = {
+  null: 'upload',
+  processed: 'email attachment',
+  extracted_archive: 'archive',
+  hook_failed: 'import (hook failed)',
+  filtered_by_hook_custom: 'import (filtered)',
+};
+export function arrivalLabel(attachmentStatus) {
+  const key = attachmentStatus ?? null;
+  return Object.prototype.hasOwnProperty.call(ARRIVAL_LABEL, key) ? ARRIVAL_LABEL[key] : String(attachmentStatus);
+}
 
 export function intakeEvidence({ annotation, document: doc, parentDocument, relations = [], email }) {
   const items = [];

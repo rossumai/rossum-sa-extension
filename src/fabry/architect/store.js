@@ -30,8 +30,13 @@ export function clearImplement(id) { const rest = { ...implement.value }; delete
 export const CONSOLE_MIN = 140;
 export const CONSOLE_MAX = 620;
 export const consoleHeight = signal(260);
+export function clampConsoleHeight(px) { return Math.max(CONSOLE_MIN, Math.min(CONSOLE_MAX, Math.round(px))); }
+// Set + PERSIST. Call this once (on drag release), not per mousemove — writing
+// chrome.storage on every move is wasteful (the Fabry sidebar resizer does the
+// same: signal live, persist on mouseup). During a drag, set `consoleHeight.value
+// = clampConsoleHeight(px)` directly.
 export function setConsoleHeight(px) {
-  const h = Math.max(CONSOLE_MIN, Math.min(CONSOLE_MAX, Math.round(px)));
+  const h = clampConsoleHeight(px);
   consoleHeight.value = h;
   try { chrome.storage?.local?.set({ fabryArchConsoleHeight: h }); } catch { /* no storage (tests) */ }
 }

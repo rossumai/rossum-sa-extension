@@ -337,4 +337,33 @@ describe('parseDiscovered', () => {
     const result = parseDiscovered(text);
     expect(result).toEqual([{ text: 'do X', acceptance: 'check with :: double colon' }]);
   });
+
+  it('does NOT turn free-form "no tasks" prose into a phantom task', () => {
+    // The model commonly ends a write turn with prose, not a bullet list. Prose
+    // (no bullet) must never become a write-enabled task against the live org.
+    expect(parseDiscovered('NEW TASKS: none required — the queue was already configured.')).toEqual([]);
+    expect(parseDiscovered('NEW TASKS:\nnone needed, everything is already in place')).toEqual([]);
+    expect(parseDiscovered('NEW TASKS:\nI do not think any further tasks are needed here.')).toEqual([]);
+  });
+
+  it('ignores a bulleted whole-line no-op marker', () => {
+    expect(parseDiscovered('NEW TASKS:\n- none')).toEqual([]);
+    expect(parseDiscovered('NEW TASKS:\n- n/a')).toEqual([]);
+    expect(parseDiscovered('NEW TASKS:\n- nothing needed')).toEqual([]);
+  });
+
+  it('accepts numbered-list markers ("1." / "2)") as tasks, still rejecting prose', () => {
+    const result = parseDiscovered('NEW TASKS:\n1. create the MDH dataset :: dataset exists\n2) add the lookup rule');
+    expect(result).toEqual([
+      { text: 'create the MDH dataset', acceptance: 'dataset exists' },
+      { text: 'add the lookup rule', acceptance: '' },
+    ]);
+    // a bare unmarked prose line is still not a task
+    expect(parseDiscovered('NEW TASKS:\ncreate the MDH dataset first')).toEqual([]);
+  });
+  it('still keeps a genuine bulleted task even when it happens to start with "No"', () => {
+    // Only WHOLE-line no-op markers are skipped; a real task with a "::" is kept.
+    const result = parseDiscovered('NEW TASKS:\n- No VAT rule exists yet, so create one :: a VAT rule exists');
+    expect(result).toEqual([{ text: 'No VAT rule exists yet, so create one', acceptance: 'a VAT rule exists' }]);
+  });
 });

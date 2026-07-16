@@ -21,6 +21,22 @@ describe('correlateMessage', () => {
     expect(correlateMessage({ requestId: null }, { hookLogs: [], ruleLogs: [], hooksById })).toBeNull();
     expect(correlateMessage({ requestId: 'x' }, { hookLogs: [{ hook_id: 1, request_id: 'y' }], ruleLogs: [], hooksById })).toBeNull();
   });
+  it('still VERIFIED when several logs share the request_id but all belong to ONE hook', () => {
+    const out = correlateMessage({ requestId: 'r1' }, { hookLogs: [
+      { hook_id: 50, request_id: 'r1', action: 'started' },
+      { hook_id: 50, request_id: 'r1', action: 'export' },
+    ], ruleLogs: [], hooksById });
+    expect(out).toEqual({ culprit: { kind: 'hook', id: 50, name: 'Rejector' }, reliability: REL.VERIFIED });
+  });
+  it('does NOT over-claim: a request_id shared across DIFFERENT hooks downgrades to BEST_EFFORT (first candidate), not VERIFIED', () => {
+    const out = correlateMessage({ requestId: 'shared' }, { hookLogs: [
+      { hook_id: 50, request_id: 'shared' },
+      { hook_id: 51, request_id: 'shared' },
+    ], ruleLogs: [], hooksById });
+    // Not invocation-unique → keep the first hook as an honest best-effort candidate
+    // (so a culprit still shows when the AI tier is offline), but never claim VERIFIED.
+    expect(out).toEqual({ culprit: { kind: 'hook', id: 50, name: 'Rejector' }, reliability: REL.BEST_EFFORT });
+  });
 });
 
 describe('correlateField', () => {
