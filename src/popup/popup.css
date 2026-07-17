@@ -62,6 +62,31 @@ body.popup-wide {
   width: 760px;
 }
 
+/* ── popup shell: height-capped flex column ─────────
+   Keeps the popup within Chrome's hard 600px cap so the whole popup never
+   outer-scrolls (even with the reviewing-lock banner shown). The accent bar,
+   header, lock banner and footer are pinned; only the settings area (the two
+   content columns) scrolls internally when it can't fit — so the version/footer
+   is always visible. This matters when the Experimental section is unlocked AND
+   the lock banner is present (~628px of content). max-height (not height) keeps
+   the popup shrink-wrapping to content, and is the definite height that lets the
+   inner scroll regions resolve. */
+html, body { height: auto; }
+
+#app {
+  display: flex;
+  flex-direction: column;
+  max-height: 600px;
+  overflow: hidden;   /* header, lock banner and footer stay pinned; the settings
+                         area scrolls internally instead of the whole popup — so
+                         the version/footer is always visible */
+}
+
+.accent-bar, .header, .footer { flex: 0 0 auto; }
+#app > #mainContent { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+#mainContent > .content-row { flex: 1 1 auto; min-height: 0; }
+#mainContent > .reviewing-lock-banner { flex: 0 0 auto; }
+
 .content-row {
   display: flex;
   align-items: stretch;
@@ -75,35 +100,27 @@ body.popup-wide {
 .content-col-mdh {
   flex: 1;
   display: none;
-  max-height: 540px;
-  overflow-y: auto;
-  scrollbar-width: thin;
+  position: relative;   /* positioning context for the out-of-flow card */
+  overflow: hidden;
 }
 
 body.popup-wide .content-col-mdh {
-  display: flex;
-  flex-direction: column;
-}
-
-.content-col-mdh::-webkit-scrollbar {
-  width: 8px;
-}
-.content-col-mdh::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
-}
-.content-col-mdh::-webkit-scrollbar-thumb:hover {
-  background: var(--text-hint);
+  display: block;
 }
 
 .content-col-toggles {
   width: 380px;
   flex-shrink: 0;
+  min-height: 0;
+  overflow-y: auto;   /* scrolls only if the toggles exceed the capped row height
+                         (e.g. Experimental unlocked + lock banner); otherwise inert */
+  scrollbar-width: thin;
 }
 
 body.popup-wide .mdh-card {
-  margin: 10px 0 0 14px;
-  flex: 1;
+  position: absolute;
+  inset: 10px 0 0 14px;   /* was margin: 10px 0 0 14px — now fills the column */
+  margin: 0;
   display: flex;
   flex-direction: column;
 }
@@ -668,6 +685,18 @@ body.popup-wide .mdh-card {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.mdh-body::-webkit-scrollbar {
+  width: 8px;
+}
+.mdh-body::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+.mdh-body::-webkit-scrollbar-thumb:hover {
+  background: var(--text-hint);
 }
 
 .mdh-empty-state {
