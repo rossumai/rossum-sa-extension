@@ -8,6 +8,12 @@ export const activeId = signal(null);
 export const linkMenu = signal(null);
 export const tabMenu = signal(null);
 
+// Transient toast (e.g. "Live token copied"). null = hidden.
+export const toast = signal(null);
+
+// The copy-curl split-button's "more options" menu (live-token variant). false = closed.
+export const curlMenu = signal(false);
+
 let seq = 0;
 export function nextTabId() { seq += 1; return `t${seq}`; }
 

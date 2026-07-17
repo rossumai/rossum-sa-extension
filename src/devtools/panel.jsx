@@ -2,7 +2,7 @@ import { h, render } from 'preact';
 import { useEffect } from 'preact/hooks';
 import * as store from './store.js';
 import { openSearchPanel } from '@codemirror/search';
-import { requestDiff, saveResource, loadResource, openResourceTab } from './actions.js';
+import { requestDiff, saveResource, loadResource, openResourceTab, openRequestPath } from './actions.js';
 import { detectResource } from './detect.js';
 import { resourceFromApiUrl } from './resourceFromApiUrl.js';
 import * as api from './api.js';
@@ -12,6 +12,9 @@ import { isDark } from './theme.js';
 import JsonCodeEditor from './JsonCodeEditor.jsx';
 import PreviewPane from './PreviewPane.jsx';
 import DiffConfirm from './DiffConfirm.jsx';
+import RequestBar from './RequestBar.jsx';
+import { buildCurl } from './curl.js';
+import { buildPatchBody } from './diff.js';
 
 const deps = {
   getJson: api.getJson,
@@ -24,6 +27,17 @@ const deps = {
 
 const HINT = 'Open a Rossum queue, hook, user, schema (Fields), engine, rule, or document (annotation) page — or Cmd/Ctrl+click a link in an object — to inspect it.';
 
+// Label for the floating Save pill: count changed/added/removed top-level keys
+// when the buffer parses, else a generic message (buffer may be mid-edit).
+function savePillLabel(tab) {
+  let n = null;
+  try {
+    const { body, removed } = buildPatchBody(tab.original, JSON.parse(tab.buffer));
+    n = Object.keys(body).length + removed.length;
+  } catch { n = null; }
+  return n && n > 0 ? `${n} unsaved change${n === 1 ? '' : 's'}` : 'Unsaved changes';
+}
+
 export function Panel() {
   useEffect(() => {
     document.documentElement.dataset.theme = isDark() ? 'dark' : 'light';
@@ -35,12 +49,16 @@ export function Panel() {
       if (store.tabMenu.value && !(e.target && e.target.closest && e.target.closest('.rawjson-tabmenu'))) {
         store.tabMenu.value = null;
       }
+      if (store.curlMenu.value && !(e.target && e.target.closest && e.target.closest('.rawjson-curl-split'))) {
+        store.curlMenu.value = false;
+      }
     };
 
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         store.linkMenu.value = null;
         store.tabMenu.value = null;
+        store.curlMenu.value = false;
       }
     };
 
@@ -52,6 +70,15 @@ export function Panel() {
           e.stopImmediatePropagation();
           v.focus();
           try { openSearchPanel(v); } catch { /* ignore if view is not ready */ }
+        }
+      }
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'l' || e.key === 'L')) {
+        const el = document.querySelector('.rawjson-reqbar-input');
+        if (el) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          el.focus();
+          el.select();
         }
       }
     };
@@ -79,6 +106,21 @@ export function Panel() {
   const active = store.activeTab() || tabsList[0] || null;
   const onFollow = (url) => openResourceTab(resourceFromApiUrl(url), deps);
   const onContextLink = (url, x, y) => (store.linkMenu.value = { url, x, y });
+
+  const showToast = (message) => {
+    store.toast.value = { message };
+    setTimeout(() => { store.toast.value = null; }, 2500);
+  };
+
+  const copyCurl = (apiPath, live) => {
+    const ctx = api.getContext();
+    const text = buildCurl({ domain: ctx.domain, apiPath, token: live ? ctx.token : null });
+    try {
+      Promise.resolve(navigator.clipboard.writeText(text))
+        .then(() => showToast(live ? 'Live token copied — treat as a secret' : 'curl copied'))
+        .catch(() => showToast('Copy failed'));
+    } catch { showToast('Copy failed'); }
+  };
 
   const menuTab = store.tabMenu.value ? tabsList.find((t) => t.id === store.tabMenu.value.id) : null;
   const menus = [
@@ -122,15 +164,39 @@ export function Panel() {
             : active.preview
               ? <PreviewPane key={active.id} preview={active.preview} />
               : <JsonCodeEditor key={active.id} tabId={active.id} onFollowLink={onFollow} onContextLink={onContextLink} />}
+        {active.resource && !active.preview && !active.readOnly && active.dirty ? (
+          <div class="rawjson-savepill">
+            <span class="rawjson-savepill-dot" aria-hidden="true"></span>
+            <span class="rawjson-savepill-lbl">{savePillLabel(active)}</span>
+            <button class="rawjson-save" disabled={active.saving} onClick={() => requestDiff(active.id)}>{'Save…'}</button>
+          </div>
+        ) : null}
       </div>
-      {active.resource && !active.preview ? (
-        <div class="rawjson-footer">
-          {active.readOnly
-            ? <span class="rawjson-readonly-note">Read-only — this resource can't be edited here.</span>
-            : <button class="rawjson-save" disabled={!active.dirty || active.saving} onClick={() => requestDiff(active.id)}>{'Save…'}</button>}
-        </div>
-      ) : null}
+      <div class="rawjson-bottombar">
+        <RequestBar onSubmit={(raw) => {
+          const r = openRequestPath(raw, api.getContext().domain, deps);
+          if (r && r.error) showToast(r.error);
+          return r;
+        }} />
+        {active.resource && active.resource.apiPath ? (
+          <span class="rawjson-curl-split">
+            <span class="rawjson-curl-btns">
+              <button class="rawjson-curl" title="Copy as curl (token redacted)" onClick={() => copyCurl(active.resource.apiPath, false)}>
+                <svg class="rawjson-curl-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5V3.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg>
+                curl
+              </button>
+              <button class="rawjson-curl-caret" title="More copy options" onClick={() => { store.curlMenu.value = !store.curlMenu.value; }}>{'▾'}</button>
+            </span>
+            {store.curlMenu.value ? (
+              <div class="rawjson-curlmenu">
+                <button onClick={() => { copyCurl(active.resource.apiPath, true); store.curlMenu.value = false; }}>Copy with live token {'⚠'}</button>
+              </div>
+            ) : null}
+          </span>
+        ) : null}
+      </div>
       {menus}
+      {store.toast.value ? <div class="rawjson-toast">{store.toast.value.message}</div> : null}
       {active.diffPreview ? (
         <DiffConfirm
           original={active.original}

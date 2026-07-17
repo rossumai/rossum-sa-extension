@@ -5,10 +5,16 @@ import { filenameFrom } from './contentMeta.js';
 
 let baseDomain = '';
 let authHeader = '';
+let rawToken = '';
 
 export function init(domain, token) {
   baseDomain = domain || '';
+  rawToken = token || '';
   authHeader = token ? `Token ${token}` : '';
+}
+
+export function getContext() {
+  return { domain: baseDomain, token: rawToken };
 }
 
 function urlFor(apiPath) {

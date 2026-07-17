@@ -266,3 +266,33 @@ describe('resource-change guard', () => {
     expect(store.tabs.value.find((x) => x.id === t.id)).toBeUndefined();
   });
 });
+
+// append to tests/devtools-actions.test.js
+import { openRequestPath } from '../src/devtools/actions.js';
+
+describe('openRequestPath', () => {
+  const deps = { getResource: () => Promise.resolve({ kind: 'json', data: {} }) };
+  it('opens a single resource as an editable tab (no query, has id)', () => {
+    const r = openRequestPath('/api/v1/queues/9', 'https://elis.rossum.app', deps);
+    expect(r.tab.resource).toEqual({ type: 'queue', id: '9', apiPath: '/api/v1/queues/9', label: 'Queue' });
+    expect(r.tab.resource.readOnly).toBeUndefined();
+  });
+  it('opens a bare collection as a generic read-only tab', () => {
+    const r = openRequestPath('queues', 'https://elis.rossum.app', deps);
+    expect(r.tab.resource.readOnly).toBe(true);
+    expect(r.tab.resource.apiPath).toBe('/api/v1/queues');
+  });
+  it('routes a query path to the generic descriptor and keeps the query', () => {
+    const r = openRequestPath('/api/v1/annotations?queue=1', 'https://elis.rossum.app', deps);
+    expect(r.tab.resource.apiPath).toBe('/api/v1/annotations?queue=1');
+    expect(r.tab.resource.readOnly).toBe(true);
+  });
+  it('returns an error (no tab) for a cross-host URL', () => {
+    const r = openRequestPath('https://other.rossum.app/api/v1/queues/1', 'https://elis.rossum.app', deps);
+    expect(r.error).toBeTruthy();
+    expect(r.tab).toBeUndefined();
+  });
+  it('returns null for empty input', () => {
+    expect(openRequestPath('   ', 'https://elis.rossum.app', deps)).toBeNull();
+  });
+});

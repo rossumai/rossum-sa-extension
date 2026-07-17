@@ -6,7 +6,18 @@ import { json } from '@codemirror/lang-json';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
 import * as store from './store.js';
+import { buildPatchBody } from './diff.js';
 import { isDark } from './theme.js';
+
+// Dirty = the edited text actually differs from the fetched original (key-order-
+// insensitive, matching what Save would PATCH). Invalid JSON counts as dirty
+// (there are unsaved edits). Reverting to the original therefore clears it.
+function computeDirty(original, text) {
+  let parsed;
+  try { parsed = JSON.parse(text); } catch { return true; }
+  const { body, removed } = buildPatchBody(original, parsed);
+  return Object.keys(body).length + removed.length > 0;
+}
 import { rossumLinks } from './cmLinks.js';
 import { rossumNames } from './cmNames.js';
 import { resolver } from './nameResolve.js';
@@ -51,7 +62,9 @@ export default function JsonCodeEditor({ tabId, onFollowLink, onContextLink }) {
   useEffect(() => {
     const listener = EditorView.updateListener.of((u) => {
       if (u.docChanged && !syncingRef.current) {
-        store.patchTab(tabId, { buffer: u.state.doc.toString(), dirty: true });
+        const text = u.state.doc.toString();
+        const t = store.tabs.value.find((x) => x.id === tabId);
+        store.patchTab(tabId, { buffer: text, dirty: computeDirty(t ? t.original : null, text) });
       }
     });
     const extensions = [

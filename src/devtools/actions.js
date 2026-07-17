@@ -1,7 +1,8 @@
 // src/devtools/actions.js
 import * as store from './store.js';
 import { buildPatchBody } from './diff.js';
-import { resourceFromApiUrl } from './resourceFromApiUrl.js';
+import { resourceFromApiUrl, genericResourceFromPath } from './resourceFromApiUrl.js';
+import { normalizeRequestInput } from './requestInput.js';
 
 const PRETTY = (o) => JSON.stringify(o, null, 2);
 const tabById = (id) => store.tabs.value.find((t) => t.id === id) || null;
@@ -119,4 +120,17 @@ export function openResourceTab(resource, deps) {
   const tab = store.openTab(resource, 'link');
   if (!existed) loadResource(tab.id, deps);
   return tab;
+}
+
+// Fire a request-bar input: normalize → single resource (editable) or generic
+// read-only (list/query/unknown) → open as a tab. GET-only; never non-GET.
+export function openRequestPath(rawInput, domain, deps) {
+  const norm = normalizeRequestInput(rawInput, domain);
+  if (!norm) return null;
+  if (norm.error) return { error: norm.error };
+  const single = norm.apiPath.includes('?') ? null : resourceFromApiUrl(norm.apiPath);
+  const resource = single || genericResourceFromPath(norm.apiPath);
+  if (!resource) return { error: 'Could not parse that path.' };
+  const tab = openResourceTab(resource, deps);
+  return { tab };
 }

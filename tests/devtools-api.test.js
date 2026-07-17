@@ -117,3 +117,10 @@ describe('getResource', () => {
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 });
+
+describe('getContext', () => {
+  it('returns the domain and raw token set by init', () => {
+    api.init('https://elis.rossum.app', 'tok_123');
+    expect(api.getContext()).toEqual({ domain: 'https://elis.rossum.app', token: 'tok_123' });
+  });
+});

@@ -46,6 +46,17 @@ describe('JsonCodeEditor', () => {
     expect(store.activeTab().dirty).toBe(true);
     expect(store.activeTab().buffer).toBe('{"a":2}');
   });
+  it('clears dirty when the edit is reverted back to the original', async () => {
+    store.patchTab(tab.id, { original: { a: 1 }, buffer: '{"a":1}' });
+    const root = mount(tab.id);
+    await waitFor(() => root.querySelector('.rawjson-cm .cm-editor'));
+    const view = EditorView.findFromDOM(root.querySelector('.cm-editor'));
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: '{"a":2}' } });
+    await waitFor(() => store.activeTab().dirty === true);
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: '{"a":1}' } });
+    await waitFor(() => store.activeTab().dirty === false);
+    expect(store.activeTab().dirty).toBe(false);
+  });
   it('does not re-mark the tab dirty when the buffer is synced externally (post-save)', async () => {
     const root = mount(tab.id);
     await waitFor(() => root.querySelector('.rawjson-cm .cm-editor'));

@@ -4,6 +4,7 @@ import { h, render } from 'preact';
 import { Panel } from '../src/devtools/panel.jsx';
 import JsonCodeEditor from '../src/devtools/JsonCodeEditor.jsx';
 import * as store from '../src/devtools/store.js';
+import * as api from '../src/devtools/api.js';
 
 async function waitFor(fn, tries = 100) {
   for (let i = 0; i < tries; i++) { if (fn()) return; await new Promise((r) => setTimeout(r, 0)); }
@@ -18,6 +19,7 @@ function rerender(root) { render(h(Panel, null), root); }
 
 beforeEach(() => {
   store.tabs.value = []; store.activeId.value = null; store.linkMenu.value = null; store.tabMenu.value = null;
+  store.toast.value = null; store.curlMenu.value = false;
   globalThis.URL.createObjectURL = () => 'blob:mock'; globalThis.URL.revokeObjectURL = () => {};
 });
 
@@ -35,12 +37,29 @@ describe('DevTools Panel', () => {
     expect(pageTab.querySelector('.rawjson-tab-close')).toBeNull();
   });
 
-  it('shows a read-only note and hides Save when readOnly is set', () => {
+  it('shows no Save pill for a read-only tab (even when dirty)', () => {
     const t = store.openTab(RES, 'page');
-    store.patchTab(t.id, { original: { id: 1 }, readOnly: true });
+    store.patchTab(t.id, { original: { id: 1 }, buffer: '{"id":2}', dirty: true, readOnly: true });
     const root = mount();
-    expect(root.textContent.toLowerCase()).toContain('read-only');
+    expect(root.querySelector('.rawjson-savepill')).toBeNull();
     expect(root.querySelector('.rawjson-save')).toBeNull();
+  });
+
+  it('shows the Save pill with a change count only when the buffer is dirty', () => {
+    const t = store.openTab(RES, 'page');
+    store.patchTab(t.id, { original: { name: 'A' }, buffer: JSON.stringify({ name: 'B' }), dirty: true });
+    const root = mount();
+    const pill = root.querySelector('.rawjson-savepill');
+    expect(pill).not.toBeNull();
+    expect(pill.textContent.toLowerCase()).toContain('unsaved');
+    expect(root.querySelector('.rawjson-save')).not.toBeNull();
+  });
+
+  it('shows no Save pill when the tab is clean', () => {
+    const t = store.openTab(RES, 'page');
+    store.patchTab(t.id, { original: { name: 'A' }, buffer: '{"name":"A"}', dirty: false });
+    const root = mount();
+    expect(root.querySelector('.rawjson-savepill')).toBeNull();
   });
 
   it('Save opens the diff overlay', async () => {
@@ -373,5 +392,68 @@ describe('DevTools Panel', () => {
       store.moveTab(c.id, a.id);
       expect(store.tabs.value.map((t) => t.id)).toEqual([c.id, a.id, b.id]);
     });
+  });
+
+  describe('Copy as curl', () => {
+    it('copies a redacted curl for the active resource', async () => {
+      const writeText = vi.fn(() => Promise.resolve());
+      globalThis.navigator.clipboard = { writeText };
+      const t = store.openTab(RES, 'page');
+      store.patchTab(t.id, { original: { id: 1 } });
+      const root = mount();
+      root.querySelector('.rawjson-curl').click();
+      await waitFor(() => writeText.mock.calls.length > 0);
+      expect(writeText.mock.calls[0][0]).toContain('$ROSSUM_TOKEN');
+      expect(writeText.mock.calls[0][0]).toContain('/api/v1/queues/1');
+    });
+
+    it('shows a success toast once the clipboard write resolves', async () => {
+      globalThis.navigator.clipboard = { writeText: () => Promise.resolve() };
+      const t = store.openTab(RES, 'page');
+      store.patchTab(t.id, { original: { id: 1 } });
+      const root = mount();
+      root.querySelector('.rawjson-curl').click();
+      await waitFor(() => root.querySelector('.rawjson-toast'));
+      expect(root.querySelector('.rawjson-toast').textContent).toMatch(/curl copied/);
+    });
+
+    it('shows a failure toast (not a success one) when the clipboard write rejects', async () => {
+      globalThis.navigator.clipboard = { writeText: () => Promise.reject(new Error('denied')) };
+      const t = store.openTab(RES, 'page');
+      store.patchTab(t.id, { original: { id: 1 } });
+      const root = mount();
+      root.querySelector('.rawjson-curl').click();
+      await waitFor(() => root.querySelector('.rawjson-toast'));
+      const text = root.querySelector('.rawjson-toast').textContent;
+      expect(text).toMatch(/copy failed/i);
+      expect(text).not.toMatch(/copied$/);
+    });
+
+    it('copies with the live token from the split-button caret menu', async () => {
+      const writeText = vi.fn(() => Promise.resolve());
+      globalThis.navigator.clipboard = { writeText };
+      api.init('https://elis.rossum.app', 'tok_live_123');
+      const t = store.openTab(RES, 'page');
+      store.patchTab(t.id, { original: { id: 1 } });
+      store.curlMenu.value = true;
+      const root = mount();
+      const menuBtn = [...root.querySelectorAll('.rawjson-curlmenu button')].find((b) => /live token/i.test(b.textContent));
+      expect(menuBtn).not.toBeNull();
+      menuBtn.click();
+      await waitFor(() => writeText.mock.calls.length > 0);
+      expect(writeText.mock.calls[0][0]).toContain('tok_live_123');
+    });
+  });
+
+  it('surfaces a request-bar error via the auto-clearing toast', async () => {
+    store.syncPageTab(null);
+    const root = mount();
+    const input = root.querySelector('.rawjson-reqbar-input');
+    // Try to submit an invalid URL to trigger an error
+    input.value = 'https://other-org.rossum.app/api/v1/queues/1';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await waitFor(() => root.querySelector('.rawjson-toast'));
+    expect(root.querySelector('.rawjson-toast')).not.toBeNull();
   });
 });

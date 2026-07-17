@@ -44,3 +44,13 @@ export function resourceFromApiUrl(url) {
   if (READONLY_COLLECTIONS.has(collection)) base.readOnly = true;
   return base;
 }
+
+// A generic READ-ONLY descriptor for list / query / unknown paths (no id).
+// Used by the request bar when the input isn't a single editable resource.
+export function genericResourceFromPath(apiPath) {
+  if (typeof apiPath !== 'string' || !apiPath.startsWith('/api/v1/')) return null;
+  const rest = apiPath.slice('/api/v1/'.length);
+  const collection = (rest.match(/^([a-z_]+)/) || [])[1] || 'resource';
+  const label = rest.length > 40 ? rest.slice(0, 39) + '…' : rest;
+  return { type: collection, apiPath, label, readOnly: true };
+}

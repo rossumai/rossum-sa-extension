@@ -70,3 +70,26 @@ describe('resourceFromApiUrl', () => {
     expect(resourceFromApiUrl('https://acme.rossum.app/api/v1/queues/1').readOnly).toBeUndefined();
   });
 });
+
+// append to tests/devtools-resourcefromurl.test.js
+import { genericResourceFromPath } from '../src/devtools/resourceFromApiUrl.js';
+
+describe('genericResourceFromPath', () => {
+  it('builds a read-only descriptor for a bare collection', () => {
+    expect(genericResourceFromPath('/api/v1/queues'))
+      .toEqual({ type: 'queues', apiPath: '/api/v1/queues', label: 'queues', readOnly: true });
+  });
+  it('keeps the query string in apiPath and label', () => {
+    const r = genericResourceFromPath('/api/v1/annotations?queue=1&status=to_review');
+    expect(r.apiPath).toBe('/api/v1/annotations?queue=1&status=to_review');
+    expect(r.type).toBe('annotations');
+    expect(r.readOnly).toBe(true);
+  });
+  it('truncates a very long label with an ellipsis', () => {
+    const long = '/api/v1/annotations?' + 'x=1&'.repeat(30);
+    expect(genericResourceFromPath(long).label.length).toBeLessThanOrEqual(40);
+  });
+  it('returns null for a non /api/v1 path', () => {
+    expect(genericResourceFromPath('/nope')).toBeNull();
+  });
+});
