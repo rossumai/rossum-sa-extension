@@ -8,7 +8,7 @@ globalThis.chrome = {
   tabs: { create: vi.fn() },
 };
 
-import { openDatasetManagement, handleFabryPort } from '../src/background/index.js';
+import { openDatasetManagement } from '../src/background/index.js';
 
 describe('openDatasetManagement', () => {
   let deps;
@@ -54,82 +54,5 @@ describe('openDatasetManagement', () => {
     deps.storageSet = vi.fn();
     openDatasetManagement({ token: 'tok', domain: 'https://x.rossum.app' }, deps);
     expect(deps.tabsCreate).not.toHaveBeenCalled();
-  });
-});
-
-describe('handleFabryPort', () => {
-  it('runs a turn and relays chunk+done', async () => {
-    const posted = [];
-    const port = {
-      name: 'annotate-fabry',
-      sender: { id: 'self' },
-      postMessage: (m) => posted.push(m),
-      onMessage: { addListener: (fn) => (port._msg = fn) },
-      onDisconnect: { addListener: () => {} },
-    };
-    const runFabryTurn = vi.fn(async ({ onChunk }) => { onChunk('data: x\n\n'); return { chatId: 'c1' }; });
-    handleFabryPort(port, { extensionId: 'self', runFabryTurn });
-    await port._msg({ type: 'start', token: 't', domain: 'https://x.rossum.app', content: 'hi', images: [] });
-    expect(posted).toContainEqual({ type: 'chunk', text: 'data: x\n\n' });
-    expect(posted).toContainEqual({ type: 'done', chatId: 'c1' });
-    const [, args] = runFabryTurn.mock.calls[0];
-    expect(runFabryTurn.mock.calls[0][0].headers['X-Rossum-Api-Url']).toBe('https://x.rossum.app/api/v1');
-  });
-  it('ignores ports from other extensions', () => {
-    const port = { name: 'annotate-fabry', sender: { id: 'evil' }, postMessage: () => {}, onMessage: { addListener: () => { throw new Error('should not attach'); } }, onDisconnect: { addListener: () => {} } };
-    expect(() => handleFabryPort(port, { extensionId: 'self', runFabryTurn: vi.fn() })).not.toThrow();
-  });
-
-  it('rejects a port with a missing sender (fails closed, does not attach a listener)', () => {
-    const posted = [];
-    const port = {
-      name: 'annotate-fabry',
-      sender: undefined,
-      postMessage: (m) => posted.push(m),
-      onMessage: { addListener: vi.fn() },
-      onDisconnect: { addListener: () => {} },
-    };
-    const runFabryTurn = vi.fn();
-    handleFabryPort(port, { extensionId: 'self', runFabryTurn });
-    expect(port.onMessage.addListener).not.toHaveBeenCalled();
-    expect(runFabryTurn).not.toHaveBeenCalled();
-    expect(posted).toEqual([]);
-  });
-
-  it('relays an error (with status) from a failing runFabryTurn', async () => {
-    const posted = [];
-    const port = {
-      name: 'annotate-fabry',
-      sender: { id: 'self' },
-      postMessage: (m) => posted.push(m),
-      onMessage: { addListener: (fn) => (port._msg = fn) },
-      onDisconnect: { addListener: () => {} },
-    };
-    const err = new Error('boom');
-    err.status = 429;
-    const runFabryTurn = vi.fn(async () => { throw err; });
-    handleFabryPort(port, { extensionId: 'self', runFabryTurn });
-    await port._msg({ type: 'start', token: 't', domain: 'https://x.rossum.app', content: 'hi', images: [] });
-    expect(posted).toContainEqual({ type: 'error', message: 'boom', status: 429 });
-  });
-
-  it('aborts the signal passed into runFabryTurn when the port disconnects', () => {
-    const port = {
-      name: 'annotate-fabry',
-      sender: { id: 'self' },
-      postMessage: () => {},
-      onMessage: { addListener: (fn) => (port._msg = fn) },
-      onDisconnect: { addListener: (fn) => (port._disconnect = fn) },
-    };
-    let capturedSignal;
-    const runFabryTurn = vi.fn(async ({ signal }) => {
-      capturedSignal = signal;
-      return new Promise(() => {}); // never resolves
-    });
-    handleFabryPort(port, { extensionId: 'self', runFabryTurn });
-    port._msg({ type: 'start', token: 't', domain: 'https://x.rossum.app', content: 'hi', images: [] });
-    expect(capturedSignal.aborted).toBe(false);
-    port._disconnect();
-    expect(capturedSignal.aborted).toBe(true);
   });
 });

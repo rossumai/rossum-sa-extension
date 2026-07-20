@@ -13,7 +13,6 @@ const STORAGE_TOGGLES = [
   'expandFormulasEnabled',
   'expandReasoningFieldsEnabled',
   'scrollLockEnabled',
-  'annotateForMeEnabled',
   'netsuiteFieldNamesEnabled',
   'coupaFieldNamesEnabled',
   // Not a toggle shown anywhere: the easter-egg unlock flag (5 clicks on the
@@ -147,8 +146,9 @@ export default function App({ tab }) {
     chrome.tabs.reload(tab.id);
   };
 
-  // 5 quick clicks on the version hash flip the Experimental section. The tab
-  // only reloads when the flip changes what's injected (annotate toggle is on).
+  // 5 quick clicks on the version hash flip the experimental unlock, which
+  // reveals the Fabry Chat app in the Console (mirrored live via
+  // chrome.storage.onChanged — no tab reload needed here).
   const onVersionClick = async () => {
     if (!unlockCounter.click() || !storageValues) return;
     const next = !storageValues.experimentalUnlocked;
@@ -156,7 +156,6 @@ export default function App({ tab }) {
     await chrome.storage.local.set({ experimentalUnlocked: next });
     setUnlockNotice(next ? 'Experimental features unlocked' : 'Experimental features hidden');
     setTimeout(() => setUnlockNotice(null), 2500);
-    if (storageValues.annotateForMeEnabled && tab?.id != null) chrome.tabs.reload(tab.id);
   };
 
   const setMessageToggle = async (key) => {
@@ -287,20 +286,6 @@ export default function App({ tab }) {
                     onChange={(v) => setStorageToggle('scrollLockEnabled', v)}
                   />
                 </div>
-
-                {storageValues.experimentalUnlocked ? (
-                  <div class="toggle-group" data-context="experimental">
-                    <span class="group-label">Experimental</span>
-                    <Toggle
-                      id="annotateForMeEnabled"
-                      label="Annotate for me"
-                      hint="Fabry applies value/box corrections to the open document (writes; undoable)"
-                      beta
-                      checked={storageValues.annotateForMeEnabled}
-                      onChange={(v) => setStorageToggle('annotateForMeEnabled', v)}
-                    />
-                  </div>
-                ) : null}
 
                 <div class="toggle-group toggle-group--cols-2">
                   <span class="group-label">Developer</span>

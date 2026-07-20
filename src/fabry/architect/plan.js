@@ -102,8 +102,8 @@ export function parseDiscovered(text, cap = MAX_TOTAL_TASKS) {
 
 // Extract a JSON array from a reply — fenced ```json block first, then the whole
 // fence-stripped text, then the outermost [ … ] substring. Parsing is delegated to
-// the shared lenient helpers (mdh/llmPipeline, also used by agentStream.extractPipeline
-// and the annotate proposal parser), so a JSON-tolerance fix applies everywhere.
+// the shared lenient helpers (mdh/llmPipeline, also used by
+// agentStream.extractPipeline), so a JSON-tolerance fix applies everywhere.
 function extractArray(text) {
   const s = String(text ?? '').trim();
   const fence = s.match(/```(?:json)?\s*\n?([\s\S]*?)```/i);
