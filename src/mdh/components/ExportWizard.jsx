@@ -1,5 +1,6 @@
 import { h, Fragment } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
+import { track } from '../../usage/track.js';
 import { closeModal, ModalBody, ModalActions, ModalFieldLabel } from './Modal.jsx';
 import { Segmented } from './ImportControls.jsx';
 import PlanSummary from './PlanSummary.jsx';
@@ -118,6 +119,7 @@ export default function ExportWizard({ collection, filterState, totalCount, reco
 
   function download() {
     closeModal();
+    track('sa_mdh_export');
     onExport({ scope, formatId, opts: effOpts, columns: fmt.needsColumns ? columns : null, count: count.value });
   }
 

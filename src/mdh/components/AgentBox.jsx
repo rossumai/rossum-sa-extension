@@ -1,5 +1,6 @@
 import { h } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
+import { track } from '../../usage/track.js';
 import { selectedCollection, records, sampledFields, error } from '../store.js';
 import { extractFieldNames } from './JsonEditor.jsx';
 import { openModal, ModalBody } from './Modal.jsx';
@@ -212,6 +213,7 @@ export default function AgentBox({ editorRef }) {
       const fields = fieldsNow();
       const samples = (records.value || []).slice(0, 3);
       const hints = await getSchemaHints(api, col, records.value).catch(() => ({}));
+      track('sa_mdh_agent_query');
       const { pipelineText, note, transcript, chatId } = await runAgentQuery({
         api,
         agentApi,

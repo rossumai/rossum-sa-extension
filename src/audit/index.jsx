@@ -1,5 +1,6 @@
 import { effect } from '@preact/signals';
 import * as api from './api.js';
+import { track } from '../usage/track.js';
 import * as store from './store.js';
 import { activeApp } from '../console/store.js';
 import { SOURCE_ORDER } from './sources/index.js';
@@ -87,6 +88,7 @@ export async function runDefaultSummary() {
 export async function askAuditFabry(question) {
   const q = String(question || '').trim();
   if (!q) return;
+  track('sa_audit_fabry_ask');
   const cur = store.fabry.value;
   if (cur.turns.some((t) => t.state === 'streaming')) return; // one at a time
   if (fabryController) fabryController.abort();
@@ -182,11 +184,19 @@ export async function initAudit() {
   effect(() => { chrome.storage.local.set({ auditFiltersBySource: store.filtersBySource.value }); });
 
   let queryController = null;
+  // sa_audit_search used to sit in runDefaultSummary, which initAudit auto-runs
+  // once per app activation — so it counted opening the app (already covered by
+  // sa_console_app_audit) and never a search. It now fires only when the source
+  // or filters actually CHANGE, which is a real user action.
+  let lastQuerySig = null;
   effect(() => {
     const _src = store.activeSource.value;
     const _f = store.filtersBySource.value;
     const _app = activeApp.value;
     if (activeApp.value !== 'audit') return;
+    const sig = JSON.stringify([_src, _f]);
+    if (lastQuerySig !== null && sig !== lastQuerySig) track('sa_audit_search');
+    lastQuerySig = sig;
     if (queryController) queryController.abort();
     queryController = new AbortController();
     fetchActive({ signal: queryController.signal });

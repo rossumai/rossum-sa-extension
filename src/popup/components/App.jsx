@@ -3,6 +3,9 @@ import { useEffect, useState } from 'preact/hooks';
 import Toggle from './Toggle.jsx';
 import MdhProvenancePanel from './MdhProvenancePanel.jsx';
 import ReviewingLockBanner from './ReviewingLockBanner.jsx';
+import UsageCard, { UsageFooterButton, overlayMode } from './UsageCard.jsx';
+import { track } from '../../usage/track.js';
+import { writeConsent } from '../usageConsent.js';
 import { openConsoleTab, runInTab, detectSite, findRossumTabs, activateTab, isConsoleTab } from '../utils.js';
 import { readAuthInfo, readPageFlag, togglePageFlag } from '../tab-readers.js';
 import { createUnlockCounter } from '../experimental.js';
@@ -112,6 +115,26 @@ export default function App({ tab }) {
   const [rossumTabs, setRossumTabs] = useState(null);
   const [unlockNotice, setUnlockNotice] = useState(null);
   const [unlockCounter] = useState(() => createUnlockCounter());
+  // Read on its own, NOT via STORAGE_TOGGLES: that loop coerces with !!, which
+  // would turn "never answered" into "declined" for every existing install.
+  // Three-valued, plus `undefined` for "storage hasn't resolved yet".
+  const [consent, setConsent] = useState(undefined);
+  // Has the overlay ever been shown? Separate from consent so the ask appears
+  // exactly ONCE; `undefined` until storage resolves, which is what keeps the
+  // overlay from flashing on every popup open.
+  const [asked, setAsked] = useState(undefined);
+  // Reopened-from-the-footer state. Never persisted: it is a view mode, not a
+  // preference.
+  const [reviewingUsage, setReviewingUsage] = useState(false);
+  const usageMode = overlayMode({ asked, reviewing: reviewingUsage });
+
+  // Persist "asked" only once the overlay has actually PAINTED. Writing it in the
+  // storage callback meant a popup dismissed within that tick consumed the single
+  // automatic ask without ever showing it — and it never returns.
+  useEffect(() => {
+    if (usageMode !== 'ask') return;
+    Promise.resolve(chrome.storage.local.set({ usageAsked: true })).catch(() => {});
+  }, [usageMode]);
 
   useEffect(() => {
     if (site) return;
@@ -119,11 +142,36 @@ export default function App({ tab }) {
   }, [site]);
 
   useEffect(() => {
-    chrome.storage.local.get(STORAGE_TOGGLES).then((vals) => {
-      const filled = {};
-      for (const key of STORAGE_TOGGLES) filled[key] = !!vals[key];
-      setStorageValues(filled);
-    });
+    chrome.storage.local.get(STORAGE_TOGGLES)
+      .then((vals) => {
+        const filled = {};
+        for (const key of STORAGE_TOGGLES) filled[key] = !!vals[key];
+        setStorageValues(filled);
+      })
+      .catch(() => {
+        // Also gates first paint — degrade to all-off rather than a blank popup.
+        const filled = {};
+        for (const key of STORAGE_TOGGLES) filled[key] = false;
+        setStorageValues(filled);
+      });
+  }, []);
+
+  useEffect(() => {
+    chrome.storage.local.get(['usageConsent', 'usageAsked'])
+      .then((vals) => {
+        if (vals.usageConsent === true) setConsent(true);
+        else if (vals.usageConsent === false) setConsent(false);
+        else setConsent(null);
+        setAsked(vals.usageAsked === true);
+      })
+      .catch(() => {
+        // This read gates first paint, so a rejection must never leave the popup
+        // blank: fall back to "not consented, don't ask" — the footer control is
+        // still rendered, so usage data remains reachable.
+        setConsent(null);
+        setAsked(true);
+      });
+    track('sa_popup_open');
   }, []);
 
   useEffect(() => {
@@ -140,7 +188,18 @@ export default function App({ tab }) {
     document.body.classList.toggle('popup-wide', showMdhPanel);
   }, [showMdhPanel]);
 
+  // Written straight to storage, NOT via the worker: the popup can be destroyed
+  // immediately after this click, and a message needs the worker to wake first
+  // (measured ~50ms, during which a reopened popup read "off").
+  const onUsageAnswer = (value) => {
+    setConsent(value);
+    setAsked(true);
+    setReviewingUsage(false);
+    Promise.resolve(writeConsent(value)).catch(() => {});
+  };
+
   const setStorageToggle = async (key, value) => {
+    track(value ? 'sa_popup_toggle_on' : 'sa_popup_toggle_off', { feature: key });
     setStorageValues((prev) => ({ ...prev, [key]: value }));
     await chrome.storage.local.set({ [key]: value });
     chrome.tabs.reload(tab.id);
@@ -154,14 +213,20 @@ export default function App({ tab }) {
     const next = !storageValues.experimentalUnlocked;
     setStorageValues((prev) => ({ ...prev, experimentalUnlocked: next }));
     await chrome.storage.local.set({ experimentalUnlocked: next });
+    if (next) track('sa_popup_experimental_unlock');
     setUnlockNotice(next ? 'Experimental features unlocked' : 'Experimental features hidden');
     setTimeout(() => setUnlockNotice(null), 2500);
   };
 
   const setMessageToggle = async (key) => {
-    const ok = await runInTab(tab.id, togglePageFlag, [key]);
-    if (ok === true) {
-      setMessageValues((prev) => ({ ...prev, [key]: !prev[key] }));
+    // togglePageFlag returns the flag's NEW value. Using it (rather than the
+    // locally cached messageValues, which starts false and is filled by a slow
+    // executeScript round-trip) keeps the reported direction authoritative and
+    // the local state in step with the page.
+    const next = await runInTab(tab.id, togglePageFlag, [key]);
+    if (typeof next === 'boolean') {
+      track(next ? 'sa_popup_toggle_on' : 'sa_popup_toggle_off', { feature: key });
+      setMessageValues((prev) => ({ ...prev, [key]: next }));
       chrome.tabs.reload(tab.id);
     }
   };
@@ -199,8 +264,10 @@ export default function App({ tab }) {
 
   const dimClass = (ctx) => (site && site !== ctx ? ' dimmed' : '');
 
-  if (storageValues === null) {
-    // Avoid first-paint flicker before storage has resolved.
+  if (storageValues === null || consent === undefined || asked === undefined) {
+    // Avoid first-paint flicker before storage has resolved — including consent
+    // and the asked flag, so the overlay can never appear to someone who has
+    // already seen it.
     return null;
   }
 
@@ -357,7 +424,12 @@ export default function App({ tab }) {
       )}
 
       <footer class="footer">
-        <span class="version" onClick={onVersionClick}>{version}</span>
+        {/* Version hash with the usage-data control beside it, rather than a
+            third item floating in the middle of the footer. */}
+        <div class="footer-left">
+          <span class="version" onClick={onVersionClick}>{version}</span>
+          <UsageFooterButton asked={asked} consent={consent} onOpen={() => setReviewingUsage(true)} />
+        </div>
         {unlockNotice ? <span class="unlock-notice">{unlockNotice}</span> : null}
         <a
           href={SUPPORT_URL}
@@ -369,6 +441,16 @@ export default function App({ tab }) {
           <ExternalIconSmall />
         </a>
       </footer>
+
+      {/* Last in the DOM so it stacks above everything, and OUTSIDE the
+          site-specific branch above: the ask must reach people whose current tab
+          isn't Rossum/NetSuite/Coupa too. */}
+      <UsageCard
+        mode={usageMode}
+        consent={consent}
+        onAnswer={onUsageAnswer}
+        onClose={() => setReviewingUsage(false)}
+      />
     </Fragment>
   );
 }

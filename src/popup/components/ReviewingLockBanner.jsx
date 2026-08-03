@@ -4,6 +4,7 @@ import { runInTab } from '../utils.js';
 import { readCurrentContext } from '../tab-readers.js';
 import { fetchJson, apiPatch, extractIdFromUrl } from '../mdh-provenance.js';
 import { isLockedByOther, pickHolderName } from '../reviewingLock.js';
+import { track } from '../../usage/track.js';
 
 // Real IO, overridable per-call for tests (repo pattern: devtools actions.js).
 const defaultDeps = {
@@ -96,6 +97,7 @@ export default function ReviewingLockBanner({ tab, deps }) {
         lock.ctx.token,
         { status: 'to_review' },
       );
+      track('sa_popup_unlock_annotation');
       d.reloadTab(tab.id);
       d.closePopup();
     } catch (e) {

@@ -7,6 +7,7 @@ import {
   computeStaleAuthRemovals,
 } from './boot.js';
 import { resolveTabState, writeTabState } from './tabState.js';
+import { track } from '../usage/track.js';
 import Console from './components/Console.jsx';
 import * as mdhApi from '../mdh/api.js';
 import * as agentApi from '../agent/agentApi.js';
@@ -31,6 +32,16 @@ const TITLES = {
   galaxy: 'Org Galaxy — Rossum SA',
   inspector: 'Inspector — Rossum SA',
   fabry: 'Mr. Fabry — Rossum SA',
+};
+
+// Opt-in usage counting: which apps get opened at all. No ids, no org, no
+// collection — just the app name (see src/usage/event.js).
+const APP_EVENTS = {
+  mdh: 'sa_console_app_mdh',
+  audit: 'sa_console_app_audit',
+  galaxy: 'sa_console_app_galaxy',
+  inspector: 'sa_console_app_inspector',
+  fabry: 'sa_console_app_fabry',
 };
 
 async function purgeStaleAuthEntries() {
@@ -131,6 +142,15 @@ async function boot() {
   const persistedApp = resolveTabState(['consoleActiveApp'], stored).consoleActiveApp;
   const initial = pickInitialApp({ stagingApp, persistedApp, fabryUnlocked: !!stored.experimentalUnlocked });
   activeApp.value = initial;
+
+  track('sa_console_open');
+  // Registered before the no-credentials early return so both paths count app
+  // activations. Fires once on registration (the initially-active app), then on
+  // every switch.
+  effect(() => {
+    const name = APP_EVENTS[activeApp.value];
+    if (name) track(name);
+  });
 
   if (!token || !domain) {
     // No credentials: let each app render its own not-connected message instead

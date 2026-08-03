@@ -1,5 +1,6 @@
 import { h } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
+import { track } from '../../usage/track.js';
 import { skip, selectedCollection, selectionMode, selectedIds, selectionPipelineDirty, resultsView, inspectTarget } from '../store.js';
 
 import RecordCard from './RecordCard.jsx';
@@ -81,6 +82,7 @@ export default function RecordList({
     });
   }, []);
   function changeView(v) {
+    if (v === 'stages') track('sa_mdh_stages_view');
     resultsView.value = v;
     inspectTarget.value = null; // a manual view switch isn't a "jump to stage"
     chrome.storage.local.set({ mdhResultsView: v });

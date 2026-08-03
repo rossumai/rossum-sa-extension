@@ -1,3 +1,5 @@
+import { trackOnce } from '../usage/track.js';
+
 function injectStyles() {
   const style = document.createElement('style');
   style.textContent = `
@@ -15,6 +17,7 @@ function displayFieldName(node, fieldId) {
   div.className = 'rossum-sa-extension-netsuite-field-name';
   div.textContent = fieldId;
   node.appendChild(div);
+  trackOnce('sa_netsuite_field_names');
 }
 
 chrome.storage.local.get(['netsuiteFieldNamesEnabled']).then((result) => {

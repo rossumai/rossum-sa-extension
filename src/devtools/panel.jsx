@@ -1,5 +1,6 @@
 import { h, render } from 'preact';
 import { useEffect } from 'preact/hooks';
+import { track } from '../usage/track.js';
 import * as store from './store.js';
 import { openSearchPanel } from '@codemirror/search';
 import { requestDiff, saveResource, loadResource, openResourceTab, openRequestPath } from './actions.js';
@@ -113,6 +114,7 @@ export function Panel() {
   };
 
   const copyCurl = (apiPath, live) => {
+    track('sa_devtools_copy_curl');
     const ctx = api.getContext();
     const text = buildCurl({ domain: ctx.domain, apiPath, token: live ? ctx.token : null });
     try {
@@ -174,6 +176,7 @@ export function Panel() {
       </div>
       <div class="rawjson-bottombar">
         <RequestBar onSubmit={(raw) => {
+          track('sa_devtools_request_bar');
           const r = openRequestPath(raw, api.getContext().domain, deps);
           if (r && r.error) showToast(r.error);
           return r;
@@ -242,4 +245,7 @@ function TabBar({ tabs, activeId }) {
 }
 
 const mountEl = typeof document !== 'undefined' ? document.getElementById('app') : null;
-if (mountEl) render(h(Panel, null), mountEl);
+if (mountEl) {
+  render(h(Panel, null), mountEl);
+  track('sa_devtools_panel_open');
+}

@@ -1,3 +1,5 @@
+import { track } from '../../usage/track.js';
+
 const STYLE_ID = 'rossum-sa-extension-closable-tooltips-style';
 const BUTTON_CLASS = 'rossum-sa-extension-tooltip-close';
 const FLAG = '__saTooltipCloseAttached';
@@ -89,6 +91,9 @@ function addCloseButton(popper) {
   btn.appendChild(svg);
 
   btn.addEventListener('click', (e) => {
+    // A real dismissal, so every one counts (not trackOnce): the count IS the
+    // signal for whether this always-on feature earns its keep.
+    track('sa_rossum_tooltip_close');
     e.stopPropagation();
     e.preventDefault();
     popper.style.display = 'none';

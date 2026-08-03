@@ -7,6 +7,7 @@ import * as api from './api.js';
 import * as check from './check.js';
 import { runChecks } from './run.js';
 import * as store from './store.js';
+import { track } from '../../usage/track.js';
 import { EXAMPLE_DELIVERABLE } from './example.js';
 import * as refine from './refine.js';
 import * as title from './title.js';
@@ -262,6 +263,9 @@ export async function runAll() {
   // verdict clobber the post-implementation one. Keep them mutually exclusive.
   if (store.implementRunning.value) return;
   if (Object.values(store.results.value).some((r) => r && r.running)) return;
+  // Tracked only once every guard has passed — above them, a refused click was
+  // reported as a check that ran.
+  track('sa_fabry_architect_check');
   const ds = store.deliverables.value;
   if (!ds.length) return;
   runId += 1;
@@ -290,6 +294,7 @@ export async function reRun(id) {
   // Never run a check on a deliverable that an implement run is actively driving —
   // its roll-up owns the verdict (see runAll). UI gating backs this up.
   if (store.implementRunning.value) return;
+  track('sa_fabry_architect_check');
   const ctrl = new AbortController();
   store.setResult(id, { ...(store.results.value[id] || { verdict: null, evidence: '', chatId: null }), running: true });
   try {
@@ -399,6 +404,9 @@ async function runImplementList(ds) {
   // NOT set store.running). Otherwise that check's late persist(verdict) can clobber the
   // implement roll-up's persisted verdict. See finding actions.js:397.
   if (store.running.value || Object.values(store.results.value).some((r) => r && r.running)) return;
+  // Tracked here rather than in reImplement: this is the point past every
+  // refusal, so a blocked click is no longer counted as a run.
+  track('sa_fabry_architect_implement');
   implRunId += 1; const rid = implRunId;
   const ctrl = new AbortController(); implController = ctrl;
   store.implementRunning.value = true;

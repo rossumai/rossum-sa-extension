@@ -1,3 +1,5 @@
+import { trackOnce } from '../usage/track.js';
+
 const MARKER_CLASS = 'rossum-sa-extension-coupa-field-name';
 
 // Generic s- classes to ignore (UI framework, not field identifiers)
@@ -60,6 +62,7 @@ function displayFieldName(node, fieldName) {
   span.className = MARKER_CLASS;
   span.textContent = ' ' + fieldName;
   node.appendChild(span);
+  trackOnce('sa_coupa_field_names');
 }
 
 function camelToSnake(str) {

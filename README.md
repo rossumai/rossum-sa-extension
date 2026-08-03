@@ -41,6 +41,15 @@ All features are configurable via the extension popup and can be toggled on or o
 - On invoice pages, extracts exact API names from page metadata (e.g., `currency_id`, `payment_term_id`)
 - On PO and other pages, extracts field identifiers from DOM attributes
 
+## Usage data
+
+Optional usage data reports which of the extension's own features you use, so
+unused features get removed instead of maintained. It is **off by default** —
+enable it in the popup. It sends the feature's name and the extension version,
+and never a URL, an organisation domain, a credential, or any document, dataset
+or field data. [PRIVACY.md](PRIVACY.md) lists the exact payload and every event
+name the extension can send.
+
 ## Development
 
 ```bash

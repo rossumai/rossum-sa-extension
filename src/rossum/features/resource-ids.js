@@ -1,4 +1,5 @@
 import { fetchRossumApi } from '../api.js';
+import { trackOnce } from '../../usage/track.js';
 
 export function init() {
   const style = document.createElement('style');
@@ -123,6 +124,7 @@ function displayResourceId(node, id, variant) {
     });
   });
   node.appendChild(span);
+  trackOnce('sa_rossum_resource_ids');
 }
 
 export function handleNode(node) {

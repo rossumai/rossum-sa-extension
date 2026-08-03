@@ -1,5 +1,8 @@
 import { h } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
+// Aliased: useOperationStatus() also returns a `track`, which would shadow this
+// one and silently send the event into the async-operation poller instead.
+import { track as trackUsage } from '../../usage/track.js';
 import { selectedCollection, activePanel, loading, error } from '../store.js';
 import { openModal, closeModal, ModalBody, ModalActions, ModalFieldLabel } from './Modal.jsx';
 import JsonEditor from './JsonEditor.jsx';
@@ -83,6 +86,7 @@ export default function IndexPanel() {
         try {
           loading.value = true;
           error.value = null;
+          trackUsage('sa_mdh_index_create');
           const res = await api.createIndex(selectedCollection.value, indexName, keys, opts || {});
           cache.invalidate(selectedCollection.value, 'indexes');
           cache.invalidate(selectedCollection.value, 'collStats');

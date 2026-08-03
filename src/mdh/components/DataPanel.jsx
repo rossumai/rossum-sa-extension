@@ -1,5 +1,6 @@
 import { h } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { track } from '../../usage/track.js';
 import { selectedCollection, records, skip, limit, loading, error, pendingPipelineLoad, sampledFields } from '../store.js';
 import { usePipeline } from '../hooks/usePipeline.js';
 import { useQuery } from '../hooks/useQuery.js';
@@ -419,6 +420,7 @@ export default function DataPanel() {
   // targets that stage for scroll + highlight. `index` is the active-stage
   // index (-1 = input). A fresh object re-fires the highlight on each click.
   function handleInspectStage(index) {
+    track('sa_mdh_stages_view');
     resultsView.value = 'stages';
     inspectTarget.value = { index };
     chrome.storage.local.set({ mdhResultsView: 'stages' });

@@ -1,3 +1,5 @@
+import { trackOnce } from '../../usage/track.js';
+
 export function init() {
   const style = document.createElement('style');
   style.textContent = `
@@ -55,5 +57,8 @@ export function handleNode(node) {
       });
     });
     node.appendChild(span);
+    // Counted where the feature has demonstrably ACTED, not where it was merely
+    // enabled — enablement is already covered by the daily config snapshot.
+    trackOnce('sa_rossum_schema_ids');
   }
 }

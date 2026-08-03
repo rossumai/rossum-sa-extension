@@ -1,5 +1,6 @@
 import * as api from './api.js';
 import * as store from './store.js';
+import { track } from '../usage/track.js';
 import { extractLabelRules } from './culprit.js';
 import { loadRecents, enrichRecents } from './recents.js';
 import { VIEWED_KEY } from './viewed.js';
@@ -25,6 +26,7 @@ let attrController = null;
 let aiProbe = null;
 const SOURCES = ['workflow', 'notes', 'hookLogs', 'ruleLogs', 'hooks', 'labels', 'rules', 'workflowCtx', 'intakeCtx'];
 async function prefetchAndOrchestrate() {
+  track('sa_inspector_report');
   if (attrController) attrController.abort();
   attrController = new AbortController();
   const signal = attrController.signal;
@@ -306,6 +308,7 @@ export async function askFabry(question) {
   const syn = store.synthesis.value;
   const q = String(question || '').trim();
   if (!q || !syn || syn.status !== 'done' || !syn.chatId) return;
+  track('sa_inspector_followup');
   if ((syn.followups || []).some((f) => f.status === 'streaming')) return; // one at a time
   const myId = loadId;
   const signal = attrController ? attrController.signal : undefined;
@@ -337,6 +340,7 @@ export async function askFabry(question) {
 // recomputed evidence (drift:*) joins what the narrative can cite; running it later
 // does NOT trigger a re-synthesis (spec §4.5) — the diff renders in its section only.
 export async function runRevalidate() {
+  track('sa_inspector_revalidate');
   const id = store.annotationId.value;
   const res = await api.revalidate(id);
   store.live.value = { messages: res?.messages || [], matchedTriggerRules: res?.matched_trigger_rules || [] };

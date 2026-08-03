@@ -25,11 +25,14 @@ export function readPageFlag(key) {
   return window.localStorage.getItem(key) === 'true';
 }
 
+// Returns the flag's NEW value (not a bare `true`): the popup needs the
+// authoritative direction, and its cached copy can still be un-filled while the
+// first readPageFlag round-trip is in flight.
 export function togglePageFlag(key) {
   if (window.localStorage.getItem(key) === 'true') {
     window.localStorage.removeItem(key);
   } else {
     window.localStorage.setItem(key, 'true');
   }
-  return true;
+  return window.localStorage.getItem(key) === 'true';
 }

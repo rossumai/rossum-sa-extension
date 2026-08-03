@@ -1,5 +1,6 @@
 import { h, Fragment } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
+import { track } from '../../usage/track.js';
 import { selectedCollection } from '../store.js';
 import { closeModal, setModalTitle, ModalBody, ModalActions, ModalFieldLabel, ModalFileTitle } from './Modal.jsx';
 import FileDropArea from './FileDropArea.jsx';
@@ -167,6 +168,7 @@ export default function ImportWizard({ onSuccess, fieldsFn }) {
 
   // ---- import ----
   async function startImport() {
+    track('sa_mdh_import');
     setErrorMsg(null);
     const docs = parsed.docs;
     const ctrl = new AbortController();

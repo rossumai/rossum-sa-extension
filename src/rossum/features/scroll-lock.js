@@ -6,6 +6,8 @@
 // from our world doesn't affect their wrapper). What we *can* do is detect
 // when their write has happened (via the scroll event) and re-apply the
 // saved value within a short lock window.
+import { trackOnce } from '../../usage/track.js';
+
 export function initScrollLock(element) {
   if (!(element instanceof HTMLElement)) return;
 
@@ -23,6 +25,7 @@ export function initScrollLock(element) {
   let userScrollUntil = 0;
 
   element.__saScrollLockAttached = true;
+  trackOnce('sa_rossum_scroll_lock');
 
   requestAnimationFrame(() => {
     if (element instanceof HTMLElement) element.scrollTop = 0;

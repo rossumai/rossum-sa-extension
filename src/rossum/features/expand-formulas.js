@@ -1,3 +1,5 @@
+import { trackOnce } from '../../usage/track.js';
+
 export function handleNode(node) {
   const buttons = node.matches?.('button[aria-label="Show source code"]')
     ? [node]
@@ -9,5 +11,6 @@ export function handleNode(node) {
     if (button.dataset.saExpanded) continue;
     button.dataset.saExpanded = '1';
     button.click();
+    trackOnce('sa_rossum_expand_formulas');
   }
 }

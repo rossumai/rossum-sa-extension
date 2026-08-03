@@ -1,8 +1,20 @@
 import { h } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
+import { track } from '../usage/track.js';
 import { formatBytes } from './contentMeta.js';
 
+// A DevTools tab switch unmounts and remounts this component, so a plain mount
+// effect counted the same preview again on every switch back (and missed a new
+// preview rendered into an already-mounted pane). Keyed per panel session.
+const seenPreviews = new Set();
+
 export default function PreviewPane({ preview }) {
+  const key = preview && (preview.apiPath || preview.url || preview.name || preview.type || '');
+  useEffect(() => {
+    if (!key || seenPreviews.has(key)) return;
+    seenPreviews.add(key);
+    track('sa_devtools_preview');
+  }, [key]);
   const [url, setUrl] = useState(null);
   const blob = preview && preview.blob;
   useEffect(() => {

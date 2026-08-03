@@ -1,3 +1,5 @@
+import { track } from '../../usage/track.js';
+
 // On the legacy Master Data Hub web app (…/svc/master-data-hub/web/…) the
 // extension offers a one-click jump into its enhanced Dataset Management. The
 // content script already runs on *.rossum.app, so this just self-gates on the
@@ -73,6 +75,7 @@ function injectBanner() {
   openBtn.className = 'rossum-sa-extension-dm-open';
   openBtn.textContent = 'Open Dataset Management';
   openBtn.addEventListener('click', () => {
+    track('sa_rossum_mdh_suggest_click');
     const token = window.localStorage.getItem('secureToken');
     const domain = window.location.origin;
     chrome.runtime.sendMessage({ type: 'openDatasetManagement', token, domain });

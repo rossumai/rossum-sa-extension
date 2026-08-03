@@ -1,5 +1,6 @@
 import { useRef } from 'preact/hooks';
 import { signal } from '@preact/signals';
+import { trackOnce } from '../../usage/track.js';
 import { records as recordsSignal, loading, error } from '../store.js';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
@@ -19,6 +20,11 @@ export function useQuery() {
 
   async function runQuery(collection, rawText, substituteFn) {
     if (!collection || !rawText) return;
+    // trackOnce, NOT track: DataPanel auto-invokes this on collection select,
+    // sort, filter, pagination and every editor keystroke, so per-call counting
+    // measured typing rather than use. Once per Console session is the honest
+    // signal — "this person used the query surface".
+    trackOnce('sa_mdh_query_run');
 
     // Unfilled variables substitute to an empty string, so there is nothing to
     // "wait for" — just run whatever resolves to a valid pipeline. (Invalid

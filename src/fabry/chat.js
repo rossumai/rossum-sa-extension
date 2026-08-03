@@ -6,6 +6,7 @@ import { newAcc, foldEvents, replyText } from '../agent/agentStream.js';
 import { runDeepTurn, REVIEWER_MARKER } from './deepLoop.js';
 import * as store from './store.js';
 import { normalizeMessages, serverMessageIndex } from './thread.js';
+import { track } from '../usage/track.js';
 
 let controller = null;
 let loadId = 0;
@@ -111,6 +112,7 @@ function accTurn(acc, interrupted) {
 // Returns true on success, false on failure (the composer keeps its draft on false).
 export async function sendMessage(text, images = []) {
   if (store.streaming.value) return false;
+  track('sa_fabry_chat_send');
   const id = abortInFlight();
   controller = new AbortController();
   const signal = controller.signal;
@@ -180,6 +182,9 @@ export async function sendMessage(text, images = []) {
       if (id !== loadId) return false;
       if (!result) return false; // aborted/stale mid-loop — surface as failure like the single-turn path
       if (!result.skipped) {
+        // Counted only when a critic pass really ran: runDeepTurn returns
+        // {skipped} for agent-question turns, which verify nothing.
+        track('sa_fabry_deep_verify');
         // Attach the verdict to the last assistant turn.
         const turns = store.thread.value;
         for (let i = turns.length - 1; i >= 0; i -= 1) {

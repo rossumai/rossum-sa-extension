@@ -1,5 +1,6 @@
 // src/devtools/actions.js
 import * as store from './store.js';
+import { track } from '../usage/track.js';
 import { buildPatchBody } from './diff.js';
 import { resourceFromApiUrl, genericResourceFromPath } from './resourceFromApiUrl.js';
 import { normalizeRequestInput } from './requestInput.js';
@@ -98,6 +99,7 @@ export async function saveResource(tabId, deps) {
     const fresh = await deps.getJson(t.resource.apiPath);
     const cur = tabById(tabId);
     if (!cur || store.keyOf(cur.resource) !== startKey) return;
+    track('sa_devtools_save');
     store.patchTab(tabId, { original: fresh, buffer: PRETTY(fresh), dirty: false, diffPreview: null, saving: false });
     if (deps.reload && cur && cur.source === 'page') deps.reload();
   } catch (e) {

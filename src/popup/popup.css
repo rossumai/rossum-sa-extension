@@ -1025,6 +1025,14 @@ body.popup-wide .mdh-card {
   padding: 8px 14px 10px;
 }
 
+/* Version hash and the usage-data control as one left-hand group, so the footer
+   reads as (version + usage) | support instead of three separate items. */
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .version {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -1172,4 +1180,185 @@ body.popup-wide .mdh-card {
   font-size: 12px;
   color: var(--warning-fg);
   font-weight: 600;
+}
+
+/* ── Usage data (opt-in) ───────────────────────────────────────────────────── */
+/* The one-time consent overlay, plus the footer control that reopens it. The
+   overlay is fixed-position, so it neither is clipped by nor contributes to
+   Chrome's 600px popup height cap. */
+/* Modal overlay over the WHOLE popup, on every site. Fixed positioning escapes
+   #app's `overflow: hidden`, so the card is never clipped by the 600px cap; the
+   overlay itself scrolls if the card is ever taller than the popup. */
+.usage-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  overflow: auto;
+  background: rgba(16, 18, 27, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.usage-card {
+  position: relative;   /* anchors the reopened overlay's close button */
+  width: 100%;
+  max-width: 340px;
+  padding: 12px 14px 14px;
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+}
+
+.usage-lede {
+  margin: 6px 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+/* Sent / Never as parallel columns, read against each other in one glance. */
+.usage-ledger {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 12px;
+  margin: 9px 0 2px;
+  font-size: 11px;
+}
+
+.usage-ledger dt {
+  font-weight: 600;
+  padding-bottom: 3px;
+  color: var(--text-primary);
+}
+
+.usage-ledger ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.usage-ledger li {
+  position: relative;
+  padding-left: 11px;
+}
+
+.usage-ledger li::before {
+  position: absolute;
+  left: 0;
+  font-weight: 700;
+}
+
+.usage-ledger .yes li::before { content: '+'; color: var(--accent); }
+.usage-ledger .no li::before { content: '\2212'; color: var(--text-hint); }
+
+/* Shown only when the overlay is REOPENED from the footer, so the two buttons
+   are never ambiguous about which one is the current setting. */
+.usage-state {
+  margin: 9px 0 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.usage-state strong { color: var(--text-primary); }
+
+/* Close affordance — reopened overlay only; the one-time ask has no dismiss. */
+.usage-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--text-hint);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.usage-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.usage-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.usage-btn-primary,
+.usage-btn-ghost {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.usage-btn-primary {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.usage-btn-primary:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent-dim);
+}
+
+.usage-btn-ghost {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+}
+
+.usage-btn-ghost:hover {
+  border-color: var(--accent);
+}
+
+.usage-foot {
+  margin: 6px 0 0;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+/* Always-reachable on/off control in the footer — the only region rendered on
+   every page, so the choice can be changed from anywhere. */
+.footer-usage {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.footer-usage:hover {
+  color: var(--accent);
+}
+
+.footer-usage-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-hint);
+}
+
+.footer-usage.on .footer-usage-dot {
+  background: var(--accent);
 }
