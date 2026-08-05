@@ -108,20 +108,15 @@ export function Panel() {
   const onFollow = (url) => openResourceTab(resourceFromApiUrl(url), deps);
   const onContextLink = (url, x, y) => (store.linkMenu.value = { url, x, y });
 
-  const showToast = (message) => {
-    store.toast.value = { message };
-    setTimeout(() => { store.toast.value = null; }, 2500);
-  };
-
   const copyCurl = (apiPath, live) => {
     track('sa_devtools_copy_curl');
     const ctx = api.getContext();
     const text = buildCurl({ domain: ctx.domain, apiPath, token: live ? ctx.token : null });
     try {
       Promise.resolve(navigator.clipboard.writeText(text))
-        .then(() => showToast(live ? 'Live token copied — treat as a secret' : 'curl copied'))
-        .catch(() => showToast('Copy failed'));
-    } catch { showToast('Copy failed'); }
+        .then(() => store.showToast(live ? 'Live token copied — treat as a secret' : 'curl copied'))
+        .catch(() => store.showToast('Copy failed'));
+    } catch { store.showToast('Copy failed'); }
   };
 
   const menuTab = store.tabMenu.value ? tabsList.find((t) => t.id === store.tabMenu.value.id) : null;
@@ -178,7 +173,7 @@ export function Panel() {
         <RequestBar onSubmit={(raw) => {
           track('sa_devtools_request_bar');
           const r = openRequestPath(raw, api.getContext().domain, deps);
-          if (r && r.error) showToast(r.error);
+          if (r && r.error) store.showToast(r.error);
           return r;
         }} />
         {active.resource && active.resource.apiPath ? (

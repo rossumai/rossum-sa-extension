@@ -11,6 +11,36 @@ export const tabMenu = signal(null);
 // Transient toast (e.g. "Live token copied"). null = hidden.
 export const toast = signal(null);
 
+const TOAST_MS = 2_500;
+
+let toastId = 0;
+let toastTimer = null;
+
+function clearToastTimer() {
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+    toastTimer = null;
+  }
+}
+
+// At most one toast at a time. The previous toast's timer is cancelled (and the
+// id guarded) so a stale expiry can never wipe a newer message.
+export function showToast(message) {
+  clearToastTimer();
+  const id = ++toastId;
+  toast.value = { id, message };
+  toastTimer = setTimeout(() => {
+    if (toast.value?.id === id) toast.value = null;
+    toastTimer = null;
+  }, TOAST_MS);
+}
+
+// Test helper — reset module state.
+export function _resetToast() {
+  clearToastTimer();
+  toast.value = null;
+}
+
 // The copy-curl split-button's "more options" menu (live-token variant). false = closed.
 export const curlMenu = signal(false);
 

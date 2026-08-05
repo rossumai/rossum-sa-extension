@@ -62,9 +62,24 @@ function typeInEditor(text) {
   } catch { /* invalid — no onValidChange, matches the real editor */ }
 }
 
-async function tick(ms) {
-  await new Promise((r) => setTimeout(r, ms));
-  await new Promise((r) => setTimeout(r, 0));
+// Condition-based, never a fixed sleep: the mock editor's onValidChange lands at
+// +500ms on top of a 250ms recompute, and under full-suite load those timers fire
+// late — a fixed "long enough" wait flakes.
+async function waitFor(cond, desc = 'condition', timeoutMs = 5000) {
+  const start = Date.now();
+  for (;;) {
+    let ok = false; try { ok = cond(); } catch { ok = false; }
+    if (ok) return;
+    if (Date.now() - start > timeoutMs) throw new Error(`Timeout: ${desc}`);
+    await new Promise((r) => setTimeout(r, 5));
+  }
+}
+
+// Did a query run against the collection whose serialized pipeline contains frag?
+function ranWith(frag) {
+  return api.aggregate.mock.calls.some(
+    ([col, pl]) => col === 'vendors' && JSON.stringify(pl).includes(frag),
+  );
 }
 
 beforeEach(() => {
@@ -86,28 +101,24 @@ describe('DataPanel variables → debug + query', () => {
     document.body.appendChild(root);
     render(h(DataPanel, null), root);
 
-    await tick(150); // let the [collection] effect seed the default pipeline
+    await waitFor(() => mock.text !== '', 'the [collection] effect to seed the default pipeline');
 
     typeInEditor('[{"$match":{"amount":"{amount}"}}]');
-    await tick(700); // recompute (250) + onValidChange (500)
+    await waitFor(() => root.querySelector('.placeholder-input'), 'the Variables input to appear');
+    // Ran right away with the unfilled variable defaulting to an empty string.
+    await waitFor(() => ranWith('"amount":""'), 'the query to run with an empty value');
 
     const input = root.querySelector('.placeholder-input');
     expect(input, 'Variables input should appear').not.toBeNull();
     expect(root.querySelector('.pipeline-debug-hint'), 'no hint is ever shown').toBeNull();
     expect(root.querySelector('.pipeline-debug-input-row'), 'debug shows immediately').not.toBeNull();
-    // Ran right away with the unfilled variable defaulting to an empty string.
-    expect(api.aggregate.mock.calls.some(
-      ([col, pl]) => col === 'vendors' && JSON.stringify(pl).includes('"amount":""'),
-    ), 'the query runs with an empty value before filling').toBe(true);
 
     // fill the value → re-runs with the typed value
     input.value = '5';
     input.dispatchEvent(new Event('input', { bubbles: true }));
-    await tick(550);
+    await waitFor(() => ranWith('"amount":5'), 'the filled query to run');
 
-    expect(api.aggregate.mock.calls.some(
-      ([col, pl]) => col === 'vendors' && JSON.stringify(pl).includes('"amount":5'),
-    ), 'the filled query should have run').toBe(true);
+    expect(ranWith('"amount":5'), 'the filled query should have run').toBe(true);
   });
 
   it('quoted string variable: debug shows, runs with empty, then with the value', async () => {
@@ -115,26 +126,22 @@ describe('DataPanel variables → debug + query', () => {
     document.body.appendChild(root);
     render(h(DataPanel, null), root);
 
-    await tick(150);
+    await waitFor(() => mock.text !== '', 'the [collection] effect to seed the default pipeline');
 
     typeInEditor('[{"$match":{"vendor":"{vendor}"}}]');
-    await tick(700);
+    await waitFor(() => root.querySelector('.placeholder-input'), 'the Variables input to appear');
+    await waitFor(() => ranWith('"vendor":""'), 'the query to run with an empty value');
 
     const input = root.querySelector('.placeholder-input');
     expect(input, 'Variables input should appear').not.toBeNull();
     expect(root.querySelector('.pipeline-debug-hint'), 'no hint is ever shown').toBeNull();
     expect(root.querySelector('.pipeline-debug-input-row'), 'debug shows immediately').not.toBeNull();
-    expect(api.aggregate.mock.calls.some(
-      ([col, pl]) => col === 'vendors' && JSON.stringify(pl).includes('"vendor":""'),
-    ), 'runs with empty before filling').toBe(true);
 
     input.value = 'ACME';
     input.dispatchEvent(new Event('input', { bubbles: true }));
-    await tick(550);
+    await waitFor(() => ranWith('"vendor":"ACME"'), 'the filled query to run');
 
-    expect(api.aggregate.mock.calls.some(
-      ([col, pl]) => col === 'vendors' && JSON.stringify(pl).includes('"vendor":"ACME"'),
-    ), 'the filled query should have run').toBe(true);
+    expect(ranWith('"vendor":"ACME"'), 'the filled query should have run').toBe(true);
   });
 
   it('an embedded {var} inside a larger string shows an input and substitutes into the text', async () => {
@@ -142,28 +149,24 @@ describe('DataPanel variables → debug + query', () => {
     document.body.appendChild(root);
     render(h(DataPanel, null), root);
 
-    await tick(150);
+    await waitFor(() => mock.text !== '', 'the [collection] effect to seed the default pipeline');
 
     // {part_no} is embedded in a larger string — a valid variable, substituted into the text.
     typeInEditor('[{"$match":{"LINE DESC":"BLUE WIDGET {part_no} LARGE"}},{"$sort":{"_id":-1}},{"$skip":0},{"$limit":50}]');
-    await tick(700); // recompute (250) + onValidChange (500)
+    await waitFor(() => root.querySelector('.placeholder-input'), 'a variable input to appear');
+    // Runs immediately with the unfilled var → emptied substitution (two spaces).
+    await waitFor(() => ranWith('BLUE WIDGET  LARGE'), 'the query to run with the empty embedded value');
 
     expect(root.querySelector('.placeholder-input'), 'a variable input should appear').not.toBeNull();
     expect(root.querySelector('.pipeline-debug-hint'), 'no unresolved hint').toBeNull();
     expect(root.querySelector('.pipeline-debug-input-row'), 'debug should render').not.toBeNull();
-    // Runs immediately with the unfilled var → emptied substitution (two spaces).
-    expect(api.aggregate.mock.calls.some(
-      ([col, pl]) => col === 'vendors' && JSON.stringify(pl).includes('BLUE WIDGET  LARGE'),
-    ), 'runs with the empty embedded value before filling').toBe(true);
 
     const input = root.querySelector('.placeholder-input');
     input.value = 'XYZ';
     input.dispatchEvent(new Event('input', { bubbles: true }));
-    await tick(550);
+    await waitFor(() => ranWith('BLUE WIDGET XYZ LARGE'), 'the filled embedded query to run');
 
-    expect(api.aggregate.mock.calls.some(
-      ([col, pl]) => col === 'vendors' && JSON.stringify(pl).includes('BLUE WIDGET XYZ LARGE'),
-    ), 'the filled embedded query should have run').toBe(true);
+    expect(ranWith('BLUE WIDGET XYZ LARGE'), 'the filled embedded query should have run').toBe(true);
   });
 
   it('split modifier: the variable stays as-is, the input is raw, the query runs with the array', async () => {
@@ -171,10 +174,10 @@ describe('DataPanel variables → debug + query', () => {
     document.body.appendChild(root);
     render(h(DataPanel, null), root);
 
-    await tick(150);
+    await waitFor(() => mock.text !== '', 'the [collection] effect to seed the default pipeline');
 
     typeInEditor('[{"$match":{"tags":"{categories | split(\',\')}"}}]');
-    await tick(700);
+    await waitFor(() => root.querySelector('.placeholder-input'), 'a variable input to appear for the split placeholder');
 
     const input = root.querySelector('.placeholder-input');
     expect(input, 'a variable input should appear for the split placeholder').not.toBeNull();
@@ -183,10 +186,8 @@ describe('DataPanel variables → debug + query', () => {
     // The user types the raw, comma-joined value — exactly what the field holds.
     input.value = 'food,drink';
     input.dispatchEvent(new Event('input', { bubbles: true }));
-    await tick(550);
+    await waitFor(() => ranWith('"tags":["food","drink"]'), 'the query to run with the split array value');
 
-    expect(api.aggregate.mock.calls.some(
-      ([col, pl]) => col === 'vendors' && JSON.stringify(pl).includes('"tags":["food","drink"]'),
-    ), 'the query should run with the split array value').toBe(true);
+    expect(ranWith('"tags":["food","drink"]'), 'the query should run with the split array value').toBe(true);
   });
 });

@@ -19,7 +19,7 @@ function rerender(root) { render(h(Panel, null), root); }
 
 beforeEach(() => {
   store.tabs.value = []; store.activeId.value = null; store.linkMenu.value = null; store.tabMenu.value = null;
-  store.toast.value = null; store.curlMenu.value = false;
+  store._resetToast(); store.curlMenu.value = false;
   globalThis.URL.createObjectURL = () => 'blob:mock'; globalThis.URL.revokeObjectURL = () => {};
 });
 

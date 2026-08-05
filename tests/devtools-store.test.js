@@ -1,8 +1,54 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import * as store from '../src/devtools/store.js';
 
 const R = (type, id) => ({ type, id, apiPath: `/api/v1/${type}s/${id}`, label: type });
-beforeEach(() => { store.tabs.value = []; store.activeId.value = null; });
+beforeEach(() => {
+  store.tabs.value = []; store.activeId.value = null;
+  vi.useRealTimers();
+  store._resetToast();
+});
+
+describe('toast', () => {
+  it('showToast populates the signal and auto-dismisses after 2.5s', () => {
+    vi.useFakeTimers();
+    store.showToast('curl copied');
+    expect(store.toast.value).toMatchObject({ message: 'curl copied' });
+
+    vi.advanceTimersByTime(2_499);
+    expect(store.toast.value).not.toBeNull();
+
+    vi.advanceTimersByTime(2);
+    expect(store.toast.value).toBeNull();
+  });
+
+  it('a second toast is not cleared by the first toast timer', () => {
+    vi.useFakeTimers();
+    store.showToast('curl copied');
+    vi.advanceTimersByTime(2_100);
+    store.showToast('Copy failed');
+
+    // The first toast's timer would fire at t=2500 — only 400ms into the second
+    // toast. The second must survive its own full 2.5s instead of being wiped.
+    vi.advanceTimersByTime(400);
+    expect(store.toast.value, 'the newer toast must outlive the older timer').not.toBeNull();
+    expect(store.toast.value.message).toBe('Copy failed');
+
+    vi.advanceTimersByTime(2_101);
+    expect(store.toast.value).toBeNull();
+  });
+
+  it('_resetToast clears the signal and cannot resurrect it via a stale timer', () => {
+    vi.useFakeTimers();
+    store.showToast('curl copied');
+    store._resetToast();
+    expect(store.toast.value).toBeNull();
+
+    // A leftover timer must not fire against a later toast (the cross-test leak).
+    store.showToast('later');
+    vi.advanceTimersByTime(2_499);
+    expect(store.toast.value.message).toBe('later');
+  });
+});
 
 describe('store tabs', () => {
   it('openTab adds + activates, dedups by key on second open', () => {
