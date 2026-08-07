@@ -122,6 +122,12 @@ once per document — the extension deliberately does not count repeatedly.
 | `sa_devtools_copy_curl` | you copied a curl command |
 | `sa_devtools_preview` | a non-JSON resource preview was shown (once per resource) |
 
+**In the side panel**
+
+| Event | Meaning |
+| --- | --- |
+| `sa_sidepanel_open` | the side panel was opened (however you opened it) |
+
 **Configuration**
 
 | Event | Meaning |

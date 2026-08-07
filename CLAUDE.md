@@ -19,7 +19,7 @@ esbuild config: `format: 'iife'`, `minify: true`, `jsxFactory: 'h'`, `jsxFragmen
 
 ## Architecture
 
-Eight esbuild entry points:
+Nine esbuild entry points:
 
 1. **`src/rossum/index.js`** → content script for Rossum pages
 2. **`src/netsuite/index.js`** → content script for NetSuite pages
@@ -29,14 +29,18 @@ Eight esbuild entry points:
 6. **`src/background/index.js`** → MV3 service worker (`background.js`)
 7. **`src/devtools/devtools.js`** → Chrome DevTools registrar (`devtools.html`, creates the "Rossum" panel + forwards `panel.onSearch` to CodeMirror)
 8. **`src/devtools/panel.jsx`** → DevTools panel page (`panel.html`)
+9. **`src/sidepanel/index.jsx`** → Chrome side panel (`sidepanel/sidepanel.html`, manifest `side_panel.default_path`) hosting the popup's MDH provenance card
 
-The background service worker exists for a single job: a content script can't
+The background service worker has three jobs. Job three is **side-panel scoping**
+(`syncSidePanelTabs` + a `tabs.onUpdated` listener, see the Side panel section) — it needs a
+context that outlives every page, since the decision must be re-made whenever any tab
+navigates, with no panel and no popup open. Job one: a content script can't
 `chrome.tabs.create` an extension page, so the `dataset-mgmt-suggest` feature
 messages the worker (`{ type: 'openDatasetManagement', token, domain }`) and the
 worker stages `consoleAuth_<uuid>` (with `app: 'mdh'`) + opens `console/console.html`
 — letting us open the Dataset Management from the legacy MDH web app without
-`web_accessible_resources`. Otherwise the extension is purely content scripts +
-popup + opened pages.
+`web_accessible_resources`. Job two is being the only sender of opt-in usage counts.
+Otherwise the extension is purely content scripts + popup + side panel + opened pages.
 
 ### Rossum content script
 
@@ -379,12 +383,73 @@ the annotation, so the clicker takes over the lock). No storage keys, no toggle
 `docs/superpowers/specs/2026-07-16-popup-unlock-reviewing-annotation-design.md` (+ v2
 revision note).
 
+On Rossum tabs the popup widens (`body.popup-wide`, 760px) and shows the **MDH provenance
+card** — "MDH on this screen (beta)" (`components/MdhProvenancePanel.jsx` → `ConfigBlock` →
+`QueryItem`, engine in `mdh-provenance.js` + `actionCondition.js`, `chrome.storage.session`
+caches with a 5-minute TTL in `cache.js`). For the open annotation it resolves the queue's MDH
+matching hooks, substitutes the document's own field values into every configuration's query
+cascade, replays each query against Data Storage and marks the outcome (`winner` / `empty` /
+`skipped` / `gated` / `error`). This card is **shared with the side panel** (below) — it is the
+one component rendered by two surfaces.
+
+### Side panel (MDH provenance)
+
+A Chrome side panel (`chrome.sidePanel`; the permission is **warning-free**, so adding it does
+NOT disable existing installs — unlike a `host_permissions` change) hosting the **same** MDH
+provenance card as the popup. The card deliberately lives in **two** places (owner decision
+2026-08-07): the popup keeps it unchanged, and the panel adds the persistence a Chrome popup
+cannot have — a popup closes on blur and no API prevents that, which is the whole point of the
+feature request behind it. Spec:
+`docs/superpowers/specs/2026-08-07-mdh-provenance-side-panel-design.md`.
+
+- `src/sidepanel/index.jsx` → `components/App.jsx` resolves the **active tab of its own
+  window** and follows it via `tabs.onActivated` (filtered to that window) + `tabs.onUpdated`
+  (a `changeInfo.url` on the tracked tab, or on ANY tab while none is tracked yet — the
+  recovery arm). **LIVE-VERIFIED 2026-08-07 (elis):** `onUpdated` fires with `changeInfo.url`
+  for BOTH `history.pushState` and `history.replaceState`, so those two listeners alone follow
+  Rossum's SPA document switches; an earlier 2.5s poll was measured redundant and REMOVED (the
+  panel's `visibilityState` is `'visible'` while the page tab has focus, so it had been
+  running). Reading `tab.url` needs **no `tabs` permission** (that one warns; the Rossum
+  `host_permissions` already expose the URL, same as `findRossumTabs`).
+- `targetTab.js` is pure (`annotationIdFromUrl` / `isRossumTab` / `viewState` / `sameTarget`).
+  `components/DocumentStrip.jsx` is the only new UI: it names the document being shown —
+  `#<id>` immediately, upgraded to the file name when
+  `GET /annotations?id=…&sideload=documents` resolves, id retained on any failure.
+- `MdhProvenancePanel` is reused **as-is** from `src/popup/`, remounted via
+  `key={annotationId}` so its existing load-and-replay effect handles document switches with no
+  changes — and so a URL change *within* the same document does not trigger a replay. Its only
+  new prop is the optional **`onPin`**: the popup passes a handler
+  (`chrome.sidePanel.open({windowId})` + `window.close()`, feature-detected on
+  `chrome.sidePanel?.open` so pre-114 Chrome never sees the button), the panel passes none, so
+  the pin button is popup-only.
+- Styling: `sidepanel.html` links `../popup/popup.css` **first** (one source of truth for the
+  card, dark mode included); `sidepanel.css` only neutralises the popup's 380px width and 600px
+  cap and adds the `.sp-*` strip/empty-state rules.
+- **Scoped to Rossum tabs** (`src/sidepanel/panelScope.js`, pure; applied by the service
+  worker). LIVE-VERIFIED 2026-08-07, and none of it is guessable from the API surface: a
+  per-tab `enabled:false` does NOT hide a panel opened with `open({windowId})` — only a global
+  default OFF plus per-tab `enabled:true` plus `open({tabId})` scopes it. On other tabs the
+  panel then reports `visibilityState:'hidden'` with its page kept ALIVE, and returns by itself
+  (no re-pinning) on an enabled tab. A global `setOptions({enabled:false})` closes an open panel
+  outright; a second Rossum tab is enabled but not open until pinned there; a tab that
+  navigates away with the panel open has it closed by Chrome. The worker syncs every tab on
+  wake (per-tab FIRST, then the global default — the reverse order briefly closes an open
+  panel) and re-decides on `tabs.onUpdated`. **Gotcha:** navigating away to a site we hold no
+  host permission for delivers NO url (not in `changeInfo`, not on `tab`) — that absence is the
+  "left Rossum" signal, so `panelUpdateFor` reads `tab.url` and acts on `url` OR `status`
+  events; keying on `changeInfo.url` left departed tabs enabled forever.
+- Reuse over extraction: the panel imports the MDH modules from `src/popup/` rather than
+  hoisting them to a shared directory (the way `src/agent/` was hoisted). It would still have
+  to import `utils.js`/`tab-readers.js` from `src/popup/` anyway, so the move buys partial
+  tidiness at the cost of churn. Extract when a third consumer appears.
+
 ## Chrome Storage Keys
 
 - Feature toggles: `schemaAnnotationsEnabled`, `expandFormulasEnabled`, `expandReasoningFieldsEnabled`, `scrollLockEnabled`, `resourceIdsEnabled`, `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled` (the short-lived `inspectAnnotationEnabled` toggle was removed 2026-07-04 along with the floating button, and the in-page `rawObjectEditorEnabled` toggle was removed 2026-07 with the in-page Raw Object Editor surface; the `fabryDeepVerifyEnabled` + `fabryArchitectImplementEnabled` popup toggles were removed 2026-07-14 — both features are now ON by default within the experimental Fabry app; any stored values are orphaned; the `annotateForMeEnabled` toggle and the whole Annotate-for-me feature were REMOVED 2026-07-20 — proven not feasible: vision box precision capped ~0.4 IoU and the write path never had a server-side read-only guarantee; any stored `annotateForMeEnabled` value is orphaned)
 - Experimental unlock: `experimentalUnlocked` — flipped by 5 quick clicks on the popup's version hash; gates the Fabry Chat Console app's rail item (live via `chrome.storage.onChanged`). (It was formerly also the second half of the Annotate-for-me double-gate, removed with that feature 2026-07-20.)
 - Console staging auth: `consoleAuth_<uuid>` (single-use, 24h TTL, removed on first read; carries `app` + optional DS pipeline prefill)
 - Console state: `consoleActiveApp` — per-tab (see MDH state below: session-first read with a `chrome.storage.local` seed)
+- Side panel state: **none** — Chrome remembers open/closed per window. The panel shares the popup's `mdhProvenanceFilter` (the card's schema-ID filter) and its `mdhProv:*` `chrome.storage.session` caches
 - MDH state: `mdhPipelineWidth`, `mdhSidebarWidth`, `mdhUploadsColumnWidths`, `mdhOverviewChartsScale`, `mdhResultsView`, `mdhStagesAutoscroll`, `mdhStagesSampleSize`, `mdhStagesShowDef` are **global** (shared across tabs, persisted in `chrome.storage.local`). The **navigation** keys `mdhActiveView`, `mdhSelectedCollection`, `mdhActivePanel`, `mdhOpsSearch` (and the Console-level `consoleActiveApp`), plus `fabryActiveChat` (per-tab, content-free server chat id for the Fabry Chat app), `fabryMode` (per-tab, content-free Chat|Architect sub-app selection), and `fabryArchitectActive` (per-tab, content-free open-deliverable id for Architect), are **per-tab**: read session-first from `sessionStorage`, written to BOTH `sessionStorage` (this tab's truth on reload) and `chrome.storage.local` (cross-session seed for a freshly-opened tab), via `src/console/tabState.js`. `mdhLastPipeline::<scope>::<collection>` is keyed per-org **and per-collection** (legacy un-collection-scoped `mdhLastPipeline::<scope>` entries from older builds are orphaned, not migrated).
 - Audit state: `auditActiveSource`, `auditFiltersBySource`
 - Galaxy state: none (no persisted state in v1)
@@ -428,6 +493,25 @@ Answers "which features are actually used" so unused ones get deleted instead of
 - Most features are gated behind chrome.storage.local toggles controlled via popup. The `closable-tooltips`, `dataset-mgmt-suggest`, and `track-viewed` features are always on (no toggle, no storage key) and are not advertised in the popup UI. `dataset-mgmt-suggest` self-gates on the legacy MDH web app path (`/svc/master-data-hub/web/`).
 - Rossum entry point builds handlers array from enabled settings — disabled features add zero overhead
 - NetSuite and Coupa content scripts are self-contained single files (no MutationObserver pattern)
+- **Annotation-URL parsing has ONE home: `src/rossum/annotationUrl.js`.** It answers two
+  deliberately separate questions — `annotationIdFromPath` (is this DASHBOARD ROUTE an
+  annotation? anchored, so an API path must not match) and `annotationIdFromInput` (what did a
+  human paste? bare id / dashboard URL / API URL). Adopted by the side panel, Inspector
+  `IdInput`, DevTools `detect.js` (via the exported `ANNOTATION_PATH_RE`), `track-viewed`, and
+  MDH `PlaceholderInputs` (`parseAnnotationId` is an alias). It replaced six sites carrying four
+  regexes that disagreed (`track-viewed` missed `/annotation/`, `PlaceholderInputs` missed the
+  singular, `detect.js` missed the plural). **`src/popup/tab-readers.js` keeps its own copy on
+  purpose** — its functions are serialized into the page by `executeScript` and cannot close
+  over an import; both carry a comment saying change one, change the other.
+- **MDH placeholder grammar has ONE home: `src/mdh/placeholderSyntax.js`** (`VAR_RE` whole /
+  `VAR_RE_G` embedded). The popup/side-panel provenance engine imports it rather than keeping
+  the identical private pair it used to have — both model the SAME server-side substitution, so
+  a change to one that missed the other was a silent divergence. Safe to share the `/g`
+  instance: every consumer uses `matchAll`/`replace`, never a stateful `exec` loop. (Still
+  duplicated and NOT yet reconciled: `unquoteArg`/`applyModifier` exist in both
+  `mdh/hooks/usePipeline.js` and `popup/mdh-provenance.js`, and their no-modifier/unknown paths
+  genuinely differ — `String(val)` vs pass-through. Reconciling changes behaviour, so it is a
+  deliberate follow-up, not an oversight.)
 
 ## JSX escape sequences
 

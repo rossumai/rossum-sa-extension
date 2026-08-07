@@ -5,11 +5,12 @@
 // on, like closable-tooltips/dataset-mgmt-suggest. SPA route changes are caught
 // by a light interval; writes are deduped per route change and best-effort.
 import { VIEWED_KEY, mergeViewed } from '../../inspector/viewed.js';
+import { annotationIdFromPath } from '../annotationUrl.js';
 
-export function annotationIdFromPath(pathname) {
-  const m = /^\/document\/(\d+)(?:[/?#]|$)/.exec(String(pathname || ''));
-  return m ? m[1] : null;
-}
+// Re-exported under the name this feature has always used (its tests and the
+// interval below call it). The grammar now lives in one place, which also means
+// this tracker finally records /annotation/<id> views, not just /document/<id>.
+export { annotationIdFromPath };
 
 let lastRecordedKey = '';
 

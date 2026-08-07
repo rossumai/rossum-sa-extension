@@ -13,7 +13,7 @@ const chromeVersion = `${chromeMajor}.${chromeMinor}`;
 
 rmSync('dist', { recursive: true, force: true });
 
-for (const dir of ['dist/popup', 'dist/icons', 'dist/console', 'dist/devtools']) {
+for (const dir of ['dist/popup', 'dist/icons', 'dist/console', 'dist/devtools', 'dist/sidepanel']) {
   mkdirSync(dir, { recursive: true });
 }
 
@@ -36,6 +36,10 @@ cpSync('src/console/console.css', 'dist/console/console.base.css');
 cpSync('src/devtools/devtools.html', 'dist/devtools/devtools.html');
 cpSync('src/devtools/panel.html', 'dist/devtools/panel.html');
 cpSync('src/devtools/panel.css', 'dist/devtools/panel.css');
+// The side panel links ../popup/popup.css FIRST and only overrides the popup's
+// shell in sidepanel.css, so the shared MDH card has one source of truth.
+cpSync('src/sidepanel/sidepanel.html', 'dist/sidepanel/sidepanel.html');
+cpSync('src/sidepanel/sidepanel.css', 'dist/sidepanel/sidepanel.css');
 
 const options = {
   entryPoints: {
@@ -51,6 +55,7 @@ const options = {
     'background': 'src/background/index.js',
     'devtools/devtools': 'src/devtools/devtools.js',
     'devtools/panel': 'src/devtools/panel.jsx',
+    'sidepanel/sidepanel': 'src/sidepanel/index.jsx',
   },
   bundle: true,
   minify: true,

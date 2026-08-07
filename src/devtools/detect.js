@@ -3,6 +3,8 @@
 // URL is authoritative on detail routes. Only rows whose route + apiPath are
 // verified are listed here. Do NOT add schema/workspace/engine/rule/org routes
 // from memory — they arrive via the live-verification task (see plan Task 12).
+import { ANNOTATION_PATH_RE } from '../rossum/annotationUrl.js';
+
 const ROUTES = [
   // Rule detail is nested UNDER a queue path (/queues/{q}/settings/rules/{ruleId}/detail),
   // so it must precede the queue row — first match wins. Capture group = ruleId.
@@ -20,7 +22,7 @@ const ROUTES = [
   // uses the content-operations API). Both /document/<id> and /annotation/<id> carry the
   // ANNOTATION id (the 'document' path segment is historical). A trailing ?query (e.g.
   // ?datapointPath=...) is tolerated by the boundary group.
-  { type: 'annotation', re: /\/(?:document|annotation)\/(\d+)(?:[/?#]|$)/, api: (id) => `/api/v1/annotations/${id}`, label: 'Annotation' },
+  { type: 'annotation', re: ANNOTATION_PATH_RE, api: (id) => `/api/v1/annotations/${id}`, label: 'Annotation' },
 ];
 
 // Extract a single queue id from the /documents `filtering` query param, only

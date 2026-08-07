@@ -2,6 +2,7 @@ import { h } from 'preact';
 import { useState } from 'preact/hooks';
 import { domain, token } from '../store.js';
 import { isJson5NumberLiteral } from '../hooks/usePipeline.js';
+import { annotationIdFromInput } from '../../rossum/annotationUrl.js';
 
 // True when the typed value can be matched as the given type (drives the
 // "won't match" hint). string / null / auto / undefined accept anything.
@@ -38,14 +39,12 @@ export function typeOptionsFor(value, override) {
   return opts;
 }
 
-export function parseAnnotationId(input) {
-  if (/^\d+$/.test(input)) return input;
-  // Matches both the UI URL (e.g. https://<org>.rossum.app/document/12345)
-  // and the API URL (e.g. https://elis.rossum.com/api/v1/annotations/12345/content).
-  // The two share the annotation ID — only the path segment differs.
-  const urlMatch = input.match(/(?:annotations|document)\/(\d+)/);
-  return urlMatch ? urlMatch[1] : null;
-}
+// Accepts a bare id, a UI URL (https://<org>.rossum.app/document/12345) or an
+// API URL (https://elis.rossum.com/api/v1/annotations/12345/content) — they all
+// carry the same annotation id, only the path segment differs. Aliased (not
+// re-exported) because this module calls it itself, and the name is the
+// paste-parsing entry point its tests already know.
+export const parseAnnotationId = annotationIdFromInput;
 
 async function fetchAnnotationFields(annotId) {
   const res = await fetch(`${domain.value}/api/v1/annotations/${annotId}/content`, {

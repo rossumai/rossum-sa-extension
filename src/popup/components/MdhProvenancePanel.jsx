@@ -36,6 +36,20 @@ function RefreshIcon() {
   );
 }
 
+// The glyph for the (colloquially "pin") button that hands this card to the side
+// panel. A pushpin was tried first and rejected on evidence: rendered at the
+// 11px this actually ships at, its head/body/point collapse into a smudge. Two
+// plain rectangles survive the size, and naming the destination reads better
+// than naming the gesture — it is the same shape Chrome uses for the panel.
+function SidePanelIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+      <rect x="3" y="4.5" width="18" height="15" rx="2.5" />
+      <rect x="13.5" y="4.5" width="7.5" height="15" rx="2.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 function DocLookupIcon() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -48,7 +62,9 @@ function DocLookupIcon() {
   );
 }
 
-export default function MdhProvenancePanel({ tab }) {
+// `onPin` is optional and rendered only when supplied: the popup passes a handler
+// that hands this same card to the side panel, the side panel itself passes none.
+export default function MdhProvenancePanel({ tab, onPin }) {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [state, setState] = useState({ kind: 'loading' });
   const [currentRow, setCurrentRow] = useState(0);
@@ -266,14 +282,26 @@ export default function MdhProvenancePanel({ tab }) {
     <section class="card mdh-card" data-context="rossum">
       <h3 class="section-title">
         <span>MDH on this screen <span class="beta-badge">beta</span></span>
-        <button
-          type="button"
-          class="mdh-refresh-btn"
-          title="Refresh — bypass cache and re-fetch"
-          onClick={onRefresh}
-        >
-          <RefreshIcon />
-        </button>
+        <span class="mdh-head-actions">
+          {onPin ? (
+            <button
+              type="button"
+              class="mdh-refresh-btn mdh-pin-btn"
+              title="Open in the side panel — stays open while you work"
+              onClick={onPin}
+            >
+              <SidePanelIcon />
+            </button>
+          ) : null}
+          <button
+            type="button"
+            class="mdh-refresh-btn"
+            title="Refresh — bypass cache and re-fetch"
+            onClick={onRefresh}
+          >
+            <RefreshIcon />
+          </button>
+        </span>
       </h3>
       {state.kind === 'loaded' ? (
         <input

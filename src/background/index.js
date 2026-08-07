@@ -1,6 +1,7 @@
 import { collect } from '../usage/collect.js';
+import { panelOptionsFor, panelUpdateFor } from '../sidepanel/panelScope.js';
 
-// MV3 service worker. Two jobs.
+// MV3 service worker. Three jobs.
 //
 // (1) Let a content script open the Dataset Management tab. A content script can't chrome.tabs.create an extension page,
 // and opening console/console.html via window.open would require
@@ -12,6 +13,10 @@ import { collect } from '../usage/collect.js';
 // messages us; the consent gate, the client id and the single GA4 fetch all
 // live in src/usage/collect.js so there is one place to audit. Spec:
 // docs/superpowers/specs/2026-08-03-feature-usage-measurement-design.md.
+//
+// (3) Keep the side panel scoped to Rossum tabs. Only a privileged context that
+// outlives every page can do this: the decision has to be re-made whenever any
+// tab navigates, including while no panel and no popup is open.
 
 export function openDatasetManagement(msg, deps) {
   const { storageSet, tabsCreate, getURL, uuid, now } = deps;
@@ -30,6 +35,22 @@ export function openDatasetManagement(msg, deps) {
   return authId;
 }
 
+// Bring every existing tab in line, then set the global default. Order matters:
+// switching the default off FIRST would momentarily close a panel already open
+// on a Rossum tab whose per-tab option has not been written yet (worker restart).
+export async function syncSidePanelTabs(deps) {
+  const { queryTabs, setOptions } = deps;
+  const tabs = await queryTabs();
+  // Issued together (they are independent) and all awaited before the default is
+  // switched off, which also keeps the half-applied window as short as possible.
+  await Promise.all(
+    tabs
+      .filter((tab) => typeof tab?.id === 'number')
+      .map((tab) => setOptions(panelOptionsFor(tab.id, tab.url))),
+  );
+  await setOptions({ enabled: false });
+}
+
 const realDeps = {
   storageSet: (obj, cb) => chrome.storage.local.set(obj, cb),
   tabsCreate: (opts) => chrome.tabs.create(opts),
@@ -45,6 +66,23 @@ if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
     if (sender.id !== chrome.runtime.id) return;
     // sender.tab positions the new tab right next to the requesting tab.
     openDatasetManagement({ ...msg, openerTab: sender.tab }, realDeps);
+  });
+}
+
+// Side-panel scoping. Runs on every worker wake (cheap: one tabs.query), and
+// re-decides for a tab whenever its URL changes — the only moment the answer can
+// change. Guarded on chrome.sidePanel so a pre-114 Chrome just skips it.
+if (typeof chrome !== 'undefined' && chrome.sidePanel?.setOptions) {
+  const panelDeps = {
+    queryTabs: () => chrome.tabs.query({}),
+    setOptions: (opts) => chrome.sidePanel.setOptions(opts),
+  };
+  syncSidePanelTabs(panelDeps).catch(() => {});
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    const options = panelUpdateFor(tabId, changeInfo, tab);
+    if (!options) return;
+    // A closed/discarded tab rejects; nothing to do about it.
+    chrome.sidePanel.setOptions(options).catch(() => {});
   });
 }
 

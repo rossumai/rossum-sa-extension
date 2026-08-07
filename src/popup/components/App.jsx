@@ -9,6 +9,7 @@ import { writeConsent } from '../usageConsent.js';
 import { openConsoleTab, runInTab, detectSite, findRossumTabs, activateTab, isConsoleTab } from '../utils.js';
 import { readAuthInfo, readPageFlag, togglePageFlag } from '../tab-readers.js';
 import { createUnlockCounter } from '../experimental.js';
+import { openPanelForTab } from '../../sidepanel/panelScope.js';
 
 const STORAGE_TOGGLES = [
   'schemaAnnotationsEnabled',
@@ -257,6 +258,22 @@ export default function App({ tab }) {
 
   const onRossumConsole = () => fetchAuthAndOpen((tab, auth) => openConsoleTab(tab, auth, 'mdh'));
 
+  // Chrome cannot keep a popup open on blur — no API prevents it — so the pin
+  // hands the same MDH card to a side panel, which survives clicking and
+  // scrolling the page. Opened per TAB, not per window, so the panel stays
+  // scoped to Rossum tabs (see src/sidepanel/panelScope.js). open() MUST run
+  // inside this click: it is the user gesture Chrome requires. Feature-detected,
+  // so a pre-114 Chrome (no chrome.sidePanel) never sees the button.
+  const canPinSidePanel = !!chrome.sidePanel?.open;
+  const onPinSidePanel = async () => {
+    try {
+      await openPanelForTab(tab.id, chrome.sidePanel);
+      window.close();
+    } catch {
+      // Gesture refused or the API is unavailable — leave the popup open.
+    }
+  };
+
   const onReloadTab = () => {
     chrome.tabs.reload(tab.id);
     window.close();
@@ -303,7 +320,7 @@ export default function App({ tab }) {
           <div class="content-row">
             {showMdhPanel ? (
               <div class="content-col content-col-mdh">
-                <MdhProvenancePanel tab={tab} />
+                <MdhProvenancePanel tab={tab} onPin={canPinSidePanel ? onPinSidePanel : undefined} />
               </div>
             ) : null}
 

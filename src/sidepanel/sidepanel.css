@@ -1,0 +1,99 @@
+/* The side panel reuses popup.css verbatim so the MDH card has exactly ONE
+   source of truth and cannot drift between the two surfaces. This file only
+   undoes the popup-specific shell — a fixed 380px width and the 600px cap
+   Chrome imposes on popups — and adds the document strip, which exists only
+   here (a panel that outlives a click has to say which document it shows). */
+
+body.sidepanel {
+  width: auto;
+  padding: 0;
+}
+
+body.sidepanel #app {
+  max-height: none;
+  height: 100vh;
+}
+
+body.sidepanel .mdh-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin: 8px 10px 10px;
+}
+
+/* ── document strip ─────────────────────────────── */
+
+.sp-strip {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 10px 10px 0;
+  padding: 6px 9px;
+  background: var(--bg-card);
+  border-radius: 6px;
+  box-shadow: var(--shadow-card);
+  font-size: 10.5px;
+  color: var(--text-secondary);
+}
+
+.sp-live {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #16a34a;
+  flex: none;
+}
+
+.sp-strip-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sp-strip-id {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-hint);
+  flex: none;
+}
+
+.sp-strip-hint {
+  margin-left: auto;
+  color: var(--text-hint);
+  flex: none;
+}
+
+.sp-strip--idle .sp-strip-title {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* ── no Rossum tab in this window ───────────────── */
+
+.sp-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px 22px;
+}
+
+.sp-empty-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.sp-empty-text {
+  max-width: 32ch;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text-hint);
+}

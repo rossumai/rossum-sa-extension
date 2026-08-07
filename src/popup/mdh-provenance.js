@@ -3,6 +3,7 @@
 
 import { evalCondition } from './actionCondition.js';
 import { reEscape } from '../mdh/reEscape.js';
+import { VAR_RE, VAR_RE_G } from '../mdh/placeholderSyntax.js';
 
 // ── API ─────────────────────────────────────────────
 
@@ -167,12 +168,15 @@ function isMdhHook(hook) {
 
 // ── Placeholder substitution ───────────────────────
 
-// Matches `{name}`, `{name | modifier}`, or `{name | modifier(arg)}`.
-// Whitespace around the name, pipe, and parens is tolerated. Names are
-// simple identifiers — `{secrets.foo}` is not matched (the popup can't
-// resolve secrets, so leaving them literal mirrors current behavior).
-const PLACEHOLDER_RE = /\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\|\s*([a-zA-Z_]+)(?:\s*\(\s*([^)]*?)\s*\))?\s*)?\}/g;
-const PLACEHOLDER_EXACT_RE = /^\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\|\s*([a-zA-Z_]+)(?:\s*\(\s*([^)]*?)\s*\))?\s*)?\}$/;
+// The grammar — `{name}`, `{name | modifier}`, `{name | modifier(arg)}`, with
+// whitespace tolerated around the name, pipe and parens, and names restricted to
+// simple identifiers so `{secrets.foo}` stays literal — is shared with the MDH
+// pipeline editor via mdh/placeholderSyntax.js. This engine used to keep an
+// identical private pair; both model the SAME server-side substitution, so a
+// change to one that missed the other would be a silent divergence.
+// VAR_RE matches a WHOLE string, VAR_RE_G finds embedded occurrences. Both are
+// only ever used with matchAll/replace here (never a stateful exec loop), so
+// sharing the /g instance carries no lastIndex hazard.
 
 function unquoteArg(raw) {
   if (raw == null) return '';
@@ -198,7 +202,7 @@ function applyModifier(value, modifier, arg) {
 export function collectPlaceholders(node, set) {
   if (node == null) return;
   if (typeof node === 'string') {
-    for (const m of node.matchAll(PLACEHOLDER_RE)) set.add(m[1]);
+    for (const m of node.matchAll(VAR_RE_G)) set.add(m[1]);
     return;
   }
   if (Array.isArray(node)) {
@@ -220,7 +224,7 @@ export function substitutePlaceholders(node, values, types) {
   const v = values || {};
   const t = types || {};
   if (typeof node === 'string') {
-    const exact = node.match(PLACEHOLDER_EXACT_RE);
+    const exact = node.match(VAR_RE);
     if (exact) {
       const [, name, modifier, arg] = exact;
       if (!(name in v)) return '';
@@ -233,7 +237,7 @@ export function substitutePlaceholders(node, values, types) {
       }
       return raw == null ? '' : String(raw);
     }
-    return node.replace(PLACEHOLDER_RE, (_, name, modifier, arg) => {
+    return node.replace(VAR_RE_G, (_, name, modifier, arg) => {
       if (!(name in v)) return '';
       const out = applyModifier(v[name], modifier || null, arg || null);
       if (out == null) return '';

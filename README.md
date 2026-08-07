@@ -21,6 +21,7 @@ All features are configurable via the extension popup and can be toggled on or o
 - **Expand reasoning** — automatically opens reasoning field options
 - **Sidebar scroll lock** — prevents the annotation sidebar from auto-scrolling to the top
 - **Closable validation tooltips** — adds a small × to interactive validation message tooltips on the annotation screen so they can be dismissed; the next time the tooltip is triggered it reopens normally (always on, no toggle)
+- **MDH side panel** — opens the "MDH on this screen" lookup debugger in Chrome's side panel, where it stays put while you scroll and click through the annotation screen (the popup version closes as soon as you click away)
 - **Dev features toggle** — enables `devFeaturesEnabled` flag
 - **Dev debug toggle** — enables `devDebugEnabled` flag
 - **Dataset Management** — browse, query, edit, and delete records in Data Storage collections; manage indexes and Atlas Search indexes

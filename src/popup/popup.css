@@ -621,6 +621,14 @@ body.popup-wide .mdh-card {
   gap: 8px;
 }
 
+/* Holds Refresh plus the popup-only pin button (the side panel renders no pin). */
+.mdh-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
 .mdh-refresh-btn {
   background: transparent;
   border: 1px solid transparent;

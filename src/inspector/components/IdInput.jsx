@@ -1,10 +1,5 @@
 import { h } from 'preact';
-
-function parseId(raw) {
-  const s = String(raw || '').trim();
-  const m = s.match(/\/document\/(\d+)/) || s.match(/\/annotations?\/(\d+)/) || s.match(/^(\d+)$/);
-  return m ? m[1] : null;
-}
+import { annotationIdFromInput } from '../../rossum/annotationUrl.js';
 
 export default function IdInput({ onSubmit }) {
   return (
@@ -13,7 +8,7 @@ export default function IdInput({ onSubmit }) {
       onSubmit={(e) => {
         e.preventDefault();
         const raw = e.currentTarget.querySelector('input')?.value;
-        const id = parseId(raw);
+        const id = annotationIdFromInput(raw);
         if (id) onSubmit(id);
       }}
     >

@@ -11,6 +11,9 @@ export function readAuthInfo() {
 
 export function readCurrentContext() {
   const path = window.location.pathname;
+  // DELIBERATE DUPLICATE of src/rossum/annotationUrl.js: this function is
+  // serialized and injected into the page, so it cannot close over an import.
+  // If the annotation-URL grammar changes there, change it here too.
   const docMatch = path.match(/\/document\/(\d+)/) || path.match(/\/annotations?\/(\d+)/);
   const queueMatch = path.match(/\/queues?\/(\d+)/);
   return {
