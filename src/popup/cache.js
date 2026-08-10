@@ -59,7 +59,10 @@ export async function setCachedSchemaTypes(domain, queueId, types) {
 // v3: types are now derived from `content.normalized_value` (Rossum's
 // content endpoint doesn't return a per-datapoint `type` field, so the
 // v2 cache always stored an empty `types` map).
-const ANN_PREFIX = 'mdhProv:ann:v3:';
+// v4: entries gained `tables` (per-table row counts + columns). A v3 entry has
+// no `tables`, which would leave every row picker hidden until the 5-minute TTL
+// expired — the row scope has no other source, so bump rather than tolerate it.
+const ANN_PREFIX = 'mdhProv:ann:v4:';
 
 const annKey = (domain, annotationId) => `${ANN_PREFIX}${domain}#${annotationId}`;
 

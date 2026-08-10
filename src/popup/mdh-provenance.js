@@ -118,6 +118,11 @@ export function hookConfigs(hook) {
   return Array.isArray(c) ? c : [];
 }
 
+// Display sentinel for a cfg with no `mapping.target_schema_id`. Shared so the
+// producer and rowScopeForConfig (which must NOT look it up as a real field)
+// cannot drift apart.
+export const NO_TARGET = '(no target)';
+
 export function extractConfigsFromHook(hook) {
   const out = [];
   const cfgs = hookConfigs(hook);
@@ -141,7 +146,7 @@ export function extractConfigsFromHook(hook) {
       : [];
     out.push({
       name: cfg?.name || '',
-      target: target || '(no target)',
+      target: target || NO_TARGET,
       dataset: dataset || '(no dataset)',
       datasetKey,
       queueIds,
@@ -327,27 +332,61 @@ function isNumberContent(content) {
 // For type=number datapoints the canonical `normalized_value` is used
 // (so "5,552.14" becomes "5552.14"), and the schema_id is recorded in
 // `types` so callers can mirror MDH's type-aware substitution.
+//
+// `tables` describes each multivalue SEPARATELY — one entry per table, with its
+// own row count and column list. The flat `rowValues` map cannot answer "how
+// many rows does THIS config have", because a document with several tables
+// (e.g. a 1-row tax table beside 5 line items — live-verified on elis
+// 2026-08-10) collapses them all into one index space. `rowCount` remains the
+// maximum across tables for backward compatibility; the row picker uses
+// `tables` via rowScopeForConfig instead.
+//
+// Columns are recorded STRUCTURALLY — a column counts even when its value is
+// absent or unusable — because an MDH *target* field is normally empty until
+// the hook fills it, and the target is exactly what we look up here.
 export function flattenContent(content) {
   const headerValues = {};
   const rowValues = {};
   const types = {};
+  const tables = [];
+  const tableBySchemaId = new Map();
   let rowCount = 0;
-  const walk = (node, rowIdx) => {
+  // `schema_id` on a multivalue is live-verified present (elis 2026-08-10);
+  // the numeric-id fallback only keeps a nameless table from collapsing into
+  // its neighbours.
+  const tableFor = (node) => {
+    const key = typeof node.schema_id === 'string' && node.schema_id !== ''
+      ? node.schema_id
+      : `#${node.id}`;
+    let rec = tableBySchemaId.get(key);
+    if (!rec) {
+      rec = { schemaId: key, rowCount: 0, columns: [] };
+      tableBySchemaId.set(key, rec);
+      tables.push(rec);
+    }
+    return rec;
+  };
+  const walk = (node, rowIdx, table) => {
     if (!node || typeof node !== 'object') return;
     if (Array.isArray(node)) {
-      for (const c of node) walk(c, rowIdx);
+      for (const c of node) walk(c, rowIdx, table);
       return;
     }
     if (node.category === 'multivalue' && Array.isArray(node.children)) {
       const tuples = node.children.filter((c) => c?.category === 'tuple');
+      const rec = tableFor(node);
+      if (tuples.length > rec.rowCount) rec.rowCount = tuples.length;
       if (tuples.length > rowCount) rowCount = tuples.length;
-      tuples.forEach((tuple, idx) => walk(tuple, idx));
+      tuples.forEach((tuple, idx) => walk(tuple, idx, rec));
       return;
     }
     const sid = node.schema_id;
     const c = node?.content;
     const isNumber = isNumberContent(c);
     const val = isNumber ? c.normalized_value : c?.value;
+    if (sid && node.category === 'datapoint' && table && !table.columns.includes(sid)) {
+      table.columns.push(sid);
+    }
     if (sid && (typeof val === 'string' || typeof val === 'number')) {
       if (rowIdx == null) {
         if (!(sid in headerValues)) headerValues[sid] = val;
@@ -358,10 +397,10 @@ export function flattenContent(content) {
       }
       if (isNumber && !(sid in types)) types[sid] = 'number';
     }
-    if (Array.isArray(node.children)) for (const c of node.children) walk(c, rowIdx);
+    if (Array.isArray(node.children)) for (const c of node.children) walk(c, rowIdx, table);
   };
-  walk(content?.content || content, null);
-  return { headerValues, rowValues, rowCount, types };
+  walk(content?.content || content, null, null);
+  return { headerValues, rowValues, rowCount, types, tables };
 }
 
 export function valuesForRow(headerValues, rowValues, rowIdx) {
@@ -372,11 +411,56 @@ export function valuesForRow(headerValues, rowValues, rowIdx) {
   return out;
 }
 
-export function configUsesLineItems(cfg, rowValues) {
-  for (const q of cfg.queries) {
-    for (const sid of q.placeholders) if (sid in rowValues) return true;
+// Every schema_id a config substitutes: query placeholders AND the
+// action_condition's. The condition is evaluated against the SELECTED row
+// (see evaluateCfgCondition in ConfigBlock), so a config gated only on a
+// row-level field is row-scoped just as much as one whose query uses it.
+function configPlaceholderNames(cfg) {
+  const out = new Set();
+  for (const q of cfg?.queries || []) {
+    for (const sid of q?.placeholders || []) out.add(sid);
   }
+  for (const sid of cfg?.actionConditionPlaceholders || []) out.add(sid);
+  return out;
+}
+
+export function configUsesLineItems(cfg, rowValues) {
+  const rv = rowValues || {};
+  for (const sid of configPlaceholderNames(cfg)) if (sid in rv) return true;
   return false;
+}
+
+// Which table's rows does this config's Row picker walk, and how many are there?
+//
+// The TARGET field's own table governs (owner's rule, 2026-08-10): a config
+// writing into a VAT-rate row is about VAT rows, so it offers the VAT row
+// count — never the line-item count just because that table is bigger. This
+// also settles a config whose queries reference more than one table.
+//
+// When the target is a header field (MDH's header-level configs) there is no
+// target table, so we fall back to the table the config's own row placeholders
+// come from — the most-referenced one, document order breaking ties. Returns
+// null when nothing about the config is row-scoped.
+export function rowScopeForConfig(cfg, tables) {
+  const list = Array.isArray(tables) ? tables : [];
+  if (list.length === 0) return null;
+  const scope = (t) => ({ tableSchemaId: t.schemaId, rowCount: t.rowCount });
+  const target = cfg?.target;
+  if (typeof target === 'string' && target !== '' && target !== NO_TARGET) {
+    const owner = list.find((t) => t.columns.includes(target));
+    if (owner) return scope(owner);
+  }
+  const names = configPlaceholderNames(cfg);
+  let best = null;
+  let bestHits = 0;
+  for (const t of list) {
+    const hits = t.columns.reduce((n, c) => (names.has(c) ? n + 1 : n), 0);
+    if (hits > bestHits) {
+      best = t;
+      bestHits = hits;
+    }
+  }
+  return best ? scope(best) : null;
 }
 
 // Placeholders whose schema_id wasn't returned by the annotation content fetch.
@@ -434,9 +518,16 @@ export function filterHookEntries(entries, query) {
   return out;
 }
 
+// LIVE-VERIFIED 2026-08-10 (elis): `?schema_id=…` is SILENTLY IGNORED by this
+// endpoint — a bogus id still returns the whole tree, and `results` is a
+// duplicate of `content`. So the response always carries EVERY section, table
+// and column, which is what lets flattenContent's `tables` locate the table
+// behind a config's target field without a second request. The parameter is
+// kept because it costs nothing and documents intent, but nothing may DEPEND on
+// it narrowing the payload.
 export async function loadAnnotationValues(domain, token, annotationId, placeholders) {
   if (!annotationId || placeholders.size === 0) {
-    return { headerValues: {}, rowValues: {}, rowCount: 0, types: {} };
+    return { headerValues: {}, rowValues: {}, rowCount: 0, types: {}, tables: [] };
   }
   const url = `${domain}/api/v1/annotations/${annotationId}/content?schema_id=${[...placeholders].join(',')}`;
   const cdata = await fetchJson(url, token);

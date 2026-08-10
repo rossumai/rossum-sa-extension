@@ -392,6 +392,35 @@ cascade, replays each query against Data Storage and marks the outcome (`winner`
 `skipped` / `gated` / `error`). This card is **shared with the side panel** (below) — it is the
 one component rendered by two surfaces.
 
+**The Row picker is scoped to ONE table — the one holding the config's target field**
+(`mdh-provenance.js` `rowScopeForConfig`, owner's rule 2026-08-10, fixing a customer report).
+`flattenContent` therefore returns `tables` (`[{schemaId, rowCount, columns}]`, one entry per
+multivalue) beside the flat `rowValues`; the older global `rowCount` (the MAXIMUM across every
+table) is kept for compatibility but must never drive the picker again. It was the bug: a
+document with a 4-row tax table beside 23 line items offered **23** rows to the tax config, and
+rows 5+ substituted `''` — so the replay showed a cascade MDH never runs (an
+`'{tax_description}' != ''` condition flips to false and every query renders `gated`). A
+header-level target falls back to the table its own row placeholders come from (most-referenced
+wins), and `null` means no picker. Two consequences worth keeping: row selection lives in
+`rowByTable` keyed by table schema_id, so configs on *different* tables no longer drag each
+other onto a row number the smaller table doesn't have (configs sharing a table still move
+together, which was the useful half); and the stored index is **clamped** to the table's length
+rather than trusted. `configUsesLineItems` counts `actionConditionPlaceholders` too — the
+condition is evaluated against the selected row, so a config gated only on a row field is
+row-scoped just as much as one whose query uses it. Columns are collected **structurally**
+(a column counts even with no usable value) because an MDH *target* field is normally empty
+until the hook fills it, and the target is precisely what gets looked up. The annotation cache
+prefix is at `mdhProv:ann:v4:` for the added `tables`.
+
+**LIVE-VERIFIED 2026-08-10 (elis): `GET /annotations/{id}/content?schema_id=a,b` IGNORES the
+filter.** A bogus schema_id still returns the entire tree (96 fields), and the response's
+`results` key is a byte-identical duplicate of `content`. Nothing may depend on that parameter
+narrowing the payload — but the flip side is load-bearing: the panel always receives every
+section, table and column, which is why the table behind a config's target can be located with
+no second request and no schema-ancestry inference. Also verified there: a multivalue node
+carries its own `schema_id` (so the picker can name the table), tuples are `children` entries
+with `category:'tuple'`, and every column appears in every tuple even when empty (`value: ""`).
+
 ### Side panel (MDH provenance)
 
 A Chrome side panel (`chrome.sidePanel`; the permission is **warning-free**, so adding it does

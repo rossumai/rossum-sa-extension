@@ -67,7 +67,13 @@ function DocLookupIcon() {
 export default function MdhProvenancePanel({ tab, onPin }) {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [state, setState] = useState({ kind: 'loading' });
-  const [currentRow, setCurrentRow] = useState(0);
+  // Row selection is per TABLE, not per document: one annotation can hold a
+  // 4-row tax table beside 23 line items, and a config is scoped to whichever
+  // table its target field lives in. A single shared index dragged every config
+  // onto the same row number, which does not exist in the smaller table.
+  // Configs sharing a table still move together, which is the useful half of
+  // the old behaviour.
+  const [rowByTable, setRowByTable] = useState({});
   const [filter, setFilter] = useState('');
 
   useEffect(() => {
@@ -160,6 +166,7 @@ export default function MdhProvenancePanel({ tab, onPin }) {
         let headerValues = {};
         let rowValues = {};
         let rowCount = 0;
+        let tables = [];
         let types = {};
         let annValuesFromCache = false;
         if (annCache) {
@@ -169,6 +176,7 @@ export default function MdhProvenancePanel({ tab, onPin }) {
             headerValues = annCache.headerValues || {};
             rowValues = annCache.rowValues || {};
             rowCount = annCache.rowCount || 0;
+            tables = annCache.tables || [];
             types = annCache.types || {};
             annValuesFromCache = true;
           }
@@ -180,6 +188,7 @@ export default function MdhProvenancePanel({ tab, onPin }) {
             headerValues = flat.headerValues;
             rowValues = flat.rowValues;
             rowCount = flat.rowCount;
+            tables = flat.tables || [];
             types = flat.types || {};
           } catch {
             // leave defaults
@@ -192,6 +201,7 @@ export default function MdhProvenancePanel({ tab, onPin }) {
             headerValues,
             rowValues,
             rowCount,
+            tables,
             types,
             placeholders: [...placeholders].sort().join(','),
           }).catch(() => {});
@@ -229,9 +239,10 @@ export default function MdhProvenancePanel({ tab, onPin }) {
           headerValues,
           rowValues,
           rowCount,
+          tables,
           types,
         });
-        setCurrentRow(0);
+        setRowByTable({});
 
         // Best-effort freshness check: if cached annotation is stale, drop it
         // and re-render with fresh data. Honors `cancelled` so a manual refresh
@@ -348,11 +359,13 @@ export default function MdhProvenancePanel({ tab, onPin }) {
                   cfgKey={`${hook.id}::${cfgIdx}`}
                   headerValues={state.headerValues}
                   rowValues={state.rowValues}
-                  rowCount={state.rowCount}
+                  tables={state.tables}
                   types={state.types}
                   annotationModifiedAt={state.annotationModifiedAt}
-                  currentRow={currentRow}
-                  onRowChange={setCurrentRow}
+                  rowByTable={rowByTable}
+                  onRowChange={(tableSchemaId, idx) =>
+                    setRowByTable((prev) => ({ ...prev, [tableSchemaId]: idx }))
+                  }
                   forceRefreshNonce={refreshNonce}
                   onOpenInDm={(dataset, pipelineText, variables, variableTypes) =>
                     openConsoleTab(tab, {

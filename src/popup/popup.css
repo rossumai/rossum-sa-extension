@@ -815,6 +815,21 @@ body.popup-wide .mdh-card {
   outline-offset: 1px;
 }
 
+/* Names the table these rows belong to. A document can hold several tables of
+   different lengths, so a bare "of 4" is ambiguous — this says which 4. */
+.mdh-row-table {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-hint);
+  opacity: 0.85;
+}
+.mdh-row-table::before {
+  content: '·';
+  margin-right: 4px;
+}
+
 .mdh-cfg-head {
   display: flex;
   align-items: baseline;

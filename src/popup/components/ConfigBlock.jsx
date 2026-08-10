@@ -6,6 +6,7 @@ import {
   evaluateCfgCondition,
   queryToPipeline,
   replayConfig,
+  rowScopeForConfig,
   substitutePlaceholders,
   valuesForRow,
 } from '../mdh-provenance.js';
@@ -20,17 +21,28 @@ export default function ConfigBlock({
   cfgKey,
   headerValues,
   rowValues,
-  rowCount,
+  tables,
   types,
   annotationModifiedAt,
-  currentRow,
+  rowByTable,
   onRowChange,
   forceRefreshNonce,
   onOpenInDm,
 }) {
   const usesRows = configUsesLineItems(cfg, rowValues);
-  const showPicker = usesRows && rowCount > 1;
-  const rowToUse = usesRows ? currentRow : 0;
+  // The rows this config can walk belong to ONE table — the one holding its
+  // target field (see rowScopeForConfig). Before this, the picker offered the
+  // largest row count in the whole document, so a config writing into a 4-row
+  // tax table was offered 23 line-item rows and rows 5+ replayed against empty
+  // values MDH would never substitute.
+  const scope = rowScopeForConfig(cfg, tables);
+  const showPicker = usesRows && scope != null && scope.rowCount > 1;
+  // Clamp rather than trust the stored index: a selection made while another
+  // table was in view (or before an edit shortened this one) must not fall off
+  // the end and silently substitute empty strings.
+  const rowToUse = usesRows && scope
+    ? Math.min(rowByTable?.[scope.tableSchemaId] ?? 0, Math.max(scope.rowCount - 1, 0))
+    : 0;
 
   const [statuses, setStatuses] = useState(() => cfg.queries.map(() => PENDING));
   const ctrlRef = useRef(null);
@@ -177,14 +189,20 @@ export default function ConfigBlock({
           <span class="mdh-row-label">Row</span>
           <select
             class="mdh-row-select"
-            value={String(currentRow)}
-            onChange={(e) => onRowChange(Number(e.currentTarget.value))}
+            value={String(rowToUse)}
+            onChange={(e) => onRowChange(scope.tableSchemaId, Number(e.currentTarget.value))}
           >
-            {Array.from({ length: rowCount }, (_, i) => (
+            {Array.from({ length: scope.rowCount }, (_, i) => (
               <option value={String(i)}>{i + 1}</option>
             ))}
           </select>
-          <span class="mdh-row-of">of {rowCount}</span>
+          <span class="mdh-row-of">of {scope.rowCount}</span>
+          <span
+            class="mdh-row-table"
+            title={`These rows are the “${scope.tableSchemaId}” table — the table holding ${cfg.target}`}
+          >
+            {scope.tableSchemaId}
+          </span>
         </div>
       ) : null}
 
