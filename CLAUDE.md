@@ -25,7 +25,7 @@ Nine esbuild entry points:
 2. **`src/netsuite/index.js`** → content script for NetSuite pages
 3. **`src/coupa/index.js`** → content script for Coupa pages
 4. **`src/popup/popup.jsx`** → extension popup UI (Preact)
-5. **`src/console/index.jsx`** → unified Console page (`console/console.html`, opened via `chrome.tabs.create`) — a left app-switcher rail over six apps: Dataset Management (`src/mdh/`), Audit Log Viewer (`src/audit/`), Galaxy (`src/galaxy/`, a 3D org birdview), Inspector (`src/inspector/`), Fabry Chat (`src/fabry/`, experimental-gated), and Academy (`src/academy/`, the onboarding training track, gated behind `trainingUnlocked`)
+5. **`src/console/index.jsx`** → unified Console page (`console/console.html`, opened via `chrome.tabs.create`) — a left app-switcher rail over six apps: Dataset Management (`src/mdh/`), Audit Log Viewer (`src/audit/`), Galaxy (`src/galaxy/`, a 3D org birdview), Inspector (`src/inspector/`), Fabry Chat (`src/fabry/`), and Academy (`src/academy/`, the onboarding training track, the one app gated behind `experimentalUnlocked`)
 6. **`src/background/index.js`** → MV3 service worker (`background.js`)
 7. **`src/devtools/devtools.js`** → Chrome DevTools registrar (`devtools.html`, creates the "Rossum" panel + forwards `panel.onSearch` to CodeMirror)
 8. **`src/devtools/panel.jsx`** → DevTools panel page (`panel.html`)
@@ -205,24 +205,27 @@ mark `self` steps, so the two call sites cannot double-mark the same step.
   arrow renders and nothing else happens** — the card's plain-text hint still
   carries the step regardless, because a stale selector must never read as a
   blocked step.
-- **`trainingUnlocked` is a separate storage key from `experimentalUnlocked`, but
-  the two are now unlocked TOGETHER by one gesture** (`src/training/gate.js`
-  still reads only `trainingUnlocked`; `src/popup/components/App.jsx`
-  `onVersionClick` writes both keys in the same `chrome.storage.local.set` call):
-  5 quick clicks on the popup's footer version hash. `experimentalUnlocked` gates
-  Mr. Fabry, whose Architect **implement loop is write-enabled by default** inside
-  that gate — so unlocking training now also reveals that capability, by owner
-  decision (2026-08-10: "the Academy and Mr. Fabry are revealed at the same time,
-  by the existing version-hash click"). An earlier revision gave training its own
-  click target instead — 5 clicks on the header extension name (`.brand-name`) —
-  specifically so the two could be unlocked independently; that target was a
-  68×18px text span with no `cursor: pointer`, sitting next to a
-  visually-identical, non-clickable badge, so a real user could not find it, and
-  being a silent toggle with no feedback, a retry silently re-locked it. Removed
-  in favor of the single, already-known gesture rather than inventing a
-  discoverable replacement. The keys stay separate in storage — only who writes
-  `trainingUnlocked` changed, not what gates on it — so a future revision could
-  split the gesture again without touching `gate.js` or the Academy.
+- **The gate is `experimentalUnlocked`, and it is the only one** (`src/training/
+  gate.js` + `src/training/storage.js` `UNLOCK_KEY`; written by
+  `src/popup/components/App.jsx` `onVersionClick`): 5 quick clicks on the popup's
+  footer version hash, mirrored live into the Console via
+  `chrome.storage.onChanged`. It hides exactly one thing — the Academy, badged
+  `EXP` on the rail. Training had its own `trainingUnlocked` key from 2026-08-07
+  to 2026-08-11, kept separate so a trainee could not acquire Mr. Fabry's
+  write-enabled Architect implement loop as a side effect of starting training.
+  That reasoning died with the gate on Fabry: Fabry is public for every user,
+  implement loop included, so the trainee has it either way and a second key
+  protected nothing while giving the same gesture two names. `trainingUnlocked`
+  is orphaned — read by nothing, migrated by nothing, and safe to ignore, because
+  the only build that ever wrote it wrote `experimentalUnlocked` in the same
+  `chrome.storage.local.set` call, so no profile can hold one without the other.
+  An even earlier revision gave training a click target of its own — 5 clicks on
+  the header extension name (`.brand-name`) — a 68×18px text span with no
+  `cursor: pointer` beside a visually-identical non-clickable badge, which no
+  real user could find and which silently re-locked on a retry. Removed in
+  favour of the single already-known gesture rather than inventing a
+  discoverable replacement; `tests/popup-training-gate.test.js` still guards
+  that clicking the brand name writes nothing at all.
 - **The receipt's canonical string, and its honest limits** (`src/training/receipt.js`
   + `hmac.js` + `receiptKey.js`, minted by `src/academy/mint.js`): a Crockford-base32
   code, HMAC-SHA256'd via `crypto.subtle`, over the pipe-joined string `RSAT1|
@@ -256,18 +259,21 @@ mark `self` steps, so the two call sites cannot double-mark the same step.
   receipts; the content-script quest card never needs the key and must never ship
   it — checked against `dist/`, not just `src/`, since an import alone doesn't paste
   the literal but a bundle does).
-- **Two new storage keys**: `trainingUnlocked` (the gate, boolean) and
-  `trainingProgress` (`{ [origin]: { trackId, trackVersion, startedAt, missions,
-  receipt? } }`, keyed by org **origin** like `rossumViewedAnnotations`, capped at 3
-  orgs via `storage.js` `pruneOrgs` — the active origin's slot is always reserved).
-  Both live in `chrome.storage.local`; `restartTrack`/`clearProgress` drop only the
-  active origin's entry. The cap is **soft**: `pruneOrgs` never evicts a record
-  carrying a `receipt`, because that record holds the only copy unless the trainee
-  already pasted it somewhere, and `startedAt` (written once at track start, never
-  updated) cannot tell us whether they did. Ranking by a touch time was the
-  alternative and was rejected — it needs a new field written on every save and would
-  still evict the receipt of an org the trainee stopped visiting, which is exactly
-  when it is most likely to be the only copy.
+- **One new storage key**: `trainingProgress` (`{ [origin]: { trackId, trackVersion,
+  startedAt, missions, receipt? } }`, keyed by org **origin** like
+  `rossumViewedAnnotations`, capped at 3 orgs via `storage.js` `pruneOrgs` — the
+  active origin's slot is always reserved). Training also introduced its own gate
+  key, `trainingUnlocked`, from 2026-08-07 to 2026-08-11 (see the gate bullet
+  above); it is now retired and orphaned, and the gate is the shared
+  `experimentalUnlocked` — see the storage-key list below. `trainingProgress` lives
+  in `chrome.storage.local`; `restartTrack`/`clearProgress` drop only the active
+  origin's entry. The cap is **soft**: `pruneOrgs` never evicts a record carrying a
+  `receipt`, because that record holds the only copy unless the trainee already
+  pasted it somewhere, and `startedAt` (written once at track start, never updated)
+  cannot tell us whether they did. Ranking by a touch time was the alternative and
+  was rejected — it needs a new field written on every save and would still evict
+  the receipt of an org the trainee stopped visiting, which is exactly when it is
+  most likely to be the only copy.
 - **`trainingProgress` is written by BOTH surfaces, so the content script WATCHES it**
   (`training-quest.js` `watchProgress`, guarded like `gateListenerOn`). Two failures
   follow from not doing so, and one `chrome.storage.onChanged` listener fixes both.
@@ -363,14 +369,19 @@ mark `self` steps, so the two call sites cannot double-mark the same step.
 ### Fabry Chat (`src/fabry/`)
 
 A Claude-style chat interface over the Rossum Agent API ("Mr. Fabry") — the fifth
-Console app, **experimental-gated**: the rail item (label "Fabry", `beta` badge like Inspector/Galaxy)
-renders only while `experimentalUnlocked` is set, and the gate is live —
-`chrome.storage.onChanged` mirrors the key into a console-store signal;
-re-locking while Fabry is active falls back to MDH (an inline gate effect in
-`console/index.jsx` using `activeApp.peek()`; `boot.js appAfterGateChange` is
-the tested pure equivalent), and
-`pickInitialApp` refuses a persisted/staged `fabry` while locked. Spec:
-`docs/superpowers/specs/2026-07-10-fabry-chat-console-design.md`.
+Console app, **public since 2026-08-11**: the rail item (label "Fabry", `beta`
+badge like Inspector) renders for every user, with no gate in `Rail.jsx` and no
+clause in `boot.js` `pickInitialApp`/`appAfterGateChange`. It rendered only while
+`experimentalUnlocked` was set until then; that key now gates the **Academy**
+alone, and the live-gate machinery it drives is unchanged and simply serves that
+app instead — `chrome.storage.onChanged` mirrors the key into a console-store
+signal, and re-locking while the Academy is active falls back to MDH (an inline
+gate effect in `console/index.jsx` using `activeApp.peek()`; `boot.js
+appAfterGateChange` is the tested pure equivalent). Ungating Fabry was an owner
+decision that knowingly made the write-enabled Architect implement loop public
+— see that section below. Specs:
+`docs/superpowers/specs/2026-07-10-fabry-chat-console-design.md`,
+`docs/superpowers/specs/2026-08-11-fabry-public-single-gate-design.md`.
 
 The server owns ALL chat state; the client holds it in signals only:
 - **Sidebar** mirrors `GET /chats` verbatim (including machine chats created by
@@ -486,7 +497,7 @@ The server owns ALL chat state; the client holds it in signals only:
   are its own deliverable docs
   (content + last result). Nothing extra at rest in the browser (deliverables +
   results live server-side per-org; only `fabryMode` persists; `activeId` is
-  in-memory). No new gate — inside the existing `experimentalUnlocked` Fabry app.
+  in-memory). No new gate — inside the Fabry app, which is public since 2026-08-11.
   LIVE GATE before non-dogfood use: confirm the server accepts a `__`-prefixed
   collection create + doc write on elis (client + MDH app verified clean;
   DocumentDB reserves only `system.` — swap the constant if rejected).
@@ -494,9 +505,11 @@ The server owns ALL chat state; the client holds it in signals only:
   `docs/superpowers/specs/2026-07-14-architect-implement-loop-design.md`, plan
   `docs/superpowers/plans/2026-07-14-architect-implement-loop.md`): an autonomous
   loop that drives each deliverable toward PASS by actually WRITING to the org (the
-  read-only check answers "is it done?"; this makes it done). **Double-gated** —
-  `experimentalUnlocked` (the whole Fabry app) + a per-run **Arm** dialog. It is ON
-  by default within the experimental Fabry app (the popup kill-switch
+  read-only check answers "is it done?"; this makes it done). **Gated by the
+  per-run Arm dialog alone** since 2026-08-11, when Fabry went public and took
+  its `experimentalUnlocked` gate with it (owner decision: "fully public,
+  implement included"). It is ON by default within the Fabry app (the popup
+  kill-switch
   `fabryArchitectImplementEnabled` was REMOVED 2026-07-14; `store.implementAllowed`
   defaults true). **Task-decomposition loop** (ghuntley "one thing per loop"; folded
   into the same consolidated spec — the earlier separate task-decomposition doc was
@@ -546,8 +559,8 @@ The server owns ALL chat state; the client holds it in signals only:
   other than the transport (`agentApi.js`) and `src/fabry/architect/**` may reference
   `read-write` — guarded by `tests/fabry-write-boundary.test.js`. Remaining pre-non-
   dogfood item: a stable customer-facing rollout decision (this is an autonomous
-  write-to-prod-org capability; ON by default within the experimental Fabry app,
-  Arm-gated per run).
+  write-to-prod-org capability; ON by default within the Fabry app, which is
+  public since 2026-08-11, Arm-gated per run).
 
 ### DevTools panel (Raw Object Editor) (`src/devtools/`)
 
@@ -681,8 +694,8 @@ feature request behind it. Spec:
 
 ## Chrome Storage Keys
 
-- Feature toggles: `schemaAnnotationsEnabled`, `expandFormulasEnabled`, `expandReasoningFieldsEnabled`, `scrollLockEnabled`, `resourceIdsEnabled`, `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled` (the short-lived `inspectAnnotationEnabled` toggle was removed 2026-07-04 along with the floating button, and the in-page `rawObjectEditorEnabled` toggle was removed 2026-07 with the in-page Raw Object Editor surface; the `fabryDeepVerifyEnabled` + `fabryArchitectImplementEnabled` popup toggles were removed 2026-07-14 — both features are now ON by default within the experimental Fabry app; any stored values are orphaned; the `annotateForMeEnabled` toggle and the whole Annotate-for-me feature were REMOVED 2026-07-20 — proven not feasible: vision box precision capped ~0.4 IoU and the write path never had a server-side read-only guarantee; any stored `annotateForMeEnabled` value is orphaned)
-- Experimental unlock: `experimentalUnlocked` — flipped by 5 quick clicks on the popup's version hash; gates the Fabry Chat Console app's rail item (live via `chrome.storage.onChanged`). (It was formerly also the second half of the Annotate-for-me double-gate, removed with that feature 2026-07-20.) The same click also flips `trainingUnlocked` in the same write — see Onboarding training state below.
+- Feature toggles: `schemaAnnotationsEnabled`, `expandFormulasEnabled`, `expandReasoningFieldsEnabled`, `scrollLockEnabled`, `resourceIdsEnabled`, `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled` (the short-lived `inspectAnnotationEnabled` toggle was removed 2026-07-04 along with the floating button, and the in-page `rawObjectEditorEnabled` toggle was removed 2026-07 with the in-page Raw Object Editor surface; the `fabryDeepVerifyEnabled` + `fabryArchitectImplementEnabled` popup toggles were removed 2026-07-14 — both features are now ON by default within the Fabry app, which is public since 2026-08-11; any stored values are orphaned; the `annotateForMeEnabled` toggle and the whole Annotate-for-me feature were REMOVED 2026-07-20 — proven not feasible: vision box precision capped ~0.4 IoU and the write path never had a server-side read-only guarantee; any stored `annotateForMeEnabled` value is orphaned)
+- Hidden-features unlock: `experimentalUnlocked` — flipped by 5 quick clicks on the popup's version hash; the extension's ONE gate, hiding the Academy Console app (live via `chrome.storage.onChanged`). It gated the Fabry Console app until 2026-08-11, when Fabry went public; it was formerly also the second half of the Annotate-for-me double-gate, removed with that feature 2026-07-20. It absorbed the retired `trainingUnlocked` key — see Onboarding training state below.
 - Console staging auth: `consoleAuth_<uuid>` (single-use, 24h TTL, removed on first read; carries `app` + optional DS pipeline prefill)
 - Console state: `consoleActiveApp` — per-tab (see MDH state below: session-first read with a `chrome.storage.local` seed)
 - Side panel state: **none** — Chrome remembers open/closed per window. The panel shares the popup's `mdhProvenanceFilter` (the card's schema-ID filter) and its `mdhProv:*` `chrome.storage.session` caches
@@ -692,7 +705,7 @@ feature request behind it. Spec:
 - Fabry Chat state: `fabrySidebarWidth` is a **global** layout pref (sidebar drag-resize, clamp 200–420; the sidebar collapse toggle was removed, so the former `fabrySidebarOpen` key is orphaned/unused); `fabryArchConsoleHeight` is a **global** layout pref too (the Architect deliverable pane's action-console height — fixed so tabs don't jump, drag-resizable via its top-edge grip, clamp 140–620); `fabryActiveChat` (open chat id), `fabryMode` (Chat|Architect sub-app selection), and `fabryArchitectActive` (open Architect deliverable id) are the only other persisted values — all per-tab (tabState pattern) and content-free; chat content/images/transcripts and Architect deliverable text/evidence never touch storage (server-owned; privacy constraint — deliverables + their last results live in the `__mrfabry_architect` Data Storage collection, in-memory otherwise)
 - Inspector state: `rossumViewedAnnotations` — annotations the user OPENED IN THE ROSSUM UI (`{id, origin, at}`, deduped by (origin,id), newest-first, cap 12), written by the always-on `track-viewed` content-script feature (pure tracker, no DOM) and read by the Inspector landing, which also live-refreshes via `chrome.storage.onChanged`, which filters to the connected org's origin (cap 8 shown) and enriches file/queue/status via ONE sideloaded call (`/annotations?id=<csv>&sideload=documents,queues` — verified live). Clear-all removes only the current origin's entries. Opening the Inspector lands on this list — only an explicitly staged `pendingAnnotationId` (deep-link) auto-loads. (Legacy keys `inspectorRecents` [investigated-recents, retired 2026-07-04] and the older per-tab `consoleInspectorAnn` are orphaned, not migrated.)
 - AI pipeline input availability: cached in **`sessionStorage`** (key `mdhAiAvailable_<org>`), NOT `chrome.storage` — ephemeral per-session result of the `/internal/llmchat` probe, so availability is never persisted at rest.
-- Onboarding training state: `trainingUnlocked` (the gate; flipped by the SAME 5-quick-clicks-on-the-version-hash gesture as `experimentalUnlocked`, in one write — see Onboarding training above) and `trainingProgress` (per-org-origin progress + any issued receipt, capped at 3 orgs).
+- Onboarding training state: `trainingProgress` (per-org-origin progress + any issued receipt, capped at 3 orgs). The gate is the shared `experimentalUnlocked` above; the former `trainingUnlocked` key (2026-08-07 to 2026-08-11) is orphaned, never migrated — no profile can hold it without `experimentalUnlocked`, so nothing was lost.
 - Usage data (**opt-in, off by default**): `usageConsent` (`true`/`false`/**absent** — absent means *never answered*, which is why `App.jsx` reads it separately from the `!!`-coercing `STORAGE_TOGGLES` loop), `usageClientId` (random uuid, minted **lazily by the worker on the first event** — not at consent time, so nothing durable depends on a message reaching it — and **deleted on revoke** together with `usageSessionId`, so a re-opt-in is unlinkable), `usageSnapshotDay` (UTC `YYYY-MM-DD` marker for the once-a-day config snapshot), `usageAsked` (`true` once the consent overlay has ever been **shown** — separate from `usageConsent` so the ask appears exactly once and never nags); plus `usageSessionId` in `chrome.storage.session`.
 
 ## Usage data (opt-in)

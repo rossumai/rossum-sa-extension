@@ -86,7 +86,7 @@ once per document — the extension deliberately does not count repeatedly.
 | `sa_popup_open` | you opened the popup |
 | `sa_popup_toggle_on` | you switched a feature on (carries which toggle, from a fixed list of the nine toggle names) |
 | `sa_popup_toggle_off` | you switched a feature off (same fixed list) |
-| `sa_popup_experimental_unlock` | you unlocked the experimental section |
+| `sa_popup_experimental_unlock` | you unlocked the extension's experimental features |
 | `sa_popup_unlock_annotation` | you released an annotation another reviewer was holding |
 
 **In the Console**

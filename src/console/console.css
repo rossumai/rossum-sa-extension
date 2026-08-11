@@ -29,6 +29,12 @@
   --info-bg: #eaf1fd;
   --info-fg: #1e40af;
   --info-border: #c7daf8;
+  /* EXP badge: a FILLED pill, unlike every -bg/-fg pair above (which are tints
+     meant to sit on a card). Violet, not --accent — the rail paints the active
+     app's icon in --accent, so an accent badge reads as a second selection
+     marker. See .app-rail-exp for the measured contrast. */
+  --exp-bg: #7c3aed;
+  --exp-fg: #ffffff;
   --type-doc-bg: #e0f2fe;
   --type-doc-fg: #075985;
   --type-ann-bg: #fef3c7;
@@ -81,6 +87,11 @@
     --info-bg: #15233f;
     --info-fg: #93b4f5;
     --info-border: #294063;
+    /* Inverted against the light theme and against the tints beside it: a light
+       violet fill with dark text. A dark fill would sink into --bg-sidebar,
+       which is the exact failure this pair replaced. */
+    --exp-bg: #a78bfa;
+    --exp-fg: #1e1233;
     --type-doc-bg: #0c2535;
     --type-doc-fg: #7dd3fc;
     --type-ann-bg: #3a2f10;
@@ -2998,7 +3009,8 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .app-rail-item.muted:focus-visible,
 .app-rail-item.muted.active { opacity: 1; }
 
-.app-rail-beta {
+.app-rail-beta,
+.app-rail-exp {
   position: absolute;
   top: 2px; right: 6px;            /* sits slightly over the top-right of the icon */
   font-size: 7.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
@@ -3008,6 +3020,24 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
   pointer-events: none;            /* don't intercept clicks on the rail item */
 }
 
+/* EXP marks an app hidden behind the experimentalUnlocked gate, as opposed to
+   BETA's "visible but immature". Same pill, same type — measured 25.1px against
+   beta's 30.2px in a 60px rail item, so the narrower word needs no type
+   or geometry change.
+
+   It is FILLED, not tinted, and that is the whole point. Measured against the
+   rail (--bg-sidebar), a tinted pill barely exists as a shape: the --info-*
+   tint this used at first scored 1.07:1 light and 1.09:1 dark, and even BETA's
+   amber only reaches 1.05:1 / 1.29:1. The filled --exp-* pair scores 5.38:1 and
+   6.27:1, so the badge reads as a badge at a glance. Text-on-pill contrast was
+   never the problem (the tint was already 7.5:1) — separation from the rail was.
+
+   Filled with violet rather than --accent: the rail already paints the ACTIVE
+   app's icon in --accent on white, so an accent pill sits inches from it and
+   reads as a second "this one is selected" marker. Verified side by side.
+   Not --accent-bg/--accent-fg either — those two are never defined in this
+   file, so they would render a transparent pill. */
+.app-rail-exp { background: var(--exp-bg); color: var(--exp-fg); }
 
 /* ===================================================================== */
 /* Audit Log Viewer                                                      */

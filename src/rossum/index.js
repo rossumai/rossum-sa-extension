@@ -11,7 +11,7 @@ import { init as initTrainingQuest } from './features/training-quest.js';
 initClosableTooltips();
 initDatasetMgmtSuggest();
 initTrackViewed();
-initTrainingQuest(); // self-gates on trainingUnlocked; no popup toggle
+initTrainingQuest(); // self-gates on experimentalUnlocked; no popup toggle
 
 const SETTINGS_KEYS = [
   'schemaAnnotationsEnabled',

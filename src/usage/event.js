@@ -53,7 +53,7 @@ export const EVENT_NAMES = [
   'sa_fabry_deep_verify',
   'sa_fabry_architect_check',
   'sa_fabry_architect_implement',
-  // Academy (onboarding training track, gated behind trainingUnlocked)
+  // Academy (onboarding training track, gated behind experimentalUnlocked)
   'sa_training_start',
   'sa_training_mission_complete',
   'sa_training_receipt_issue',

@@ -1,7 +1,10 @@
-// The trainingUnlocked gate. Deliberately NOT experimentalUnlocked: that key
-// gates Mr. Fabry, whose Architect implement loop defaults to write-enabled, and
-// a trainee must not acquire an autonomous write capability against their org
-// as a side effect of starting training.
+// The hidden-features gate: `experimentalUnlocked`, the key the popup's 5-click
+// version-hash gesture flips and the Console rail reads. It was a separate
+// `trainingUnlocked` key until 2026-08-11, kept apart so that unlocking training
+// could not also hand a trainee Mr. Fabry's write-enabled Architect implement
+// loop. That separation stopped protecting anything the moment Fabry went
+// public — implement loop included — because a trainee now has it whether or
+// not they ever unlock a thing. One gate, named for what it does.
 import { UNLOCK_KEY } from './storage.js';
 
 export async function isUnlocked() {

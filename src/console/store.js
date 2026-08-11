@@ -4,11 +4,9 @@ import { signal } from '@preact/signals';
 // Which app the console is currently showing.
 export const activeApp = signal('mdh'); // 'mdh' | 'audit'
 
-// Experimental features gate (popup-owned; 5 quick clicks on the version hash).
-// Mirrored from chrome.storage.local at boot and live via onChanged.
+// The extension's one hidden-features gate (popup-owned; 5 quick clicks on the
+// version hash). Mirrored from chrome.storage.local at boot and live via
+// onChanged. It hides exactly one app today — the Academy — and Mr. Fabry is
+// public. The separate `trainingUnlocked` signal was folded into this one on
+// 2026-08-11; see src/training/gate.js for why the split stopped buying safety.
 export const experimentalUnlocked = signal(false);
-
-// Training gate (popup-owned; 5 quick clicks on the extension name). Deliberately
-// a different key from experimentalUnlocked — see src/training/gate.js — so
-// unlocking training can never also unlock Mr. Fabry's write-capable agent loop.
-export const trainingUnlocked = signal(false);

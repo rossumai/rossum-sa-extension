@@ -98,18 +98,18 @@ describe('computeStaleAuthRemovals', () => {
   });
 });
 
-describe('fabry experimental gate', () => {
+describe('fabry is public (no gate)', () => {
   it('isValidApp accepts fabry', () => {
     expect(isValidApp('fabry')).toBe(true);
   });
-  it('pickInitialApp only yields fabry when unlocked', () => {
-    expect(pickInitialApp({ persistedApp: 'fabry', fabryUnlocked: true })).toBe('fabry');
-    expect(pickInitialApp({ persistedApp: 'fabry', fabryUnlocked: false })).toBe('mdh');
-    expect(pickInitialApp({ persistedApp: 'fabry' })).toBe('mdh'); // default locked (older callers)
-    expect(pickInitialApp({ stagingApp: 'fabry', persistedApp: 'audit', fabryUnlocked: false })).toBe('audit');
+  // Fabry took an `experimentalUnlocked` gate until 2026-08-11. It is now a
+  // normal app: no flag, in either direction, may keep it off the rail.
+  it('pickInitialApp yields fabry with no unlock flag at all', () => {
+    expect(pickInitialApp({ persistedApp: 'fabry' })).toBe('fabry');
+    expect(pickInitialApp({ stagingApp: 'fabry', persistedApp: 'audit' })).toBe('fabry');
   });
-  it('appAfterGateChange kicks an active fabry back to mdh on re-lock', () => {
-    expect(appAfterGateChange('fabry', false)).toBe('mdh');
+  it('appAfterGateChange never moves fabry, locked or unlocked', () => {
+    expect(appAfterGateChange('fabry', false)).toBe('fabry');
     expect(appAfterGateChange('fabry', true)).toBe('fabry');
     expect(appAfterGateChange('audit', false)).toBe('audit');
   });

@@ -150,3 +150,14 @@ describe('gate', () => {
     expect(listeners).toHaveLength(0);
   });
 });
+
+describe('the unlock gate key', () => {
+  // Load-bearing, and the single point the 2026-08-11 consolidation turns on:
+  // the content script's quest card gates on this constant, the popup writes
+  // the key by name, and the Console rail reads its own signal off the same
+  // key. If any of the three names a different key, the Academy unlocks on one
+  // surface and stays hidden on the others.
+  it('is experimentalUnlocked — the one hidden-features gate', () => {
+    expect(UNLOCK_KEY).toBe('experimentalUnlocked');
+  });
+});

@@ -3,7 +3,12 @@
 // many orgs does not accumulate state forever.
 import { migrate } from './progress.js';
 
-export const UNLOCK_KEY = 'trainingUnlocked';
+// The gate is the extension's single hidden-features key. It was
+// `trainingUnlocked` until 2026-08-11; any value left under that name in an
+// installed profile is orphaned and read by nothing. No migration is needed —
+// the only build that ever wrote `trainingUnlocked` wrote `experimentalUnlocked`
+// in the same call, so no profile can hold one without the other.
+export const UNLOCK_KEY = 'experimentalUnlocked';
 export const PROGRESS_KEY = 'trainingProgress';
 export const MAX_ORGS = 3;
 

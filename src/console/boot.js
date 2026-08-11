@@ -8,23 +8,21 @@ export function isValidApp(v) {
 }
 
 // Which app to show on boot. Precedence: staging entry (a popup button click)
-// wins, then the persisted last-used app, then Dataset Management. Gated apps
-// are only ever picked when their own gate is unlocked. Both flags are
-// additive and default to locked, so older callers keep their behaviour.
-export function pickInitialApp({ stagingApp, persistedApp, fabryUnlocked = false, academyUnlocked = false } = {}) {
-  const ok = (v) => isValidApp(v)
-    && (v !== 'fabry' || fabryUnlocked)
-    && (v !== 'academy' || academyUnlocked);
+// wins, then the persisted last-used app, then Dataset Management. The Academy
+// is the ONE gated app — everything else, Mr. Fabry included, is always
+// available. `unlocked` defaults to locked so a caller that forgets the flag
+// hides the Academy rather than revealing it.
+export function pickInitialApp({ stagingApp, persistedApp, unlocked = false } = {}) {
+  const ok = (v) => isValidApp(v) && (v !== 'academy' || unlocked);
   if (ok(stagingApp)) return stagingApp;
   if (ok(persistedApp)) return persistedApp;
   return 'mdh';
 }
 
-// Re-locking a gate while its app is active falls back to Dataset Management;
-// any other app is unaffected.
-export function appAfterGateChange(activeApp, fabryUnlocked, academyUnlocked = false) {
-  if (activeApp === 'fabry' && !fabryUnlocked) return 'mdh';
-  if (activeApp === 'academy' && !academyUnlocked) return 'mdh';
+// Re-locking the gate while the Academy is active falls back to Dataset
+// Management; every other app is unaffected.
+export function appAfterGateChange(activeApp, unlocked) {
+  if (activeApp === 'academy' && !unlocked) return 'mdh';
   return activeApp;
 }
 

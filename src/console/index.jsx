@@ -1,6 +1,6 @@
 import { h, render } from 'preact';
 import { effect } from '@preact/signals';
-import { activeApp, experimentalUnlocked, trainingUnlocked } from './store.js';
+import { activeApp, experimentalUnlocked } from './store.js';
 import {
   pickInitialApp,
   resolveBootAuth,
@@ -112,30 +112,21 @@ async function boot() {
     ...(authKey ? [authKey] : []),
     'consoleActiveApp',
     'experimentalUnlocked',
-    'trainingUnlocked',
   ]);
   const entry = authKey ? stored[authKey] : null;
 
-  // Fabry deep-verify + Architect implement are ON by default (their popup
-  // kill-switches were removed 2026-07-14); the store signals default true.
   experimentalUnlocked.value = !!stored.experimentalUnlocked;
-  trainingUnlocked.value = !!stored.trainingUnlocked;
   chrome.storage.onChanged?.addListener((changes, area) => {
     if (area === 'local' && changes.experimentalUnlocked) {
       experimentalUnlocked.value = !!changes.experimentalUnlocked.newValue;
     }
-    if (area === 'local' && changes.trainingUnlocked) {
-      trainingUnlocked.value = !!changes.trainingUnlocked.newValue;
-    }
   });
-  // Re-locking a gate while its app is active falls back to Dataset
-  // Management; any other active app is unaffected. Subscribes only to the
-  // gate signals (via .value) and reads activeApp with .peek() so this effect
-  // doesn't re-run on every app switch — just on gate changes.
+  // Re-locking the gate while the Academy is active falls back to Dataset
+  // Management; any other active app is unaffected. Subscribes only to the gate
+  // signal (via .value) and reads activeApp with .peek() so this effect doesn't
+  // re-run on every app switch — just on gate changes.
   effect(() => {
-    const fabryUnlocked = experimentalUnlocked.value;
-    const academyUnlocked = trainingUnlocked.value;
-    activeApp.value = appAfterGateChange(activeApp.peek(), fabryUnlocked, academyUnlocked);
+    activeApp.value = appAfterGateChange(activeApp.peek(), experimentalUnlocked.value);
   });
 
   purgeStaleAuthEntries().catch(() => {});
@@ -159,8 +150,7 @@ async function boot() {
   const initial = pickInitialApp({
     stagingApp,
     persistedApp,
-    fabryUnlocked: !!stored.experimentalUnlocked,
-    academyUnlocked: !!stored.trainingUnlocked,
+    unlocked: !!stored.experimentalUnlocked,
   });
   activeApp.value = initial;
 

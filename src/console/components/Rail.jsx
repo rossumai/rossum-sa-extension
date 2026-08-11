@@ -1,6 +1,6 @@
 // src/console/components/Rail.jsx
 import { h } from 'preact';
-import { activeApp, experimentalUnlocked, trainingUnlocked } from '../store.js';
+import { activeApp, experimentalUnlocked } from '../store.js';
 import FabryMark from '../../ui/FabryMark.jsx';
 
 const DATA_ICON = (
@@ -52,18 +52,20 @@ const APPS = [
   { id: 'mdh', label: 'Data', title: 'Dataset Management', icon: DATA_ICON },
   { id: 'audit', label: 'Audit', title: 'Audit Log Viewer', icon: AUDIT_ICON },
   { id: 'inspector', label: 'Inspector', title: 'Annotation Inspector', icon: INSPECTOR_ICON, beta: true },
-  // `gatedBy` only gates visibility on the named gate signal; the visible badge is `beta`.
-  { id: 'fabry', label: 'Fabry', title: 'Mr. Fabry', icon: FABRY_ICON, beta: true, gatedBy: 'fabry' },
+  { id: 'fabry', label: 'Fabry', title: 'Mr. Fabry', icon: FABRY_ICON, beta: true },
   { id: 'galaxy', label: 'Galaxy', title: 'Org Galaxy', icon: GALAXY_ICON },
-  { id: 'academy', label: 'Academy', title: 'Onboarding training', icon: ACADEMY_ICON, beta: true, gatedBy: 'academy' },
+  // `gated` hides the row unless experimentalUnlocked is set; `exp` is the
+  // badge that names that gate. The title spells the abbreviation out, since
+  // "EXP" alone does not tell a first-time reader what it means.
+  { id: 'academy', label: 'Academy', title: 'Onboarding training — experimental', icon: ACADEMY_ICON, exp: true, gated: true },
 ];
 
 export default function Rail() {
   const active = activeApp.value;
-  const gates = { fabry: experimentalUnlocked.value, academy: trainingUnlocked.value };
+  const unlocked = experimentalUnlocked.value;
   return (
     <nav class="app-rail" aria-label="Application switcher">
-      {APPS.filter((a) => !a.gatedBy || gates[a.gatedBy]).map((a) => (
+      {APPS.filter((a) => !a.gated || unlocked).map((a) => (
         <button
           type="button"
           class={'app-rail-item' + (active === a.id ? ' active' : '') + (a.muted ? ' muted' : '')}
@@ -74,6 +76,7 @@ export default function Rail() {
           <span class="app-rail-icon">{a.icon}</span>
           <span class="app-rail-label">{a.label}</span>
           {a.beta && <span class="app-rail-beta">beta</span>}
+          {a.exp && <span class="app-rail-exp">exp</span>}
         </button>
       ))}
     </nav>

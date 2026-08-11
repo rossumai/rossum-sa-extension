@@ -2,7 +2,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { h, render } from 'preact';
 import App from '../src/popup/components/App.jsx';
-import { UNLOCK_KEY } from '../src/training/storage.js';
+
+const GATE_KEY = 'experimentalUnlocked';
 
 async function waitFor(cond, timeout = 2000) {
   const start = Date.now();
@@ -52,13 +53,13 @@ afterEach(() => {
   render(null, document.body);
 });
 
-// Integration tests against the real popup App. The training gate no longer
-// has a click target of its own — the single version-hash easter egg that
-// already unlocks Mr. Fabry (experimentalUnlocked) now unlocks the Academy
-// (trainingUnlocked) in the same breath. A tab with no recognized site keeps
-// the render tree minimal (no MDH panel, no reviewing-lock banner) while
-// still exercising the header, the version-hash click target, and the
-// footer notice.
+// Integration tests against the real popup App. The version-hash easter egg
+// is the extension's ONE hidden-features gate: it writes `experimentalUnlocked`
+// and nothing else, and what it hides today is the Academy. Mr. Fabry used to
+// sit behind the same key and is now public. A tab with no recognized site
+// keeps the render tree minimal (no MDH panel, no reviewing-lock banner) while
+// still exercising the header, the version-hash click target, and the footer
+// notice.
 const UNSITED_TAB = { id: 1, url: 'https://example.com/' };
 
 async function mountApp(tab, seed) {
@@ -83,43 +84,42 @@ function clickBrandName(times) {
 }
 
 describe('unified unlock gate — popup App integration', () => {
-  it('five clicks on the version hash set BOTH experimentalUnlocked and trainingUnlocked, in one write', async () => {
-    await mountApp(UNSITED_TAB, { experimentalUnlocked: false, [UNLOCK_KEY]: false });
+  it('five clicks on the version hash set the ONE gate key, in a single write', async () => {
+    await mountApp(UNSITED_TAB, { [GATE_KEY]: false });
 
     clickVersion(5);
-    await waitFor(() => state[UNLOCK_KEY] === true);
+    await waitFor(() => state[GATE_KEY] === true);
 
-    // Both keys land in the SAME set() call, not two separate writes.
-    expect(chrome.storage.local.set).toHaveBeenCalledWith({
-      experimentalUnlocked: true,
-      [UNLOCK_KEY]: true,
-    });
-    expect(state.experimentalUnlocked).toBe(true);
-    expect(state[UNLOCK_KEY]).toBe(true);
+    // Exactly one key. Until 2026-08-11 this wrote `trainingUnlocked` alongside
+    // it; that key is retired, and writing it again would resurrect a second
+    // source of truth for the same gate.
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({ [GATE_KEY]: true });
+    expect(state.trainingUnlocked).toBeUndefined();
+    expect(state[GATE_KEY]).toBe(true);
   });
 
-  it('five more clicks set both back to false — it is a toggle', async () => {
-    await mountApp(UNSITED_TAB, { experimentalUnlocked: true, [UNLOCK_KEY]: true });
+  it('five more clicks set it back to false — it is a toggle', async () => {
+    await mountApp(UNSITED_TAB, { [GATE_KEY]: true });
 
     clickVersion(5);
-    await waitFor(() => state[UNLOCK_KEY] === false);
+    await waitFor(() => state[GATE_KEY] === false);
 
-    expect(chrome.storage.local.set).toHaveBeenCalledWith({
-      experimentalUnlocked: false,
-      [UNLOCK_KEY]: false,
-    });
-    expect(state.experimentalUnlocked).toBe(false);
-    expect(state[UNLOCK_KEY]).toBe(false);
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({ [GATE_KEY]: false });
+    expect(state[GATE_KEY]).toBe(false);
   });
 
-  it('shows a notice whose wording distinguishes unlocked from hidden', async () => {
-    await mountApp(UNSITED_TAB, { experimentalUnlocked: false, [UNLOCK_KEY]: false });
+  it('shows a notice naming experimental features, distinguishing unlocked from hidden', async () => {
+    await mountApp(UNSITED_TAB, { [GATE_KEY]: false });
     expect(document.body.querySelector('.unlock-notice')).toBeNull();
 
     clickVersion(5);
     await waitFor(() => !!document.body.querySelector('.unlock-notice'));
     const unlockedText = document.body.querySelector('.unlock-notice').textContent;
     expect(unlockedText).toMatch(/unlock/i);
+    // One vocabulary from storage key to badge to notice.
+    expect(unlockedText).toMatch(/experimental/i);
+    // "& training" described the retired two-key era.
+    expect(unlockedText).not.toMatch(/training/i);
 
     clickVersion(5);
     await waitFor(() => document.body.querySelector('.unlock-notice')?.textContent !== unlockedText);
@@ -134,7 +134,7 @@ describe('unified unlock gate — popup App integration', () => {
   // brand name is now a plain, inert label — clicking it must do nothing at
   // all, not even a partial/failed attempt at a write.
   it('clicking the brand name does nothing — no storage write at all', async () => {
-    await mountApp(UNSITED_TAB, { experimentalUnlocked: false, [UNLOCK_KEY]: false });
+    await mountApp(UNSITED_TAB, { [GATE_KEY]: false });
     chrome.storage.local.set.mockClear();
 
     clickBrandName(5);
@@ -142,8 +142,7 @@ describe('unified unlock gate — popup App integration', () => {
     await new Promise((r) => setTimeout(r, 20));
 
     expect(chrome.storage.local.set).not.toHaveBeenCalled();
-    expect(state.experimentalUnlocked).toBe(false);
-    expect(state[UNLOCK_KEY]).toBe(false);
+    expect(state[GATE_KEY]).toBe(false);
     expect(document.body.querySelector('.unlock-notice')).toBeNull();
   });
 });
@@ -156,7 +155,7 @@ const ROSSUM_TAB = { id: 2, url: 'https://org.rossum.app/document/5' };
 
 describe('no popup entry point to the Academy', () => {
   it('renders no "Open the Academy" affordance on a Rossum tab, even when unlocked', async () => {
-    await mountApp(ROSSUM_TAB, { experimentalUnlocked: true, [UNLOCK_KEY]: true });
+    await mountApp(ROSSUM_TAB, { [GATE_KEY]: true });
     // Give the MDH provenance panel's token-less settle a chance to run so the
     // render tree is fully populated before asserting absence.
     await waitFor(() => document.body.querySelector('#mainContent'));

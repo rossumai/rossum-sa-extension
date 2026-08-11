@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { h, render } from 'preact';
 import Rail from '../src/console/components/Rail.jsx';
-import { activeApp, experimentalUnlocked, trainingUnlocked } from '../src/console/store.js';
+import { activeApp, experimentalUnlocked } from '../src/console/store.js';
 import markStyles from '../src/ui/FabryMark.module.css';
 
 // Render via h() rather than JSX literals: the repo's test discovery only
@@ -19,12 +19,11 @@ describe('Rail', () => {
   beforeEach(() => {
     activeApp.value = 'mdh';
     experimentalUnlocked.value = false;
-    trainingUnlocked.value = false;
   });
 
   it('renders one button per app', () => {
     const root = mount();
-    expect(root.querySelectorAll('.app-rail-item').length).toBe(4);
+    expect(root.querySelectorAll('.app-rail-item').length).toBe(5);
   });
 
   it('renders the Inspector app button and switches to it on click', () => {
@@ -46,12 +45,11 @@ describe('Rail', () => {
     expect(idx('Annotation Inspector')).toBeLessThan(idx('Org Galaxy'));  // above Galaxy
   });
 
-  it('renders Galaxy as the last rail item, after the experimental Fabry item when unlocked', () => {
-    // Assert in the UNLOCKED state: Fabry (exp-gated) is the only item that sits
-    // between Inspector and Galaxy, so under the locked default it is filtered out
-    // and Galaxy is trivially last regardless of ordering. Only with Fabry visible
-    // does this exercise the "Galaxy positioned after Fabry" placement.
-    experimentalUnlocked.value = true;
+  it('renders Galaxy as the last rail item, after the now-public Fabry item', () => {
+    // Assert with the gate LOCKED. Fabry is public, so it is on the rail either
+    // way, while the Academy — which sits after Galaxy — is hidden, which is
+    // what makes "Galaxy is last" a real assertion rather than a trivial one.
+    experimentalUnlocked.value = false;
     const items = [...mount().querySelectorAll('.app-rail-item')];
     const title = (b) => b.getAttribute('title');
     const idx = (t) => items.findIndex((b) => title(b) === t);
@@ -75,7 +73,6 @@ describe('Rail', () => {
   });
 
   it('renders the Fabry rail icon as a STATIC shared FabryMark (no color cycle)', () => {
-    experimentalUnlocked.value = true;
     const root = mount();
     const btn = [...root.querySelectorAll('.app-rail-item')]
       .find((b) => b.getAttribute('title') === 'Mr. Fabry');
@@ -107,69 +104,54 @@ describe('Rail', () => {
   });
 });
 
-describe('Rail — fabry gate', () => {
-  beforeEach(() => {
-    trainingUnlocked.value = false;
-  });
-
-  it('hides Fabry while locked', () => {
+describe('Rail — fabry is public', () => {
+  it('shows Fabry with its beta badge while the experimental gate is LOCKED', () => {
     experimentalUnlocked.value = false;
-    const root = mount();
-    expect(root.querySelectorAll('.app-rail-item').length).toBe(4);
-    expect([...root.querySelectorAll('.app-rail-item')].some((b) => b.getAttribute('title') === 'Mr. Fabry')).toBe(false);
-  });
-  it('shows Fabry with a beta badge when unlocked, and switches on click', () => {
-    experimentalUnlocked.value = true;
     const root = mount();
     const btn = [...root.querySelectorAll('.app-rail-item')].find((b) => b.getAttribute('title') === 'Mr. Fabry');
     expect(btn).toBeTruthy();
     expect(btn.querySelector('.app-rail-beta').textContent).toBe('beta');
-    expect(btn.querySelector('.app-rail-exp')).toBeNull(); // badge is beta; exp only gates
+    expect(btn.querySelector('.app-rail-exp')).toBeNull(); // public: beta, never exp
     btn.click();
     expect(activeApp.value).toBe('fabry');
   });
 });
 
-describe('Rail — academy (training) gate', () => {
-  beforeEach(() => {
+describe('Rail — academy (experimental) gate', () => {
+  const ACADEMY_TITLE = 'Onboarding training — experimental';
+
+  it('hides Academy while the gate is locked', () => {
     experimentalUnlocked.value = false;
+    const root = mount();
+    expect(root.querySelectorAll('.app-rail-item').length).toBe(5);
+    expect([...root.querySelectorAll('.app-rail-item')].some((b) => b.getAttribute('title') === ACADEMY_TITLE)).toBe(false);
   });
 
-  it('hides Academy while training is locked', () => {
-    trainingUnlocked.value = false;
+  it('shows Academy with an EXP badge when unlocked, and switches on click', () => {
+    experimentalUnlocked.value = true;
     const root = mount();
-    expect(root.querySelectorAll('.app-rail-item').length).toBe(4);
-    expect([...root.querySelectorAll('.app-rail-item')].some((b) => b.getAttribute('title') === 'Onboarding training')).toBe(false);
-  });
-  it('shows Academy with a beta badge when training is unlocked, and switches on click', () => {
-    trainingUnlocked.value = true;
-    const root = mount();
-    const btn = [...root.querySelectorAll('.app-rail-item')].find((b) => b.getAttribute('title') === 'Onboarding training');
+    const btn = [...root.querySelectorAll('.app-rail-item')].find((b) => b.getAttribute('title') === ACADEMY_TITLE);
     expect(btn).toBeTruthy();
-    expect(btn.querySelector('.app-rail-beta').textContent).toBe('beta');
+    // exp REPLACES beta on a gated app: the badge names the gate it sits behind.
+    expect(btn.querySelector('.app-rail-exp').textContent).toBe('exp');
+    expect(btn.querySelector('.app-rail-beta')).toBeNull();
     btn.click();
     expect(activeApp.value).toBe('academy');
   });
 
-  // The sharpest statement of why trainingUnlocked is a SEPARATE key from
-  // experimentalUnlocked: experimentalUnlocked gates Mr. Fabry, whose Architect
-  // implement loop is write-enabled by default. A trainee unlocking onboarding
-  // must not acquire an autonomous write capability against their own org as a
-  // side effect. Asserting only that Academy appears would pass just as well if
-  // one gate were wired to both apps.
-  it('unlocking training reveals Academy and NOT Fabry', () => {
-    trainingUnlocked.value = true;
+  // The consolidation itself: ONE key now drives the Academy and nothing else.
+  // Before 2026-08-11 two keys drove two apps, and the pair of tests here
+  // asserted they could not cross-unlock. The risk now runs the other way — that
+  // the surviving gate quietly re-acquires Fabry — so that is what this pins.
+  it('drives the Academy alone; Fabry is present in both gate states', () => {
     experimentalUnlocked.value = false;
-    const titles = [...mount().querySelectorAll('.app-rail-item')].map((b) => b.getAttribute('title'));
-    expect(titles).toContain('Onboarding training');
-    expect(titles).not.toContain('Mr. Fabry');
-  });
-
-  it('unlocking experimental reveals Fabry and NOT Academy', () => {
-    trainingUnlocked.value = false;
-    experimentalUnlocked.value = true;
-    const titles = [...mount().querySelectorAll('.app-rail-item')].map((b) => b.getAttribute('title'));
+    let titles = [...mount().querySelectorAll('.app-rail-item')].map((b) => b.getAttribute('title'));
     expect(titles).toContain('Mr. Fabry');
-    expect(titles).not.toContain('Onboarding training');
+    expect(titles).not.toContain(ACADEMY_TITLE);
+
+    experimentalUnlocked.value = true;
+    titles = [...mount().querySelectorAll('.app-rail-item')].map((b) => b.getAttribute('title'));
+    expect(titles).toContain('Mr. Fabry');
+    expect(titles).toContain(ACADEMY_TITLE);
   });
 });

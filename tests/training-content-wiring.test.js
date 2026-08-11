@@ -9,13 +9,17 @@ describe('content script wiring', () => {
     expect(SRC).toMatch(/initTrainingQuest\(\)/);
   });
 
-  it('starts it OUTSIDE the SETTINGS_KEYS block — it self-gates on trainingUnlocked', () => {
+  it('starts it OUTSIDE the SETTINGS_KEYS block — it self-gates on experimentalUnlocked', () => {
     const settingsIdx = SRC.indexOf('chrome.storage.local.get(SETTINGS_KEYS)');
     expect(SRC.indexOf('initTrainingQuest()')).toBeLessThan(settingsIdx);
   });
 
-  it('does not add trainingUnlocked to SETTINGS_KEYS', () => {
+  // The quest card reads the gate through src/training/gate.js, never through
+  // the content script's feature-toggle block. Adding it there would make the
+  // card a toggle-driven feature and re-introduce a second read path.
+  it('does not add either unlock key to SETTINGS_KEYS', () => {
     const block = SRC.slice(SRC.indexOf('SETTINGS_KEYS = ['), SRC.indexOf('];'));
+    expect(block).not.toContain('experimentalUnlocked');
     expect(block).not.toContain('trainingUnlocked');
   });
 });
