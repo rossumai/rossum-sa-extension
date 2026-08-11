@@ -1436,6 +1436,10 @@ body {
   /* Shared width for the stage-definition column AND each record card, so the
      query box lines up with the records below/beside it. */
   --stage-card-w: 300px;
+  /* Height of the records band inside every stage — the ONE fixed dimension in a
+     stage section (the section itself is content-sized, see below). Records get
+     this much room whether or not "Definitions" is on. */
+  --stage-records-h: 324px;
 }
 /* Options strip pinned at the top of the Stages pane (records-per-stage + auto-scroll). */
 .pipeline-inspect-opts {
@@ -1451,9 +1455,17 @@ body {
   flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: none;
   padding: 12px 14px 16px; display: flex; flex-direction: column; gap: 14px;
 }
+/* A stage section is CONTENT-SIZED, deliberately not a fixed height: the records
+   band below is what's pinned (--stage-records-h), so an opt-in stage-definition
+   block ADDS its own height on top instead of stealing from the records. (It was
+   a flat 360px, which left a capped 160px definition just 108px of card JSON —
+   measured — with the records rendered uselessly small.) A section is therefore
+   360px with no definition, ~427px with a 3-line one, 520px with a capped one, and
+   a header-only 36px when the stage is disabled. flex-shrink: 0 keeps the sections
+   at their natural height inside the scrolling column. */
 .pipeline-inspect-section {
   border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
-  height: 360px; flex-shrink: 0; display: flex; flex-direction: column;
+  flex-shrink: 0; display: flex; flex-direction: column;
   transition: border-color 0.12s;
 }
 .pipeline-inspect-section-head {
@@ -1471,8 +1483,9 @@ body {
 .pipeline-inspect-time-slow { color: var(--warning); opacity: 1; font-weight: 600; }
 /* Opt-in read-only block under an active stage's header: the stage's own
    definition with variables substituted (as sent to the DS API). Mono code
-   block mirroring .inspector-code-block; capped + scrollable so a large stage
-   never pushes the sample output out of the fixed-height section.
+   block mirroring .inspector-code-block; capped + scrollable — the cap is what
+   bounds how far a huge stage can grow its section (a 40-line $lookup would
+   otherwise leave one stage filling the pane), never what shrinks the records.
    overscroll-behavior-x: none (NOT the all-axes shorthand) stops the horizontal
    rubber-band on long lines without blocking vertical scroll-chaining — once the
    block reaches its top/bottom the wheel chains up to the stage list, so the page
@@ -1488,11 +1501,16 @@ body {
   white-space: pre;
 }
 /* Records span the full section width (the per-stage query box was removed —
-   hover a stage to draw a connector line to its code in the pipeline editor). */
+   hover a stage to draw a connector line to its code in the pipeline editor), and
+   this band carries the section's fixed height rather than taking whatever the
+   header + definition leave over — so its height, and every card's, is identical
+   with Definitions on and off. A DEFINITE height here is what keeps the
+   minmax(0, 1fr) row resolvable, which is what lets each card stretch to the band
+   and scroll its own JSON. */
 .pipeline-inspect-body {
   display: grid; grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr); gap: 10px; padding: 10px;
-  flex: 1; min-height: 0;
+  height: var(--stage-records-h); flex: none;
 }
 /* Records sit side-by-side as fixed-width cards (stages stay stacked above).
    The row scrolls horizontally when there are more docs than fit; each card
@@ -1520,7 +1538,9 @@ body {
 }
 .pipeline-inspect-output > .record-card:not(.record-card-expanded) { align-self: flex-start; }
 .pipeline-inspect-output > .record-card > .record-card-body { flex: 1; min-height: 0; overflow-y: auto; }
-.pipeline-inspect-disabled { opacity: 0.55; height: auto; }
+/* Header-only (no body, no definition) — it needs no height override now that a
+   section is content-sized. */
+.pipeline-inspect-disabled { opacity: 0.55; }
 .pipeline-inspect-disabled-badge {
   margin-left: auto; font-size: 10px; color: var(--text-secondary); font-style: italic;
 }
