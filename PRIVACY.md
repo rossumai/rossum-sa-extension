@@ -44,6 +44,9 @@ does not include geolocation in the resulting data.
 - any queue, workspace, hook, schema, rule, label, engine, collection, dataset,
   annotation or document identifier, name or content
 - any query, aggregation pipeline, prompt or chat message
+- for the onboarding training track: which mission or step you are on, the
+  content or code of a completion receipt, or anything you paste into the
+  trainer panel to check one
 
 The request body is built from a fixed list of permitted fields
 (`src/usage/event.js`), and any other field is rejected before sending —
@@ -96,6 +99,7 @@ once per document — the extension deliberately does not count repeatedly.
 | `sa_console_app_inspector` | the Inspector became the active app |
 | `sa_console_app_galaxy` | Galaxy became the active app |
 | `sa_console_app_fabry` | Mr. Fabry became the active app |
+| `sa_console_app_academy` | the Academy became the active app |
 | `sa_mdh_query_run` | the dataset query surface was used (at most once per Console session) |
 | `sa_mdh_export` | a dataset export started |
 | `sa_mdh_import` | a dataset import started |
@@ -111,6 +115,10 @@ once per document — the extension deliberately does not count repeatedly.
 | `sa_fabry_deep_verify` | that message used deep verify |
 | `sa_fabry_architect_check` | an Architect deliverable check ran |
 | `sa_fabry_architect_implement` | an Architect implement run started |
+| `sa_training_start` | the onboarding training track was started |
+| `sa_training_mission_complete` | a training mission was completed. Which mission is **not** sent |
+| `sa_training_receipt_issue` | a completion receipt was issued. The receipt, the code, the organisation and the user are **not** sent |
+| `sa_training_receipt_verify` | a receipt was checked in the trainer panel. The pasted receipt is **not** sent |
 
 **In the DevTools panel**
 

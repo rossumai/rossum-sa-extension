@@ -10,6 +10,7 @@ import { openConsoleTab, runInTab, detectSite, findRossumTabs, activateTab, isCo
 import { readAuthInfo, readPageFlag, togglePageFlag } from '../tab-readers.js';
 import { createUnlockCounter } from '../experimental.js';
 import { openPanelForTab } from '../../sidepanel/panelScope.js';
+import { UNLOCK_KEY } from '../../training/storage.js';
 
 const STORAGE_TOGGLES = [
   'schemaAnnotationsEnabled',
@@ -206,16 +207,25 @@ export default function App({ tab }) {
     chrome.tabs.reload(tab.id);
   };
 
-  // 5 quick clicks on the version hash flip the experimental unlock, which
-  // reveals the Fabry Chat app in the Console (mirrored live via
-  // chrome.storage.onChanged — no tab reload needed here).
+  // 5 quick clicks on the version hash flip BOTH the experimental unlock
+  // (reveals the Fabry Chat app in the Console, mirrored live via
+  // chrome.storage.onChanged — no tab reload needed here) and the training
+  // unlock (which gates the Academy — reachable only from the Console rail;
+  // the popup has no entry point of its own) together, in one write. This
+  // used to be two separate easter eggs — a second one on the header
+  // extension name flipped trainingUnlocked alone — but that target was a
+  // 68x18px text span with no cursor:pointer, sitting next to a
+  // visually-identical badge; a real user could not find it. Folded into
+  // this single, already-known click rather than inventing a new mechanism.
   const onVersionClick = async () => {
     if (!unlockCounter.click() || !storageValues) return;
     const next = !storageValues.experimentalUnlocked;
     setStorageValues((prev) => ({ ...prev, experimentalUnlocked: next }));
-    await chrome.storage.local.set({ experimentalUnlocked: next });
+    // Written straight to storage, never via the worker — same cold-start
+    // race as the usage-consent write above.
+    await chrome.storage.local.set({ experimentalUnlocked: next, [UNLOCK_KEY]: next });
     if (next) track('sa_popup_experimental_unlock');
-    setUnlockNotice(next ? 'Experimental features unlocked' : 'Experimental features hidden');
+    setUnlockNotice(next ? 'Experimental features & training unlocked' : 'Experimental features & training hidden');
     setTimeout(() => setUnlockNotice(null), 2500);
   };
 

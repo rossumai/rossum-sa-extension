@@ -25,6 +25,11 @@ All features are configurable via the extension popup and can be toggled on or o
 - **Dev features toggle** — enables `devFeaturesEnabled` flag
 - **Dev debug toggle** — enables `devDebugEnabled` flag
 - **Dataset Management** — browse, query, edit, and delete records in Data Storage collections; manage indexes and Atlas Search indexes
+- **Onboarding training** — a guided, gamified track for new partners: missions
+  verified from the page you reach and from read-only API state, XP and badges,
+  and a completion receipt with a per-person code. Hidden until unlocked (5
+  quick clicks on the extension name in the popup). The extension never writes
+  to your organization.
 
 ![Schema ID overlays on header fields](./assets/header_fields.png)
 

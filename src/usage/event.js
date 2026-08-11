@@ -36,6 +36,7 @@ export const EVENT_NAMES = [
   'sa_console_app_inspector',
   'sa_console_app_galaxy',
   'sa_console_app_fabry',
+  'sa_console_app_academy',
   // Console apps — the actions worth ranking
   'sa_mdh_query_run',
   'sa_mdh_export',
@@ -52,6 +53,11 @@ export const EVENT_NAMES = [
   'sa_fabry_deep_verify',
   'sa_fabry_architect_check',
   'sa_fabry_architect_implement',
+  // Academy (onboarding training track, gated behind trainingUnlocked)
+  'sa_training_start',
+  'sa_training_mission_complete',
+  'sa_training_receipt_issue',
+  'sa_training_receipt_verify',
   // DevTools panel
   'sa_devtools_panel_open',
   'sa_devtools_save',

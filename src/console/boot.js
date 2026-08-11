@@ -3,23 +3,29 @@
 // unit-tested without chrome / DOM / sessionStorage.
 
 export function isValidApp(v) {
-  return v === 'mdh' || v === 'audit' || v === 'galaxy' || v === 'inspector' || v === 'fabry';
+  return v === 'mdh' || v === 'audit' || v === 'galaxy' || v === 'inspector'
+    || v === 'fabry' || v === 'academy';
 }
 
 // Which app to show on boot. Precedence: staging entry (a popup button click)
-// wins, then the persisted last-used app, then Dataset Management. Fabry is
-// only ever picked when the experimental gate is unlocked.
-export function pickInitialApp({ stagingApp, persistedApp, fabryUnlocked = false } = {}) {
-  const ok = (v) => isValidApp(v) && (v !== 'fabry' || fabryUnlocked);
+// wins, then the persisted last-used app, then Dataset Management. Gated apps
+// are only ever picked when their own gate is unlocked. Both flags are
+// additive and default to locked, so older callers keep their behaviour.
+export function pickInitialApp({ stagingApp, persistedApp, fabryUnlocked = false, academyUnlocked = false } = {}) {
+  const ok = (v) => isValidApp(v)
+    && (v !== 'fabry' || fabryUnlocked)
+    && (v !== 'academy' || academyUnlocked);
   if (ok(stagingApp)) return stagingApp;
   if (ok(persistedApp)) return persistedApp;
   return 'mdh';
 }
 
-// Re-locking the experimental gate while Fabry is the active app falls back to
-// Dataset Management; any other app is unaffected.
-export function appAfterGateChange(activeApp, fabryUnlocked) {
-  return activeApp === 'fabry' && !fabryUnlocked ? 'mdh' : activeApp;
+// Re-locking a gate while its app is active falls back to Dataset Management;
+// any other app is unaffected.
+export function appAfterGateChange(activeApp, fabryUnlocked, academyUnlocked = false) {
+  if (activeApp === 'fabry' && !fabryUnlocked) return 'mdh';
+  if (activeApp === 'academy' && !academyUnlocked) return 'mdh';
+  return activeApp;
 }
 
 // Resolve token/domain from a single-use staging entry (initial open) or the

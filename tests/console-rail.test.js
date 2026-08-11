@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { h, render } from 'preact';
 import Rail from '../src/console/components/Rail.jsx';
-import { activeApp, experimentalUnlocked } from '../src/console/store.js';
+import { activeApp, experimentalUnlocked, trainingUnlocked } from '../src/console/store.js';
 import markStyles from '../src/ui/FabryMark.module.css';
 
 // Render via h() rather than JSX literals: the repo's test discovery only
@@ -19,6 +19,7 @@ describe('Rail', () => {
   beforeEach(() => {
     activeApp.value = 'mdh';
     experimentalUnlocked.value = false;
+    trainingUnlocked.value = false;
   });
 
   it('renders one button per app', () => {
@@ -107,6 +108,10 @@ describe('Rail', () => {
 });
 
 describe('Rail — fabry gate', () => {
+  beforeEach(() => {
+    trainingUnlocked.value = false;
+  });
+
   it('hides Fabry while locked', () => {
     experimentalUnlocked.value = false;
     const root = mount();
@@ -122,5 +127,49 @@ describe('Rail — fabry gate', () => {
     expect(btn.querySelector('.app-rail-exp')).toBeNull(); // badge is beta; exp only gates
     btn.click();
     expect(activeApp.value).toBe('fabry');
+  });
+});
+
+describe('Rail — academy (training) gate', () => {
+  beforeEach(() => {
+    experimentalUnlocked.value = false;
+  });
+
+  it('hides Academy while training is locked', () => {
+    trainingUnlocked.value = false;
+    const root = mount();
+    expect(root.querySelectorAll('.app-rail-item').length).toBe(4);
+    expect([...root.querySelectorAll('.app-rail-item')].some((b) => b.getAttribute('title') === 'Onboarding training')).toBe(false);
+  });
+  it('shows Academy with a beta badge when training is unlocked, and switches on click', () => {
+    trainingUnlocked.value = true;
+    const root = mount();
+    const btn = [...root.querySelectorAll('.app-rail-item')].find((b) => b.getAttribute('title') === 'Onboarding training');
+    expect(btn).toBeTruthy();
+    expect(btn.querySelector('.app-rail-beta').textContent).toBe('beta');
+    btn.click();
+    expect(activeApp.value).toBe('academy');
+  });
+
+  // The sharpest statement of why trainingUnlocked is a SEPARATE key from
+  // experimentalUnlocked: experimentalUnlocked gates Mr. Fabry, whose Architect
+  // implement loop is write-enabled by default. A trainee unlocking onboarding
+  // must not acquire an autonomous write capability against their own org as a
+  // side effect. Asserting only that Academy appears would pass just as well if
+  // one gate were wired to both apps.
+  it('unlocking training reveals Academy and NOT Fabry', () => {
+    trainingUnlocked.value = true;
+    experimentalUnlocked.value = false;
+    const titles = [...mount().querySelectorAll('.app-rail-item')].map((b) => b.getAttribute('title'));
+    expect(titles).toContain('Onboarding training');
+    expect(titles).not.toContain('Mr. Fabry');
+  });
+
+  it('unlocking experimental reveals Fabry and NOT Academy', () => {
+    trainingUnlocked.value = false;
+    experimentalUnlocked.value = true;
+    const titles = [...mount().querySelectorAll('.app-rail-item')].map((b) => b.getAttribute('title'));
+    expect(titles).toContain('Mr. Fabry');
+    expect(titles).not.toContain('Onboarding training');
   });
 });

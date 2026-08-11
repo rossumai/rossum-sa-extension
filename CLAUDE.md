@@ -25,7 +25,7 @@ Nine esbuild entry points:
 2. **`src/netsuite/index.js`** → content script for NetSuite pages
 3. **`src/coupa/index.js`** → content script for Coupa pages
 4. **`src/popup/popup.jsx`** → extension popup UI (Preact)
-5. **`src/console/index.jsx`** → unified Console page (`console/console.html`, opened via `chrome.tabs.create`) — a left app-switcher rail over five apps: Dataset Management (`src/mdh/`), Audit Log Viewer (`src/audit/`), Galaxy (`src/galaxy/`, a 3D org birdview), Inspector (`src/inspector/`), and Fabry Chat (`src/fabry/`, experimental-gated)
+5. **`src/console/index.jsx`** → unified Console page (`console/console.html`, opened via `chrome.tabs.create`) — a left app-switcher rail over six apps: Dataset Management (`src/mdh/`), Audit Log Viewer (`src/audit/`), Galaxy (`src/galaxy/`, a 3D org birdview), Inspector (`src/inspector/`), Fabry Chat (`src/fabry/`, experimental-gated), and Academy (`src/academy/`, the onboarding training track, gated behind `trainingUnlocked`)
 6. **`src/background/index.js`** → MV3 service worker (`background.js`)
 7. **`src/devtools/devtools.js`** → Chrome DevTools registrar (`devtools.html`, creates the "Rossum" panel + forwards `panel.onSearch` to CodeMirror)
 8. **`src/devtools/panel.jsx`** → DevTools panel page (`panel.html`)
@@ -152,6 +152,213 @@ spec: `docs/superpowers/specs/2026-07-03-inspector-overhaul-design.md`).
   tab once before expecting tracking/features there.
 - Read-only stance unchanged: the agent's read-only framing is defense-in-depth, and the
   server-side write-lock remains the ship-blocker before non-dogfood use.
+
+### Onboarding training (`src/training/`, `src/academy/`)
+
+A guided, gamified onboarding track for new partners ("Partner foundations": 5
+missions, ~20 steps), verified from the page the trainee reaches and from the org's
+own read-only API state — never from clicks, and the extension never writes to the
+org. Precisely: no request it makes can mutate anything. That is **not** the same as
+"only GETs" — the mission-5 Data Storage check is a `POST` to
+`/svc/data-storage/api/v1/collections/list`, because that service takes queries as
+JSON bodies (like a Mongo `find`); it lists collection names and changes nothing.
+Audit this claim by looking for mutating verbs and mutating endpoints, not by
+looking for non-GET, and do not "fix" that POST into a GET — it would 404. Two surfaces share ONE pure core so "passed" means the same thing regardless of
+which one flipped it: the bottom-right **quest card** injected by the Rossum content
+script (`src/rossum/features/training-quest.js` + `training-pointer.js`), which
+polls page state every ~1.5s and on focus while the gate is unlocked and a track is
+active; and **Academy**, the sixth Console app (`src/academy/`), where a trainee
+starts the track, self-attests, and mints a completion receipt. Both import
+`src/training/` directly rather than keeping their own copy of the rules — the
+content script can only ever mark `visit`/`api` steps and the Academy can only ever
+mark `self` steps, so the two call sites cannot double-mark the same step.
+
+- **`src/training/track.js`** — DATA ONLY, the curriculum. No evaluation logic lives
+  here, so rewriting the syllabus never touches `steps.js`, and vice versa. Each step
+  carries a `kind`: **`visit`** (matched via `detectResource()` from
+  `src/devtools/detect.js` — reusing the DevTools panel's own live-verified route
+  table, so a Rossum route change only ever needs fixing in one place), **`api`** (a
+  `CHECKS` id from `steps.js`, passing on a delta against a mission-start baseline),
+  or **`self`** (the trainee attests from the Academy; the content script can never
+  mark one — `academy/store.js` `attestStep` hard-rejects any step whose `kind !==
+  'self'`, which is what makes that guarantee load-bearing rather than incidental).
+- **Mission-start baseline, and why a delta is mandatory** (`src/training/baseline.js`
+  `grew`/`changed`, captured once per mission by `progress.js` `startMission`): an
+  `api` step never asks "does X exist" — only "did X change since this mission
+  started." Checking bare existence would hand every trainee a free tick for
+  anything already in the org before they ever opened the extension (a rule that
+  already existed, a schema that already had fields). The baseline is persisted
+  **only when every check in the mission captures cleanly**; a half-captured
+  baseline is discarded rather than saved, because a missing baseline entry makes
+  `evaluateApi` return `false` forever for that check — saving a partial snapshot
+  would let one transient network blip at mission start permanently strand that step
+  for the rest of the mission (a real defect caught during implementation, fixed
+  before it shipped).
+- **Anchoring is href-only, and degrades silently** (`training-pointer.js`
+  `resolveAnchor`): the pointer arrow matches a step's `anchor.hrefIncludes`
+  substring against real `a[href]` elements only. LIVE-VERIFIED 2026-08-07: Rossum's
+  own navigation (`/documents`, `/extensions/my-extensions`, `/queues/<id>/…`,
+  `/document/<id>`) is built from real anchors, not JS-only routing, so this is a
+  contract worth relying on — CSS class names are not, and are never matched on. A
+  step is free to omit `anchor` entirely (most `self` steps and several detail-page
+  `visit` steps do). If the anchor never resolves within the retry window, **no
+  arrow renders and nothing else happens** — the card's plain-text hint still
+  carries the step regardless, because a stale selector must never read as a
+  blocked step.
+- **`trainingUnlocked` is a separate storage key from `experimentalUnlocked`, but
+  the two are now unlocked TOGETHER by one gesture** (`src/training/gate.js`
+  still reads only `trainingUnlocked`; `src/popup/components/App.jsx`
+  `onVersionClick` writes both keys in the same `chrome.storage.local.set` call):
+  5 quick clicks on the popup's footer version hash. `experimentalUnlocked` gates
+  Mr. Fabry, whose Architect **implement loop is write-enabled by default** inside
+  that gate — so unlocking training now also reveals that capability, by owner
+  decision (2026-08-10: "the Academy and Mr. Fabry are revealed at the same time,
+  by the existing version-hash click"). An earlier revision gave training its own
+  click target instead — 5 clicks on the header extension name (`.brand-name`) —
+  specifically so the two could be unlocked independently; that target was a
+  68×18px text span with no `cursor: pointer`, sitting next to a
+  visually-identical, non-clickable badge, so a real user could not find it, and
+  being a silent toggle with no feedback, a retry silently re-locked it. Removed
+  in favor of the single, already-known gesture rather than inventing a
+  discoverable replacement. The keys stay separate in storage — only who writes
+  `trainingUnlocked` changed, not what gates on it — so a future revision could
+  split the gesture again without touching `gate.js` or the Academy.
+- **The receipt's canonical string, and its honest limits** (`src/training/receipt.js`
+  + `hmac.js` + `receiptKey.js`, minted by `src/academy/mint.js`): a Crockford-base32
+  code, HMAC-SHA256'd via `crypto.subtle`, over the pipe-joined string `RSAT1|
+  <trackId>@<trackVersion>|<host>|<userId>|<username>|<missionsPassed>|<selfCount>|
+  <dateUtc>` — meaningless without reproducing every field it summarizes. **Every
+  field `renderReceipt` prints is signed, the `username` included.** It was omitted
+  once (2026-08-07, fixed same day): that made the printed name free-form text, so
+  anyone could take a colleague's receipt, swap the name for their own, and have it
+  validate — while `TrainerPanel` reports "Valid — issued to {username}" and no
+  trainer cross-checks an opaque numeric id. Attributing a completion to a PERSON is
+  the receipt's only job.
+- **What mint-time re-verification actually buys** (`src/academy/mint.js`; an earlier
+  version of this paragraph and of the comment in that file both OVERCLAIMED it):
+  minting re-runs every `api` check against LIVE org state and revokes any step whose
+  delta no longer holds, so **the org must still exhibit the change now** — a trainee
+  cannot mint against an org they never touched, or keep a pass for work they have
+  since undone. What it does **not** buy: the live signature is compared against the
+  mission-start **baseline**, which lives in the same trainee-editable
+  `chrome.storage.local` record — setting a baseline to `[]` (or `0`) makes every
+  check pass trivially. Live re-verification raises the floor; it is not a forgery
+  guard, and neither is the signature. Other honest limits, stated in-app: the
+  signing key (`RECEIPT_KEY`) ships in the bundle and is extractable by design (same
+  tradeoff as `src/usage/ga4Config.js`) — it deters casual copying between trainees,
+  it is not proof against a determined forger. The receipt is a training artifact,
+  not a credential. Mint also refuses to issue a receipt that could never verify:
+  an unresolvable user id renders `(id NaN)` and an empty username renders `user |
+  (id 42)`, both of which fail `parseReceipt`, so mint validates both and then
+  round-trips its own output (`parseReceipt` + `canonicalString` compare) before
+  returning `ok`. `tests/training-key-boundary.test.js` pins the key
+  to exactly one bundle, `dist/console/console.js` (the Academy mints and checks
+  receipts; the content-script quest card never needs the key and must never ship
+  it — checked against `dist/`, not just `src/`, since an import alone doesn't paste
+  the literal but a bundle does).
+- **Two new storage keys**: `trainingUnlocked` (the gate, boolean) and
+  `trainingProgress` (`{ [origin]: { trackId, trackVersion, startedAt, missions,
+  receipt? } }`, keyed by org **origin** like `rossumViewedAnnotations`, capped at 3
+  orgs via `storage.js` `pruneOrgs` — the active origin's slot is always reserved).
+  Both live in `chrome.storage.local`; `restartTrack`/`clearProgress` drop only the
+  active origin's entry. The cap is **soft**: `pruneOrgs` never evicts a record
+  carrying a `receipt`, because that record holds the only copy unless the trainee
+  already pasted it somewhere, and `startedAt` (written once at track start, never
+  updated) cannot tell us whether they did. Ranking by a touch time was the
+  alternative and was rejected — it needs a new field written on every save and would
+  still evict the receipt of an org the trainee stopped visiting, which is exactly
+  when it is most likely to be the only copy.
+- **`trainingProgress` is written by BOTH surfaces, so the content script WATCHES it**
+  (`training-quest.js` `watchProgress`, guarded like `gateListenerOn`). Two failures
+  follow from not doing so, and one `chrome.storage.onChanged` listener fixes both.
+  (a) START: `init()` runs once, at content-script injection, and the intended first
+  run is unlock-in-popup (no reload) → start the track in an Academy tab → switch
+  back, by which time `init()` has already returned at its "no track yet" bail-out.
+  The listener is therefore registered **before** that bail-out. (b) STALENESS: the
+  loop holds progress in a closure, and every mission but `m3` ends on a `self` step
+  that only the Academy can mark, so without a refresh the card sticks on the step
+  just attested until a page reload. The listener also fires for the loop's **own**
+  writes — deliberately a cheap no-op (assign and return; no fetch, no tick, no
+  write, so no cascade). Separately, every write in the loop is **read-modify-write**
+  against storage rather than a blind write of the closure (a write only happens on a
+  step transition, so it costs one extra read per STEP, not per tick), and a record
+  that has disappeared — "Restart track" — stops the loop instead of resurrecting
+  the progress the trainee just cleared. The Academy's own writes
+  (`academy/store.js attestStep`, `mint.js`) stay **blind** on purpose, and the
+  asymmetry is the design: a `self` attestation is unrecoverable (only the trainee
+  can assert it), while a `visit`/`api` pass self-heals on the next tick — so the
+  expensive direction is protected and the cheap one is not. There is a comment at
+  the `attestStep` write site saying so, because symmetry looks like the fix here and
+  is not.
+- **The loop is generation-guarded** (`training-quest.js`, same pattern as
+  `training-pointer.js`). A tick suspended on a fetch or a storage write when the
+  trainee restarts the track resumes *past* `stop()`; rendering there leaves a frozen
+  card that no interval will ever refresh, and `stop()` closes over the module-level
+  `intervalHandle`, so a late tick from a dead loop could clear a **successor** loop's
+  interval. Every post-await point that touches the DOM or module state checks
+  `isCurrent()` first. `init()` also takes a **synchronous** `starting` claim at
+  function entry, released at the commit point (`started = true`) so a restart
+  arriving mid-fetch can still hand off to a successor — that one is defensive: the
+  previous check-then-set was already unsplittable, and is labelled as such in the
+  source rather than sold as a bug fix.
+- **`collectionAdded`** (mission 5's Data Storage check, `steps.js`) is the one check
+  that differs from every other on three axes at once, which is why `CHECKS` carries
+  optional `method`/`body`/`auth` fields at all: Data Storage's collections-list
+  endpoint is a **POST** to `/svc/data-storage/api/v1/collections/list`, authenticated
+  with **`Bearer`** (not the `Token` scheme every other check uses), returning `{
+  result: [...] }` — **singular** — live-verified against the shipping MDH client
+  (`src/mdh/api.js`, `src/mdh/components/Sidebar.jsx`). It is still a **read** (a
+  list query, no id, no mutation) — the one non-`GET` request this feature ever
+  issues to the Rossum origin is that list call, not a write.
+- **Every `api` check reads EVERY page, and none of them orders** (`steps.js`). Rossum
+  list endpoints order by id **ascending**, so a plain `page_size=100` strands
+  anything the trainee just created on the last page — not hypothetical: the org this
+  track was verified against holds **96 rules and 133 schemas**, so `schemaFieldAdded`
+  was already counting the wrong total there. All four `/api/v1/` checks therefore
+  carry `paginate: true`, and `collectResponses` follows `pagination.next` to the end
+  (capped at 50 pages; absolute `next` urls reduced to path+query, since both fetchers
+  take a path). `collectResponses` is the single fetch path shared by baseline
+  capture, per-tick evaluation and mint-time re-verification, so all three agree on
+  what a check reads. **`ordering=-id` was tried and reverted** — worth knowing,
+  because it is the obvious-looking fix: it made `thresholdChanged` *worse* (that
+  step asks the trainee to move a threshold on a queue that **already existed**, and
+  `changed()` only fires for a queue in both snapshots — newest-first drops exactly
+  those), and it was unverifiable, since DRF silently ignores an ordering field it
+  does not expose and the delta would then break with no error anywhere.
+  `pagination.next` is a contract already followed by shipping code
+  (`src/galaxy/api.js` `listAll`). Paging everything also dissolves the
+  old-hook-vs-new-hook trade on `hookAttachedToQueue`. Cost on that org: one extra
+  GET. See the verification doc §G7 — a closed gate, not an open one.
+- **`src/academy/`** — the Console app: `store.js` (signals: `connected`, `progress`,
+  `activeMissionId`, `error`, `receiptText`, `mintNote`), `api.js` (`fetchAcademyApi` — the
+  Academy's own thin fetcher, taking the same `{method, body, auth}` shape as the
+  content script's so `mint.js`'s live re-verification of `collectionAdded` doesn't
+  silently downgrade to a Token-authed GET), `mint.js`, and components `App`,
+  `MissionList`, `MissionDetail` (renders `teach` as markdown via `FabryMarkdown`,
+  and is the only place a `self` step can be attested), `ReceiptPanel`, `TrainerPanel`
+  (pastes a receipt back in and reports valid/not-valid — same `verifyReceipt`, same
+  key). `App` renders `store.error` as a dismissible strip in **every** branch,
+  including `!connected` — that is the one path `initAcademy`'s missing-domain
+  message is set on: "Open the Rossum Console from this extension's popup on a
+  Rossum tab to access the Academy." (the Academy is reachable only from the
+  Console rail; the popup's direct Academy entry point was removed 2026-08-11
+  per owner decision). `mintNote` lives in the store, not in
+  `ReceiptPanel`'s local state, because a failed mint revokes the step it failed on,
+  which makes the track incomplete, which would unmount the panel and destroy the
+  note explaining what just happened; `App` keeps the panel mounted while a note is
+  pending. The note wording is per-reason (`ReceiptPanel.noteFor`): only
+  `no-longer-true` un-ticks anything, so only it tells the trainee to redo work — a
+  network blip says the opposite. `store.refreshProgress` selects the first
+  incomplete mission (`progress.js` `firstActiveMission`) rather than mission 1, but
+  only when nothing is selected, so a background tick never yanks the trainee off the
+  mission they are reading. Usage events (`src/usage/event.js`): `sa_console_app_academy`,
+  `sa_training_start`, `sa_training_mission_complete` (fired from **either** surface,
+  guarded so a mission finishing on a `visit`/`api` step and one finishing on a
+  `self` step can never double-count — see Usage data below), `sa_training_receipt_issue`,
+  `sa_training_receipt_verify` — all parameterless.
+- Nothing about a trainee's org — mission ids aside — is ever recorded: field names,
+  schema ids, collection names, and rule/hook contents are never read into a
+  signature (`baseline.js`'s `isIdsOnly` invariant), only counts and integer ids.
 
 ### Fabry Chat (`src/fabry/`)
 
@@ -475,7 +682,7 @@ feature request behind it. Spec:
 ## Chrome Storage Keys
 
 - Feature toggles: `schemaAnnotationsEnabled`, `expandFormulasEnabled`, `expandReasoningFieldsEnabled`, `scrollLockEnabled`, `resourceIdsEnabled`, `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled` (the short-lived `inspectAnnotationEnabled` toggle was removed 2026-07-04 along with the floating button, and the in-page `rawObjectEditorEnabled` toggle was removed 2026-07 with the in-page Raw Object Editor surface; the `fabryDeepVerifyEnabled` + `fabryArchitectImplementEnabled` popup toggles were removed 2026-07-14 — both features are now ON by default within the experimental Fabry app; any stored values are orphaned; the `annotateForMeEnabled` toggle and the whole Annotate-for-me feature were REMOVED 2026-07-20 — proven not feasible: vision box precision capped ~0.4 IoU and the write path never had a server-side read-only guarantee; any stored `annotateForMeEnabled` value is orphaned)
-- Experimental unlock: `experimentalUnlocked` — flipped by 5 quick clicks on the popup's version hash; gates the Fabry Chat Console app's rail item (live via `chrome.storage.onChanged`). (It was formerly also the second half of the Annotate-for-me double-gate, removed with that feature 2026-07-20.)
+- Experimental unlock: `experimentalUnlocked` — flipped by 5 quick clicks on the popup's version hash; gates the Fabry Chat Console app's rail item (live via `chrome.storage.onChanged`). (It was formerly also the second half of the Annotate-for-me double-gate, removed with that feature 2026-07-20.) The same click also flips `trainingUnlocked` in the same write — see Onboarding training state below.
 - Console staging auth: `consoleAuth_<uuid>` (single-use, 24h TTL, removed on first read; carries `app` + optional DS pipeline prefill)
 - Console state: `consoleActiveApp` — per-tab (see MDH state below: session-first read with a `chrome.storage.local` seed)
 - Side panel state: **none** — Chrome remembers open/closed per window. The panel shares the popup's `mdhProvenanceFilter` (the card's schema-ID filter) and its `mdhProv:*` `chrome.storage.session` caches
@@ -485,6 +692,7 @@ feature request behind it. Spec:
 - Fabry Chat state: `fabrySidebarWidth` is a **global** layout pref (sidebar drag-resize, clamp 200–420; the sidebar collapse toggle was removed, so the former `fabrySidebarOpen` key is orphaned/unused); `fabryArchConsoleHeight` is a **global** layout pref too (the Architect deliverable pane's action-console height — fixed so tabs don't jump, drag-resizable via its top-edge grip, clamp 140–620); `fabryActiveChat` (open chat id), `fabryMode` (Chat|Architect sub-app selection), and `fabryArchitectActive` (open Architect deliverable id) are the only other persisted values — all per-tab (tabState pattern) and content-free; chat content/images/transcripts and Architect deliverable text/evidence never touch storage (server-owned; privacy constraint — deliverables + their last results live in the `__mrfabry_architect` Data Storage collection, in-memory otherwise)
 - Inspector state: `rossumViewedAnnotations` — annotations the user OPENED IN THE ROSSUM UI (`{id, origin, at}`, deduped by (origin,id), newest-first, cap 12), written by the always-on `track-viewed` content-script feature (pure tracker, no DOM) and read by the Inspector landing, which also live-refreshes via `chrome.storage.onChanged`, which filters to the connected org's origin (cap 8 shown) and enriches file/queue/status via ONE sideloaded call (`/annotations?id=<csv>&sideload=documents,queues` — verified live). Clear-all removes only the current origin's entries. Opening the Inspector lands on this list — only an explicitly staged `pendingAnnotationId` (deep-link) auto-loads. (Legacy keys `inspectorRecents` [investigated-recents, retired 2026-07-04] and the older per-tab `consoleInspectorAnn` are orphaned, not migrated.)
 - AI pipeline input availability: cached in **`sessionStorage`** (key `mdhAiAvailable_<org>`), NOT `chrome.storage` — ephemeral per-session result of the `/internal/llmchat` probe, so availability is never persisted at rest.
+- Onboarding training state: `trainingUnlocked` (the gate; flipped by the SAME 5-quick-clicks-on-the-version-hash gesture as `experimentalUnlocked`, in one write — see Onboarding training above) and `trainingProgress` (per-org-origin progress + any issued receipt, capped at 3 orgs).
 - Usage data (**opt-in, off by default**): `usageConsent` (`true`/`false`/**absent** — absent means *never answered*, which is why `App.jsx` reads it separately from the `!!`-coercing `STORAGE_TOGGLES` loop), `usageClientId` (random uuid, minted **lazily by the worker on the first event** — not at consent time, so nothing durable depends on a message reaching it — and **deleted on revoke** together with `usageSessionId`, so a re-opt-in is unlinkable), `usageSnapshotDay` (UTC `YYYY-MM-DD` marker for the once-a-day config snapshot), `usageAsked` (`true` once the consent overlay has ever been **shown** — separate from `usageConsent` so the ask appears exactly once and never nags); plus `usageSessionId` in `chrome.storage.session`.
 
 ## Usage data (opt-in)

@@ -6,10 +6,12 @@ import { initScrollLock } from './features/scroll-lock.js';
 import { init as initClosableTooltips, handleNode as handleClosableTooltip } from './features/closable-tooltips.js';
 import { init as initDatasetMgmtSuggest } from './features/dataset-mgmt-suggest.js';
 import { init as initTrackViewed } from './features/track-viewed.js';
+import { init as initTrainingQuest } from './features/training-quest.js';
 
 initClosableTooltips();
 initDatasetMgmtSuggest();
 initTrackViewed();
+initTrainingQuest(); // self-gates on trainingUnlocked; no popup toggle
 
 const SETTINGS_KEYS = [
   'schemaAnnotationsEnabled',

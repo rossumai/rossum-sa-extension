@@ -1,0 +1,52 @@
+/* src/academy/Academy.module.css — component-owned; esbuild emits it into
+   dist/console/console.css. Colors come from the Console's shared tokens
+   defined in src/console/console.css (--border, --accent, --bg-*,
+   --text-*, --success-*) — NOT --surface/--surface-2/--fg-muted/--accent-bg,
+   which are not defined anywhere in this codebase. */
+.root { display: grid; grid-template-columns: 240px minmax(0, 1fr); height: 100%; overflow: hidden; }
+.list { border-right: 1px solid var(--border); background: var(--bg-sidebar); padding: 14px 10px; overflow-y: auto; }
+.listTitle { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--text-secondary); margin: 0 0 10px; }
+.mission { display: flex; gap: 9px; align-items: center; width: 100%; text-align: left; background: none;
+  border: 0; border-radius: 8px; padding: 8px; cursor: pointer; color: inherit; }
+.mission:hover:not(:disabled) { background: var(--bg-hover); }
+.mission:disabled { opacity: .5; cursor: default; }
+.missionActive { background: var(--bg-card); }
+.mission b { display: block; font-size: 13px; }
+.mission i { font-style: normal; font-size: 11px; color: var(--text-secondary); }
+.ring { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 10px; font-weight: 700; background: var(--bg-hover); }
+.ring[data-status="done"] { background: var(--success-bg); color: var(--success-fg); }
+.main { overflow-y: auto; padding: 16px 20px; background: var(--bg-card); }
+.detail { display: block; }
+.hud { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.hud button { margin-left: auto; }
+.detailTitle { margin: 0 0 4px; font-size: 20px; }
+.blurb { margin: 0 0 14px; color: var(--text-secondary); }
+.step { display: flex; gap: 10px; padding: 10px 12px; border: 1px solid var(--border);
+  border-radius: 10px; margin-bottom: 8px; }
+.step[data-state="passed"], .step[data-state="self"] { background: var(--success-bg); border-color: var(--success-border); }
+.tick { flex: none; }
+.stepBody { flex: 1; min-width: 0; }
+.chip { flex: none; align-self: flex-start; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  border-radius: 4px; padding: 2px 6px; background: var(--bg-hover); color: var(--text-secondary); }
+.attest, .primary, .ghost { border-radius: 7px; font-weight: 600; cursor: pointer; padding: 6px 12px; }
+.primary { background: var(--accent); color: #fff; border: 0; }
+.primary:hover { background: var(--accent-hover); }
+.ghost { background: none; border: 1px solid var(--border); color: inherit; }
+.attest { background: none; border: 1px solid var(--border); color: inherit; margin-top: 6px; }
+.empty { max-width: 520px; margin: 60px auto; text-align: center; }
+.receipt, .trainer { margin-top: 22px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; }
+.receiptBlock { background: var(--bg-code); border-radius: 8px; padding: 12px; overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.textarea { width: 100%; box-sizing: border-box; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px; border: 1px solid var(--border); border-radius: 8px; padding: 8px; margin-bottom: 8px;
+  background: var(--bg-input); color: inherit; }
+.errorStrip { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; padding: 9px 12px;
+  border: 1px solid var(--danger-border); border-radius: 8px; background: var(--danger-bg);
+  color: var(--danger-fg); font-size: 12px; line-height: 1.45; text-align: left; }
+.errorStrip span { flex: 1; min-width: 0; }
+.errorDismiss { flex: none; background: none; border: 0; color: inherit; cursor: pointer;
+  font-size: 15px; line-height: 1; padding: 0 2px; }
+.fine { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
+.ok { color: var(--success-fg); font-weight: 600; }
+.warn { color: var(--warning-fg); font-weight: 600; }

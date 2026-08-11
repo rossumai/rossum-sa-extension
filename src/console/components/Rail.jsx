@@ -1,6 +1,6 @@
 // src/console/components/Rail.jsx
 import { h } from 'preact';
-import { activeApp, experimentalUnlocked } from '../store.js';
+import { activeApp, experimentalUnlocked, trainingUnlocked } from '../store.js';
 import FabryMark from '../../ui/FabryMark.jsx';
 
 const DATA_ICON = (
@@ -41,21 +41,29 @@ const INSPECTOR_ICON = (
 // size; fill inherits the rail's currentColor (incl. white-when-active).
 const FABRY_ICON = <FabryMark size={20} animated={false} />;
 
+const ACADEMY_ICON = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3 2 8l10 5 10-5-10-5z" />
+    <path d="M6 10.5V16c0 1.7 2.7 3 6 3s6-1.3 6-3v-5.5" />
+  </svg>
+);
+
 const APPS = [
   { id: 'mdh', label: 'Data', title: 'Dataset Management', icon: DATA_ICON },
   { id: 'audit', label: 'Audit', title: 'Audit Log Viewer', icon: AUDIT_ICON },
   { id: 'inspector', label: 'Inspector', title: 'Annotation Inspector', icon: INSPECTOR_ICON, beta: true },
-  // `exp` only gates visibility on experimentalUnlocked; the visible badge is `beta`.
-  { id: 'fabry', label: 'Fabry', title: 'Mr. Fabry', icon: FABRY_ICON, beta: true, exp: true },
+  // `gatedBy` only gates visibility on the named gate signal; the visible badge is `beta`.
+  { id: 'fabry', label: 'Fabry', title: 'Mr. Fabry', icon: FABRY_ICON, beta: true, gatedBy: 'fabry' },
   { id: 'galaxy', label: 'Galaxy', title: 'Org Galaxy', icon: GALAXY_ICON },
+  { id: 'academy', label: 'Academy', title: 'Onboarding training', icon: ACADEMY_ICON, beta: true, gatedBy: 'academy' },
 ];
 
 export default function Rail() {
   const active = activeApp.value;
-  const unlocked = experimentalUnlocked.value;
+  const gates = { fabry: experimentalUnlocked.value, academy: trainingUnlocked.value };
   return (
     <nav class="app-rail" aria-label="Application switcher">
-      {APPS.filter((a) => !a.exp || unlocked).map((a) => (
+      {APPS.filter((a) => !a.gatedBy || gates[a.gatedBy]).map((a) => (
         <button
           type="button"
           class={'app-rail-item' + (active === a.id ? ' active' : '') + (a.muted ? ' muted' : '')}

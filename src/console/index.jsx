@@ -1,10 +1,11 @@
 import { h, render } from 'preact';
 import { effect } from '@preact/signals';
-import { activeApp, experimentalUnlocked } from './store.js';
+import { activeApp, experimentalUnlocked, trainingUnlocked } from './store.js';
 import {
   pickInitialApp,
   resolveBootAuth,
   computeStaleAuthRemovals,
+  appAfterGateChange,
 } from './boot.js';
 import { resolveTabState, writeTabState } from './tabState.js';
 import { track } from '../usage/track.js';
@@ -24,6 +25,8 @@ import * as inspectorStore from '../inspector/store.js';
 import { initInspector } from '../inspector/index.jsx';
 import * as fabryStore from '../fabry/store.js';
 import { initFabry } from '../fabry/index.jsx';
+import * as academyStore from '../academy/store.js';
+import { initAcademy } from '../academy/index.jsx';
 
 const AUTH_TTL_MS = 24 * 60 * 60 * 1000;
 const TITLES = {
@@ -32,6 +35,7 @@ const TITLES = {
   galaxy: 'Org Galaxy — Rossum SA',
   inspector: 'Inspector — Rossum SA',
   fabry: 'Mr. Fabry — Rossum SA',
+  academy: 'Onboarding training — Rossum SA',
 };
 
 // Opt-in usage counting: which apps get opened at all. No ids, no org, no
@@ -42,6 +46,7 @@ const APP_EVENTS = {
   galaxy: 'sa_console_app_galaxy',
   inspector: 'sa_console_app_inspector',
   fabry: 'sa_console_app_fabry',
+  academy: 'sa_console_app_academy',
 };
 
 async function purgeStaleAuthEntries() {
@@ -65,6 +70,7 @@ let auditInited = false;
 let galaxyInited = false;
 let inspectorInited = false;
 let fabryInited = false;
+let academyInited = false;
 let pendingCtx = {};
 
 function ensureInited(app) {
@@ -91,6 +97,10 @@ function ensureInited(app) {
     fabryInited = true;
     return initFabry();
   }
+  if (app === 'academy' && !academyInited) {
+    academyInited = true;
+    return initAcademy();
+  }
   return Promise.resolve();
 }
 
@@ -102,24 +112,30 @@ async function boot() {
     ...(authKey ? [authKey] : []),
     'consoleActiveApp',
     'experimentalUnlocked',
+    'trainingUnlocked',
   ]);
   const entry = authKey ? stored[authKey] : null;
 
   // Fabry deep-verify + Architect implement are ON by default (their popup
   // kill-switches were removed 2026-07-14); the store signals default true.
   experimentalUnlocked.value = !!stored.experimentalUnlocked;
+  trainingUnlocked.value = !!stored.trainingUnlocked;
   chrome.storage.onChanged?.addListener((changes, area) => {
     if (area === 'local' && changes.experimentalUnlocked) {
       experimentalUnlocked.value = !!changes.experimentalUnlocked.newValue;
     }
+    if (area === 'local' && changes.trainingUnlocked) {
+      trainingUnlocked.value = !!changes.trainingUnlocked.newValue;
+    }
   });
-  // Re-locking the gate while Fabry is the active app falls back to Dataset
+  // Re-locking a gate while its app is active falls back to Dataset
   // Management; any other active app is unaffected. Subscribes only to the
-  // gate signal (via .value) and reads activeApp with .peek() so this effect
+  // gate signals (via .value) and reads activeApp with .peek() so this effect
   // doesn't re-run on every app switch — just on gate changes.
   effect(() => {
-    const unlocked = experimentalUnlocked.value;
-    if (!unlocked && activeApp.peek() === 'fabry') activeApp.value = 'mdh';
+    const fabryUnlocked = experimentalUnlocked.value;
+    const academyUnlocked = trainingUnlocked.value;
+    activeApp.value = appAfterGateChange(activeApp.peek(), fabryUnlocked, academyUnlocked);
   });
 
   purgeStaleAuthEntries().catch(() => {});
@@ -140,7 +156,12 @@ async function boot() {
   }
 
   const persistedApp = resolveTabState(['consoleActiveApp'], stored).consoleActiveApp;
-  const initial = pickInitialApp({ stagingApp, persistedApp, fabryUnlocked: !!stored.experimentalUnlocked });
+  const initial = pickInitialApp({
+    stagingApp,
+    persistedApp,
+    fabryUnlocked: !!stored.experimentalUnlocked,
+    academyUnlocked: !!stored.trainingUnlocked,
+  });
   activeApp.value = initial;
 
   track('sa_console_open');
@@ -160,6 +181,7 @@ async function boot() {
     galaxyStore.connected.value = false;
     inspectorStore.connected.value = false;
     fabryStore.connected.value = false;
+    academyStore.connected.value = false;
     render(<Console />, document.getElementById('app'));
     return;
   }
