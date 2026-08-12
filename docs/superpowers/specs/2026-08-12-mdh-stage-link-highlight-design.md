@@ -11,6 +11,8 @@
    actually nowhere in the aggregation pipeline."*
 4. *"When hovering over the aggregation pipeline stages, I should also see the light blue
    background and the dashed lines."*
+5. *"When the aggregation stage doesn't return any results, let's use Fabry to better explain
+   why is it the case."*
 6. *"Show a fast scroll animation instead of just jumping so users understand what's going on."*
 
 ## What this is
@@ -123,6 +125,133 @@ from the other end. An attribute, not a class, for the usual reason: Preact rewr
 The `mousemove` handler would otherwise run a whole-document `JSON5.parse` per pointer move, so
 `stageLineRanges` is now memoized on the CodeMirror `Text` object's identity (immutable, so
 identity implies identical content and the key cannot go stale). The caret path shares the memo.
+
+## Mr. Fabry explains an empty stage (request 5)
+
+When a stage returns nothing, "No documents at this stage" still shows — and below it a Fabry
+panel in the shared Inspector Diagnosis identity (`--diag-*` purple, `FabryMark`, two
+`inspector-esec-skel` shimmer bars and a cycling activity line while it works, then the
+streaming narrative via `FabryNarrative`, credited and hedged in the footer).
+
+Owner decisions:
+
+- **Automatic**, not on demand. (I recommended on-demand — an agent call per intermediate empty
+  state while typing — and was overruled; noted here so the cost is a known choice rather than
+  an oversight. It is bounded by `explainSignature`: the same empty pipeline is explained
+  exactly once, and a pipeline that moves on aborts the stream in flight.)
+- **The first empty stage only.** Once a stage emits nothing every later one almost always does
+  too, so the useful question is which stage emptied the result. ($unionWith and $documents can
+  produce rows from an empty input; rare enough that one explanation is the right trade.)
+- **Pipeline + counts + schema hints** — the same `getSchemaHints()` the AI query box already
+  sends for this collection. Hints are derived in the browser; whole documents never reach the
+  agent. It is usually a distinct value that explains a `$match` matching nothing.
+
+Gated on `aiAvailable` (the `/health` probe), like the AI query box — not on
+`experimentalUnlocked`. `firstEmptyStage` deliberately returns -1 while any earlier stage is
+still loading or has errored: guessing mid-load would explain a stage that a moment later is
+not the culprit, and an errored stage already shows its own message.
+
+**Layout.** The empty-stage body override is written as the COMPOUND selector
+`.pipeline-inspect-body.pipeline-inspect-body-empty`. The single-class version silently did
+nothing: `.pipeline-inspect-body` sets the fixed height ~65 lines further down the file and at
+equal specificity the later rule wins, so the 324px band survived and the message still sat on
+a wall of whitespace. jsdom has no layout engine, so the test asserting the class was applied
+passed while the height never collapsed — the selector carrying its own weight is the guard.
+
+The panel is a child of the `<section>`, placed after `.pipeline-inspect-body` —
+NOT inside `.pipeline-inspect-output`, which is a horizontal flex row of record cards, so a
+panel there becomes a card-sized sibling beside the message rather than a full-width block
+under it. An empty stage also drops the fixed 324px records band
+(`.pipeline-inspect-body-empty { height: auto }`): that band exists to keep RECORDS uniform,
+and an empty stage has none, so it was 324px of nothing pushing the answer down. The panel is
+capped at 260px with its own scroll so one verbose answer cannot dwarf the pane.
+
+**The empty message is a warning band.** Muted grey italic was easy to scroll past once the
+records band stopped reserving 324px for an empty stage, so it is now
+`--warning-bg`/`--warning-fg`/`--warning-border` with a ⚠ icon, spanning the stage (`flex: 1`,
+since its parent is a horizontal flex row of record cards). Warning rather than danger on
+purpose: `--danger` is this pane's colour for a request that FAILED
+(`.pipeline-inspect-error`), whereas an empty result means the query ran fine and matched
+nothing — keeping the two apart is what lets a genuine error still stand out. The header's zero
+count remains `--danger` (`.pipeline-inspect-zero`); that is pre-existing and was left alone.
+
+**Rendering + prose.** The answer renders as Markdown (`FabryMarkdown`), so field names and
+values come through as inline code, and it is shown in full — no inner scroll. A nested
+scroller inside an already-scrolling pane hides that there is more and makes the wheel fight
+over which region moves; the answer is short by construction and the section is content-sized.
+
+**The agent was refusing outright, and the prompt was the cause.** Unframed, it answered:
+*"This question is about debugging a MongoDB aggregation pipeline, which isn't related to the
+Rossum document processing platform. I'm a Rossum platform specialist…"* — a scope refusal, not
+mere padding. The prompt now opens by establishing what this actually is: Master Data Hub
+stores a customer's master data as collections in **Rossum's Data Storage**, and Rossum MDH
+matching hooks query them with aggregation pipelines while a document is extracted. It then
+states plainly that this IS a Rossum question and forbids scope commentary, preambles,
+restatements and apologies. Pinned by tests — prompt wording regresses silently.
+
+**The agent can now see the pipeline as WRITTEN, not just as run.** `debugEntries` is the
+*substituted* form, so the agent saw rendered literals and could not distinguish a hard-coded
+value from an unfilled variable. Verified at `usePipeline.js:237`: an unset variable substitutes
+as an **empty string**, so `{"country": "{country}"}` runs as `{"country": ""}` and the agent
+would advise loosening a filter when the real fix is to fill the variable in. The prompt now
+carries both forms plus a variable table marking each one set or NOT SET, and states the two
+substitution rules that change what a stage means (empty-string-for-unset, and type-aware
+substitution turning `"{qty}"` into `5`). `DataPanel` derives the raw form with the same
+`parseEntries` on the unsubstituted text, and passes null when it does not parse or when the
+two forms disagree about stage count — misaligned forms would be worse than none. The written
+form is part of the cache signature too: swapping a literal for a variable of the same value
+leaves the run form byte-identical while changing what the correct advice is.
+
+**Nothing is re-investigated for an unchanged pipeline.** Two separate causes were fixed:
+
+- Toggling the source card used to clear every stage preview and refetch all of them, because
+  `sourceOpen` had been added to the stage-preview effect's deps. That briefly unmounted the
+  panel and restarted the investigation on every expand or collapse. The source sample now has
+  its own effect, so a toggle costs exactly one request and touches nothing else.
+- A module-level cache in `explainEmpty.js`, keyed by the same signature, lets any other
+  remount (List/Table and back) reuse the answer instantly. Successful answers only — caching a
+  failure would turn one transient blip into a permanently stuck error with no way to retry.
+  Capped at 20 with recency eviction; in memory, never persisted.
+
+`EmptyStageExplain` owns its request and its streaming text rather than lifting them into
+`StagesView`, which renders every `RecordCard` in every stage — holding the text up there would
+re-render the whole pane on each token.
+
+**A bug this shipped with, and how it was found.** The panel never appeared: every affected
+stage sat on "Loading…" forever. Root cause was a render-time `TypeError` —
+`useStageCounts` returns `counts` as an **object keyed by active index**, not an array
+(`useStageCounts.js:12`), and the new prop mapped it with `.map()`. Every other use in
+`StagesView` is index access, which reads identically on an object and an array, so the shape
+was assumed rather than checked. The throw aborted the render, which is why the symptom was a
+stuck "Loading…" (`StageOutput`'s state for an unresolved preview) rather than a missing panel
+or a visible error. Reproduced with a mounted `StagesView` before fixing; the suite had no test
+that mounted the component at all, which is exactly why a green run hid it. Pinned now by four
+tests that mount it with a mocked agent.
+
+## Reveals animate (request 6)
+
+Both hover reveals now tween over ~180ms with an ease-out instead of teleporting
+(`src/mdh/smoothScroll.js`: pure `easeOutCubic`/`tweenAt`/`nearestScrollTop` plus a thin
+`animateScrollTop`). Hand-rolled rather than `behavior: 'smooth'` for two reasons: the
+browser's smooth duration is not controllable and runs ~300-500ms in Chrome, which is too slow
+for something that fires on hover; and **CodeMirror's `EditorView.scrollIntoView` effect has no
+behaviour option at all** — it is always instant, so the editor side had to compute its own
+target regardless. `prefers-reduced-motion` falls back to an instant jump, a sub-2px move is
+never animated (it would read as a nudge), and one in-flight tween per element is cancelled on
+retarget so rapid hovers do not fight.
+
+Animating the editor forced a fact back into the code that the reverted scroll-sync work had
+established: **`.cm-scroller` is not the editor's scroller here.** `console.css:408` makes the
+outer `.json-editor` the scroller, and the generic `.json-editor .cm-editor { flex: 1 }` has no
+`min-height: 0`, so `.cm-scroller`'s `height: 100%` never resolves. Writing
+`view.scrollDOM.scrollTop` would silently do nothing — `revealStage` only worked before because
+CodeMirror's own effect walks up to the real scrollable ancestor. `scrollerFor()` picks
+whichever candidate has the LARGER range rather than a bare `>` test, because the measured
+layout sits exactly on that threshold and these properties are integer-rounded while wrapped
+line heights are not.
+
+The caret jump and the debug-panel jump are unchanged (still instant): they fire on discrete
+intent, and the caret one fires on every caret move into a new stage.
 
 ## The source, not "stage 0" (request 3)
 

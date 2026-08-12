@@ -3,6 +3,15 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { h, render } from 'preact';
 
 vi.mock('../src/mdh/api.js');
+// The empty-stage explainer talks to the agent; keep it off the network.
+vi.mock('../src/agent/agentApi.js', () => ({
+  createChat: vi.fn(async () => 'chat-1'),
+  streamMessage: vi.fn(async (chatId, content, { onEvent } = {}) => {
+    if (content === '/persona cautious') return;
+    onEvent?.({ type: 'text-delta', delta: 'country holds DEU, not DE.' });
+    onEvent?.({ type: 'finish' });
+  }),
+}));
 // Stub RecordCard: assert the readOnly prop without depending on its internals
 // (covered by tests/mdh-record-card.test.js).
 vi.mock('../src/mdh/components/RecordCard.jsx', () => ({
@@ -10,8 +19,10 @@ vi.mock('../src/mdh/components/RecordCard.jsx', () => ({
 }));
 
 import * as api from '../src/mdh/api.js';
+import * as agentApi from '../src/agent/agentApi.js';
 import StagesView from '../src/mdh/components/StagesView.jsx';
-import { hoveredStage, stagesShowDef, stagesSourceOpen } from '../src/mdh/store.js';
+import { hoveredStage, stagesShowDef, stagesSourceOpen, aiAvailable } from '../src/mdh/store.js';
+import { _resetExplanationCache } from '../src/mdh/agent/explainEmpty.js';
 
 async function waitFor(condition, description = 'condition', timeoutMs = 2000) {
   const start = Date.now();
@@ -52,12 +63,16 @@ afterEach(() => {
   hoveredStage.value = null;
   stagesShowDef.value = false;
   stagesSourceOpen.value = false;
+  aiAvailable.value = false;
+  _resetExplanationCache();
 });
 beforeEach(() => {
   vi.clearAllMocks();
   hoveredStage.value = null;
   stagesShowDef.value = false;
   stagesSourceOpen.value = false; // the source card is collapsed by default
+  aiAvailable.value = false;
+  _resetExplanationCache();
 });
 
 describe('StagesView', () => {
@@ -319,7 +334,113 @@ describe('StagesView', () => {
   });
 });
 
+describe('empty-stage explanation', () => {
+  const EMPTY = [{ disabled: false, stage: { $match: { country: 'DE' } } }];
 
+  it('keeps "No documents at this stage" AND renders the Fabry panel under it', async () => {
+    aiAvailable.value = true;
+    api.aggregate.mockResolvedValue({ result: [] });
+    const root = mount({ collection: 'vendors', entries: EMPTY });
+    await waitFor(() => root.querySelector('.stage-explain'), 'Fabry panel rendered');
+    expect(root.textContent).toContain('No documents at this stage');
+    // The regression this guards: a throw during render left the stage body
+    // stuck on "Loading…" and neither the message nor the panel ever appeared.
+    expect(root.textContent).not.toContain('Loading');
+  });
+
+  it('streams the explanation into the panel', async () => {
+    aiAvailable.value = true;
+    api.aggregate.mockResolvedValue({ result: [] });
+    const root = mount({ collection: 'vendors', entries: EMPTY });
+    await waitFor(() => root.textContent.includes('DEU'), 'explanation streamed in');
+  });
+
+  it('renders no panel when the agent is unavailable', async () => {
+    aiAvailable.value = false;
+    api.aggregate.mockResolvedValue({ result: [] });
+    const root = mount({ collection: 'vendors', entries: EMPTY });
+    await waitFor(() => root.textContent.includes('No documents at this stage'), 'empty message');
+    expect(root.querySelector('.stage-explain')).toBeNull();
+  });
+
+  it('explains only the FIRST empty stage, not every downstream one', async () => {
+    aiAvailable.value = true;
+    api.aggregate.mockResolvedValue({ result: [] });
+    const entries = [
+      { disabled: false, stage: { $match: {} } },
+      { disabled: false, stage: { $group: { _id: '$x' } } },
+      { disabled: false, stage: { $sort: { n: -1 } } },
+    ];
+    const root = mount({ collection: 'vendors', entries });
+    await waitFor(() => root.querySelector('.stage-explain'), 'one panel rendered');
+    expect(root.querySelectorAll('.stage-explain').length).toBe(1);
+    expect(root.querySelector('[data-idx="0"] .stage-explain')).toBeTruthy();
+  });
+});
+
+describe('empty-stage explanation — placement and reuse', () => {
+  const EMPTY = [{ disabled: false, stage: { $match: { country: 'DE' } } }];
+
+  it('renders UNDER the message, not inside the horizontal record row', async () => {
+    aiAvailable.value = true;
+    api.aggregate.mockResolvedValue({ result: [] });
+    const root = mount({ collection: 'vendors', entries: EMPTY });
+    await waitFor(() => root.querySelector('.stage-explain'), 'panel rendered');
+
+    // .pipeline-inspect-output is `flex-direction: row` for record cards, so a
+    // panel inside it sits BESIDE the message and is squeezed to a card's width.
+    expect(root.querySelector('.pipeline-inspect-output .stage-explain')).toBeNull();
+    // It is a section child, after the body — i.e. under the message, full width.
+    const section = root.querySelector('[data-idx="0"]');
+    const kids = [...section.children];
+    expect(kids.indexOf(section.querySelector('.stage-explain')))
+      .toBeGreaterThan(kids.indexOf(section.querySelector('.pipeline-inspect-body')));
+  });
+
+  it('lets an empty stage hug its content instead of holding a 324px records band', async () => {
+    aiAvailable.value = true;
+    api.aggregate.mockResolvedValue({ result: [] });
+    const root = mount({ collection: 'vendors', entries: EMPTY });
+    await waitFor(() => root.querySelector('.stage-explain'), 'panel rendered');
+    expect(root.querySelector('.pipeline-inspect-body-empty')).toBeTruthy();
+  });
+
+  it('keeps the fixed records band when the stage HAS documents', async () => {
+    api.aggregate.mockResolvedValue({ result: [{ _id: 'a' }] });
+    const root = mount({ collection: 'vendors', entries: EMPTY });
+    await waitFor(() => root.querySelector('.rc-stub'), 'records rendered');
+    expect(root.querySelector('.pipeline-inspect-body-empty')).toBeNull();
+  });
+
+  it('does not re-investigate when the source card is toggled', async () => {
+    aiAvailable.value = true;
+    api.aggregate.mockResolvedValue({ result: [] });
+    const root = mount({ collection: 'vendors', entries: EMPTY });
+    await waitFor(() => root.textContent.includes('DEU'), 'explanation arrived');
+    const asked = agentApi.createChat.mock.calls.length;
+
+    root.querySelector('.pipeline-inspect-source-head').click();   // expand
+    await waitFor(() => root.querySelector('.pipeline-inspect-source .pipeline-inspect-body'), 'source expanded');
+    root.querySelector('.pipeline-inspect-source-head').click();   // collapse
+    await waitFor(() => !root.querySelector('.pipeline-inspect-source .pipeline-inspect-body'), 'source collapsed');
+
+    // The toggle used to clear every stage preview, unmounting the panel and
+    // starting a fresh investigation each time.
+    expect(agentApi.createChat.mock.calls.length).toBe(asked);
+    expect(root.textContent).toContain('DEU'); // and the answer is still on screen
+  });
+
+  it('toggling the source card does not refetch the stage previews', async () => {
+    api.aggregate.mockResolvedValue({ result: [{ _id: 'a' }] });
+    const root = mount({ collection: 'vendors', entries: EMPTY });
+    await waitFor(() => root.querySelector('.rc-stub'), 'records rendered');
+    const before = previewCalls().length;
+    root.querySelector('.pipeline-inspect-source-head').click();
+    await waitFor(() => previewCalls().length > before, 'the source sample was fetched');
+    // Exactly one new request — the source sample — not one per stage.
+    expect(previewCalls().length).toBe(before + 1);
+  });
+});
 
 describe('the empty-stage message is hard to miss', () => {
   it('renders as a warning band with an icon, not muted body text', async () => {
@@ -344,3 +465,24 @@ describe('the empty-stage message is hard to miss', () => {
   });
 });
 
+describe('the written pipeline reaches the prompt', () => {
+  it('passes rawStages and variables through to what the agent is asked', async () => {
+    // Guards the prop chain, not just the prompt builder: the builder was fully
+    // tested while the props were not actually being forwarded, so the agent saw
+    // only the substituted form.
+    aiAvailable.value = true;
+    api.aggregate.mockResolvedValue({ result: [] });
+    mount({
+      collection: 'vendors',
+      entries: [{ disabled: false, stage: { $match: { country: '' } } }],
+      rawStages: [{ $match: { country: '{country}' } }],
+      variables: [{ name: 'country', value: '', isSet: false, type: 'auto' }],
+    });
+    await waitFor(() => agentApi.streamMessage.mock.calls.length >= 2, 'prompt sent');
+    // call 0 is the persona priming turn; call 1 carries the diagnostic prompt.
+    const prompt = agentApi.streamMessage.mock.calls[1][1];
+    expect(prompt).toContain('AS WRITTEN');
+    expect(prompt).toContain('{country}');
+    expect(prompt).toContain('{country} = NOT SET');
+  });
+});

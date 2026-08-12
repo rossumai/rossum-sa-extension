@@ -592,6 +592,29 @@ export default function DataPanel() {
   }
 
   const debugEntries = parseEntries(pipeline.substituteWithTypes(editorState.text)).entries;
+  // The pipeline AS WRITTEN, before placeholder substitution. `debugEntries` is
+  // the substituted form, so on its own it cannot tell a hard-coded literal from
+  // an unfilled variable — the empty-stage explainer needs both to give accurate
+  // advice. null when the raw buffer doesn't parse (mid-edit), or when the two
+  // forms disagree about stage count, which would misalign them.
+  const rawParsed = parseEntries(editorState.text);
+  const rawEntries = rawParsed.ok ? rawParsed.entries : null;
+  const rawStages = rawEntries && rawEntries.length === debugEntries.length
+    ? rawEntries.filter((e) => !e.disabled).map((e) => e.stage)
+    : null;
+  const pipelineVariables = placeholderNames.map((name) => {
+    const values = pipeline.placeholderValues.value;
+    const raw = values[name];
+    return {
+      name,
+      value: raw,
+      // An unset OR empty variable substitutes as '' (usePipeline.js), which is
+      // indistinguishable from a deliberate empty-string filter in the run form.
+      isSet: name in values && raw !== '' && raw != null,
+      type: pipeline.placeholderTypes.value[name] || 'auto',
+    };
+  });
+
   const effectiveStages = debugEntries
     .filter((e) => !e.disabled)
     .map((e) => e.stage);
@@ -649,6 +672,8 @@ export default function DataPanel() {
           pagination={pagination}
           filtered={resultsFiltered}
           entries={debugEntries}
+          rawStages={rawStages}
+          variables={pipelineVariables}
           onToggleStage={handleToggleStage}
           onSort={handleSort}
           onFilter={handleFilter}

@@ -17,7 +17,7 @@ export default function RecordList({
   records, pipelineText, filterState, sortState, lastQueryMs, totalCount, pagination,
   onSort, onFilter, onPageChange, onEdit, onDelete, onRefresh, downloadState, onCancelDownload,
   onEnterSelectionMode, onExitSelectionMode, onBulkDelete, onBulkUpdate, onSelectPage, onClearSelection,
-  onViewSelected, filtered = false, entries, onToggleStage,
+  onViewSelected, filtered = false, entries, rawStages, variables, onToggleStage,
 }) {
   const [expandedSet, setExpandedSet] = useState(new Set([0]));
   const [expandAll, setExpandAll] = useState(false);
@@ -182,6 +182,8 @@ export default function RecordList({
         <StagesView
           collection={selectedCollection.value}
           entries={entries}
+          rawStages={rawStages}
+          variables={variables}
           onToggleStage={onToggleStage}
           inspectTarget={inspectTarget.value}
         />

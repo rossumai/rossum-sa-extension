@@ -4,7 +4,9 @@ import * as api from '../api.js';
 import { stripWriteStages } from '../pipelineOps.js';
 import RecordCard from './RecordCard.jsx';
 import useStageCounts from '../hooks/useStageCounts.js';
-import { hoveredStage, stagesAutoscroll, stagesSampleSize, STAGE_SAMPLE_SIZES, stagesShowDef, stagesSourceOpen } from '../store.js';
+import { hoveredStage, stagesAutoscroll, stagesSampleSize, STAGE_SAMPLE_SIZES, stagesShowDef, stagesSourceOpen, aiAvailable, records } from '../store.js';
+import EmptyStageExplain from './EmptyStageExplain.jsx';
+import { firstEmptyStage, explainSignature } from '../agent/explainEmpty.js';
 
 const SLOW_QUERY_MS = 1000;
 const HIGHLIGHT_MS = 1600; // ≥ the .pipeline-inspect-flash animation (1.5s) so the class outlasts it
@@ -77,7 +79,7 @@ function StageOutput({ info }) {
   return info.docs.map((doc, i) => <InspectorDoc key={i} record={doc} index={i} />);
 }
 
-export default function StagesView({ collection, entries, onToggleStage, inspectTarget }) {
+export default function StagesView({ collection, entries, rawStages, variables, onToggleStage, inspectTarget }) {
   const [previews, setPreviews] = useState({}); // key: 'input' | activeIndex → { docs } | { error }
   const [highlightIdx, setHighlightIdx] = useState(null);
   const rootRef = useRef(null);
@@ -145,6 +147,16 @@ export default function StagesView({ collection, entries, onToggleStage, inspect
   const stageCountLabel = list.length === activeStages.length
     ? ` · ${activeStages.length} stage${activeStages.length === 1 ? '' : 's'}`
     : ` · ${activeStages.length} of ${list.length} stages run`;
+
+  // Only the FIRST empty stage is explained: once a stage emits nothing, every
+  // later one almost always does too, so the useful question is which stage
+  // emptied the result. Waits for the preview to actually resolve — a stage
+  // still loading, or one that errored, is not "empty".
+  const emptyIdx = aiAvailable.value ? firstEmptyStage(previews, activeStages.length) : -1;
+  // The raw form is part of the identity too: swapping a literal for a variable
+  // of the same value leaves the substituted stages byte-identical but changes
+  // what the right advice is.
+  const explainSig = explainSignature(collection, activeStages, emptyIdx, rawStages);
 
   let activeIdx = -1;
 
@@ -256,6 +268,28 @@ export default function StagesView({ collection, entries, onToggleStage, inspect
                   <StageOutput info={previews[myIdx]} />
                 </div>
               </div>
+              {/* Outside `.pipeline-inspect-output` on purpose: that is a
+                  horizontal flex ROW of record cards, so a panel placed inside it
+                  becomes a card-sized sibling BESIDE the message rather than a
+                  full-width block under it. As a section child it spans the
+                  section, like the stage-definition block above.
+                  `counts` from useStageCounts is an OBJECT keyed by active index,
+                  not an array — every other use here is index access, which hides
+                  the difference; mapping it as an array threw during render. */}
+              {myIdx === emptyIdx && explainSig && (
+                <EmptyStageExplain
+                  key={explainSig}
+                  signature={explainSig}
+                  collection={collection}
+                  stages={activeStages}
+                  rawStages={rawStages}
+                  variables={variables}
+                  emptyIndex={emptyIdx}
+                  counts={activeStages.map((_, i) => counts[i]?.count)}
+                  inputCount={inputInfo?.count ?? null}
+                  sampleRecords={records.value}
+                />
+              )}
             </section>
           );
         })}
