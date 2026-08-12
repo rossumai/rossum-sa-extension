@@ -1484,6 +1484,39 @@ body {
   padding: 8px 10px; background: var(--bg-hover);
   font-family: var(--font-mono); font-size: 12px;
 }
+/* ── The SOURCE card (was "stage 0 / input") ─────────────────────────────────
+   A MongoDB pipeline has no stage zero, but the old rendering gave the input the
+   same numbered badge, the same solid card and the same rhythm as stages 1…N, so
+   it read as one of them. Three cues now say otherwise, and they are meant to be
+   read together: DASHED and unfilled (a different class of object, legible before
+   any word is), UNNUMBERED (the numbered list starts at 1), and COLLAPSED by
+   default with an explicit divider beneath it (spatially outside the pipeline).
+   Deliberately NOT dimmed with opacity the way .pipeline-inspect-disabled is —
+   that means "did not run", which is the wrong idea entirely. */
+.pipeline-inspect-source { border-style: dashed; background: transparent; }
+.pipeline-inspect-source-head {
+  display: flex; align-items: baseline; gap: 8px; width: 100%;
+  padding: 8px 10px; background: transparent; border: 0;
+  font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary);
+  text-align: left; cursor: pointer;
+}
+.pipeline-inspect-source-head:hover { background: var(--bg-hover); }
+.pipeline-inspect-source-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.pipeline-inspect-source-chev { color: var(--text-secondary); width: 10px; flex-shrink: 0; }
+.pipeline-inspect-source-cap {
+  font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; font-weight: 600;
+}
+.pipeline-inspect-source-name { color: var(--text-primary); font-weight: 600; }
+/* Marks where the pipeline actually begins. A rule rather than more whitespace:
+   the boundary is stated, not left to be inferred from spacing. */
+.pipeline-inspect-start {
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  margin: -2px 0; font-size: 11px; color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+.pipeline-inspect-start::before,
+.pipeline-inspect-start::after { content: ""; height: 1px; background: var(--border); flex: 1; }
+
 .pipeline-inspect-num { color: var(--text-secondary); }
 .pipeline-inspect-key { color: var(--accent); font-weight: 600; }
 /* Muted caption that explains a stage (used on stage 0 / input). */
@@ -1559,9 +1592,26 @@ body {
   color: var(--danger); font-family: var(--font-mono); font-size: 11px;
   white-space: pre-wrap; word-break: break-word; max-width: 100%;
 }
-.pipeline-inspect-empty, .pipeline-inspect-loading {
+.pipeline-inspect-loading {
   color: var(--text-secondary); font-size: 12px; font-style: italic;
 }
+/* An empty stage is the single most important thing this view can tell you, and
+   since the records band now collapses for it there is no longer a wall of
+   whitespace making it obvious — muted grey italic was easy to scroll straight
+   past. WARNING, not danger: --danger is this pane's colour for a request that
+   FAILED (.pipeline-inspect-error), whereas this query ran fine and matched
+   nothing. Keeping them apart is what lets a real error still stand out.
+   `flex: 1` because the parent is a horizontal flex row of record cards, so
+   without it the band would hug its text instead of spanning the stage. */
+.pipeline-inspect-empty {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: var(--radius);
+  background: var(--warning-bg); color: var(--warning-fg);
+  border: 1px solid var(--warning-border);
+  font-size: 12px; font-weight: 600; font-style: normal;
+}
+.pipeline-inspect-empty-icon { flex-shrink: 0; font-size: 13px; line-height: 1; }
 .pipeline-inspect-highlight { animation: pipeline-inspect-flash 1.5s ease-out; }
 /* Tint the body + turn the section's own border accent (not an inset shadow,
    which the header's opaque background would paint over) so the highlight wraps
@@ -1573,6 +1623,11 @@ body {
 /* Hovering a stage in the Stages view draws a connector to its code in the editor;
    the section's border turns accent (wraps the header, unlike an inset shadow). */
 .pipeline-inspect-section:hover { border-color: var(--accent); }
+/* The same marking, for when the pointer is in the EDITOR rather than on the
+   section — :hover cannot fire in that direction, so StageLinkOverlay sets this
+   attribute on the link's target instead. Identical treatment on purpose: it is
+   the same "this is the linked stage" state, reached from the other end. */
+.pipeline-inspect-section[data-linked] { border-color: var(--accent); }
 .stage-link-overlay {
   position: absolute; inset: 0; width: 100%; height: 100%;
   pointer-events: none; z-index: 60;
@@ -1583,6 +1638,15 @@ body {
   stroke-dasharray: 6 4; /* dashed so the connector reads as a subtle guide line */
 }
 .stage-link-dot { fill: var(--accent); }
+/* The editor end of that same link: a tinted band behind the hovered stage's
+   lines, so the connector lands on something marked rather than on bare code.
+   Applied per LINE (see linkedStageField in JsonEditor.jsx) so it spans the full
+   width and survives wrapped lines. --info-bg is the accent-paired tint in this
+   stylesheet — there is no --accent-bg — and it is defined in both the light
+   :root block and the prefers-color-scheme: dark override, so the band follows
+   the theme. It is a fill, not a border, precisely so it does not read as a
+   second copy of the accent border the hovered section already gets above. */
+.cm-linked-stage { background: var(--info-bg); }
 
 /* Segmented pill group */
 .csv-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }

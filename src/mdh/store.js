@@ -72,6 +72,22 @@ export const inspectTarget = signal(null);
 // scroll) | null. Cleared on mouse-leave.
 export const hoveredStage = signal(null);
 
+// The stage the POINTER is over inside the pipeline editor — the same link
+// again, driven from the editor's own text. `{ entryIndex }` | null. Like
+// `caretStage` it carries no `el`; the overlay resolves the section from
+// `[data-entry]`. Precedence is hoveredStage > editorHoverStage > caretStage:
+// the two hovers are mutually exclusive in practice (one pointer), and either
+// beats a resting caret.
+export const editorHoverStage = signal(null);
+
+// The stage the pipeline-editor CARET currently sits in — the same link, driven
+// from the other end. `{ entryIndex }` | null; no `el`, because the caret knows
+// nothing about the DOM, so the overlay resolves the section itself from
+// `[data-entry]`. Cleared when the caret leaves every stage or the editor loses
+// focus. `hoveredStage` takes precedence while the pointer is over a section: an
+// active gesture beats a resting caret, and only one connector is ever drawn.
+export const caretStage = signal(null);
+
 // Stages-view options (persisted as mdhStagesAutoscroll / mdhStagesSampleSize).
 // `stagesAutoscroll` toggles the automatic scroll-syncing between the pipeline
 // editor and the Stages view (editor-follows-hover + Stages-follows-cursor); the
@@ -87,6 +103,16 @@ export const stagesSampleSize = signal(10);
 // sections keep their full sample-output space until the user asks for it.
 // Persisted as mdhStagesShowDef, wired like mdhStagesAutoscroll in index.jsx.
 export const stagesShowDef = signal(false);
+// Whether the Stages view's SOURCE card (the collection before the pipeline
+// runs — what used to render as "stage 0 / input") is expanded to show its
+// sample records. Default false: the card is a dimmed, dashed, collapsed strip,
+// so the numbered list visibly starts at stage 1 and the source reads as the
+// thing the pipeline draws from rather than a step in it. Collapsed also means
+// its sample is not fetched at all, saving one aggregate per Stages open — the
+// document COUNT still shows, since that comes from the $collStats probe in
+// useStageCounts, not from the sample. Persisted as mdhStagesSourceOpen, wired
+// like mdhStagesShowDef in index.jsx.
+export const stagesSourceOpen = signal(false);
 // Coerce a stored/unknown value to one of the allowed sample sizes (default 10).
 export function coerceStageSampleSize(v) {
   const n = typeof v === 'number' ? v : parseInt(v, 10);

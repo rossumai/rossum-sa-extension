@@ -4,7 +4,7 @@ import * as api from '../api.js';
 import { stripWriteStages } from '../pipelineOps.js';
 import RecordCard from './RecordCard.jsx';
 import useStageCounts from '../hooks/useStageCounts.js';
-import { hoveredStage, stagesAutoscroll, stagesSampleSize, STAGE_SAMPLE_SIZES, stagesShowDef } from '../store.js';
+import { hoveredStage, stagesAutoscroll, stagesSampleSize, STAGE_SAMPLE_SIZES, stagesShowDef, stagesSourceOpen } from '../store.js';
 
 const SLOW_QUERY_MS = 1000;
 const HIGHLIGHT_MS = 1600; // ≥ the .pipeline-inspect-flash animation (1.5s) so the class outlasts it
@@ -66,7 +66,14 @@ function StageOutput({ info }) {
       </div>
     );
   }
-  if (!info.docs || info.docs.length === 0) return <div class="pipeline-inspect-empty">No documents at this stage</div>;
+  if (!info.docs || info.docs.length === 0) {
+    return (
+      <div class="pipeline-inspect-empty">
+        <span class="pipeline-inspect-empty-icon" aria-hidden="true">{'\u26A0'}</span>
+        <span>No documents at this stage</span>
+      </div>
+    );
+  }
   return info.docs.map((doc, i) => <InspectorDoc key={i} record={doc} index={i} />);
 }
 
@@ -81,20 +88,17 @@ export default function StagesView({ collection, entries, onToggleStage, inspect
   const sampleSize = stagesSampleSize.value; // configurable; re-fetches on change
   const autoscroll = stagesAutoscroll.value;
   const showDef = stagesShowDef.value;
+  const sourceOpen = stagesSourceOpen.value;
   const { counts, inputInfo } = useStageCounts(collection, activeStages);
 
+  // Stage previews. Deliberately does NOT depend on `sourceOpen`: expanding or
+  // collapsing the source card must not clear and refetch every stage. It used
+  // to, which threw away all previews, briefly unmounted the empty-stage
+  // explanation, and made Mr. Fabry re-investigate from scratch on every toggle.
   useEffect(() => {
-    if (!collection) { setPreviews({}); return; }
-    setPreviews({});
+    if (!collection) { setPreviews((p) => (p.input ? { input: p.input } : {})); return undefined; }
+    setPreviews((p) => (p.input ? { input: p.input } : {}));
     const controller = new AbortController();
-
-    api.aggregate(collection, [{ $limit: sampleSize }], { signal: controller.signal })
-      .then((res) => { if (!controller.signal.aborted) setPreviews((p) => ({ ...p, input: { docs: res.result || [] } })); })
-      .catch((err) => {
-        if (err?.name === 'AbortError' || controller.signal.aborted) return;
-        setPreviews((p) => ({ ...p, input: { error: { message: err?.message || String(err), status: err?.status } } }));
-      });
-
     activeStages.forEach((_, i) => {
       const prefix = activeStages.slice(0, i + 1);
       api.aggregate(collection, [...stripWriteStages(prefix), { $limit: sampleSize }], { signal: controller.signal })
@@ -104,9 +108,25 @@ export default function StagesView({ collection, entries, onToggleStage, inspect
           setPreviews((p) => ({ ...p, [i]: { error: { message: err?.message || String(err), status: err?.status } } }));
         });
     });
-
     return () => controller.abort();
   }, [collection, activeKey, sampleSize]);
+
+  // The source sample, fetched only while its card is expanded — collapsed is
+  // the default, so this saves one aggregate every time the Stages view opens.
+  // The card still shows the document count either way (that is the $collStats
+  // probe in useStageCounts, not this sample). Separate from the stage previews
+  // above so a toggle costs exactly this one request and nothing else.
+  useEffect(() => {
+    if (!collection || !sourceOpen) return undefined;
+    const controller = new AbortController();
+    api.aggregate(collection, [{ $limit: sampleSize }], { signal: controller.signal })
+      .then((res) => { if (!controller.signal.aborted) setPreviews((p) => ({ ...p, input: { docs: res.result || [] } })); })
+      .catch((err) => {
+        if (err?.name === 'AbortError' || controller.signal.aborted) return;
+        setPreviews((p) => ({ ...p, input: { error: { message: err?.message || String(err), status: err?.status } } }));
+      });
+    return () => controller.abort();
+  }, [collection, sampleSize, sourceOpen]);
 
   useEffect(() => {
     if (!inspectTarget) return;
@@ -119,6 +139,12 @@ export default function StagesView({ collection, entries, onToggleStage, inspect
   }, [inspectTarget]);
 
   const sectionCls = (idx) => 'pipeline-inspect-section' + (highlightIdx === idx ? ' pipeline-inspect-highlight' : '');
+
+  // Honest about disabled stages: "3 of 5" rather than a count that disagrees
+  // with the numbered sections right below it.
+  const stageCountLabel = list.length === activeStages.length
+    ? ` · ${activeStages.length} stage${activeStages.length === 1 ? '' : 's'}`
+    : ` · ${activeStages.length} of ${list.length} stages run`;
 
   let activeIdx = -1;
 
@@ -149,19 +175,48 @@ export default function StagesView({ collection, entries, onToggleStage, inspect
         </label>
       </div>
       <div class="pipeline-inspect-scroll">
-        <section class={sectionCls(-1)} data-idx="-1">
-          <StageHeader num="0" label="input" hint="entire collection, before any stage runs" count={inputInfo?.count} ms={inputInfo?.ms} />
-          <div class="pipeline-inspect-body">
-            <div class="pipeline-inspect-output"><StageOutput info={previews.input} /></div>
-          </div>
+        {/* The SOURCE, not "stage 0". A MongoDB pipeline has no stage zero: this is
+            the collection the pipeline reads FROM. It is deliberately a different
+            kind of object from the numbered stages — dashed and unfilled rather
+            than solid, unnumbered, and collapsed by default — so the numbered list
+            visibly starts at 1. Collapsed also means its sample is never fetched
+            (see the preview effect); the doc COUNT still shows, because that comes
+            from the $collStats probe, not the sample. */}
+        <section class={sectionCls(-1) + ' pipeline-inspect-source'} data-idx="-1">
+          <button
+            type="button"
+            class="pipeline-inspect-source-head"
+            aria-expanded={sourceOpen}
+            onClick={() => { stagesSourceOpen.value = !sourceOpen; }}
+            title={sourceOpen ? 'Hide the sample records' : 'Show what the collection looks like before the pipeline runs'}
+          >
+            <span class="pipeline-inspect-source-chev" aria-hidden="true">{sourceOpen ? '▾' : '▸'}</span>
+            <span class="pipeline-inspect-source-cap">source</span>
+            <span class="pipeline-inspect-source-name">{collection || 'collection'}</span>
+            <span class="pipeline-inspect-hint">before the pipeline runs</span>
+            <span class={'pipeline-inspect-count' + (inputInfo?.count === 0 ? ' pipeline-inspect-zero' : '')}>
+              {typeof inputInfo?.count === 'number' ? `${inputInfo.count.toLocaleString()} docs` : '…'}
+            </span>
+            {typeof inputInfo?.ms === 'number' && <span class={timeCls(inputInfo.ms)}>{inputInfo.ms}ms</span>}
+          </button>
+          {sourceOpen && (
+            <div class="pipeline-inspect-body">
+              <div class="pipeline-inspect-output"><StageOutput info={previews.input} /></div>
+            </div>
+          )}
         </section>
+        {list.length > 0 && (
+          <div class="pipeline-inspect-start" aria-hidden="true">
+            <span>pipeline starts here{stageCountLabel}</span>
+          </div>
+        )}
         {list.map((entry, entryIndex) => {
           const stage = entry.stage || {};
           const stageKey = Object.keys(stage)[0] || '?';
           if (entry.disabled) {
             return (
               <section
-                class="pipeline-inspect-section pipeline-inspect-disabled" key={entryIndex}
+                class="pipeline-inspect-section pipeline-inspect-disabled" key={entryIndex} data-entry={entryIndex}
                 onMouseEnter={(e) => { hoveredStage.value = { entryIndex, el: e.currentTarget }; }}
                 onMouseLeave={() => { hoveredStage.value = null; }}
               >
@@ -176,10 +231,12 @@ export default function StagesView({ collection, entries, onToggleStage, inspect
           }
           activeIdx += 1;
           const myIdx = activeIdx;
+          const myDocs = previews[myIdx]?.docs;
+          const isEmptyStage = Array.isArray(myDocs) && myDocs.length === 0;
           const prevCount = myIdx === 0 ? inputInfo?.count : counts[myIdx - 1]?.count;
           return (
             <section
-              class={sectionCls(myIdx)} data-idx={myIdx} key={entryIndex}
+              class={sectionCls(myIdx)} data-idx={myIdx} data-entry={entryIndex} key={entryIndex}
               onMouseEnter={(e) => { hoveredStage.value = { entryIndex, el: e.currentTarget }; }}
               onMouseLeave={() => { hoveredStage.value = null; }}
             >
@@ -190,8 +247,14 @@ export default function StagesView({ collection, entries, onToggleStage, inspect
               {showDef && (
                 <pre class="pipeline-inspect-stagedef">{JSON.stringify(stage, null, 2)}</pre>
               )}
-              <div class="pipeline-inspect-body">
-                <div class="pipeline-inspect-output"><StageOutput info={previews[myIdx]} /></div>
+              {/* An empty stage has no records to size, so the fixed 324px band
+                  would be a wall of nothing with the message alone at the top —
+                  and it would push the explanation below the fold. Let it hug
+                  its content instead; the band exists to make RECORDS uniform. */}
+              <div class={'pipeline-inspect-body' + (isEmptyStage ? ' pipeline-inspect-body-empty' : '')}>
+                <div class="pipeline-inspect-output">
+                  <StageOutput info={previews[myIdx]} />
+                </div>
               </div>
             </section>
           );

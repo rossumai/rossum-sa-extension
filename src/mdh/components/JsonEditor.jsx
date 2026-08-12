@@ -2,8 +2,8 @@
 import { h } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { EditorView, basicSetup } from 'codemirror';
-import { EditorState } from '@codemirror/state';
-import { keymap, highlightSpecialChars, drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightActiveLine } from '@codemirror/view';
+import { EditorState, StateEffect, StateField } from '@codemirror/state';
+import { keymap, highlightSpecialChars, drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightActiveLine, Decoration } from '@codemirror/view';
 import { indentWithTab, history, defaultKeymap, historyKeymap } from '@codemirror/commands';
 // We use the JavaScript grammar (a strict superset of JSON5) so that line and
 // block comments inside prefilled templates are tokenized as comments instead
@@ -17,9 +17,10 @@ import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
 import { lintKeymap } from '@codemirror/lint';
 import JSON5 from 'json5';
 import { stageToggleGutter } from '../pipelineGutter.js';
-import { stageLineRanges, activeStageIndexAtOffset } from '../pipelineComments.js';
+import { stageLineRanges, activeStageIndexAtOffset, entryIndexAtOffset } from '../pipelineComments.js';
 import { operatorColonOffset } from '../stageLink.js';
 import { computeMinimalChange } from '../editorDiff.js';
+import { animateScrollTop } from '../smoothScroll.js';
 import { makeCompletionSource } from '../pipelineCompletions.js';
 // Re-exported for PipelineEditor.jsx / DataPanel.jsx, which import it from here.
 export { extractFieldNames } from '../pipelineCompletions.js';
@@ -59,6 +60,93 @@ const darkHighlight = syntaxHighlighting(HighlightStyle.define([
   { tag: tags.propertyName, color: '#dddde8' },
   { tag: [tags.lineComment, tags.blockComment], color: '#8888a0', fontStyle: 'italic' },
 ]));
+
+// The element that actually scrolls the editor. Prefers CodeMirror's own
+// scroller when it has range, else the `.json-editor` container — see
+// revealStage for why the distinction is load-bearing here. Picks whichever has
+// the LARGER range rather than a bare `>` test: the measured layout sits exactly
+// on that threshold, and line heights are fractional under lineWrapping while
+// these properties are integer-rounded, so a sub-pixel rounding difference could
+// otherwise hand it to a scroller with a ~1px range.
+function scrollerFor(view, container) {
+  const sc = view.scrollDOM;
+  const scRange = sc ? sc.scrollHeight - sc.clientHeight : 0;
+  const boxRange = container ? container.scrollHeight - container.clientHeight : 0;
+  return boxRange > scRange ? container : (sc || container);
+}
+
+// One-entry memo keyed on the CodeMirror Text object. `Text` is immutable, so
+// identity implies identical content and a changed document is always a new
+// object — the key cannot go stale. stageLineRanges() runs a whole-document
+// JSON5 parse plus one per stage, and the pointer-hover handler below would
+// otherwise pay for that on every mousemove.
+let rangesMemoDoc = null;
+let rangesMemoValue = null;
+function stageRangesFor(state) {
+  if (state.doc !== rangesMemoDoc) {
+    rangesMemoDoc = state.doc;
+    rangesMemoValue = stageLineRanges(state.doc.toString());
+  }
+  return rangesMemoValue;
+}
+
+// ── Linked-stage band ──────────────────────────────────────────────────────
+// The tinted background behind the stage the Stages-view connector points at.
+// Set from outside via editorRef.highlightStage(); see StageLinkOverlay.jsx.
+const setLinkedStage = StateEffect.define(); // payload: entryIndex | null
+const linkedLine = Decoration.line({ class: 'cm-linked-stage' });
+
+// Pure (state only, no view): the line decorations for one top-level stage.
+// Decoration.none for a null index, an index with no stage (the buffer doesn't
+// parse, or an edit removed that stage), or a stage whose span sits outside the
+// document. Line decorations rather than a range mark, so the band spans the
+// full width and survives wrapped lines.
+export function linkedStageDecos(state, entryIndex) {
+  if (entryIndex == null) return Decoration.none;
+  const r = stageLineRanges(state.doc.toString())[entryIndex];
+  if (!r) return Decoration.none;
+  const len = state.doc.length;
+  const from = Math.max(0, Math.min(r.start, len));
+  const to = Math.max(from, Math.min(r.end - 1, len)); // `end` is just past the '}'
+  const out = [];
+  const first = state.doc.lineAt(from).number;
+  const last = state.doc.lineAt(to).number;
+  for (let n = first; n <= last; n++) out.push(linkedLine.range(state.doc.line(n).from));
+  return Decoration.set(out);
+}
+
+// Holds the highlighted stage's ENTRY INDEX — not a text range — and re-derives
+// the band from the current document whenever the index or the document changes.
+//
+// Index-based is the right model here, not an accident: the source of truth is
+// which Stages-view section the pointer is over, and that is an index. So an
+// edit that adds or removes a stage keeps the band on the section being hovered
+// rather than on the text that used to be there. It also sidesteps a trap —
+// LineDecoration maps with MapMode.TrackBefore (@codemirror/view), so mapping
+// the decorations through a change DROPS the band outright when the line break
+// in front of it is deleted, and a mapped position is not necessarily at a line
+// start. Re-deriving always yields whole lines of the stage that exists now.
+//
+// Cost: one stageLineRanges() parse per edit, and only while a stage is
+// highlighted (i.e. while the pointer is over a section). The updateListener
+// below already runs JSON5.parse on every docChanged, so this is the same order
+// of work, not a new one.
+const linkedStageField = StateField.define({
+  create: () => ({ entryIndex: null, deco: Decoration.none }),
+  update(value, tr) {
+    let { entryIndex } = value;
+    let dirty = false;
+    for (const e of tr.effects) {
+      if (!e.is(setLinkedStage)) continue;
+      entryIndex = e.value;
+      dirty = true;
+    }
+    if (tr.docChanged && entryIndex != null) dirty = true;
+    if (!dirty) return value;
+    return { entryIndex, deco: linkedStageDecos(tr.state, entryIndex) };
+  },
+  provide: (f) => EditorView.decorations.from(f, (v) => v.deco),
+});
 
 const baseTheme = EditorView.theme({
   '&': { fontSize: '12px', flex: '1' },
@@ -106,7 +194,7 @@ const aggregateSetup = [
 ];
 
 
-export default function JsonEditor({ value = '', onChange, onValidChange, onToggleStage, onCursorStage, mode = 'default', fields, compact = false, readOnly = false, onSubmit, editorRef, minHeight = '200px', jsonLines = false }) {
+export default function JsonEditor({ value = '', onChange, onValidChange, onToggleStage, onCursorStage, onHoverStage, mode = 'default', fields, compact = false, readOnly = false, onSubmit, editorRef, minHeight = '200px', jsonLines = false }) {
   const containerRef = useRef(null);
   const viewRef = useRef(null);
   const onChangeRef = useRef(onChange);
@@ -114,7 +202,10 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
   const onSubmitRef = useRef(onSubmit);
   const onToggleStageRef = useRef(onToggleStage);
   const onCursorStageRef = useRef(onCursorStage);
-  const lastCursorStageRef = useRef(null);
+  const onHoverStageRef = useRef(onHoverStage);
+  const lastHoverStageRef = useRef(undefined);
+  // undefined = nothing reported yet; null = reported as outside every stage.
+  const lastCursorStageRef = useRef(undefined);
   // Mirrors the other callback refs above: the CodeMirror view + its
   // updateListener are created once in the mount-only effect below, so any
   // prop the validators read there must be threaded through a ref that's
@@ -129,6 +220,7 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
   onSubmitRef.current = onSubmit;
   onToggleStageRef.current = onToggleStage;
   onCursorStageRef.current = onCursorStage;
+  onHoverStageRef.current = onHoverStage;
   jsonLinesRef.current = jsonLines;
 
   useEffect(() => {
@@ -152,7 +244,28 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
       EditorView.lineWrapping,
       autocompletion({ override: [makeCompletionSource(mode, fieldsFn)] }),
       ...(mode === 'aggregate'
-        ? [stageToggleGutter((idx) => { if (onToggleStageRef.current) onToggleStageRef.current(idx); })]
+        ? [
+            stageToggleGutter((idx) => { if (onToggleStageRef.current) onToggleStageRef.current(idx); }),
+            linkedStageField,
+            // Which stage the POINTER is over, so hovering the code lights the
+            // same link that hovering the records section does. Deduped to
+            // changes, so a pointer moving within one stage reports nothing.
+            EditorView.domEventHandlers({
+              mousemove(e, view) {
+                if (!onHoverStageRef.current) return;
+                const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
+                const idx = pos == null ? null : entryIndexAtOffset(stageRangesFor(view.state), pos);
+                if (idx === lastHoverStageRef.current) return;
+                lastHoverStageRef.current = idx;
+                onHoverStageRef.current(idx);
+              },
+              mouseleave() {
+                if (!onHoverStageRef.current || lastHoverStageRef.current == null) return;
+                lastHoverStageRef.current = null;
+                onHoverStageRef.current(null);
+              },
+            }),
+          ]
         : []),
       EditorView.updateListener.of((update) => {
         if (update.docChanged) {
@@ -176,14 +289,25 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
         }
         // Aggregate mode: report which stage the cursor is in (active-stage index,
         // deduped to changes) so the Stages view can follow the cursor.
-        if (update.selectionSet && mode === 'aggregate' && onCursorStageRef.current) {
-          const found = activeStageIndexAtOffset(
-            stageLineRanges(update.state.doc.toString()),
-            update.state.selection.main.head,
-          );
-          if (found != null && found !== lastCursorStageRef.current) {
-            lastCursorStageRef.current = found;
-            onCursorStageRef.current(found);
+        if ((update.selectionSet || update.focusChanged) && mode === 'aggregate' && onCursorStageRef.current) {
+          const ranges = stageRangesFor(update.state);
+          const offset = update.state.selection.main.head;
+          // Losing focus reports null, so the caret's link clears when the user
+          // clicks away — a caret parked in a stage should not keep claiming the
+          // panel once the editor is no longer where the user is working.
+          const entryIndex = update.view.hasFocus ? entryIndexAtOffset(ranges, offset) : null;
+          // Deduped on the ENTRY index, and `undefined` (never reported) is
+          // distinct from `null` (reported: outside every stage) — without that
+          // distinction the first "left all stages" would be swallowed and the
+          // link would never clear.
+          if (entryIndex !== lastCursorStageRef.current) {
+            lastCursorStageRef.current = entryIndex;
+            onCursorStageRef.current(entryIndex == null ? null : {
+              entryIndex,
+              // null inside a disabled stage: it has a section to link to, but it
+              // never executed, so there is no stage output to jump to.
+              activeIndex: activeStageIndexAtOffset(ranges, offset),
+            });
           }
         }
       }),
@@ -262,10 +386,37 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
         revealStage: (entryIndex) => {
           const view = viewRef.current;
           if (!view) return;
-          const r = stageLineRanges(view.state.doc.toString())[entryIndex];
+          const r = stageRangesFor(view.state)[entryIndex];
           if (!r) return;
           const lineNo = Math.min(r.lineStart, view.state.doc.lines);
-          view.dispatch({ effects: EditorView.scrollIntoView(view.state.doc.line(lineNo).from, { y: 'center' }) });
+          const pos = view.state.doc.line(lineNo).from;
+
+          // Animated rather than CodeMirror's scrollIntoView effect, which has no
+          // behaviour option and always teleports. That means computing the
+          // target ourselves — and scrolling the element that ACTUALLY scrolls:
+          // `.cm-scroller` has zero range in this layout (console.css:408 makes
+          // the outer `.json-editor` the scroller, and the generic
+          // `.json-editor .cm-editor { flex: 1 }` has no `min-height: 0`, so
+          // `.cm-scroller`'s `height: 100%` never resolves). Writing
+          // view.scrollDOM.scrollTop here would silently do nothing.
+          const sc = scrollerFor(view, containerRef.current);
+          if (!sc) return;
+          const scRect = sc.getBoundingClientRect();
+          // documentTop is SCREEN-relative and goes negative once scrolled, so
+          // this constant converts CodeMirror's document-y into scrollTop space.
+          const c = sc.scrollTop + view.documentTop - scRect.top;
+          const block = view.lineBlockAt(pos);
+          animateScrollTop(sc, block.top + c - (sc.clientHeight - block.height) / 2);
+        },
+        // Tint the given top-level stage's lines (`.cm-linked-stage`) — the band
+        // that accompanies the Stages-view connector, so both ends of the dashed
+        // line are marked. `null` clears it. Takes the same ENTRY index as
+        // revealStage/stageScreenRect (top-level stages in order, disabled ones
+        // included). Safe on a destroyed view: dispatch() returns early there.
+        highlightStage: (entryIndex) => {
+          const view = viewRef.current;
+          if (!view) return;
+          view.dispatch({ effects: setLinkedStage.of(entryIndex == null ? null : entryIndex) });
         },
         // Viewport rect of the position just AFTER the stage's opening `{`, plus
         // `hEnd` — the x just past the stage operator ($match/$limit/…), i.e. after

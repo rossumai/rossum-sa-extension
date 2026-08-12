@@ -12,6 +12,17 @@
 // horizontal into the stage. Small rounded bends at the two corners.
 const START_GAP = 8; // start the line a bit further right of the '{', not right against it
 
+// Is the target section actually on screen inside the Stages pane's scroller?
+// The connector is drawn over the whole data panel, so without this a link to a
+// section scrolled out of the pane runs off toward nothing — over the toolbar,
+// or past the pane's edge. Hovering a SECTION can never hit that (you can only
+// hover what you can see), but the caret and the editor-hover link can. Any
+// vertical overlap counts: a half-visible section is still a real target.
+export function sectionInPane(sectionRect, paneRect) {
+  if (!sectionRect || !paneRect) return false;
+  return sectionRect.bottom > paneRect.top && sectionRect.top < paneRect.bottom;
+}
+
 export function computeStageLink(editorLineRect, sectionRect, panelRect) {
   if (!editorLineRect || !sectionRect || !panelRect) return null;
   const x1 = editorLineRect.left - panelRect.left + START_GAP; // a bit right of the '{'

@@ -123,7 +123,7 @@ export async function initMdh({ pendingCollection, pendingPipeline, pendingVaria
 
   const stored = await chrome.storage.local.get([
     'mdhActiveView', 'mdhSelectedCollection', 'mdhActivePanel', 'mdhOpsSearch',
-    'mdhStagesAutoscroll', 'mdhStagesSampleSize', 'mdhStagesShowDef',
+    'mdhStagesAutoscroll', 'mdhStagesSampleSize', 'mdhStagesShowDef', 'mdhStagesSourceOpen',
   ]);
 
   // Navigation state is per-tab: prefer this tab's sessionStorage, fall back to
@@ -153,6 +153,9 @@ export async function initMdh({ pendingCollection, pendingPipeline, pendingVaria
   }
   if (typeof stored.mdhStagesShowDef === 'boolean') {
     store.stagesShowDef.value = stored.mdhStagesShowDef;
+  }
+  if (typeof stored.mdhStagesSourceOpen === 'boolean') {
+    store.stagesSourceOpen.value = stored.mdhStagesSourceOpen;
   }
 
   if (pendingCollection) {
@@ -221,6 +224,9 @@ export async function initMdh({ pendingCollection, pendingPipeline, pendingVaria
   });
   effect(() => {
     chrome.storage.local.set({ mdhStagesShowDef: store.stagesShowDef.value });
+  });
+  effect(() => {
+    chrome.storage.local.set({ mdhStagesSourceOpen: store.stagesSourceOpen.value });
   });
   effect(() => {
     writeTabState('mdhOpsSearch', store.opsSearch.value);

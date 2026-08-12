@@ -81,6 +81,7 @@ import {
   beautifyText,
   stageLineRanges,
   activeStageIndexAtOffset,
+  entryIndexAtOffset,
 } from '../src/mdh/pipelineComments.js';
 import { applySortToPipeline, applyFilterDeltaToPipeline, applySkipToPipeline } from '../src/mdh/pipelineOps.js';
 import JSON5 from 'json5';
@@ -384,5 +385,36 @@ describe('parsePipelineDoc', () => {
   it('is ok:false for invalid JSON5 or a non-array', () => {
     expect(parsePipelineDoc('[ {').ok).toBe(false);
     expect(parsePipelineDoc('{ "$match": {} }').ok).toBe(false);
+  });
+});
+
+describe('entryIndexAtOffset', () => {
+  // Same fixture shape the activeStageIndexAtOffset suite uses: an active stage,
+  // a disabled one, then another active one.
+  const text = '[{"$match":{}},/* @disabled-stage {"$sort":{"a":-1}} */{"$limit":5}]';
+  const ranges = stageLineRanges(text);
+
+  it('counts EVERY entry, including disabled ones', () => {
+    expect(entryIndexAtOffset(ranges, ranges[0].start + 1)).toBe(0);
+    expect(entryIndexAtOffset(ranges, ranges[1].start + 1)).toBe(1); // the disabled stage
+    expect(entryIndexAtOffset(ranges, ranges[2].start + 1)).toBe(2);
+  });
+
+  it('differs from activeStageIndexAtOffset exactly where disabled stages are involved', () => {
+    // Inside the disabled stage: addressable as an entry, but it never ran.
+    expect(entryIndexAtOffset(ranges, ranges[1].start + 1)).toBe(1);
+    expect(activeStageIndexAtOffset(ranges, ranges[1].start + 1)).toBeNull();
+    // After it, the two indices diverge by the skipped stage.
+    expect(entryIndexAtOffset(ranges, ranges[2].start + 1)).toBe(2);
+    expect(activeStageIndexAtOffset(ranges, ranges[2].start + 1)).toBe(1);
+  });
+
+  it('returns null outside every stage', () => {
+    expect(entryIndexAtOffset(ranges, 0)).toBeNull();          // the '['
+    expect(entryIndexAtOffset(ranges, text.length - 1)).toBeNull(); // the ']'
+  });
+
+  it('returns null for an unparseable document (no ranges)', () => {
+    expect(entryIndexAtOffset(stageLineRanges('[{"$match":'), 3)).toBeNull();
   });
 });

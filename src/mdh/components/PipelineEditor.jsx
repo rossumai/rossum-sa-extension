@@ -7,7 +7,7 @@ import { LibraryPanel, saveQuery, unsaveQuery, isSaved } from './QueryHistory.js
 import { beautifyText } from '../pipelineComments.js';
 import AgentBox from './AgentBox.jsx';
 
-export default function PipelineEditor({ editorRef, initialValue, onChange, onValidChange, onLoadPipeline, onReset, onToggleStage, onCursorStage }) {
+export default function PipelineEditor({ editorRef, initialValue, onChange, onValidChange, onLoadPipeline, onReset, onToggleStage, onCursorStage, onHoverStage }) {
   const [savedState, setSavedState] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [libraryTab, setLibraryTab] = useState('saved');
@@ -157,6 +157,7 @@ export default function PipelineEditor({ editorRef, initialValue, onChange, onVa
           onChange={onChange}
           onToggleStage={onToggleStage}
           onCursorStage={onCursorStage}
+          onHoverStage={onHoverStage}
           onValidChange={() => {
             onValidChange();
             updateSaveBtn();

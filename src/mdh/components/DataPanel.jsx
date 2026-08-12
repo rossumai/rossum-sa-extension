@@ -16,7 +16,7 @@ import { openRecordEditor } from './RecordEditor.jsx';
 import { openImport } from './DataOperations.jsx';
 import { openBulkDelete } from './BulkDelete.jsx';
 import { openBulkUpdate } from './BulkUpdate.jsx';
-import { selectionMode, selectedIds, selectionPipelineDirty, resultsView, inspectTarget, stagesAutoscroll } from '../store.js';
+import { selectionMode, selectedIds, selectionPipelineDirty, resultsView, inspectTarget, stagesAutoscroll, caretStage, editorHoverStage } from '../store.js';
 import { confirmModal, openModal } from './Modal.jsx';
 import { showUndo } from '../undo.js';
 import { addToHistory } from './QueryHistory.jsx';
@@ -430,8 +430,18 @@ export default function DataPanel() {
   // the stage it sits in. (No-op in List/Table — doesn't force the view to switch.)
   // Gated on the Stages "Auto-scroll" option; the explicit debug-panel click jump
   // (handleInspectStage) is unaffected and always scrolls.
-  function handleCursorStage(activeIndex) {
-    if (resultsView.value === 'stages' && stagesAutoscroll.value) inspectTarget.value = { index: activeIndex };
+  // `info` is `{ entryIndex, activeIndex }` | null (null = the caret left every
+  // stage, or the editor lost focus). Two consumers with deliberately different
+  // rules:
+  //   - the SCROLL jump keeps its existing behaviour exactly — active-stage
+  //     index, Stages view only, gated on Auto-scroll, and never on a disabled
+  //     stage (activeIndex is null there, since it produced no output to jump to);
+  //   - the LINK (connector + editor band) is ungated, matching the hover link
+  //     it mirrors, and works for disabled stages too, which do have a section.
+  function handleCursorStage(info) {
+    caretStage.value = info ? { entryIndex: info.entryIndex } : null;
+    if (info?.activeIndex == null) return;
+    if (resultsView.value === 'stages' && stagesAutoscroll.value) inspectTarget.value = { index: info.activeIndex };
   }
 
   function handleSort(field) {
@@ -600,6 +610,7 @@ export default function DataPanel() {
           onReset={handleReset}
           onToggleStage={handleToggleStage}
           onCursorStage={handleCursorStage}
+          onHoverStage={(entryIndex) => { editorHoverStage.value = entryIndex == null ? null : { entryIndex }; }}
         />
         {writeStage && (
           <div class="pipeline-write-banner">
