@@ -992,19 +992,46 @@ body.popup-wide .mdh-card {
   }
 }
 
-.mdh-q-detail {
-  flex-basis: 100%;
-  margin: 1px 0 0 32px;
+/* The query-status hint. It used to be an inline `flex-basis: 100%` line inside
+   the <li>, which grew the row by one to several lines the moment a replay
+   resolved — the layout shift this replaced. It is now a popover anchored to the
+   status dot, so a query row is one line high from first paint and never changes.
+
+   `position: fixed` is load-bearing: #app sets `overflow: hidden`, so an absolute
+   tip would be clipped exactly where a hint on the last failing query needs to
+   appear. Verified no ancestor of .mdh-q sets transform/filter/perspective/
+   will-change, any of which would re-clip a fixed element. Placement + viewport
+   clamping live in hintPlacement.js. */
+.mdh-q-hint {
+  position: fixed;
+  z-index: 300;
+  max-width: 300px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  background: #1c1e28;
+  color: #eef0f6;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.32);
   font-family: var(--font-mono);
-  font-size: 9.5px;
-  line-height: 1.35;
-  color: var(--text-hint);
+  font-size: 10px;
+  line-height: 1.45;
   word-break: break-word;
+  pointer-events: none; /* never swallows the hover that opened it */
 }
-.mdh-q-detail--error { color: #c0392b; }
-@media (prefers-color-scheme: dark) {
-  .mdh-q-detail--error { color: #f87171; }
+.mdh-q-hint-title {
+  display: block;
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  margin-bottom: 3px;
 }
+.mdh-q-hint--error .mdh-q-hint-title { color: #ff9d94; opacity: 1; }
+/* A visible cue that this dot has more behind it. */
+.mdh-q-status--hinted { cursor: help; }
+.mdh-q-status--hinted:focus-visible { outline: 2px solid var(--accent, #4270db); outline-offset: 1px; }
 
 .mdh-q-actions {
   margin-left: auto;

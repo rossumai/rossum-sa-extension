@@ -1,6 +1,9 @@
 import { h } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { STATUS_GLYPH } from '../mdh-provenance.js';
+import { placeHint } from '../hintPlacement.js';
+
+let hintSeq = 0;
 
 function CopyIcon() {
   return (
@@ -30,7 +33,57 @@ function OpenExternalIcon() {
 export default function QueryItem({ index, label, status, onCopy, onOpen }) {
   const meta = STATUS_GLYPH[status?.status] || STATUS_GLYPH.pending;
   const hint = status?.hint;
-  const showHint = meta.showHint && hint;
+  const hasHint = !!(meta.showHint && hint);
+
+  // The hint used to render as a full-width line INSIDE this <li>, which grew the
+  // row by one to several lines the moment a replay resolved — the layout shift.
+  // It now lives in a hover/focus popover anchored to the status dot, so a query
+  // row is exactly one line high from first paint and never changes.
+  const [tip, setTip] = useState(null); // null | { top, left, placed }
+  const dotRef = useRef(null);
+  const tipRef = useRef(null);
+  const hintId = useRef(`mdh-qhint-${++hintSeq}`);
+
+  const openTip = () => {
+    if (!hasHint) return;
+    // Two passes: mount hidden to measure the tip, then place it. A tooltip's
+    // size depends on how the text wraps, so it cannot be computed in advance.
+    setTip({ top: 0, left: 0, placed: false });
+  };
+  const closeTip = () => setTip(null);
+
+  useEffect(() => {
+    if (!tip || tip.placed) return undefined;
+    const a = dotRef.current?.getBoundingClientRect();
+    const t = tipRef.current?.getBoundingClientRect();
+    if (!a || !t) return undefined;
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 0;
+    const vh = typeof window !== 'undefined' ? window.innerHeight : 0;
+    const pos = placeHint(a, { width: t.width, height: t.height }, { width: vw, height: vh });
+    // Functional update, and it is load-bearing: this effect runs after paint,
+    // so the pointer can leave (or Escape can fire) between the tip mounting and
+    // this measuring pass. A plain setTip() would then resurrect a tooltip the
+    // user has already dismissed — and since nothing would close it again, it
+    // would sit there permanently. Only place a tip that is still open.
+    setTip((cur) => (cur && !cur.placed ? { ...pos, placed: true } : cur));
+    return undefined;
+  }, [tip]);
+
+  // A fixed popover does not travel with its anchor, so close it if anything
+  // scrolls or the window resizes rather than leaving it stranded mid-panel.
+  useEffect(() => {
+    if (!tip) return undefined;
+    const close = () => setTip(null);
+    const onKey = (e) => { if (e.key === 'Escape') setTip(null); };
+    document.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [!!tip]);
 
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
@@ -62,11 +115,21 @@ export default function QueryItem({ index, label, status, onCopy, onOpen }) {
     status?.status === 'gated' ? 'mdh-q--gated' : '',
   ].filter(Boolean).join(' ');
 
-  const dotTitle = hint ? `${meta.title} — ${hint}` : meta.title;
-
   return (
     <li class={liClass}>
-      <span class={`mdh-q-status ${meta.cls}`} title={dotTitle}>{meta.glyph}</span>
+      <span
+        ref={dotRef}
+        class={`mdh-q-status ${meta.cls}${hasHint ? ' mdh-q-status--hinted' : ''}`}
+        // No native `title` when a popover carries the hint — two tooltips for
+        // one element is worse than either alone.
+        title={hasHint ? undefined : meta.title}
+        tabIndex={hasHint ? 0 : undefined}
+        aria-describedby={tip ? hintId.current : undefined}
+        onMouseEnter={openTip}
+        onMouseLeave={closeTip}
+        onFocus={openTip}
+        onBlur={closeTip}
+      >{meta.glyph}</span>
       <span class="mdh-q-num">{index + 1}.</span>
       <span class="mdh-q-name" title={label}>{label}</span>
       <span class="mdh-q-actions">
@@ -87,11 +150,15 @@ export default function QueryItem({ index, label, status, onCopy, onOpen }) {
           <OpenExternalIcon />
         </button>
       </span>
-      {showHint ? (
+      {tip ? (
         <span
-          class={`mdh-q-detail${status.status === 'error' ? ' mdh-q-detail--error' : ''}`}
-          title={hint}
+          ref={tipRef}
+          id={hintId.current}
+          role="tooltip"
+          class={`mdh-q-hint${status?.status === 'error' ? ' mdh-q-hint--error' : ''}`}
+          style={{ top: `${tip.top}px`, left: `${tip.left}px`, visibility: tip.placed ? 'visible' : 'hidden' }}
         >
+          <span class="mdh-q-hint-title">{meta.title}</span>
           {hint}
         </span>
       ) : null}
