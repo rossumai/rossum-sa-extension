@@ -241,7 +241,20 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
       keymap.of(keymaps),
       javascript(),
       compact ? compactTheme : baseTheme,
-      EditorView.lineWrapping,
+      // The aggregation pipeline editor does NOT soft-wrap. A long stage should
+      // scroll horizontally, not fold into five visual lines: the pipeline reads
+      // as a numbered list of stages, and wrapping destroys the one-stage-per-line
+      // scan that makes it readable. Every other JsonEditor instance keeps
+      // wrapping, so nothing else changes.
+      //
+      // No CSS is needed for the horizontal scroll and none should be added.
+      // CodeMirror's base theme already gives `.cm-scroller` `overflow-x: auto`
+      // and, absent the `cm-lineWrapping` class, leaves `.cm-content` at
+      // `white-space: pre; flex-shrink: 0` — so the scroller gains a real
+      // horizontal range on its own. The stage-toggle gutter stays put because
+      // CodeMirror's gutters are `position: sticky` by default. (Both verified in
+      // @codemirror/view's dist: the baseTheme block and the fixed-gutter branch.)
+      ...(mode === 'aggregate' ? [] : [EditorView.lineWrapping]),
       autocompletion({ override: [makeCompletionSource(mode, fieldsFn)] }),
       ...(mode === 'aggregate'
         ? [
