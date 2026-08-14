@@ -52,10 +52,14 @@ describe('curriculum integrity', () => {
     }
   });
 
-  it('anchors by href only — never by CSS class or id selector', () => {
+  it('anchors only by data-cy and/or href — never by a CSS class or id selector', () => {
+    const allowed = new Set(['cy', 'hrefIncludes']);
     for (const s of steps.filter((x) => x.anchor)) {
-      expect(Object.keys(s.anchor)).toEqual(['hrefIncludes']);
-      expect(typeof s.anchor.hrefIncludes).toBe('string');
+      const keys = Object.keys(s.anchor);
+      expect(keys.length).toBeGreaterThan(0);
+      for (const k of keys) expect(allowed).toContain(k);
+      if ('cy' in s.anchor) expect(typeof s.anchor.cy).toBe('string');
+      if ('hrefIncludes' in s.anchor) expect(typeof s.anchor.hrefIncludes).toBe('string');
     }
   });
 

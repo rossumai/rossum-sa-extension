@@ -1305,7 +1305,7 @@ body.popup-wide .mdh-card {
 }
 
 .usage-ledger .yes li::before { content: '+'; color: var(--accent); }
-.usage-ledger .no li::before { content: '\2212'; color: var(--text-hint); }
+.usage-ledger .usage-no li::before { content: '\2212'; color: var(--text-hint); }
 
 /* Shown only when the overlay is REOPENED from the footer, so the two buttons
    are never ambiguous about which one is the current setting. */

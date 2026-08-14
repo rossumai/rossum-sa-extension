@@ -34,13 +34,13 @@ export default function RejectedPanel() {
         <div class="meta">{rej.automatic ? 'Automatic' : 'Manual'}{rej.when ? ` · ${rej.when}` : ''}{rej.current ? '' : ' · (historical — not currently rejected)'}</div>
       </div>
       <div class="inspector-reason">
-        <div class="h">Reason</div>
+        <div class="inspector-reason-label">Reason</div>
         <div class="body">{rej.reason.text || 'Reason not recorded by the API.'}</div>
         <ReliabilityBadge level={rej.reason.reliability} />
       </div>
       {rej.type === 'hook' && (
         <div class="inspector-ai-attr">
-          <div class="t">Which extension rejected this — reasoned by Mr. Fabry from the queue's extension code + logs.</div>
+          <div class="inspector-ai-note">Which extension rejected this — reasoned by Mr. Fabry from the queue's extension code + logs.</div>
           {!store.aiAvailable.value && <div class="inspector-empty">AI attribution unavailable (agent offline).</div>}
           {attr?.status === 'loading' && <div class="inspector-loading inspector-ai-phase">{attr.phase || 'thinking'}…</div>}
           {attr?.status === 'error' && <div class="inspector-empty">AI attribution failed.</div>}

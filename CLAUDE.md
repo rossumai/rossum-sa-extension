@@ -165,7 +165,7 @@ JSON bodies (like a Mongo `find`); it lists collection names and changes nothing
 Audit this claim by looking for mutating verbs and mutating endpoints, not by
 looking for non-GET, and do not "fix" that POST into a GET — it would 404. Two surfaces share ONE pure core so "passed" means the same thing regardless of
 which one flipped it: the bottom-right **quest card** injected by the Rossum content
-script (`src/rossum/features/training-quest.js` + `training-pointer.js`), which
+script (`src/rossum/features/training-quest.js` + `training-tether.js`), which
 polls page state every ~1.5s and on focus while the gate is unlocked and a track is
 active; and **Academy**, the sixth Console app (`src/academy/`), where a trainee
 starts the track, self-attests, and mints a completion receipt. Both import
@@ -194,17 +194,123 @@ mark `self` steps, so the two call sites cannot double-mark the same step.
   would let one transient network blip at mission start permanently strand that step
   for the rest of the mission (a real defect caught during implementation, fixed
   before it shipped).
-- **Anchoring is href-only, and degrades silently** (`training-pointer.js`
-  `resolveAnchor`): the pointer arrow matches a step's `anchor.hrefIncludes`
-  substring against real `a[href]` elements only. LIVE-VERIFIED 2026-08-07: Rossum's
-  own navigation (`/documents`, `/extensions/my-extensions`, `/queues/<id>/…`,
-  `/document/<id>`) is built from real anchors, not JS-only routing, so this is a
-  contract worth relying on — CSS class names are not, and are never matched on. A
-  step is free to omit `anchor` entirely (most `self` steps and several detail-page
-  `visit` steps do). If the anchor never resolves within the retry window, **no
-  arrow renders and nothing else happens** — the card's plain-text hint still
-  carries the step regardless, because a stale selector must never read as a
+- **A tether replaced the single arrow** (`src/rossum/features/training-tether.js`
+  + pure geometry in `src/training/tether.js`, following the precedent of
+  `src/mdh/stageLink.js`): a dashed connector runs from the quest card to the
+  current step's target when it is on screen and clear of the card; when the
+  target exists but is scrolled out of view, a small pill names which way to
+  scroll instead (`↓ Your next step is below` / `↑ Your next step is above`).
+  `tetherGeometry(cardRect, targetRect, viewport)` returns `null` — no line —
+  when the target is not **usefully visible**: off the viewport on any edge,
+  or on screen but overlapping the card (a connector to something hidden
+  under the card teaches nothing).
+- **The geometry aims at the target's VISIBLE part, and picks its axis by edge
+  separation** — both fixes forced by one live case (2026-08-14, `m1.s3`
+  reported as "doesn't have any tether"). A Rossum document row is a
+  horizontally scrollable element measuring **4263px** against a ~1200px
+  viewport, so its right edge and its centre both sit far off screen. The
+  connector was anchored at x≈4271 and drew itself into empty space beyond the
+  window: SVG present, path well-formed, nothing visible — indistinguishable
+  from an unanchored step. So `tetherGeometry` now clips the target to the
+  viewport before any math (the same idea as `stageLink.js`'s `clampToBox`),
+  and chooses the horizontal-vs-vertical branch by which axis actually
+  SEPARATES the two rects (`gapX`/`gapY`) rather than which centre is further
+  off. Centres lie whenever the target is far wider than the card: that row
+  spans the card on both sides, so the centre difference claimed a large
+  horizontal offset while the rects did not separate on x at all. A zero gap
+  cannot lie — it means that axis does not separate them, so the other must
+  (both zero is the overlap case, already returned above). Pinned by two tests
+  carrying the measured 4263px rect. `offscreenHint` is the one that answers
+  "which way", based on the target's vertical centre relative to the
+  viewport. Both are pure, DOM-free, unit-tested.
+- **The tether draws the MDH Stages connector's shape, from shared code**
+  (`src/ui/connectorPath.js`; owner, 2026-08-14: "use the same geometry as we
+  do in the MDH Stages view"). `bevelPath` (a straight leg off each end, one
+  bevel diagonal between them, small rounded bends) and `arrowHeadPath` were
+  EXTRACTED from `src/mdh/stageLink.js` rather than copied, because a copy
+  drifts the moment either connector is tuned — the shared emitter is the only
+  version of "same geometry" that stays true. What did NOT move is each
+  connector's anchoring: `stageLink` works in panel-relative coordinates off
+  CodeMirror line rects, `tether.js` in viewport coordinates off the card and a
+  DOM target. The extraction is behaviour-preserving for MDH by construction —
+  `arrowHeadPath`'s up/down output is byte-identical to the `edgeArrowPath` it
+  replaced, vertex order included, and `edgeArrowPath` KEEPS its up/down guard
+  (returning null for anything else is that caller's "unclamped, draw the dot"
+  contract, not the shape's), all pinned by `tests/ui-connector-path.test.js`
+  plus the 49 existing stage-link tests. The tether's last leg runs along the
+  arrowhead's own axis for the same reason `shaftElbow` does: a sideways
+  arrival at a head reads as a corner rather than as one arrow; `stubFor` caps
+  each leg at half the span so the two can never cross and fold the path.
+  Styling takes `.stage-link-line`'s language but quieter — 1.5px, dashed
+  `5 5`, round joins, opacity .55 — and **no animation at all** (the marching
+  dashes and the `prefers-reduced-motion` branch that guarded them were both
+  removed; the Stages connector has never animated). It can afford to whisper
+  because it is now summoned deliberately (see the gate below). Two departures
+  from that stylesheet, both because the tether floats over Rossum's UI rather
+  than a panel this repo styles: a faint drop-shadow for legibility on an
+  arbitrary backdrop, and a stroke of `#5b8af0` — the quest card's own gradient
+  end. It was amber (`#ffd479`), which matched nothing on the blue card and
+  washed out on the white dashboard.
+- **The tether is drawn ONLY while the card is engaged** (owner, 2026-08-14),
+  and engagement is a tracked POINTER POSITION, not `mouseenter` on the card.
+  That is forced by `renderCard`, which **removes and recreates** the card
+  element on every ~1.5s tick: listeners bound to it die with it, and a fresh
+  node inserted under a stationary pointer does not re-fire `mouseenter` — so a
+  hover held still would silently lose the tether within two seconds. A
+  module-level `pointer` (updated by a passive, rAF-throttled `pointermove`)
+  outlives the swap, and since `showTether` re-runs right after each render the
+  line simply re-appears; `tests/training-tether.test.js` pins exactly that by
+  replacing the card element mid-test. Three signals count as engaged, because
+  a position alone cannot answer all of them: `pointer` inside the card's rect;
+  `cardEl.matches(':hover')`, which covers the pointer ALREADY resting on the
+  card the first time a tether mounts (no `pointermove` has fired yet — jsdom
+  answers false rather than throwing, so it is a Chrome-only assist); and focus
+  inside the card, since keyboard users cannot hover and the card carries a
+  focusable dismiss button. A `pointerout` with no `relatedTarget` (the pointer
+  leaving the WINDOW) nulls the position, so a line cannot hang open over a page
+  nobody is on. The gate sits ahead of any geometry, so it governs the
+  off-screen hint pill exactly as it governs the line — both answer "where do I
+  go next", and showing one without the other would be arbitrary.
+- **Anchoring gained `data-cy`, and still degrades silently** (`training-tether.js`
+  `resolveAnchor`): a step's `anchor` may carry `cy` (matched against
+  `[data-cy="…"]`) and/or `hrefIncludes` (matched against real `a[href]`
+  elements, unchanged) — `cy` is tried first. Rossum ships ~274 elements
+  carrying semantic `data-cy` hooks, the durable handle for controls that are
+  not links; LIVE-VERIFIED 2026-08-07: Rossum's own navigation (`/documents`,
+  `/extensions/my-extensions`, `/queues/<id>/…`, `/document/<id>`) is built
+  from real anchors, not JS-only routing, so both are contracts worth relying
+  on — CSS class names are not, and are never matched on. A step is free to
+  omit `anchor` entirely (most `self` steps and several detail-page `visit`
+  steps do). If the anchor never resolves within the retry window, **nothing
+  renders and nothing else happens** — the card's plain-text hint still
+  carries the step regardless, because a stale hook must never read as a
   blocked step.
+- **The curriculum's `cy` values were HARVESTED, and must be re-harvested, never
+  extrapolated** (2026-08-14, elis — 16 of 20 steps anchored). Each value was
+  read off the live screen it belongs to and then re-checked through
+  `resolveAnchor` itself on that screen, because the values follow **no single
+  scheme**: queue-settings tabs are `queue-settings-header-tab-<name>` but the
+  Automation-section tabs are `tab-automation.<camelCase>` — with a **dot**,
+  which `cssEscape` handles (`CSS.escape` in Chrome, verified live; the jsdom
+  fallback leaves it inert inside the quoted attribute selector, and both are
+  pinned by tests) — while the Extensions list uses `extensions-*` and Field
+  Manager uses `fm-*`. Inferring the next hook from the last one produces a
+  selector that silently never resolves, which reads as a broken tether rather
+  than as a typo. The anchor points at the control that **performs** the step,
+  not at a wayfinding hop (the hint line already names the destination), except
+  where the step *is* the navigation (`m1.s1`, `m3.s1`).
+- **The four unanchored steps are unanchorable, not unfinished**: Field Manager
+  renders ~1481 elements carrying only **four** distinct `data-cy` values, none
+  per-field, so `m2.s3` anchors the link *into* it (`/settings/field-manager`,
+  which resolves on `/settings` only) and `m2.s4` gets nothing; `m5.*` targets
+  Dataset Management, a Console app the content script never runs in, so an
+  anchor there could not resolve by construction.
+- **`hrefIncludes: '/queues/'` is a trap on the dashboard** and is why `m1.s2`
+  prefers `cy: 'sidebar-queue'`: the only `/queues/` link there is the queue's
+  **settings gear** (`/queues/<id>/settings/basic`), so the href fallback would
+  point at a different destination than the step asks for. Related and still
+  open: `/documents` normalises to a `level=queue` view, which `detectResource`
+  reads as a queue — so `m1.s2` can tick without the trainee opening one.
 - **The gate is `experimentalUnlocked`, and it is the only one** (`src/training/
   gate.js` + `src/training/storage.js` `UNLOCK_KEY`; written by
   `src/popup/components/App.jsx` `onVersionClick`): 5 quick clicks on the popup's
@@ -297,7 +403,7 @@ mark `self` steps, so the two call sites cannot double-mark the same step.
   the `attestStep` write site saying so, because symmetry looks like the fix here and
   is not.
 - **The loop is generation-guarded** (`training-quest.js`, same pattern as
-  `training-pointer.js`). A tick suspended on a fetch or a storage write when the
+  `training-tether.js`). A tick suspended on a fetch or a storage write when the
   trainee restarts the track resumes *past* `stop()`; rendering there leaves a frozen
   card that no interval will ever refresh, and `stop()` closes over the module-level
   `intervalHandle`, so a late tick from a dead loop could clear a **successor** loop's

@@ -49,18 +49,18 @@ export default function ExportPanel() {
   return (
     <div class="inspector-panel">
       <div class="inspector-kv" data-evidence-id="export">
-        <div class="k">Outcome</div>
-        <div class="v"><span class="inspector-pill inspector-pill-failed_export">failed export</span></div>
-        <div class="k">Failed at</div>
-        <div class="v">{a.export_failed_at || 'unknown'}</div>
-        <div class="k">Export extension</div>
-        <div class="v">{culprit} <ReliabilityBadge level={culpritBadge} /></div>
-        <div class="k">Error</div>
-        <div class="v">{errText}</div>
+        <div class="inspector-kv-k">Outcome</div>
+        <div class="inspector-kv-v"><span class="inspector-pill inspector-pill-failed_export">failed export</span></div>
+        <div class="inspector-kv-k">Failed at</div>
+        <div class="inspector-kv-v">{a.export_failed_at || 'unknown'}</div>
+        <div class="inspector-kv-k">Export extension</div>
+        <div class="inspector-kv-v">{culprit} <ReliabilityBadge level={culpritBadge} /></div>
+        <div class="inspector-kv-k">Error</div>
+        <div class="inspector-kv-v">{errText}</div>
       </div>
       {!failing && candidates.length > 1 && attr && (
         <div class="inspector-ai-attr">
-          <div class="t">Which export extension failed — reasoned by Mr. Fabry from the queue's export extensions + logs.</div>
+          <div class="inspector-ai-note">Which export extension failed — reasoned by Mr. Fabry from the queue's export extensions + logs.</div>
           {attr.status === 'loading' && <div class="inspector-loading inspector-ai-phase">{attr.phase || 'thinking'}…</div>}
           {attr.status === 'error' && <div class="inspector-empty">AI attribution failed.</div>}
           {attr.status === 'done' && attr.verdict && (

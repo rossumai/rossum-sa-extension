@@ -300,3 +300,62 @@ twice reporting "no card" for a tab that was never the one under test. Same fail
 `/svc/data-storage` 404s recorded in §G2: **a negative result from an unverified probe is a fact about
 the probe.** Every conclusion above was re-taken with the context asserted (`location.host` /
 `location.protocol`) immediately before the measurement.
+
+## VERIFIED — the `data-cy` anchor harvest (2026-08-14, elis)
+
+Anchor coverage went from **3 of 20** steps to **16 of 20**. Every value was read off the live
+screen it belongs to, then re-checked by running `resolveAnchor`'s own logic (cy-first, then
+`hrefIncludes`) against that screen's DOM and asserting the element was found *and* visible
+(`getBoundingClientRect().width > 0`). Reading a value out of a DOM dump only proves it exists
+somewhere; running the shipped resolver proves the feature will find it.
+
+| Step | Anchor | Screen | Resolved as |
+|---|---|---|---|
+| m1.s1 | `all-documents-sidebar` + `/documents` | dashboard | `DIV` "All documents" (href elsewhere) |
+| m1.s2 | `sidebar-queue` + `/queues/` | dashboard | `DIV` queue name |
+| m1.s3 | `document-row` | dashboard | `DIV` first row |
+| m1.s4 | `annotation-sidebar-datapoint` | annotation | `LI` field |
+| m2.s1 | `queue-settings-header-tab-fields` | queue settings | `BUTTON` "Fields" |
+| m2.s2 | `add-field-button` | Fields tab | `A` "Add field" |
+| m2.s3 | `/settings/field-manager` | `/settings` **only** | `A` "Field manager" |
+| m3.s1 | `extensions-navtab` + `/extensions/my-extensions` | any | `A` "Extensions" |
+| m3.s2 | `extensions-table-row` | Extensions list | `LI` |
+| m3.s3 | `queue-multi-select` | extension detail | `DIV` |
+| m3.s4 | `extensions-activities-button` | extension detail | `A` |
+| m3.s5 | `/queues/` | queue screens | `A` queue name |
+| m4.s1 | `tab-automation.aiEngines` | AI engines | `BUTTON` "AI engines" |
+| m4.s2 | `add-rule-button` | Rules tab | `BUTTON` "Add rule" |
+| m4.s3 | `automation-level-confident` | Automation tab | `LABEL` "Confident" |
+| m4.s4 | `confirm-annotation-btn` | annotation | `BUTTON` "Confirm" |
+
+### The values follow no single scheme — this is the gate that stays open
+
+`queue-settings-header-tab-fields` vs `tab-automation.aiEngines` vs `extensions-add-extension` vs
+`fm-add-field-btn`: four naming conventions across four sections, and the Automation one contains a
+**dot**. Extrapolating a fifth from these would produce a selector that never resolves, and an
+unresolved anchor renders nothing — so the failure is *silent*, indistinguishable from "this step
+has no anchor". Anyone extending the curriculum must harvest against the live screen.
+
+The dot is handled on both code paths, for different reasons: Chrome's `CSS.escape` emits `\.`,
+which a **quoted** attribute selector reads back as a literal dot (verified live); jsdom has no
+`CSS.escape`, so the fallback leaves the dot unescaped, which is already inert inside that same
+quoted selector. jsdom therefore cannot cover Chrome's path — hence the live check, with the
+fallback pinned by `tests/training-tether.test.js`.
+
+### Two findings that changed the curriculum
+
+1. **`hrefIncludes: '/queues/'` points at the wrong thing on the dashboard.** The only `/queues/`
+   link there is the queue's **settings gear** (`/queues/<id>/settings/basic`) — a different
+   destination than "Open any queue". `m1.s2` now prefers `cy: 'sidebar-queue'` and keeps the href
+   only as a fallback for screens without the sidebar.
+2. **Field Manager has no per-field handle.** ~1481 elements, **4** distinct `data-cy` values
+   (`header-title`, `fm-add-field-btn`, `fm-queues-dialog-link`, `wrapper`). So `m2.s3` anchors the
+   link *into* Field Manager — which resolves on `/settings` and nowhere else, confirmed by probing
+   `/settings/field-manager` itself and getting no match — and `m2.s4` stays unanchored rather than
+   pointing at something adjacent to what it asks for.
+
+### Unchanged, and still open
+
+`/documents` normalises to a `level=queue` view, so `m1.s2` can still tick without the trainee
+opening a queue (§ "NEW DEFECT" above). The harvest confirms the cause but does not fix it: the
+anchor now points at the right control, while the *pass condition* remains `detectResource`'s.

@@ -58,7 +58,18 @@ const options = {
     'sidepanel/sidepanel': 'src/sidepanel/index.jsx',
   },
   bundle: true,
-  minify: true,
+  // NOT plain `minify: true`. esbuild's identifier minifier also renames CSS
+  // Modules' local class names (e.g. Academy.module.css's `.heroBlobA`) down to
+  // one/two-character globals emitted into dist/console/console.css. esbuild
+  // only guarantees those generated names are unique AMONG THEMSELVES — not
+  // against bare hand-written classes in JSX markup (e.g. `<div class="k">`)
+  // or the legacy console.css/popup.css. A short generated name can and did
+  // collide with an unrelated global selector, leaking one component's styles
+  // onto whatever markup elsewhere happened to share the name (see
+  // tests/css-class-collision-boundary.test.js). Keep identifier minification
+  // OFF; whitespace/syntax minification is still safe and keeps bundle size down.
+  minifyWhitespace: true,
+  minifySyntax: true,
   outdir: 'dist',
   format: 'iife',
   logLevel: 'info',

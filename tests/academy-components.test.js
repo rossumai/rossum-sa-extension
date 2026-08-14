@@ -9,6 +9,7 @@ import { noteFor } from '../src/academy/components/ReceiptPanel.jsx';
 import * as store from '../src/academy/store.js';
 import { TRACK } from '../src/training/track.js';
 import { emptyProgress, markStep } from '../src/training/progress.js';
+import academyCss from '../src/academy/Academy.module.css';
 
 async function waitFor(cond, timeout = 1000) {
   const start = Date.now();
@@ -137,6 +138,94 @@ describe('AcademyApp — error strip', () => {
     // …and it must not invite a re-issue while the track is incomplete.
     const issue = [...document.querySelectorAll('button')].find((b) => /Issue receipt/.test(b.textContent));
     expect(issue).toBeUndefined();
+  });
+});
+
+// Not-connected branch — rebuilt on the Console's shared app-root/empty-state
+// convention (console.css) instead of the bespoke two-column `css.root` mission
+// grid, which squeezed this screen's lone child into the grid's 240px first column.
+describe('AcademyApp — not-connected branch', () => {
+  it('uses app-root/empty-state, not the two-column mission grid, and keeps the error strip reachable', async () => {
+    store.error.value = 'Open the Rossum Console from this extension\'s popup on a Rossum tab to access the Academy.';
+    render(h(AcademyApp, { connected: false }), document.body);
+    await waitFor(() => document.querySelector('.empty-state-title'));
+
+    // Not the two-column mission-list grid — a lone child there lands in the
+    // grid's first (240px) column instead of using the available width.
+    expect(document.querySelector(`.${academyCss.root}`)).toBeNull();
+
+    expect(document.querySelector('.app-root')).toBeTruthy();
+    expect(document.querySelector('.empty-state')).toBeTruthy();
+    expect(document.querySelector('.empty-state-card')).toBeTruthy();
+    expect(document.querySelector('.empty-state-title').textContent).toBe('Not connected');
+
+    // initAcademy's only message on this path — must stay reachable.
+    expect(document.querySelector('[role="alert"]')).toBeTruthy();
+    expect(document.body.textContent).toContain('popup');
+  });
+});
+
+// Entry ("start the track") screen — the "Aurora" landing hero (owner-picked
+// from browser mockups). Not the shared app-root/empty-state convention —
+// that stays reserved for the !connected error state below — but still a
+// direct app-root child, so the two-column mission grid (`css.root`) must
+// never appear here either.
+describe('AcademyApp — entry screen (no-progress)', () => {
+  it('renders the hero title, lede, and a .btn-primary start button that calls startTrack', async () => {
+    store.error.value = 'Something went wrong';
+    const startSpy = vi.spyOn(store, 'startTrack').mockImplementation(() => {});
+    render(h(AcademyApp, { connected: true }), document.body);
+    await waitFor(() => document.body.textContent.includes(TRACK.title));
+
+    // Not the two-column mission-list grid — a lone child there lands in the
+    // grid's first (240px) column instead of using the available width.
+    expect(document.querySelector(`.${academyCss.root}`)).toBeNull();
+    expect(document.querySelector('.app-root')).toBeTruthy();
+
+    expect(document.querySelector(`.${academyCss.heroTitle}`).textContent).toBe(TRACK.title);
+    expect(document.querySelector(`.${academyCss.lede}`)).toBeTruthy();
+    expect(document.body.textContent).toContain('Learn Rossum by building in it');
+
+    const start = document.querySelector('.btn.btn-primary');
+    expect(start).toBeTruthy();
+    expect(start.textContent).toContain('Start the track');
+    start.click();
+    expect(startSpy).toHaveBeenCalledTimes(1);
+
+    // initAcademy's only message on this path — must stay reachable.
+    expect(document.querySelector('[role="alert"]')).toBeTruthy();
+    expect(document.body.textContent).toContain('Something went wrong');
+
+    startSpy.mockRestore();
+  });
+
+  it('lists one row per mission, each showing its title and TRACK blurb', async () => {
+    render(h(AcademyApp, { connected: true }), document.body);
+    await waitFor(() => document.body.textContent.includes(TRACK.title));
+
+    const rows = document.querySelectorAll(`.${academyCss.heroMissionRow}`);
+    expect(rows).toHaveLength(TRACK.missions.length);
+    TRACK.missions.forEach((m, i) => {
+      expect(rows[i].textContent).toContain(m.title);
+      expect(rows[i].textContent).toContain(m.blurb);
+    });
+  });
+
+  it('keeps the trainer panel hidden until "Check a colleague\'s receipt" is activated, via a real button', async () => {
+    render(h(AcademyApp, { connected: true }), document.body);
+    await waitFor(() => document.body.textContent.includes(TRACK.title));
+
+    // Not rendered up front.
+    expect(document.body.textContent).not.toContain('Check a receipt');
+
+    const toggle = [...document.querySelectorAll(`.${academyCss.trainerToggle}`)]
+      .find((el) => /Check a colleague.s receipt/.test(el.textContent));
+    expect(toggle).toBeTruthy();
+    expect(toggle.tagName).toBe('BUTTON'); // keyboard-accessible, not a div onClick
+
+    toggle.click();
+    await waitFor(() => document.body.textContent.includes('Check a receipt'));
+    expect(document.querySelector(`.${academyCss.trainerWrap}`)).toBeTruthy();
   });
 });
 

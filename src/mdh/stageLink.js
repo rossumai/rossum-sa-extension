@@ -1,3 +1,5 @@
+import { bevelPath, arrowHeadPath } from '../ui/connectorPath.js';
+
 // Pure geometry for the Stages-view → pipeline-editor connector line.
 //
 // Given the editor stage's line rect (from CodeMirror coordsAtPos) and the hovered
@@ -96,14 +98,14 @@ export function computeStageLink(editorLineRect, sectionRect, panelRect, paneRec
 // A small filled triangle marking a clamped endpoint, apex pointing the way the
 // section lies. Panel-relative, like every other coordinate here. null for an
 // unclamped endpoint, which keeps the round dot.
-const ARROW_H = 6, ARROW_W = 5;
+//
+// The triangle itself now lives in src/ui/connectorPath.js, shared with the
+// training quest card's tether; the up/down guard stays HERE because it is this
+// caller's contract, not the shape's — `edge` is only ever 'up' | 'down' | null,
+// and null must keep meaning "unclamped, draw the dot instead".
 export function edgeArrowPath(x, y, edge) {
   if (edge !== 'up' && edge !== 'down') return null;
-  const dir = edge === 'up' ? -1 : 1;
-  return 'M ' + f(x) + ' ' + f(y + dir * ARROW_H)
-    + ' L ' + f(x + ARROW_W) + ' ' + f(y - dir * 1)
-    + ' L ' + f(x - ARROW_W) + ' ' + f(y - dir * 1)
-    + ' Z';
+  return arrowHeadPath(x, y, edge);
 }
 
 // Offset of the stage operator's ':' — the first ':' at/after `fromOffset` and
@@ -170,24 +172,8 @@ const SHAFT = 14;
 // are the same segment described from either end.
 const shaftElbow = (x, y, dir) => ({ x, y: y + (dir === 'up' ? SHAFT : -SHAFT) });
 
-const unit = (from, to) => {
-  const dx = to.x - from.x, dy = to.y - from.y;
-  const len = Math.hypot(dx, dy) || 1;
-  return { x: dx / len, y: dy / len, len };
-};
-
-// Two radii, not one: each bend can only give up as much as its own leg has, and
-// tying both to the shorter leg would square off the other corner. With two
-// horizontal legs (each >= 6 by construction) this yields the same radius the
-// single-radius version did, so the unclamped connector is unchanged.
-function bevelPath(A, B, C, D) {
-  const ab = unit(A, B), bc = unit(B, C), cd = unit(C, D);
-  const r1 = Math.max(0, Math.min(5, ab.len, bc.len * 0.4));
-  const r2 = Math.max(0, Math.min(5, cd.len, bc.len * 0.4));
-  return 'M ' + f(A.x) + ' ' + f(A.y)
-    + ' L ' + f(B.x - r1 * ab.x) + ' ' + f(B.y - r1 * ab.y)                          // first leg
-    + ' Q ' + f(B.x) + ' ' + f(B.y) + ' ' + f(B.x + r1 * bc.x) + ' ' + f(B.y + r1 * bc.y) // round into the diagonal
-    + ' L ' + f(C.x - r2 * bc.x) + ' ' + f(C.y - r2 * bc.y)                          // the bevel diagonal
-    + ' Q ' + f(C.x) + ' ' + f(C.y) + ' ' + f(C.x + r2 * cd.x) + ' ' + f(C.y + r2 * cd.y) // round into the last leg
-    + ' L ' + f(D.x) + ' ' + f(D.y);                                                 // last leg into the end
-}
+// bevelPath (and the `unit` helper it is built on) moved to
+// src/ui/connectorPath.js when the training tether became a second consumer of
+// this exact shape — see that file's header. Behaviour is unchanged: the
+// emitter was moved verbatim, and the 26 tests in tests/mdh-stage-link.test.js
+// assert the resulting `d` strings.

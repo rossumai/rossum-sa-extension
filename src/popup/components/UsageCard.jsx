@@ -76,7 +76,7 @@ export default function UsageCard({ mode, consent, onAnswer, onClose }) {
           </div>
           <div>
             <dt>What's NEVER sent</dt>
-            <ul class="no">
+            <ul class="usage-no">
               <li>URLs or org domains</li>
               <li>names, emails, tokens</li>
               <li>document or dataset content</li>

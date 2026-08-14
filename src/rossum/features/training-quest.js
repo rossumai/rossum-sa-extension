@@ -15,7 +15,7 @@ import {
 import { readProgress, writeProgress, PROGRESS_KEY } from '../../training/storage.js';
 import { isUnlocked, onUnlockChange } from '../../training/gate.js';
 import { fetchRossumApiFresh } from '../api.js';
-import { showPointer, hidePointer } from './training-pointer.js';
+import { showTether, hideTether } from './training-tether.js';
 import { track } from '../../usage/track.js';
 
 export const CARD_ID = 'rossum-sa-extension-training-card';
@@ -85,7 +85,7 @@ function renderCard(progress, active) {
   close.setAttribute('aria-label', 'Dismiss for this session');
   close.addEventListener('click', () => {
     try { window.sessionStorage.setItem(DISMISS_KEY, '1'); } catch { /* ignore */ }
-    hidePointer();
+    hideTether();
     card.remove();
   });
   head.appendChild(close);
@@ -137,7 +137,7 @@ let intervalHandle = null;
 // Bumped by every stop(). A tick that was awaiting the network or a storage
 // write when the loop died resumes with a stale generation and must not touch
 // the DOM or clear a SUCCESSOR loop's interval — same pattern as
-// training-pointer.js's `generation`.
+// training-tether.js's `generation`.
 let generation = 0;
 // Set by the running loop so the progress listener can hand it a fresh record;
 // null whenever no loop is running (checked via `started`, which stop() clears).
@@ -290,7 +290,7 @@ async function start(deps) {
     if (onFocus) { window.removeEventListener('focus', onFocus); onFocus = null; }
     started = false;
     onExternalProgress = null;
-    hidePointer();
+    hideTether();
   }
 
   // The progress listener's hook into this loop. A null record means the
@@ -312,7 +312,7 @@ async function start(deps) {
     if (dismissed) { renderCard(progress, null); stop(); return; }
 
     let active = nextStep(TRACK, progress);
-    if (!active) { renderCard(progress, null); hidePointer(); return; }
+    if (!active) { renderCard(progress, null); hideTether(); return; }
 
     if (progress.missions[active.mission.id]?.baseline == null) {
       const checks = active.mission.steps.filter((s) => s.kind === 'api').map((s) => CHECKS[s.check]);
@@ -337,7 +337,7 @@ async function start(deps) {
       }
       if (!isCurrent()) return;
       active = nextStep(TRACK, progress);
-      if (!active) { renderCard(progress, null); hidePointer(); return; }
+      if (!active) { renderCard(progress, null); hideTether(); return; }
     }
 
     if (active.step.kind === 'visit' && evaluateVisit(active.step, getLocation())) {
@@ -362,7 +362,7 @@ async function start(deps) {
     // producing.
     if (!isCurrent()) return;
     renderCard(progress, active);
-    if (active) showPointer(active.step.anchor); else hidePointer();
+    if (active) showTether(active.step.anchor, { cardEl: document.getElementById(CARD_ID) }); else hideTether();
   }
 
   await tick();
