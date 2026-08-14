@@ -1691,8 +1691,39 @@ body {
    stylesheet — there is no --accent-bg — and it is defined in both the light
    :root block and the prefers-color-scheme: dark override, so the band follows
    the theme. It is a fill, not a border, precisely so it does not read as a
-   second copy of the accent border the hovered section already gets above. */
-.cm-linked-stage { background: var(--info-bg); }
+   second copy of the accent border the hovered section already gets above.
+
+   The band is a PSEUDO-ELEMENT under a negative z-index rather than a
+   `background` on the line, and that is the whole point of the rule below.
+   drawSelection() (in JsonEditor's aggregateSetup) paints the text selection as
+   .cm-selectionBackground rects inside .cm-selectionLayer — an absolutely
+   positioned layer whose inline z-index is -2, i.e. BELOW the in-flow line
+   backgrounds of .cm-content. A background on .cm-line therefore covered the
+   selection completely (measured in Chrome: pixels inside the selection read
+   exactly --info-bg, in both themes), and drawSelection additionally forces
+   `.cm-line ::selection { background: transparent !important }`, so there is no
+   native highlight left to fall back on — selecting the pipeline to copy it
+   showed nothing at all inside the banded stage. At z-index -3 the band paints
+   under that layer instead: the selection reads at full strength while the band
+   stays pixel-identical to the old background (verified by screenshot diff).
+   .cm-line is not a stacking context (z-index auto), so -3 resolves against
+   .cm-scroller, where CodeMirror's layers live.
+
+   One deliberate exception: a disabled stage's lines also carry
+   .pipeline-stage-disabled-line, whose `opacity: 0.55` makes each of those lines
+   its own stacking context and so keeps the pseudo-element above the selection
+   layer. That same opacity already composites the selection through the band at
+   45%, which is why disabled stages were never part of the problem and need no
+   second mechanism here. */
+.cm-linked-stage { position: relative; }
+.cm-linked-stage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+  background: var(--info-bg);
+  pointer-events: none;
+}
 
 /* Segmented pill group */
 .csv-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { readFileSync } from 'fs';
 import { h, render } from 'preact';
 import { EditorState } from '@codemirror/state';
 import JsonEditor, { linkedStageDecos } from '../src/mdh/components/JsonEditor.jsx';
@@ -262,5 +263,43 @@ describe('the caret drives the same link, from the other end', () => {
     caretStage.value = { entryIndex: 1 };
     await vi.waitFor(() => expect(api.highlightStage).toHaveBeenCalledWith(null));
     expect(api.highlightStage).not.toHaveBeenCalledWith(1);
+  });
+});
+
+// Source-level guard, because jsdom has no layout and no paint order: it cannot
+// see that a background on `.cm-line` hides CodeMirror's text selection. The
+// selection is drawn by drawSelection() into `.cm-selectionLayer`, a layer whose
+// z-index is NEGATIVE (measured: -2), i.e. below the in-flow line backgrounds —
+// so a filled `.cm-linked-stage` line made a selected pipeline invisible, and
+// drawSelection's `::selection { background: transparent !important }` left no
+// native highlight either. The band therefore has to be a pseudo-element painted
+// under that layer. Verified in Chrome by pixel sampling; asserted here so the
+// rule cannot quietly regress to a plain background.
+describe('linked-stage band paints below the selection layer', () => {
+  const css = readFileSync('src/console/console.css', 'utf8');
+  // The declaration block for a selector, comments already stripped.
+  const blockFor = (selector) => {
+    const body = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    const m = new RegExp(`(^|})\\s*${selector.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\s*\\{([^}]*)\\}`, 'm').exec(body);
+    return m ? m[2] : null;
+  };
+
+  it('does not fill the line element itself', () => {
+    const block = blockFor('.cm-linked-stage');
+    expect(block).not.toBeNull();
+    expect(block).not.toMatch(/background/);
+  });
+
+  it('fills a pseudo-element that sits under the selection layer', () => {
+    const block = blockFor('.cm-linked-stage::before');
+    expect(block).not.toBeNull();
+    expect(block).toMatch(/background:\s*var\(--info-bg\)/);
+    expect(block).toMatch(/position:\s*absolute/);
+    const z = /z-index:\s*(-?\d+)/.exec(block);
+    expect(z).not.toBeNull();
+    // Below `.cm-selectionLayer` (-2), and negative z resolves against
+    // `.cm-scroller` only while the line stays a non-stacking-context.
+    expect(Number(z[1])).toBeLessThan(-2);
+    expect(blockFor('.cm-linked-stage')).toMatch(/position:\s*relative/);
   });
 });
