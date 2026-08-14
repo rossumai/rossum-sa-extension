@@ -58,18 +58,23 @@ const options = {
     'sidepanel/sidepanel': 'src/sidepanel/index.jsx',
   },
   bundle: true,
-  // NOT plain `minify: true`. esbuild's identifier minifier also renames CSS
-  // Modules' local class names (e.g. Academy.module.css's `.heroBlobA`) down to
-  // one/two-character globals emitted into dist/console/console.css. esbuild
-  // only guarantees those generated names are unique AMONG THEMSELVES — not
-  // against bare hand-written classes in JSX markup (e.g. `<div class="k">`)
-  // or the legacy console.css/popup.css. A short generated name can and did
-  // collide with an unrelated global selector, leaking one component's styles
-  // onto whatever markup elsewhere happened to share the name (see
-  // tests/css-class-collision-boundary.test.js). Keep identifier minification
-  // OFF; whitespace/syntax minification is still safe and keeps bundle size down.
-  minifyWhitespace: true,
-  minifySyntax: true,
+  // Full minification, INCLUDING identifier renaming — which also shortens CSS
+  // Modules' local class names (e.g. Academy.module.css's `.heroBlobA`) into
+  // one/two-character globals emitted to dist/console/console.css. esbuild only
+  // guarantees those generated names are unique AMONG THEMSELVES, not against
+  // bare hand-written classes in JSX (`<div class="k">`) or the legacy
+  // console.css/popup.css. That is not hypothetical: a generated `.k` once
+  // collided with the Inspector's `class="k"` cells and painted a 320px blurred
+  // hero blob across them.
+  //
+  // What keeps this safe is NOT the minifier — it is that no bare single-letter
+  // class names remain to be collided with, enforced on every run by
+  // tests/css-class-collision-boundary.test.js, which asserts against the BUILT
+  // stylesheet rather than the source. Adding a bare `class="x"` to any JSX
+  // fails that test. Turning identifier minification off is the other half of
+  // the fix and costs ~575KB on console.js; either half reaches zero collisions
+  // alone, and this is the half that keeps the bundle small.
+  minify: true,
   outdir: 'dist',
   format: 'iife',
   logLevel: 'info',
