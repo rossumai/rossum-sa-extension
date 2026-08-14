@@ -20,7 +20,7 @@ import { stageToggleGutter } from '../pipelineGutter.js';
 import { stageLineRanges, entryIndexAtOffset } from '../pipelineComments.js';
 import { operatorColonOffset } from '../stageLink.js';
 import { computeMinimalChange } from '../editorDiff.js';
-import { animateScrollTop } from '../smoothScroll.js';
+import { animateScrollTop, revealScrollTop } from '../smoothScroll.js';
 import { makeCompletionSource } from '../pipelineCompletions.js';
 // Re-exported for PipelineEditor.jsx / DataPanel.jsx, which import it from here.
 export { extractFieldNames } from '../pipelineCompletions.js';
@@ -420,6 +420,13 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
         refresh: () => viewRef.current.requestMeasure(),
         // Scroll the given top-level stage's code into view (used once when a
         // Stages-view stage is hovered, so the connector line has an anchor).
+        //
+        // Does NOTHING while the stage's opening line is already on screen, and
+        // otherwise puts that line at the TOP of the visible box. It centred the
+        // line unconditionally until 2026-08-14, so hovering a stage you could
+        // already read still sent the editor travelling — owner's report. The
+        // decision and the target are pure (smoothScroll.revealScrollTop); only
+        // the measuring lives here.
         revealStage: (entryIndex) => {
           const view = viewRef.current;
           if (!view) return;
@@ -443,7 +450,12 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
           // this constant converts CodeMirror's document-y into scrollTop space.
           const c = sc.scrollTop + view.documentTop - scRect.top;
           const block = view.lineBlockAt(pos);
-          animateScrollTop(sc, block.top + c - (sc.clientHeight - block.height) / 2);
+          const top = revealScrollTop(
+            { top: block.top + c, bottom: block.bottom + c },
+            { scrollTop: sc.scrollTop, height: sc.clientHeight },
+          );
+          if (top == null) return; // already on screen — leave the editor alone
+          animateScrollTop(sc, top);
         },
         // Tint the given top-level stage's lines (`.cm-linked-stage`) — the band
         // that accompanies the Stages-view connector, so both ends of the dashed

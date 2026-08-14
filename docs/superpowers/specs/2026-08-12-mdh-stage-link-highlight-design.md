@@ -35,7 +35,9 @@ marked. Nothing else changes.
    still tints the stage; the connector hides when the stage is off-screen
    (`stageScreenRect` returns null), but the band is waiting when the user scrolls to it.
 3. **Hover-reveal is unchanged.** With `Auto-scroll` on, hovering still scrolls the editor to
-   centre the stage, exactly as before.
+   centre the stage, exactly as before. **SUPERSEDED 2026-08-14 — it now scrolls only when the
+   stage is off screen, and to the top rather than the centre. See the revision note at the
+   end.**
 
 ## How it works
 
@@ -430,3 +432,43 @@ it — below an up-arrow, above a down-arrow — which is one rule, not two: the
 its head that way and the end's arrives that way, the same segment described from either end.
 With both ends clamped the same direction the result is a shallow cable, dipping out of one head
 and rising into the other.
+
+### And the editor stays put for a stage already on screen
+
+Owner, same day: *"when the stage in the aggregation pipeline is already on screen (visible in
+the textarea), do not try to scroll it to the middle of the screen when hovering on the stage on
+the right."* Decision 3 above — hover-reveal centres the stage, "exactly as before" — was the
+defect. `revealStage` ran no visibility test at all: every hover animated the scroller to
+`block.top + c - (clientHeight - block.height) / 2`, and `animateScrollTop` only declines a move
+under 2px, so a stage the user could already read travelled on every hover.
+
+Two changes, both confined to the section-hover path (the caret and editor-hover paths never
+scrolled the editor, and the debug-panel row click moves the right pane only):
+
+- **Nothing moves while the stage's opening line is on screen.** Owner's choice of predicate,
+  over "the whole stage fits": the editor then stays put in every case where you can see where
+  the stage begins, which is the case being complained about, and a stage whose body runs below
+  the fold is not a reason to move the text you are reading.
+- **When it does move, that line goes to the TOP of the box, not the centre.** Also the owner's
+  call. Centring wastes half the box above a stage and was never a decision — it arrived with
+  the original link commit (`0464939`) and this spec merely recorded it.
+
+The decision is pure (`smoothScroll.revealScrollTop(line, view) → scrollTop | null`, `null`
+meaning "leave it alone"); only the measuring stays in `JsonEditor`. A line touching either edge
+counts as visible, which makes a reveal **idempotent** — re-hovering the stage it just revealed
+asks for nothing.
+
+`REVEAL_TOP_INSET = 6` is load-bearing, by 0.3px. The connector's editor endpoint is the line's
+vertical CENTRE, clamped `EDGE_INSET` (8px) inside the clip box, so a line placed flush at the
+top would put that anchor 8.4/2 = **7.7px** below the edge — inside the clamp — and the
+connector would draw its "it is off screen" arrow at the clip edge for a stage in plain view.
+MEASURED in a browser on the real component and stylesheet (a 20-stage pipeline in a 198px-tall
+`.json-editor`, line height 16.8px): with the inset the revealed line's top sits at 6.7px and
+its anchor at **13.7px**, clear of the clamp, so the endpoint keeps its dot.
+
+Measured in the same harness, before/after: a stage whose `{` sat at y 123.6 in a 198px box
+scrolled the editor 0 → 32 under the old code and **0 → 0** now; a stage far below the fold
+lands with its `{` line 6.7px from the top instead of centred at ~99px; and hovering it again
+moves nothing. jsdom has no layout — every rect there is 0 — so the geometry cannot be pinned by
+the unit tests, which cover `revealScrollTop` itself (visible, flush at either edge, above,
+below, partly cut, idempotence, and that the inset keeps the anchor clear of the 8px clamp).

@@ -6,8 +6,8 @@ import { computeStageLink, edgeArrowPath } from '../stageLink.js';
 // SVG connector drawn over the data panel: from the hovered Stages-view section to
 // that stage's code line in the pipeline editor. Reads the `hoveredStage` signal so
 // only this small overlay re-renders on hover (not the whole DataPanel). The editor
-// stage is revealed once on hover (auto-scroll); the line then re-measures on any
-// scroll/resize so it stays attached.
+// stage is revealed once on hover (auto-scroll) — and only when it is off screen,
+// see below; the line then re-measures on any scroll/resize so it stays attached.
 //
 // The link is driven from BOTH ends: hovering a section, hovering a stage in the
 // editor (`editorHoverStage`), and the pipeline-editor CARET sitting in one
@@ -51,12 +51,16 @@ export default function StageLinkOverlay({ editorRef, panelRef }) {
     // pane now moves only when the user acts on the pane's own side (hovering a
     // section) or asks for a stage explicitly (a debug-panel row click).
     //
-    // Auto-scroll the editor to the stage — only on section HOVER, and only when
-    // the option is on. Never for the caret: the caret is on screen by
-    // definition, so scrolling to it would yank the view out from under the
-    // user's own cursor. With the option off the connector still draws whenever
-    // the stage is already visible (stageScreenRect returns null when off-screen,
-    // so the line simply hides).
+    // Auto-scroll the editor to the stage — only on section HOVER, only when the
+    // option is on, and only when the stage's opening line is OFF SCREEN, in which
+    // case it lands at the top of the editor box (revealStage decides; it used to
+    // centre the stage on every hover, moving an editor the user could already
+    // read). Never for the caret: the caret is on screen by definition, so
+    // scrolling to it would yank the view out from under the user's own cursor.
+    // With the option off nothing scrolls and the connector simply stays attached
+    // to wherever the stage currently sits — clamped to the editor's clip box when
+    // that is out of view, since CodeMirror keeps reporting coordinates for a
+    // scrolled-out line (measured; see the stage-link spec's revision note).
     if (hv && stagesAutoscroll.value) editorRef.current?.revealStage?.(hv.entryIndex);
     editorRef.current?.highlightStage?.(src.entryIndex);
 

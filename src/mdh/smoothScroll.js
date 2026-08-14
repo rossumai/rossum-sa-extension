@@ -23,8 +23,36 @@ export function tweenAt(from, to, elapsed, duration = SCROLL_MS) {
 // (A `nearestScrollTop` helper lived here — the scrollTop that brings an element
 // just inside a viewport, "nearest" semantics. Its only caller was the Stages
 // pane following the editor's pointer, deleted 2026-08-14 when the text editor
-// stopped moving the right pane. The remaining caller, JsonEditor's revealStage,
-// centres its target instead, so nothing computes a nearest offset any more.)
+// stopped moving the right pane.)
+
+// How far below the top of the visible band a revealed line lands. Small enough
+// to read as "at the top", but not zero: `stageLink.js` clamps the connector's
+// editor endpoint EDGE_INSET (8px) inside the editor's clip box, and that endpoint
+// is the line's vertical CENTRE. A line placed flush against the top edge sits
+// only half a line-height below it — inside 8px once the line height is small —
+// and the connector would then draw an "it is off screen" arrow at the clip edge
+// for a stage sitting right there. 6px plus half a line clears the clamp at any
+// line height.
+export const REVEAL_TOP_INSET = 6;
+
+// Pure: the scrollTop that brings a stage's opening line to the TOP of the visible
+// band — or `null` when that line is already on screen and nothing should move.
+//
+// Both arguments are in the scroller's scrollTop coordinate space: `line` is the
+// opening line's block ({top, bottom}), `view` the visible band ({scrollTop,
+// height}).
+//
+// `null` is the whole point of this helper (owner, 2026-08-14): hovering a
+// Stages-view section used to scroll the stage to the MIDDLE of the editor
+// unconditionally, so a stage you could already see travelled on every hover. A
+// line touching either edge counts as visible, which also makes a reveal
+// idempotent — re-hovering the stage it just revealed asks for nothing.
+export function revealScrollTop(line, view) {
+  if (!line || !view) return null;
+  const { scrollTop, height } = view;
+  if (line.top >= scrollTop && line.bottom <= scrollTop + height) return null;
+  return line.top - REVEAL_TOP_INSET;
+}
 
 export function prefersReducedMotion() {
   return typeof window !== 'undefined'
