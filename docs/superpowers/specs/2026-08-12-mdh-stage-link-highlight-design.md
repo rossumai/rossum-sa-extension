@@ -91,6 +91,10 @@ function, and `onCursorStage` now reports `{ entryIndex, activeIndex } | null`. 
 sentinel starts at `undefined`, distinct from `null` — without that, the first "left all
 stages" would be swallowed and the link would never clear.
 
+> **Superseded 2026-08-14.** With the scroll jump gone there is only one index space left:
+> `activeStageIndexAtOffset` was deleted and `onCursorStage` reports a bare entry index. The
+> dedup-sentinel point below still holds. See the revision note at the end.
+
 The caret carries no DOM node, so `StageLinkOverlay` resolves the section itself from
 `[data-entry]` (now stamped on active *and* disabled sections) on every recompute. That also
 means it draws nothing when the Stages view is closed — correct, since there is no section to
@@ -109,13 +113,14 @@ Two things fell out of it, both owner decisions (2026-08-12):
 - **The reveal is now symmetric.** Hovering a section already scrolled the editor to that
   stage; hovering a stage in the editor now scrolls the pane to its section (`block: 'nearest'`,
   same `Auto-scroll` gate). The caret still scrolls nothing — a caret is not a gesture asking to
-  be taken somewhere.
+  be taken somewhere. **REVERSED 2026-08-14 — see the revision note at the end.**
 - **The connector no longer draws toward an off-screen target.** `computeStageLink` never
   checked visibility; hovering a *section* could not expose that (you can only hover what you
   can see), but the caret and editor-hover links can, and the line would run off over the
   toolbar. `sectionInPane()` now suppresses the line when the target is scrolled out of the
   pane, leaving the band to carry the link. This was a defect introduced with the caret link
-  in the same day's work.
+  in the same day's work. **The diagnosis stands; the remedy changed 2026-08-14 — the line is
+  clamped to the pane's edge instead of suppressed. See the revision note at the end.**
 
 `.pipeline-inspect-section[data-linked]` marks the section end when the pointer is in the
 editor, since its own `:hover` cannot fire in that direction — the same accent border, reached
@@ -315,3 +320,113 @@ resolving. Anything that reads or writes `view.scrollDOM.scrollTop` in this edit
 does nothing. No unit test can catch that — it is a pure layout fact and jsdom has no layout
 engine. Nothing in the current code depends on it; it is recorded here so the next attempt
 does not lose a day to it.
+
+## Revision, 2026-08-14 — the editor no longer scrolls the Stages pane
+
+Owner decision, reversing the "symmetric reveal" above: **the pipeline text editor must not
+move the right pane.** Pointing at a stage in the editor still MARKS its section — band,
+connector, `[data-linked]` — but nothing scrolls. Two paths were removed:
+
+- the editor-hover pane scroll in `StageLinkOverlay` (`animateScrollTop` + `nearestScrollTop`
+  on `.pipeline-inspect-scroll`);
+- the caret's `inspectTarget` jump in `DataPanel.handleCursorStage`, which also took the
+  section's flash highlight with it — flashing something the user cannot see is not worth a
+  second signal, and `[data-linked]` already marks it.
+
+The reason is the one the symmetry argument missed: hovering a SECTION is a gesture aimed at
+the pane, so answering it in the editor is a reply; but reading or typing in the editor is not
+a request about the pane, and the movement in the corner of the eye reads as the UI twitching
+on its own. Symmetry of the LINK was always the good idea; symmetry of the SCROLLING was not.
+
+Consequences:
+
+- `Auto-scroll` now gates exactly one thing — hovering a section scrolls the editor. Its
+  tooltip says so; the persisted key (`mdhStagesAutoscroll`) and its default are unchanged, so
+  an existing profile keeps working with no migration.
+- The explicit debug-panel row click (`handleInspectStage`) is untouched and still jumps,
+  ungated: it is a deliberate "show me this stage", not incidental pointer movement.
+- The editor now reports a **bare entry index** from `onCursorStage`, matching `onHoverStage`.
+  The second index space (`activeStageIndexAtOffset`, the ACTIVE-stage index) existed only to
+  name the stage OUTPUT to scroll to, so it and `smoothScroll.nearestScrollTop` were deleted
+  with their tests — both had exactly one caller, and it was the removed scroll.
+- Pinned by `tests/mdh-stages-editor-no-follow.test.js`, which spies on the scroll tween
+  (jsdom has no layout, so asserting on `scrollTop` would pass either way) and asserts
+  `inspectTarget` stays null when the caret moves. The opposite direction keeps its existing
+  tests in `tests/mdh-stage-link-highlight.test.js`.
+
+### Follow-on the same day: the tether survives an off-screen section
+
+Removing the pane-follow exposed the other half of the 2026-08-12 decision above —
+`sectionInPane()` suppressing the connector whenever the target section was scrolled out of
+the Stages pane. That was written when the pane still scrolled the section into view, making
+the suppression a flicker; with the editor no longer scrolling anything the section can stay
+out of view indefinitely, so the tether was simply missing. Owner: *"Can we keep the tether
+even if the stage on the right is off screen?"*
+
+`computeStageLink` now takes the pane rect (optional — omit it and nothing clamps) and pins
+the far endpoint into `[paneTop + 8, paneBottom - 8]`, reporting `edge: 'up' | 'down' | null`.
+The overlay draws `edgeArrowPath()` — a small accent triangle pointing the way the section
+lies — INSTEAD of the round dot at that end, because a dot there would claim the stage is at
+the boundary, which is the one thing it isn't. `sectionInPane` stays exported as the honest
+visibility predicate (`src/training/tether.js` cites it) but no longer gates drawing.
+
+**The last leg follows the arrow's axis** (owner: *"the tether leaving the arrow is too abrupt
+and immediately going to the left"*). `connectorPath` ends in a short HORIZONTAL stub, which
+is right for a dot on a section's left edge — the line enters the section the way a reader's
+eye does — and wrong for a vertical arrowhead, where a sideways arrival reads as a corner
+rather than as one arrow. For a clamped endpoint the path now ends in a ~14px VERTICAL shaft
+into the head (`shaftPath`), rounded into the diagonal like every other bend here.
+
+The shaft is **unconditional**. It was first written to shorten (and vanish) whenever the line
+approached from the side its head points at, on the theory that a shaft starting past its own
+head would descend and climb back — a fishhook. That guard was wrong twice over, and the owner
+caught it the same day: *"we should just show a bit more of the tether when both arrows are
+pointing up, for example (currently, the right side goes immediately to the left instead of
+continuing a bit vertically)."*
+
+It fired in the ORDINARY case of both ends clamped the same way. The Stages pane's band starts
+below the editor's — its options strip pushes it down — so a line between two up-arrows always
+"arrives from above", and the guard zeroed the far shaft and left the diagonal to turn sideways
+at the head: precisely the defect the shaft exists to prevent. And what it was avoiding is 14px
+of dip against a horizontal span of several hundred (the two panes are far apart), which reads
+as a shallow cable passing under a marker, not as a hook. Overshoot is now bounded by `SHAFT` by
+construction, and a test pins that bound instead of the old monotonic-y assertion.
+
+Clamping also fixes a case the suppression never caught: a section overlapping the pane
+passes `sectionInPane`, yet its header anchor (`top + 16`) can still sit above the pane top —
+drawing the line over the options toolbar. Both are pinned in `tests/mdh-stage-link.test.js`,
+with the component-level "line still drawn, ending in an arrow" case in
+`tests/mdh-stage-link-highlight.test.js`; each was verified to fail against the old code.
+Geometry was checked visually in Chrome against the real stylesheet (both themes) — the
+arrow lands inside the scroller, clear of the toolbar, at both edges.
+
+### And the same clamp on the editor end
+
+Owner, same day: *"when the editor is scrolled slightly off screen the tether on the stage
+starts outside of the textarea and overlaps the UI."* The near end had the far end's bug, and
+a wrong assumption recorded earlier in this session hid it — that `stageScreenRect` returns
+null for a scrolled-out stage. **MEASURED, and it does not:** with the editor box at viewport
+y 10..330, scrolling it 40px puts stage 0's `{` at y −7, and 320px puts it at −287.
+CodeMirror's `coordsAtPos` reports coordinates for any line it has rendered, and a normal
+pipeline is well inside its render window, so the line started outside the editor and ran up
+over `.pipeline-header`'s Run/Save buttons.
+
+So `computeStageLink` takes a `clipRect` too and treats both ends through one `clampToBox`,
+reporting `startEdge` beside `edge`. The editor's clipping box comes from a new
+`editorRef.current.clipRect()` — the INTERSECTION of `.json-editor` and CodeMirror's
+`scrollDOM`, because which one clips depends on the layout: in the data panel the outer
+`.json-editor` is the scroller (`console.css:408`) and `.cm-scroller`'s rect is the full
+content height, so the container wins; were a layout to make `.cm-scroller` the scroller, its
+rect would be the tighter one and would win instead. Verified against a real editor: at
+`scrollTop` 0 the intersection is `{11, 330}`, at 120 it is `{10, 330}` while `.cm-scroller`
+reports `{-109, 537}`.
+
+`connectorPath` is now one emitter over four points — A, elbow, elbow, D — where each end's LEG
+is either the horizontal (dot) or the vertical shaft (arrow), so the four combinations are just
+different legs rather than four code paths. With two horizontal legs it produces the radii the
+single-radius version did (both legs are ≥ 6 by construction), leaving the unclamped connector
+unchanged. Both ends place their elbow one `SHAFT` along the head's axis on the VISIBLE side of
+it — below an up-arrow, above a down-arrow — which is one rule, not two: the start's line leaves
+its head that way and the end's arrives that way, the same segment described from either end.
+With both ends clamped the same direction the result is a shallow cable, dipping out of one head
+and rising into the other.

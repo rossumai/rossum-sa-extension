@@ -16,7 +16,7 @@ import { openRecordEditor } from './RecordEditor.jsx';
 import { openImport } from './DataOperations.jsx';
 import { openBulkDelete } from './BulkDelete.jsx';
 import { openBulkUpdate } from './BulkUpdate.jsx';
-import { selectionMode, selectedIds, selectionPipelineDirty, resultsView, inspectTarget, stagesAutoscroll, caretStage, editorHoverStage } from '../store.js';
+import { selectionMode, selectedIds, selectionPipelineDirty, resultsView, inspectTarget, caretStage, editorHoverStage } from '../store.js';
 import { confirmModal, openModal } from './Modal.jsx';
 import { showUndo } from '../undo.js';
 import { addToHistory } from './QueryHistory.jsx';
@@ -426,22 +426,19 @@ export default function DataPanel() {
     chrome.storage.local.set({ mdhResultsView: 'stages' });
   }
 
-  // While the Stages view is open, follow the pipeline-editor cursor: scroll to
-  // the stage it sits in. (No-op in List/Table — doesn't force the view to switch.)
-  // Gated on the Stages "Auto-scroll" option; the explicit debug-panel click jump
-  // (handleInspectStage) is unaffected and always scrolls.
-  // `info` is `{ entryIndex, activeIndex }` | null (null = the caret left every
-  // stage, or the editor lost focus). Two consumers with deliberately different
-  // rules:
-  //   - the SCROLL jump keeps its existing behaviour exactly — active-stage
-  //     index, Stages view only, gated on Auto-scroll, and never on a disabled
-  //     stage (activeIndex is null there, since it produced no output to jump to);
-  //   - the LINK (connector + editor band) is ungated, matching the hover link
-  //     it mirrors, and works for disabled stages too, which do have a section.
-  function handleCursorStage(info) {
-    caretStage.value = info ? { entryIndex: info.entryIndex } : null;
-    if (info?.activeIndex == null) return;
-    if (resultsView.value === 'stages' && stagesAutoscroll.value) inspectTarget.value = { index: info.activeIndex };
+  // Which stage the pipeline-editor caret sits in, as an ENTRY index (disabled
+  // stages included — they have a section to link to) | null (the caret left
+  // every stage, or the editor lost focus). It drives the LINK only: the
+  // connector plus the editor band, ungated, matching the hover link it mirrors.
+  //
+  // It used to ALSO scroll the Stages view to that stage (via `inspectTarget`,
+  // gated on the "Auto-scroll" option). Removed 2026-08-14 by owner decision:
+  // the text editor must not move the right pane. That is also why the editor
+  // reports a bare entry index now — the second, active-stage index existed
+  // solely to name the OUTPUT to scroll to, and nothing scrolls from here any
+  // more. The explicit debug-panel row click (handleInspectStage) still jumps.
+  function handleCursorStage(entryIndex) {
+    caretStage.value = entryIndex == null ? null : { entryIndex };
   }
 
   function handleSort(field) {

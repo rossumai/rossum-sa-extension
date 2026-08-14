@@ -1,8 +1,7 @@
 import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { hoveredStage, editorHoverStage, caretStage, stagesAutoscroll } from '../store.js';
-import { computeStageLink, sectionInPane } from '../stageLink.js';
-import { animateScrollTop, nearestScrollTop } from '../smoothScroll.js';
+import { computeStageLink, edgeArrowPath } from '../stageLink.js';
 
 // SVG connector drawn over the data panel: from the hovered Stages-view section to
 // that stage's code line in the pipeline editor. Reads the `hoveredStage` signal so
@@ -10,10 +9,12 @@ import { animateScrollTop, nearestScrollTop } from '../smoothScroll.js';
 // stage is revealed once on hover (auto-scroll); the line then re-measures on any
 // scroll/resize so it stays attached.
 //
-// The link is driven from BOTH ends: hovering a section, and the pipeline-editor
-// CARET sitting in a stage (`caretStage`). Either way the same connector is drawn
-// and the same stage is TINTED in the editor (`.cm-linked-stage`), so both ends
-// of the dashed line are marked. That band is deliberately NOT gated on the
+// The link is driven from BOTH ends: hovering a section, hovering a stage in the
+// editor (`editorHoverStage`), and the pipeline-editor CARET sitting in one
+// (`caretStage`). Any of them draws the same connector and TINTS the same stage
+// in the editor (`.cm-linked-stage`), so both ends of the dashed line are marked
+// — but only the section hover ever SCROLLS anything (see below). That band is
+// deliberately NOT gated on the
 // Auto-scroll option: that option governs scrolling, and the connector it
 // accompanies has never been gated either. It therefore still marks the stage when
 // Auto-scroll is off and the stage sits off-screen — the line hides in that case
@@ -40,28 +41,22 @@ export default function StageLinkOverlay({ editorRef, panelRef }) {
   useEffect(() => {
     const sectionEl = sectionFor(src);
     if (!src || !sectionEl) { setPts(null); editorRef.current?.highlightStage?.(null); return; }
-    // Mirror of hovering a section (which reveals the stage in the editor):
-    // hovering a stage in the EDITOR reveals its section in the pane. Same gate.
-    // 'nearest' so an already-visible section doesn't jolt. Never for the caret
-    // — a caret is not a gesture asking to be taken somewhere.
-    if (eh && !hv && stagesAutoscroll.value) {
-      // Animated, so the pane visibly travels to the section rather than
-      // teleporting — the same reason the editor side animates. Scrolls the
-      // Stages scroller directly (not Element.scrollIntoView, which cannot be
-      // given a duration and would also scroll outer ancestors).
-      const pane = sectionEl.closest?.('.pipeline-inspect-scroll');
-      if (pane) {
-        const s = sectionEl.getBoundingClientRect();
-        const p = pane.getBoundingClientRect();
-        animateScrollTop(pane, nearestScrollTop(s.top, s.bottom, p.top, p.bottom, pane.scrollTop));
-      }
-    }
-    // Auto-scroll the editor to the stage — only on HOVER, and only when the
-    // option is on. Never for the caret: the caret is on screen by definition,
-    // so scrolling to it would yank the view out from under the user's own
-    // cursor. With the option off the connector still draws whenever the stage
-    // is already visible (stageScreenRect returns null when off-screen, so the
-    // line simply hides).
+    // The link is symmetric; the SCROLLING is deliberately not. Pointing at a
+    // stage in the editor — by hovering it or by leaving the caret in it — marks
+    // its section here (band, connector, [data-linked]) but never scrolls the
+    // pane to it. It used to, mirroring the hover-reveal below and sharing the
+    // same Auto-scroll gate; reversed by the owner 2026-08-14 because reading or
+    // typing in the editor is not a request to send the other half of the screen
+    // travelling, and the movement in the corner of the eye was distracting. The
+    // pane now moves only when the user acts on the pane's own side (hovering a
+    // section) or asks for a stage explicitly (a debug-panel row click).
+    //
+    // Auto-scroll the editor to the stage — only on section HOVER, and only when
+    // the option is on. Never for the caret: the caret is on screen by
+    // definition, so scrolling to it would yank the view out from under the
+    // user's own cursor. With the option off the connector still draws whenever
+    // the stage is already visible (stageScreenRect returns null when off-screen,
+    // so the line simply hides).
     if (hv && stagesAutoscroll.value) editorRef.current?.revealStage?.(hv.entryIndex);
     editorRef.current?.highlightStage?.(src.entryIndex);
 
@@ -72,14 +67,27 @@ export default function StageLinkOverlay({ editorRef, panelRef }) {
       const el = sectionFor(cur);
       if (!cur || !el) { setPts(null); return; }
       const sectionRect = el.getBoundingClientRect?.();
-      // Don't draw toward a section scrolled out of the pane — the line would
-      // run off over the toolbar. With the reveal above this is transient; with
-      // Auto-scroll off, or for the caret, the band alone carries the link.
+      // The pane rect keeps the far endpoint INSIDE the Stages scroller: a
+      // section scrolled out of it would otherwise put the line over the options
+      // toolbar or past the pane's bottom. It used to be suppressed entirely
+      // there, which was a brief flicker while the pane still auto-scrolled the
+      // section into view — but the editor stopped doing that, so the link would
+      // simply be missing. Now it ends at the pane's edge under an arrow saying
+      // which way the stage lies (owner request 2026-08-14).
       const pane = el.closest?.('.pipeline-inspect-scroll');
-      if (pane && !sectionInPane(sectionRect, pane.getBoundingClientRect())) { setPts(null); return; }
       const editorRect = editorRef.current?.stageScreenRect?.(cur.entryIndex);
       const panelRect = panelRef.current?.getBoundingClientRect?.();
-      setPts(computeStageLink(editorRect, sectionRect, panelRect));
+      // Same treatment for the editor end, and for the same reason: CodeMirror
+      // reports coordinates for a stage scrolled out of its box, so without the
+      // clip rect the line started outside the editor and crossed the pipeline
+      // header's buttons.
+      setPts(computeStageLink(
+        editorRect,
+        sectionRect,
+        panelRect,
+        pane?.getBoundingClientRect?.(),
+        editorRef.current?.clipRect?.(),
+      ));
     };
     const schedule = () => {
       if (raf) return;
@@ -111,11 +119,21 @@ export default function StageLinkOverlay({ editorRef, panelRef }) {
   }, [hv, eh, cs]);
 
   if (!pts) return null;
+  // The far end is a DOT when it lands on the section itself and an ARROW when
+  // the section is off screen and the line had to stop at the pane's edge — a
+  // dot there would claim the stage is at the boundary, which is the one thing
+  // it isn't.
+  const arrow = edgeArrowPath(pts.x2, pts.y2, pts.edge);
+  const startArrow = edgeArrowPath(pts.x1, pts.y1, pts.startEdge);
   return (
     <svg class="stage-link-overlay" aria-hidden="true">
       <path class="stage-link-line" d={pts.d} />
-      <circle class="stage-link-dot" cx={pts.x1} cy={pts.y1} r="3" />
-      <circle class="stage-link-dot" cx={pts.x2} cy={pts.y2} r="3" />
+      {startArrow
+        ? <path class="stage-link-arrow" d={startArrow} />
+        : <circle class="stage-link-dot" cx={pts.x1} cy={pts.y1} r="3" />}
+      {arrow
+        ? <path class="stage-link-arrow" d={arrow} />
+        : <circle class="stage-link-dot" cx={pts.x2} cy={pts.y2} r="3" />}
     </svg>
   );
 }

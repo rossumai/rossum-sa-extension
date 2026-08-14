@@ -80,7 +80,6 @@ import {
   normalizeEffectivePipelineText,
   beautifyText,
   stageLineRanges,
-  activeStageIndexAtOffset,
   entryIndexAtOffset,
 } from '../src/mdh/pipelineComments.js';
 import { applySortToPipeline, applyFilterDeltaToPipeline, applySkipToPipeline } from '../src/mdh/pipelineOps.js';
@@ -332,18 +331,6 @@ describe('stageLineRanges', () => {
   });
 });
 
-describe('activeStageIndexAtOffset', () => {
-  it('maps a char offset to the active-stage index, skipping disabled stages', () => {
-    const text = '[\n  { "$match": {} },\n  /* @disabled-stage\n  { "$sort": { "a": -1 } } */\n  { "$limit": 50 }\n]';
-    const ranges = stageLineRanges(text);
-    // ranges: [0] active $match, [1] disabled $sort, [2] active $limit.
-    expect(activeStageIndexAtOffset(ranges, ranges[0].start + 1)).toBe(0); // inside $match → active 0
-    expect(activeStageIndexAtOffset(ranges, ranges[1].start + 1)).toBeNull(); // inside the disabled stage
-    expect(activeStageIndexAtOffset(ranges, ranges[2].start + 1)).toBe(1); // inside $limit → active 1 (disabled skipped)
-    expect(activeStageIndexAtOffset(ranges, 0)).toBeNull(); // the '[' — outside any stage
-  });
-});
-
 describe('disable robustness (review fixes)', () => {
   it('round-trips a stage whose string value contains "*/" when disabled', () => {
     const text = '[\n  { "$match": { "path": "src/**/*.js" } },\n  { "$limit": 50 }\n]';
@@ -389,8 +376,7 @@ describe('parsePipelineDoc', () => {
 });
 
 describe('entryIndexAtOffset', () => {
-  // Same fixture shape the activeStageIndexAtOffset suite uses: an active stage,
-  // a disabled one, then another active one.
+  // An active stage, a disabled one, then another active one.
   const text = '[{"$match":{}},/* @disabled-stage {"$sort":{"a":-1}} */{"$limit":5}]';
   const ranges = stageLineRanges(text);
 
@@ -398,15 +384,6 @@ describe('entryIndexAtOffset', () => {
     expect(entryIndexAtOffset(ranges, ranges[0].start + 1)).toBe(0);
     expect(entryIndexAtOffset(ranges, ranges[1].start + 1)).toBe(1); // the disabled stage
     expect(entryIndexAtOffset(ranges, ranges[2].start + 1)).toBe(2);
-  });
-
-  it('differs from activeStageIndexAtOffset exactly where disabled stages are involved', () => {
-    // Inside the disabled stage: addressable as an entry, but it never ran.
-    expect(entryIndexAtOffset(ranges, ranges[1].start + 1)).toBe(1);
-    expect(activeStageIndexAtOffset(ranges, ranges[1].start + 1)).toBeNull();
-    // After it, the two indices diverge by the skipped stage.
-    expect(entryIndexAtOffset(ranges, ranges[2].start + 1)).toBe(2);
-    expect(activeStageIndexAtOffset(ranges, ranges[2].start + 1)).toBe(1);
   });
 
   it('returns null outside every stage', () => {

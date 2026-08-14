@@ -20,21 +20,11 @@ export function tweenAt(from, to, elapsed, duration = SCROLL_MS) {
   return from + (to - from) * easeOutCubic(elapsed / duration);
 }
 
-// Pure: the scrollTop that brings [elTop, elBottom] just inside [viewTop,
-// viewBottom] — "nearest" semantics, so an element already fully visible does
-// not move at all. Coordinates are viewport-relative; `scrollTop` is the
-// scroller's current offset. `margin` keeps a little air around the target.
-export function nearestScrollTop(elTop, elBottom, viewTop, viewBottom, scrollTop, margin = 8) {
-  if (elTop < viewTop + margin) return scrollTop + (elTop - viewTop) - margin;
-  if (elBottom > viewBottom - margin) {
-    // Never scroll so far that the element's TOP leaves the view: for an element
-    // taller than the viewport, aligning its bottom would push its start away.
-    const byBottom = scrollTop + (elBottom - viewBottom) + margin;
-    const byTop = scrollTop + (elTop - viewTop) - margin;
-    return Math.min(byBottom, byTop);
-  }
-  return scrollTop; // already fully visible
-}
+// (A `nearestScrollTop` helper lived here — the scrollTop that brings an element
+// just inside a viewport, "nearest" semantics. Its only caller was the Stages
+// pane following the editor's pointer, deleted 2026-08-14 when the text editor
+// stopped moving the right pane. The remaining caller, JsonEditor's revealStage,
+// centres its target instead, so nothing computes a nearest offset any more.)
 
 export function prefersReducedMotion() {
   return typeof window !== 'undefined'

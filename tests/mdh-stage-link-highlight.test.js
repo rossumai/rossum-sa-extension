@@ -244,6 +244,68 @@ describe('the caret drives the same link, from the other end', () => {
     await vi.waitFor(() => expect(api.highlightStage).toHaveBeenLastCalledWith(null));
   });
 
+  // Owner request 2026-08-14: keep the tether when the section is off screen. It
+  // used to be suppressed, which mattered once the editor stopped scrolling the
+  // pane — the section can now stay out of view indefinitely.
+  it('still draws the line for a section scrolled out of the pane, ending in an arrow', async () => {
+    const api = fakeEditor();
+    const root = mount();
+    const panel = document.createElement('div');
+    const pane = document.createElement('div');
+    pane.className = 'pipeline-inspect-scroll';
+    pane.getBoundingClientRect = () => ({ top: 200, bottom: 700, left: 400, right: 900, width: 500, height: 500 });
+    const sec = document.createElement('div');
+    sec.setAttribute('data-entry', '1');
+    sec.getBoundingClientRect = () => ({ top: -400, bottom: -200, left: 420, right: 880, width: 460, height: 200 });
+    pane.appendChild(sec);
+    panel.appendChild(pane);
+    panel.getBoundingClientRect = () => ({ top: 0, bottom: 900, left: 0, right: 1200, width: 1200, height: 900 });
+    document.body.appendChild(panel);
+    render(h(StageLinkOverlay, { editorRef: { current: api }, panelRef: { current: panel } }), root);
+
+    caretStage.value = { entryIndex: 1 };
+
+    await vi.waitFor(() => expect(root.querySelector('.stage-link-line')).toBeTruthy());
+    expect(root.querySelector('.stage-link-arrow')).toBeTruthy();
+    // One endpoint marker, not two: the arrow REPLACES the section-end dot.
+    expect(root.querySelectorAll('.stage-link-dot').length).toBe(1);
+  });
+
+  // The editor end, same rule (owner 2026-08-14): a stage scrolled out of the
+  // editor's own box must not put the line outside it, over the pipeline header.
+  it('keeps the editor end inside the editor box when the stage is scrolled out of it', async () => {
+    const api = fakeEditor();
+    // The stage's line reports coordinates ABOVE the editor's clip box — what
+    // CodeMirror really does for a scrolled-out line.
+    api.stageScreenRect = () => ({ top: -40, bottom: -24, left: 30, right: 90, hEnd: 60 });
+    api.clipRect = () => ({ top: 100, bottom: 500, left: 20, right: 300 });
+    const root = mount();
+    const panel = document.createElement('div');
+    const pane = document.createElement('div');
+    pane.className = 'pipeline-inspect-scroll';
+    pane.getBoundingClientRect = () => ({ top: 100, bottom: 500, left: 400, right: 900 });
+    const sec = document.createElement('div');
+    sec.setAttribute('data-entry', '1');
+    sec.getBoundingClientRect = () => ({ top: 200, bottom: 360, left: 420, right: 880 });
+    pane.appendChild(sec);
+    panel.appendChild(pane);
+    panel.getBoundingClientRect = () => ({ top: 0, bottom: 600, left: 0, right: 1000 });
+    document.body.appendChild(panel);
+    render(h(StageLinkOverlay, { editorRef: { current: api }, panelRef: { current: panel } }), root);
+
+    caretStage.value = { entryIndex: 1 };
+
+    await vi.waitFor(() => expect(root.querySelector('.stage-link-line')).toBeTruthy());
+    const d = root.querySelector('.stage-link-line').getAttribute('d');
+    const ys = d.match(/-?\d+(?:\.\d+)?/g).map(Number).filter((_, i) => i % 2 === 1);
+    // Panel-relative, and the panel starts at viewport 0 — so the clip box's top
+    // (100) is the floor every point must respect.
+    expect(Math.min(...ys)).toBeGreaterThanOrEqual(100);
+    // The editor end is an arrow now; the section end (in view) keeps its dot.
+    expect(root.querySelectorAll('.stage-link-arrow').length).toBe(1);
+    expect(root.querySelectorAll('.stage-link-dot').length).toBe(1);
+  });
+
   it('hover wins while hovering, and falls back to the caret afterwards', async () => {
     const api = fakeEditor();
     const { panel } = mountWithSections(api);

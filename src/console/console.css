@@ -1684,6 +1684,11 @@ body {
   stroke-dasharray: 6 4; /* dashed so the connector reads as a subtle guide line */
 }
 .stage-link-dot { fill: var(--accent); }
+/* The far end of the tether when the stage's section is scrolled out of the
+   Stages pane: the line stops at the pane's edge and this arrow points the way
+   (see computeStageLink's `edge`). Same accent as the dot it replaces — it marks
+   the same link, just a boundary rather than the target. */
+.stage-link-arrow { fill: var(--accent); }
 /* The editor end of that same link: a tinted band behind the hovered stage's
    lines, so the connector lands on something marked rather than on bare code.
    Applied per LINE (see linkedStageField in JsonEditor.jsx) so it spans the full

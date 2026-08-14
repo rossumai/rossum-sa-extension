@@ -17,7 +17,7 @@ import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
 import { lintKeymap } from '@codemirror/lint';
 import JSON5 from 'json5';
 import { stageToggleGutter } from '../pipelineGutter.js';
-import { stageLineRanges, activeStageIndexAtOffset, entryIndexAtOffset } from '../pipelineComments.js';
+import { stageLineRanges, entryIndexAtOffset } from '../pipelineComments.js';
 import { operatorColonOffset } from '../stageLink.js';
 import { computeMinimalChange } from '../editorDiff.js';
 import { animateScrollTop } from '../smoothScroll.js';
@@ -300,8 +300,13 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
             catch (e) { if (errorEl) { errorEl.textContent = e.message; containerRef.current.classList.add('json-editor-invalid'); } }
           }
         }
-        // Aggregate mode: report which stage the cursor is in (active-stage index,
-        // deduped to changes) so the Stages view can follow the cursor.
+        // Aggregate mode: report which stage the caret sits in, as an ENTRY index
+        // (deduped to changes) so the Stages view can mark that stage. Same index
+        // space and same bare-index shape as onHoverStage above — the caret used
+        // to report a second, ACTIVE-stage index as well, which addressed a
+        // stage's OUTPUT rather than its section and existed only for the scroll
+        // jump that the editor no longer performs (see DataPanel's
+        // handleCursorStage).
         if ((update.selectionSet || update.focusChanged) && mode === 'aggregate' && onCursorStageRef.current) {
           const ranges = stageRangesFor(update.state);
           const offset = update.state.selection.main.head;
@@ -315,12 +320,7 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
           // link would never clear.
           if (entryIndex !== lastCursorStageRef.current) {
             lastCursorStageRef.current = entryIndex;
-            onCursorStageRef.current(entryIndex == null ? null : {
-              entryIndex,
-              // null inside a disabled stage: it has a section to link to, but it
-              // never executed, so there is no stage output to jump to.
-              activeIndex: activeStageIndexAtOffset(ranges, offset),
-            });
+            onCursorStageRef.current(entryIndex);
           }
         }
       }),
@@ -392,6 +392,30 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
         isValid: () => { const t = viewRef.current.state.doc.toString().trim(); if (!t) return false; return isAcceptable(t, { jsonLines: jsonLinesRef.current }); },
         getParsed: () => JSON5.parse(viewRef.current.state.doc.toString()),
         getError: () => containerRef.current?.querySelector('.json-editor-error')?.textContent || '',
+        // The box that visually CLIPS this editor, so a caller measuring a stage's
+        // position can tell whether that stage is actually on screen. Needed
+        // because coordsAtPos (see stageScreenRect) happily reports coordinates
+        // for a line scrolled out of view — measured 297px above the box — which
+        // is how the stage connector came to be drawn over the pipeline header.
+        //
+        // The INTERSECTION of the container and CodeMirror's scroller, because
+        // which of the two clips depends on the layout: in the data panel the
+        // outer `.json-editor` is the scroller (console.css:408) and
+        // `.cm-scroller`'s rect is the full content height, so the container
+        // wins; if a layout ever makes `.cm-scroller` the scroller, its rect is
+        // the tighter one and wins instead. null before mount.
+        clipRect: () => {
+          const box = containerRef.current?.getBoundingClientRect?.();
+          if (!box) return null;
+          const sc = viewRef.current?.scrollDOM?.getBoundingClientRect?.();
+          if (!sc) return box;
+          return {
+            top: Math.max(box.top, sc.top),
+            bottom: Math.min(box.bottom, sc.bottom),
+            left: Math.max(box.left, sc.left),
+            right: Math.min(box.right, sc.right),
+          };
+        },
         focus: () => viewRef.current.focus(),
         refresh: () => viewRef.current.requestMeasure(),
         // Scroll the given top-level stage's code into view (used once when a

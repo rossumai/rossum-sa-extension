@@ -77,7 +77,8 @@ export const hoveredStage = signal(null);
 // `caretStage` it carries no `el`; the overlay resolves the section from
 // `[data-entry]`. Precedence is hoveredStage > editorHoverStage > caretStage:
 // the two hovers are mutually exclusive in practice (one pointer), and either
-// beats a resting caret.
+// beats a resting caret. Marks the section; never scrolls to it (it did until
+// 2026-08-14 — see StageLinkOverlay).
 export const editorHoverStage = signal(null);
 
 // The stage the pipeline-editor CARET currently sits in — the same link, driven
@@ -89,9 +90,12 @@ export const editorHoverStage = signal(null);
 export const caretStage = signal(null);
 
 // Stages-view options (persisted as mdhStagesAutoscroll / mdhStagesSampleSize).
-// `stagesAutoscroll` toggles the automatic scroll-syncing between the pipeline
-// editor and the Stages view (editor-follows-hover + Stages-follows-cursor); the
-// explicit debug-panel click jump always works regardless. `stagesSampleSize` is
+// `stagesAutoscroll` gates ONE automatic scroll: hovering a Stages section
+// scrolls the pipeline editor to that stage. It used to gate a second one in the
+// opposite direction (the pane following the editor's pointer and caret), which
+// was removed 2026-08-14 — the text editor must not move the right pane — so the
+// option now governs the editor's movement only. The explicit debug-panel click
+// jump still works regardless, gated by nothing. `stagesSampleSize` is
 // how many sample records each stage shows (and fetches per stage). Defaults
 // reproduce the prior behavior exactly (autoscroll on, 10 records).
 export const STAGE_SAMPLE_SIZES = [10, 25, 50];

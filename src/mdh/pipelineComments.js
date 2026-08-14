@@ -322,30 +322,19 @@ export function stageLineRanges(text) {
   }));
 }
 
-// Which ACTIVE-stage index (0-based, skipping disabled stages) the char `offset`
-// falls in, or null when it's in a disabled stage or outside all stages. `ranges`
-// is the output of stageLineRanges(). Used to follow the editor cursor → the
-// matching stage in the Stages view.
 // Which ENTRY index (0-based over ALL top-level stages, disabled included) the
-// char `offset` falls in, or null when it's outside every stage. The companion
-// to activeStageIndexAtOffset, and deliberately a separate function rather than
-// a flag on it: the two answer different questions and both are needed at once.
-// The Stages view renders a section per ENTRY (a disabled stage gets a
-// header-only one), so this is what addresses a section; the ACTIVE index is
-// what the aggregation actually executed, so that is what a stage-output jump
-// needs. Used to link the editor caret to its section.
+// char `offset` falls in, or null when it's outside every stage. `ranges` is the
+// output of stageLineRanges(). This is the index that addresses a Stages-view
+// SECTION — the view renders one per entry, so a disabled stage has one too —
+// and it is what links the editor's caret and pointer to that section.
+//
+// It had a companion, activeStageIndexAtOffset, answering the other question:
+// which stage the aggregation actually EXECUTED, i.e. which stage OUTPUT to
+// scroll to. Deleted 2026-08-14 with the editor-driven scroll it served (the
+// text editor no longer moves the Stages pane), leaving one index space here.
 export function entryIndexAtOffset(ranges, offset) {
   for (const r of ranges) {
     if (offset >= r.start && offset < r.end) return r.entryIndex;
-  }
-  return null;
-}
-
-export function activeStageIndexAtOffset(ranges, offset) {
-  let active = -1;
-  for (const r of ranges) {
-    if (!r.disabled) active += 1;
-    if (offset >= r.start && offset < r.end) return r.disabled ? null : active;
   }
   return null;
 }

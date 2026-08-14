@@ -177,7 +177,10 @@ export default function StagesView({ collection, entries, rawStages, variables, 
             ))}
           </div>
         </div>
-        <label class="pipeline-inspect-opt pipeline-inspect-autoscroll" title="Sync scrolling between the pipeline editor and the Stages view">
+        {/* One direction only, since 2026-08-14: hovering a stage here scrolls the
+            pipeline editor to it. The editor never scrolls this view — see
+            StageLinkOverlay. */}
+        <label class="pipeline-inspect-opt pipeline-inspect-autoscroll" title="Scroll the pipeline editor to the stage you hover here">
           <input type="checkbox" checked={autoscroll} onChange={(e) => { stagesAutoscroll.value = e.currentTarget.checked; }} />
           <span>Auto-scroll</span>
         </label>

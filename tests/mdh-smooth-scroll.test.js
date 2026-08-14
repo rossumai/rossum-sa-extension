@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { easeOutCubic, tweenAt, nearestScrollTop, animateScrollTop, SCROLL_MS } from '../src/mdh/smoothScroll.js';
+import { easeOutCubic, tweenAt, animateScrollTop, SCROLL_MS } from '../src/mdh/smoothScroll.js';
 
 describe('easeOutCubic', () => {
   it('runs 0 → 1 and decelerates', () => {
@@ -38,33 +38,6 @@ describe('tweenAt', () => {
   it('handles scrolling upward as well as down', () => {
     expect(tweenAt(500, 100, SCROLL_MS)).toBe(100);
     expect(tweenAt(500, 100, 40)).toBeLessThan(500);
-  });
-});
-
-describe('nearestScrollTop', () => {
-  // A 400px-tall pane sitting at viewport y=100..500, currently scrolled to 200.
-  const VIEW_TOP = 100, VIEW_BOTTOM = 500, SCROLL = 200;
-
-  it('does not move an element already fully visible', () => {
-    expect(nearestScrollTop(200, 300, VIEW_TOP, VIEW_BOTTOM, SCROLL)).toBe(SCROLL);
-  });
-
-  it('scrolls up to reach an element above the view', () => {
-    const t = nearestScrollTop(40, 140, VIEW_TOP, VIEW_BOTTOM, SCROLL);
-    expect(t).toBeLessThan(SCROLL);
-    expect(t).toBe(SCROLL + (40 - VIEW_TOP) - 8);
-  });
-
-  it('scrolls down to reach an element below the view', () => {
-    const t = nearestScrollTop(520, 600, VIEW_TOP, VIEW_BOTTOM, SCROLL);
-    expect(t).toBeGreaterThan(SCROLL);
-  });
-
-  it('keeps the TOP of an over-tall element in view rather than aligning its bottom', () => {
-    // A 900px section in a 400px pane: aligning the bottom would push the start
-    // of the stage — the part the connector points at — off the top.
-    const t = nearestScrollTop(120, 1020, VIEW_TOP, VIEW_BOTTOM, SCROLL);
-    expect(t).toBeLessThanOrEqual(SCROLL + (120 - VIEW_TOP) - 8);
   });
 });
 
