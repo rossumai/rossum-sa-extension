@@ -1,10 +1,13 @@
 // Seed content for a user's FIRST Architect deliverable — a self-describing demo
 // so a new user immediately sees how it works (write a requirement in Markdown →
-// Run → read-only check → verdict). The leading blockquote flags it as an example
-// and is trivial to delete/replace. Generic Rossum content only (no customer data).
-export const EXAMPLE_DELIVERABLE = `> 👋 **Example deliverable** — a quick demo of Architect. Edit it or replace it with your own, then **Run** to check it read-only against this organization. (Delete this line once you're set.)
+// Run → read-only check → verdict). The blockquote flags it as an example and is
+// trivial to delete/replace. Generic Rossum content only (no customer data).
+// The HEADING LEADS on purpose: a deliverable is named by a heading on its first
+// non-empty line (format.js headingTitle), so behind the banner this demo would
+// be named after the banner instead of demonstrating the rule.
+export const EXAMPLE_DELIVERABLE = `# Invoices queue is set up for automation
 
-# Invoices queue is set up for automation
+> 👋 **Example deliverable** — a quick demo of Architect. Edit it or replace it with your own, then **Run** to check it read-only against this organization. (Delete this line once you're set.)
 
 The **Invoices** queue must exist and be configured for touchless processing:
 

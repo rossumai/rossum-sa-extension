@@ -1,6 +1,7 @@
 import { h } from 'preact';
 import { useEffect, useState, useRef } from 'preact/hooks';
-import { collections, selectedCollection, activeView, loading, error } from '../store.js';
+import { collections, selectedCollection, activeView, loading, error,
+  rawCollections, hiddenCollections, showHiddenCollections, applyCollectionFilter } from '../store.js';
 import { promptModal, closeModal, openModal, ModalBody, ModalActions, ModalMessage, ModalLoading } from './Modal.jsx';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
@@ -13,12 +14,12 @@ async function loadCollections() {
     loading.value = true;
     error.value = null;
     const res = await api.listCollections(null, true);
-    const sorted = (res.result || []).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-    collections.value = sorted;
+    // Keep what the server said; `applyCollectionFilter` derives the visible, sorted list
+    // and clears a selection that is no longer in it (this extension's own collections are
+    // hidden unless revealed — see hiddenCollections.js).
+    rawCollections.value = res.result || [];
+    const sorted = applyCollectionFilter();
     loading.value = false;
-    if (selectedCollection.value && !sorted.includes(selectedCollection.value)) {
-      selectedCollection.value = null;
-    }
     if (!selectedCollection.value && activeView.value !== 'operations' && sorted.length > 0) {
       selectedCollection.value = sorted[0];
     }
@@ -286,6 +287,52 @@ export default function Sidebar() {
 
   const cols = collections.value;
   const selected = selectedCollection.value;
+  const showHidden = showHiddenCollections.value;
+  // This extension's own collections, listed in their own expandable group BELOW the
+  // customer's (owner, 2026-08-18). The group is absent entirely on an org that has none of
+  // ours. NOT a security boundary — the collection is plainly visible to anything else
+  // holding the org token; it is decluttering, and it must stay reachable because the MDH
+  // record editor is the only way to hand-edit a deliverable or read a stored version.
+  const hiddenCols = hiddenCollections.value;
+  function toggleHidden() {
+    const next = !showHiddenCollections.value;
+    showHiddenCollections.value = next;
+    try { chrome.storage.local.set({ mdhShowHiddenCollections: next }); } catch { /* no storage (tests) */ }
+  }
+
+  // One row, rendered for BOTH lists — the customer's collections and, under the expandable
+  // group, this extension's own. Same click/middle-click/context-menu/kebab behaviour in both
+  // places: a hidden collection is a normal collection that merely starts out of sight.
+  function collectionRow(name) {
+    return (
+          <div
+        class={'collection-item'
+          + (name === selected && activeView.value === 'collection' ? ' active' : '')
+          + (menuOpenFor === name ? ' menu-open' : '')}
+        onClick={(e) => {
+          if (e.metaKey || e.ctrlKey) { e.preventDefault(); openCollectionTab(name); }
+          else selectCollection(name);
+        }}
+        onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); openCollectionTab(name); } }}
+        onMouseDown={(e) => { if (e.button === 1) e.preventDefault(); }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setMenuPos({ top: e.clientY, left: e.clientX });
+          setMenuOpenFor(name);
+        }}
+      >
+        <span class="collection-item-name" title={name}>{name}</span>
+        <span class="collection-item-actions">
+          <button
+            class="collection-action-btn collection-action-menu-btn"
+            title="Collection actions"
+            onClick={(e) => toggleMenu(name, e)}
+            dangerouslySetInnerHTML={{ __html: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>' }}
+          />
+        </span>
+      </div>
+    );
+  }
 
   return (
     <aside id="sidebar" class="sidebar">
@@ -300,35 +347,24 @@ export default function Sidebar() {
         </div>
       </div>
       <div class="collection-list">
-        {cols.map((name) => (
-          <div
-            class={'collection-item'
-              + (name === selected && activeView.value === 'collection' ? ' active' : '')
-              + (menuOpenFor === name ? ' menu-open' : '')}
-            onClick={(e) => {
-              if (e.metaKey || e.ctrlKey) { e.preventDefault(); openCollectionTab(name); }
-              else selectCollection(name);
-            }}
-            onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); openCollectionTab(name); } }}
-            onMouseDown={(e) => { if (e.button === 1) e.preventDefault(); }}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              setMenuPos({ top: e.clientY, left: e.clientX });
-              setMenuOpenFor(name);
-            }}
-          >
-            <span class="collection-item-name" title={name}>{name}</span>
-            <span class="collection-item-actions">
-              <button
-                class="collection-action-btn collection-action-menu-btn"
-                title="Collection actions"
-                onClick={(e) => toggleMenu(name, e)}
-                dangerouslySetInnerHTML={{ __html: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>' }}
-              />
-            </span>
-          </div>
-        ))}
+        {cols.map((name) => collectionRow(name))}
       </div>
+      {hiddenCols.length > 0 && (
+        <div class={'collection-hidden-group' + (showHidden ? ' open' : '')}>
+          <button
+            type="button"
+            class="collection-hidden-toggle"
+            aria-expanded={showHidden}
+            title="Collections created by this extension"
+            onClick={toggleHidden}
+          >
+            <span class="collection-hidden-caret">{showHidden ? '\u25be' : '\u25b8'}</span>
+            <span class="collection-hidden-label">Extension collections</span>
+            <span class="sidebar-count">({hiddenCols.length})</span>
+          </button>
+          {showHidden && <div class="collection-list">{hiddenCols.map((name) => collectionRow(name))}</div>}
+        </div>
+      )}
       {menuOpenFor && menuPos && (
         <div
           ref={menuRef}

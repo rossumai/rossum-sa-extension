@@ -1245,6 +1245,25 @@ body {
 }
 
 .icon-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.icon-btn[aria-pressed="true"] { color: var(--accent); }
+
+/* This extension's own collections: an expandable group pinned BELOW the customer's list
+   (owner, 2026-08-18). `margin-top: auto` is what pins it — the sidebar is a flex column, so
+   the group sits at the bottom however short the list above it is, instead of floating
+   directly under the last row. */
+.collection-hidden-group { flex: none; margin-top: auto; border-top: 1px solid var(--border); }
+.collection-hidden-toggle {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 7px 12px; border: 0; background: none; cursor: pointer;
+  color: var(--text-secondary); font: inherit; font-size: 11.5px; font-weight: 600;
+  text-align: left; letter-spacing: .02em;
+}
+.collection-hidden-toggle:hover { background: var(--bg-hover); color: var(--text-primary); }
+.collection-hidden-caret { flex: none; width: 9px; opacity: .8; }
+.collection-hidden-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Open: the rows scroll on their own rather than growing the group without bound, and are
+   tinted so it is obvious these are not the customer's datasets. */
+.collection-hidden-group.open > .collection-list { max-height: 176px; overflow-y: auto; overscroll-behavior: none; background: var(--bg-hover); }
 
 .input {
   padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius);
@@ -4365,12 +4384,9 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .fabry-arch-new { width: 100%; text-align: center; border: 1px dashed var(--border); color: var(--accent); background: none; border-radius: 8px; padding: 7px 10px; font-weight: 600; font-size: 12.5px; cursor: pointer; }
 .fabry-arch-new:hover { background: var(--bg-hover); border-style: solid; }
 
-/* Implement loop (ralph-style, write-enabled): footer control + editor panel + arm dialog.
-   Danger-tinted to signal it WRITES to the live org (distinct from the accent check button). */
-.fabry-arch-implementall { width: 100%; border: 1px solid var(--danger); background: var(--danger-bg); color: var(--danger-fg); border-radius: 8px; padding: 8px 12px; font-weight: 600; font-size: 12.5px; cursor: pointer; }
-.fabry-arch-implementall:hover:not(:disabled) { background: var(--danger); color: #fff; border-color: var(--danger); }
-.fabry-arch-implementall:disabled { opacity: 0.5; cursor: default; }
-.fabry-arch-implement { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+/* Implement loop (ralph-style, write-enabled): the per-deliverable panel + arm dialog.
+   Danger-tinted to signal it WRITES to the live org (distinct from the accent check button).
+   There is deliberately no "Implement all" — implement is per deliverable. */
 .fabry-arch-implement-hd { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .fabry-arch-implement-title { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-secondary); }
 .fabry-arch-implement-run { border: 1px solid var(--danger); background: none; color: var(--danger-fg); border-radius: 8px; padding: 6px 12px; font-weight: 600; font-size: 12px; cursor: pointer; }
@@ -4437,12 +4453,78 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 
 /* Main pane: editor blends from the active sidebar row (shared --bg-card) */
 .fabry-arch { display: flex; flex-direction: column; height: 100%; min-height: 0; background: var(--bg-card); }
+/* ── Unified specification view (2026-08-19) ─────────────────────────────────
+   The document column and the inspector rail sit side by side; the legacy notice spans both, so
+   the row lives one level in. Both side columns collapse (measured: 664 / 908 / 1230px at a
+   1280px window), which is what keeps the reading column honest. */
+.fabry-arch-unified { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-auto-rows: auto minmax(0, 1fr); }
+.fabry-arch-unified > .fabry-arch-legacy { grid-column: 1 / -1; }
+.fabry-arch-unified > .fabry-spec { grid-column: 1; min-width: 0; }
+.fabry-arch-unified > .fabry-rail { grid-column: 2; }
+.fabry-arch-unified > .fabry-arch-placeholder { grid-column: 1 / -1; }
+
+.fabry-spec { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.fabry-spec-bar { flex: none; display: flex; align-items: center; gap: 9px; padding: 7px 14px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
+.fabry-spec-lbl { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-secondary); }
+.fabry-spec-sp { margin-left: auto; }
+.fabry-spec-btn { border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary); font: inherit; font-size: 11.5px; font-weight: 600; padding: 4px 9px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.fabry-spec-btn:hover { border-color: var(--accent); color: var(--accent); }
+.fabry-spec .docs-pane { flex: 1; min-height: 0; }
+
+/* One section per deliverable. The header carries identity and status only — the rail owns actions. */
+.docs-section + .docs-section { border-top: 1px solid var(--border); }
+.fabry-spec-sec-hd { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px; padding: 7px 26px; background: var(--bg-card); border-bottom: 1px solid var(--border); cursor: pointer; }
+.fabry-spec-sec-n { font-size: 12.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fabry-spec-pill { flex: none; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap; }
+.fabry-spec-pill.pass { background: var(--success-bg); color: var(--success-fg); border-color: var(--success-border); }
+.fabry-spec-pill.fail { background: var(--danger-bg); color: var(--danger-fg); border-color: var(--danger-border); }
+.fabry-spec-pill.uncertain { background: var(--warning-bg); color: var(--warning-fg); border-color: var(--warning-border); }
+.fabry-spec-pill.run { background: var(--info-bg); color: var(--info-fg); border-color: var(--info-border); }
+/* Stale = the SAME verdict on less solid ground: the fill drops away and the pill says so. One badge,
+   two facts — the separate "stale" word beside it is gone (2026-08-19), as is the manual state pill. */
+.fabry-spec-pill.pass.stale, .fabry-spec-pill.fail.stale, .fabry-spec-pill.uncertain.stale { background: none; }
+
+/* Edit mode: EVERY deliverable is an editor, visible immediately (owner, 2026-08-19), with Markdown
+   highlighting. `.markdown-body` is carried on the HOST for its box — max-width, centring, and
+   upstream's own @container branch that drops the padding on a narrow column (measured: 15px at a
+   646px column, not the 45px the wide rule states) — so switching mode does not move the text
+   sideways. Restating those numbers here is what made Edit sit wider than Preview. */
+.fabry-spec-cm { min-height: 1.6em; }
+/* Content height, page scrolling: the specification is ONE scroller, so no editor may own a viewport
+   of its own (measured: inner scroll range 0, and CodeMirror still renders only the visible lines). */
+.fabry-spec-cm .cm-editor { height: auto; }
+.fabry-spec-cm .cm-scroller { overflow: visible; }
+.fabry-spec-cm .cm-content { min-height: 0 !important; }
+
+/* A diff sent out of the rail, where there is room to read it. */
+.fabry-spec-review { border-bottom: 1px solid var(--border); background: var(--bg-sidebar); }
+.fabry-spec-review-bar { display: flex; align-items: center; gap: 8px; padding: 6px 26px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
+.fabry-spec-review-t { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-secondary); }
+.fabry-spec-review-body { padding: 12px 26px 18px; }
+
+/* The inspector rail. */
+.fabry-rail { position: relative; flex: none; border-left: 1px solid var(--border); background: var(--bg-sidebar); display: flex; flex-direction: column; min-height: 0; }
+.fabry-rail-resizer { position: absolute; top: 0; left: -3px; width: 6px; height: 100%; cursor: col-resize; z-index: 6; }
+.fabry-rail-resizer:hover, .fabry-rail-resizer.dragging { background: var(--info-border); }
+.fabry-rail-hd { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+.fabry-rail-for { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-secondary); }
+.fabry-rail-name { font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fabry-rail-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.fabry-rail-follow { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.fabry-rail-pin { border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary); font: inherit; font-size: 10.5px; font-weight: 650; padding: 2px 9px; border-radius: 999px; cursor: pointer; }
+.fabry-rail-pin.on { border-color: var(--accent); color: var(--accent); }
+.fabry-rail-held { font-size: 10.5px; font-weight: 650; color: var(--warning-fg); background: var(--warning-bg); border: 1px solid var(--warning-border); border-radius: 999px; padding: 2px 8px; }
+.fabry-rail-tabs { flex: none; display: flex; gap: 2px; padding: 7px 8px 0; }
+.fabry-rail-tab { border: 0; background: none; color: var(--text-secondary); font: inherit; font-size: 11.5px; font-weight: 650; padding: 5px 9px; border-radius: 6px 6px 0 0; cursor: pointer; }
+.fabry-rail-tab[aria-selected="true"] { background: var(--bg-card); color: var(--text-primary); box-shadow: inset 0 -1px 0 var(--border); }
+.fabry-rail-body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: none; padding: 11px 12px 16px; background: var(--bg-card); }
+.fabry-rail-wide { margin-top: 10px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary); font: inherit; font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 6px; cursor: pointer; }
+.fabry-rail-wide:hover { border-color: var(--accent); color: var(--accent); }
+.fabry-rail-elsewhere { font-size: 12px; color: var(--text-secondary); }
 .fabry-arch-placeholder { margin: auto; max-width: 420px; text-align: center; color: var(--text-secondary); padding: 24px; }
 .fabry-arch-placeholder-title { font-size: 15px; font-weight: 650; color: var(--text-primary); margin: 0 0 4px; }
 .fabry-arch-placeholder-sub { font-size: 13px; margin: 0; }
-/* The whole right side scrolls (so an expanded verdict shows fully). */
-.fabry-arch-editor { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
-/* Docked, inline "Refine wording" bar — pinned at the bottom of the deliverable pane
+/* Docked, inline "Refine wording" bar — pinned at the bottom of whichever panel hosts it
    (the design-system FabryInput lives here; the diff card rises above it). */
 .fabry-arch-dock { flex: none; position: sticky; bottom: 0; z-index: 1; border-top: 1px solid var(--border); background: var(--bg-sidebar); padding: 10px 16px; }
 .fabry-arch-dock-hint { font-size: 11px; color: var(--text-secondary); margin: 6px 2px 0; }
@@ -4450,51 +4532,43 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .fabry-arch-refine-card { border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); box-shadow: var(--shadow); padding: 12px 14px; margin-bottom: 10px; }
 .fabry-arch-refine-card-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
 .fabry-arch-refine-card-actions .fabry-arch-credit { margin-right: auto; }
-/* Proposal A: source + preview are one toggled area (full width), not a split. */
-.fabry-arch-source { height: 100%; min-width: 0; overflow: auto; padding: 6px 16px; }
-.fabry-arch-preview { height: 100%; min-width: 0; overflow: auto; padding: 14px 20px; }
-
-/* ── Proposal A layout: header · Edit/Preview doc · tabbed console ── */
-.fabry-arch-phead { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--border); flex: none; }
-.fabry-arch-titlebtn { flex: 1; min-width: 0; text-align: left; background: none; border: 0; font: inherit; font-size: 14.5px; font-weight: 680; letter-spacing: -.01em; color: var(--text-primary); cursor: text; padding: 3px 6px; margin: -3px -6px; border-radius: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fabry-arch-titlebtn:hover { background: var(--bg-hover); }
-/* Header stays neutral; the verdict shows in the compact pill here and, loudest,
-   in the action console below (top rail + tinted Check banner). */
-.fabry-arch-pill { flex: none; display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 700; padding: 4px 12px; border-radius: 20px; border: 1px solid; white-space: nowrap; }
-.fabry-arch-pill.pass { color: var(--success-fg); background: var(--success-bg); border-color: var(--success); }
-.fabry-arch-pill.fail { color: var(--danger-fg); background: var(--danger-bg); border-color: var(--danger); }
-.fabry-arch-pill.uncertain { color: var(--warning-fg); background: var(--warning-bg); border-color: var(--warning); }
-.fabry-arch-pill.run { color: var(--accent); background: var(--info-bg); border-color: var(--accent); }
-.fabry-arch-doc { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.fabry-arch-doc-bar { display: flex; align-items: center; gap: 10px; padding: 7px 14px; border-bottom: 1px solid var(--border); flex: none; }
-.fabry-arch-doc-lbl { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-secondary); margin-right: auto; }
+/* Where localpages prints `solution.md:75 <state-label> …` to its terminal. A trainee
+   of this pane has no terminal, and an unrecognised custom element renders as nothing
+   at all, so the diagnostic has to be on screen. */
+.fabry-arch-doc-warn { position: relative; flex: none; padding: 6px 30px 6px 14px; border-bottom: 1px solid var(--warning-border); background: var(--warning-bg); color: var(--warning-fg); font-size: 11px; line-height: 1.5; max-height: 96px; overflow: auto; }
+.fabry-arch-doc-note { font-weight: 600; }
+.fabry-arch-doc-warn-x { position: absolute; top: 4px; right: 6px; border: 0; background: none; color: inherit; font-size: 15px; line-height: 1; cursor: pointer; opacity: .7; padding: 0 4px; }
+.fabry-arch-doc-warn-x:hover { opacity: 1; }
 .fabry-arch-viewtoggle { display: inline-flex; background: var(--bg-hover); border-radius: 7px; padding: 2px; gap: 2px; }
 .fabry-arch-viewtoggle button { border: 0; background: none; color: var(--text-secondary); font: inherit; font-size: 11.5px; font-weight: 600; padding: 4px 11px; border-radius: 5px; cursor: pointer; }
 .fabry-arch-viewtoggle button[aria-pressed="true"] { background: var(--bg-card); color: var(--text-primary); box-shadow: var(--shadow); }
-.fabry-arch-doc-body { flex: 1; min-height: 0; overflow: hidden; }
-.fabry-arch-doc-body > [hidden] { display: none; }
-/* Fixed height (set inline from store.consoleHeight so it doesn't jump between tabs)
-   and drag-resizable via .fabry-arch-console-grip on its top edge. */
-.fabry-arch-console { flex: none; display: flex; flex-direction: column; border-top: 1px solid var(--border); background: var(--bg-sidebar); }
-/* The action console is where users look during analysis, so the verdict is loudest
-   here: a bold colored top rail (always visible) + the tinted Check banner below. */
-.fabry-arch-console.verdict-pass { border-top: 3px solid var(--success); }
-.fabry-arch-console.verdict-fail { border-top: 3px solid var(--danger); }
-.fabry-arch-console.verdict-uncertain { border-top: 3px solid var(--warning); }
-.fabry-arch-console.verdict-run { border-top: 3px solid var(--accent); }
-.fabry-arch-console-grip { flex: none; height: 9px; margin-top: -5px; cursor: ns-resize; display: flex; align-items: center; justify-content: center; position: relative; z-index: 1; }
-.fabry-arch-console-grip::after { content: ''; width: 34px; height: 3px; border-radius: 2px; background: var(--border); transition: background .12s; }
-.fabry-arch-console-grip:hover::after { background: var(--accent); }
-.fabry-arch-ctabs { display: flex; gap: 2px; padding: 7px 12px 0; flex: none; }
-.fabry-arch-ctab { border: 0; background: none; color: var(--text-secondary); font: inherit; font-size: 12px; font-weight: 600; padding: 7px 13px; border-radius: 8px 8px 0 0; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-.fabry-arch-ctab[aria-selected="true"] { background: var(--bg-card); color: var(--text-primary); box-shadow: inset 0 -1px 0 var(--border); }
-.fabry-arch-ctab-dot { width: 7px; height: 7px; border-radius: 50%; }
-.fabry-arch-ctab-dot.pass { background: var(--success); }
-.fabry-arch-ctab-dot.fail { background: var(--danger); }
-.fabry-arch-ctab-dot.uncertain { background: var(--warning); }
-.fabry-arch-cbody { background: var(--bg-card); border-top: 1px solid var(--border); flex: 1; min-height: 0; overflow: auto; }
-.fabry-arch-cbody > [hidden] { display: none; }
-.fabry-arch-cpanel { padding: 13px 16px; }
+/* Version history (the [↺ History] tab, in the inspector rail or at document width). The list
+   and the diff scroll independently instead of dragging their host with them; `min-height: 0` on
+   both children is what lets them actually scroll (the same flex rule the MDH Stages pane
+   needed), and height:100% degrades to content height where the host has no definite height, so
+   neither case collapses. */
+.fabry-arch-hist { display: flex; height: 100%; min-height: 0; }
+.fabry-arch-hist-list { flex: 0 0 208px; min-height: 0; overflow-y: auto; overscroll-behavior: none; margin: 0; padding: 5px; list-style: none; border-right: 1px solid var(--border); }
+.fabry-arch-hist-row { display: flex; align-items: baseline; gap: 7px; width: 100%; padding: 5px 7px; border-radius: 6px; font-size: 11.5px; text-align: left; }
+.fabry-arch-hist-btn { border: 0; background: none; color: var(--text-primary); font: inherit; font-size: 11.5px; cursor: pointer; }
+.fabry-arch-hist-btn:hover { background: var(--bg-hover); }
+.fabry-arch-hist-btn.is-selected { background: var(--bg-card); box-shadow: inset 0 0 0 1px var(--accent); }
+/* The live text is a landmark, not a version: it is never selectable and never restorable. */
+.fabry-arch-hist-current { color: var(--text-secondary); border-bottom: 1px dashed var(--border); border-radius: 0; margin-bottom: 4px; padding-bottom: 7px; }
+.fabry-arch-hist-icon { flex: none; opacity: .8; }
+.fabry-arch-hist-when { font-weight: 600; white-space: nowrap; }
+.fabry-arch-hist-what { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fabry-arch-hist-pane { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.fabry-arch-hist-bar { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+.fabry-arch-hist-cmp button { font-size: 11px; padding: 3px 9px; }
+.fabry-arch-hist-restore { border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary); font: inherit; font-size: 11.5px; font-weight: 600; padding: 4px 11px; border-radius: 6px; cursor: pointer; }
+.fabry-arch-hist-restore:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.fabry-arch-hist-restore:disabled { opacity: .5; cursor: default; }
+.fabry-arch-hist-diff { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: none; padding: 9px 12px; }
+.fabry-arch-hist-note { padding: 12px 14px; color: var(--text-secondary); font-size: 12px; }
+.fabry-arch-hist-error { color: var(--danger); }
+/* Legacy-collection notice: informational, so it borrows the info tint rather than a warning. */
+.fabry-arch-legacy { display: flex; align-items: baseline; gap: 8px; margin: 0; padding: 6px 12px; font-size: 11.5px; color: var(--text-secondary); background: var(--info-bg); border-bottom: 1px solid var(--info-border); }
 /* Prominent verdict banner inside the Check tab — the main analysis surface. */
 .fabry-arch-check-hd { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 9px 12px; border-radius: 8px; border: 1px solid transparent; }
 .fabry-arch-check-hd.pass { background: var(--success-bg); border-color: var(--success); }
@@ -4512,16 +4586,8 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .fabry-arch-check-empty { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-secondary); }
 .fabry-arch-implement-stop { margin-left: auto; border: 1px solid var(--danger); background: var(--danger-bg); color: var(--danger-fg); border-radius: 8px; padding: 5px 13px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
 .fabry-arch-implement-hint { font-size: 12px; color: var(--text-secondary); margin: 4px 0 0; }
-/* RefineDock rendered inside the Refine tab: drop the sticky-dock chrome. */
-.fabry-arch-console .fabry-arch-dock { position: static; border-top: 0; background: none; padding: 0; }
-.fabry-arch-md { height: 100%; }
-.fabry-arch-md .cm-editor { height: 100%; }
-/* Smaller rendered-markdown so the preview + evidence sit better in the UI. */
-/* .fabry-arch-preview/.fabry-arch-evidence .fabry-md* size overrides moved into
-   FabryMarkdown.module.css as :global(.fabry-arch-*) .md (co-located with the component). */
-/* (The old collapsible verdict banner `.fabry-arch-details`/`.fabry-arch-banner*`
-   was removed 2026-07-15 — the verdict now lives in the Check tab of the redesigned
-   pane. `.fabry-arch-credit/-evidence/-viewchat` below are still used there.) */
+/* The rendered-markdown size overrides live in FabryMarkdown.module.css as
+   :global(.fabry-arch-*) .md, co-located with the component. */
 .fabry-arch-credit { font-size: 11px; color: var(--text-secondary); }
 .fabry-arch-evidence { font-size: 12px; }
 .fabry-arch-viewchat { border: none; background: none; color: var(--accent); cursor: pointer; font-size: 12px; font-weight: 600; padding: 0; }
@@ -4535,3 +4601,81 @@ tbody.uploads-row-failed tr { background: rgba(239, 68, 68, 0.04); }
 .fabry-mode-opt { flex: 1; border: 0; background: none; border-radius: 8px; padding: 6px 0; font: inherit; font-weight: 600; font-size: 12.5px; color: var(--text-primary); cursor: pointer; }
 .fabry-mode-opt:not(.on):hover { background: var(--bg-card); color: var(--accent); }
 .fabry-mode-opt.on { background: var(--bg-card); color: var(--accent); box-shadow: var(--shadow); }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   Print — the Architect deliverable document (the localpages port, spec §5).
+   ══════════════════════════════════════════════════════════════════════════════
+   src/docs/theme.css carries upstream's ENTIRE @media print block verbatim (page
+   breaks, exact-colour printing, forced-open <details>, hidden anchors/TOC/modal).
+   What it cannot know about is the app around it, so these rules ADD the shell
+   teardown: without them Cmd-P prints one viewport of Console chrome, because #app is
+   height:100vh and four ancestors are overflow:hidden — a paginated print needs the
+   document to flow, not to sit in a fixed box.
+
+   Everything is scoped with `body:has(.docs-pane)`, so this engages only while a
+   specification is actually on screen; printing MDH, Audit or Chat is untouched.
+
+   Cmd-P prints WHAT IS ON SCREEN, which in Edit mode is the Markdown source — the Edit and
+   Preview columns are separate mounts now (the old pane kept a hidden preview to reveal), so
+   there is nothing to substitute and pretending otherwise would print a document the reader
+   is not looking at. The ⤓ PDF button is the path that always prints the rendered document,
+   in either mode and at any scope. */
+@media print {
+  body:has(.docs-pane) .app-rail,
+  body:has(.docs-pane) .fabry-sidebar,
+  body:has(.docs-pane) .fabry-spec-bar,
+  body:has(.docs-pane) .fabry-arch-doc-warn,
+  body:has(.docs-pane) .fabry-spec-review,
+  body:has(.docs-pane) .fabry-rail,
+  body:has(.docs-pane) .connection-bar,
+  body:has(.docs-pane) .error-banner { display: none !important; }
+
+  /* Unwind the fixed-height flex column and every clipping ancestor between the page
+     and the document, then let the document own the page. */
+  body:has(.docs-pane),
+  body:has(.docs-pane) #app,
+  body:has(.docs-pane) .app-root,
+  body:has(.docs-pane) .fabry-layout,
+  body:has(.docs-pane) .fabry-main,
+  body:has(.docs-pane) .fabry-spec,
+  body:has(.docs-pane) .docs-pane,
+  body:has(.docs-pane) .docs-root {
+    display: block !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    position: static !important;
+  }
+
+  /* A section header is sticky on screen; on paper it is a band at the top of its section,
+     and a sticky element inside a flowing document lands unpredictably. */
+  body:has(.docs-pane) .fabry-spec-sec-hd { position: static !important; }
+}
+
+/* PDF dialog rows (the print/save-as-PDF options). Radios and checkboxes with a secondary
+   line each, because the choices are not self-evident — "Whole specification" vs "This
+   deliverable" and what a contents page or a check verdict means on paper. */
+.fabry-arch-pdf-row { display: flex; align-items: flex-start; gap: 9px; padding: 5px 2px; cursor: pointer; font-size: 12.5px; }
+.fabry-arch-pdf-row input { margin: 2px 0 0; flex: none; cursor: pointer; }
+.fabry-arch-pdf-row.off, .fabry-arch-pdf-row input:disabled { cursor: default; opacity: .55; }
+.fabry-arch-pdf-row > span { display: flex; flex-direction: column; gap: 1px; }
+.fabry-arch-pdf-hint { font-size: 11px; color: var(--text-secondary); }
+
+/* ── Document outline, nested under the open deliverable (owner, 2026-08-18) ──────────
+   The TOC moved here from inside the document: upstream's in-page `.toc` wants a 1280px
+   column and the pane is ~936px at a 1280px window, so it was hidden in practice. Nesting it
+   under the row it belongs to keeps the sidebar ONE navigation tree instead of two panels
+   competing for the same vertical space. */
+.fabry-arch-outline { display: flex; flex-direction: column; margin: 1px 0 5px; padding-left: 9px; border-left: 1px solid var(--border); }
+.fabry-arch-outline-item {
+  display: block; width: 100%; text-align: left;
+  border: 0; border-left: 2px solid transparent; border-radius: 0;
+  background: none; color: var(--text-secondary);
+  font: inherit; font-size: 11.5px; line-height: 1.45;
+  padding: 2px 6px 2px 8px; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fabry-arch-outline-item.level-3 { padding-left: 20px; font-size: 11px; }
+.fabry-arch-outline-item:hover { color: var(--text-primary); background: var(--bg-hover); }
+.fabry-arch-outline-item.active { color: var(--accent); border-left-color: var(--accent); font-weight: 600; }

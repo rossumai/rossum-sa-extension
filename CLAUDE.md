@@ -19,7 +19,9 @@ esbuild config: `format: 'iife'`, `minify: true`, `jsxFactory: 'h'`, `jsxFragmen
 
 ## Architecture
 
-Nine esbuild entry points:
+Nine esbuild entry points, plus two bundles that are never imported by `console.js` and are
+script-injected on demand instead — `console/mermaid` (`src/fabry/mermaidEntry.js`, the ~1.5MB
+diagram renderer) and `console/doc-print` (`src/docs/printEntry.js`, the print page's own script):
 
 1. **`src/rossum/index.js`** → content script for Rossum pages
 2. **`src/netsuite/index.js`** → content script for NetSuite pages
@@ -570,15 +572,34 @@ The server owns ALL chat state; the client holds it in signals only:
   the ✦ brand) driven by the per-tab, content-free `fabryMode` signal swaps
   `.fabry-main` — Chat is byte-identical. Architect (`src/fabry/architect/`)
   keeps one per-org list of **deliverables** (Markdown SOW items) in the
-  `__mrfabry_architect` Data Storage system collection — one doc per deliverable
+  `_SA_EXTENSION__fabry_architect` Data Storage collection (renamed from
+  `__mrfabry_architect` on 2026-08-18 — see *Version history* below for the
+  migration, which is NOT a one-shot rename) — one doc per deliverable
   `{_id, kind:'requirement', text /*markdown*/, order, createdAt, editedAt,
-  lastVerdict, lastEvidence, lastChatId, ranAt}` (the collection name is a single
-  cosmetic constant in `architect/api.js` — no code parses the `__` prefix,
-  swappable). The deliverable **list lives in the sidebar** (`ArchitectSidebar`,
+  title, titleSource, lastVerdict, lastEvidence, lastChatId, ranAt}`. Both names
+  live in `architect/collectionNames.js`, a leaf module with no imports, because
+  MDH's sidebar filter needs them too and two literals would silently disagree. The deliverable **list lives in the sidebar** (`ArchitectSidebar`,
   rendered by `Sidebar.jsx` in architect mode). Each row shows a concise **title**
-  (`format.displayTitle` — an AI-generated title via read-only `generateTitle`/
-  `backfillTitles` [`title.js` prompt; persisted `title`], or a manual **Rename…**
-  from the kebab; falls back to the Markdown first line) + a run-status dot + a
+  resolved most-explicit-first by `format.displayTitle` (2026-08-17, owner): a
+  manual **Rename…** > **a Markdown heading the deliverable declares on its own
+  first non-empty line** > an AI-generated title (read-only `generateTitle`/
+  `backfillTitles`, `title.js` prompt) > the derived first line > `Untitled`.
+  `headingTitle` copies its pattern from `src/ui/fabry/markdown.js:76` on purpose
+  (`^(#{1,4})\s+`, UNTRIMMED) so it accepts exactly what the Preview tab RENDERS
+  as a heading — `##### x`, `#x` and an indented `# x` are all plain text there
+  and are therefore not names here. Rename and AI generation share the one
+  persisted `title` field, so telling them apart needs **`titleSource`**
+  (`'manual'`/`'ai'`, `saveTitle`'s third argument): absent on every doc written
+  before this change, and `''` reads as AI-generated — which is precisely what
+  lets the heading rule reach deliverables that ALREADY EXIST. An older build
+  ignores the key and still reads `title`, so the doc stays readable both ways.
+  `generateTitle`/`backfillTitles` **skip headed text entirely** (the heading
+  already wins, so the chat would be pure waste) — meaning a headed deliverable
+  stores NO title at all, which is why both Rename… call sites prefill from
+  `displayTitle(d)` and not from `d.title`, or the box opens EMPTY on exactly the
+  deliverables the heading names. `EXAMPLE_DELIVERABLE` leads with its heading for
+  the same reason: behind the `> 👋` banner the demo would be named after the
+  banner. Row also carries a run-status dot + a
   kebab (Re-run / Implement / Rename… / Delete); the footer has **Run all ▷**/Stop
   (the read-only check) — there is **NO "Implement all"** (implement is
   per-deliverable). **Deliverable pane — redesigned 2026-07-15 (Proposal A):** a
@@ -604,9 +625,253 @@ The server owns ALL chat state; the client holds it in signals only:
   (content + last result). Nothing extra at rest in the browser (deliverables +
   results live server-side per-org; only `fabryMode` persists; `activeId` is
   in-memory). No new gate — inside the Fabry app, which is public since 2026-08-11.
-  LIVE GATE before non-dogfood use: confirm the server accepts a `__`-prefixed
-  collection create + doc write on elis (client + MDH app verified clean;
-  DocumentDB reserves only `system.` — swap the constant if rejected).
+  That LIVE GATE is now CLOSED (2026-08-18, probed on the internal org): Data
+  Storage accepts a `_SA_EXTENSION__`-prefixed collection create (200 ok) and a
+  doc write into it, so the prefix convention is safe.
+- **Status is the CHECK VERDICT alone — there is no manual state** (owner, 2026-08-19:
+  "let's drop the manual labels, let's rely only on the LLM (programatic) labels"). A
+  hand-set state per deliverable — localpages' `rough-draft`/`in-progress`/`ready`/
+  `verified`/`stale` vocabulary as an Architect property (`stateLabel.js` +
+  `StateControl.jsx`, `state`/`stateDate` on the doc, a picker in the pane header) — shipped
+  on 2026-08-18 and was REMOVED the next day, so the whole surface is one badge: `CheckBadge`
+  in `SpecView.jsx`, rendered in each section header and in the inspector rail. The reason it
+  went is worth keeping, because it is the argument against re-adding it: the manual "Verified"
+  and the measured "✓ Met" answered the SAME question, so a reader facing both had to decide
+  which one to believe, and the one nobody can fake is the one Fabry re-derives from the org.
+  `stale` was the third badge and is not a state at all — it qualifies a verdict ("last checked
+  4d ago · may be outdated"), so it now renders as a suffix on the pill (`· stale`) with the
+  FILL dropped and the verdict's hue kept in text and border: the same claim, visibly not
+  fresh. The sidebar dot already spoke only verdict (`dotClass`), so it needed no change.
+  Existing documents KEEP their `state`/`stateDate` fields — `mapDocs` simply stops reading
+  them, because retiring a feature must never delete customer data — and `printDoc.js` no
+  longer prints a state badge (`PDF_KEYS` is `['contents','verdicts']`; the PdfDialog offers
+  two options, not three). `docWarnings.js` still catches anyone who types the old markup:
+  `<state-label>` and its near-misses (`section-state`, `statelabel`, `StateLabel`, bare
+  `state`/`status`) render upstream's dashed-red error pill plus a `file:line` warning, because
+  otherwise they render as NOTHING — markdown-it passes the unknown tag through, the sanitizer
+  unwraps it, and a browser draws an unrecognised custom element as empty space. That silence
+  is what the owner hit with `<section-state>`. The warning now says the element is not
+  supported here and that a deliverable's status comes from its check verdict. One nuance
+  unchanged: an UNDERSCORED name (`<state_label>`) needs no notice and gets none — an
+  underscore is illegal in an HTML tag name, so markdown-it never treats it as HTML and it
+  renders as visible literal text.
+- **Version history** (`architect/revisionPolicy.js` + `components/HistoryPanel.jsx`, owner
+  2026-08-18; spec `docs/superpowers/specs/2026-08-18-architect-version-history-design.md`) — a
+  4th action-console tab `[Check | Refine | Implement | ↺ History]` over per-deliverable versions
+  stored as SIBLING documents in the same collection: `{_id:'rev_<uuid>', kind:'revision',
+  deliverableId, text, at, source}`. `loadDeliverables` queries `kind:'requirement'`, so a
+  revision is invisible to this build's normal load AND to every older build — the additive-key
+  precedent (`titleSource`, `state`) applied to whole documents. Full text per version, never a
+  patch chain: restore is then a plain write and no single entry can corrupt the middle of a
+  history. **One version per EDITING SESSION, not per save** — the editor autosaves 600ms after
+  typing stops (`SourceColumn.onEdit` in `components/SpecView.jsx`), so per-save versioning would mint dozens per
+  paragraph; the first save of a session stores the PRE-EDIT text and later saves in that session
+  write nothing. A session ends on an `IDLE_MS` (5 min) pause, a deliverable switch, or a `source`
+  change (`'edit'`/`'refine'`/`'restore'`) — a human edit after an accepted Refine is a different
+  act. `source` describes the change that SUPERSEDED the stored text, which is what makes a row
+  read "at 11:07 a Refine acceptance changed this; here is what it looked like before", and which
+  answers "what did Fabry do to my spec" with no separate provenance feature. `CAP` is 40 per
+  deliverable and pruning ALWAYS KEEPS THE EARLIEST — it is the only copy of where the document
+  started (same reasoning as `storage.js pruneOrgs` never evicting a receipt). Two invariants that
+  are easy to break: the snapshot decision is made BEFORE the store is mutated (the version stores
+  the text as it WAS), and the insert is deliberately NOT awaited by the save path (a user's text
+  must never wait on its history; a failed insert costs one missing entry, not an unsaved edit —
+  pinned by a test). The list query PROJECTS `text` OUT, so opening the tab is cheap on a long
+  specification; each version's text is fetched only when looked at, and `ensureRevisionText` loads
+  the `vs next` side WITHOUT moving the selection. Restore is one click with no confirm dialog
+  BECAUSE it is undoable: `source:'restore'` forces a new session, so the pre-restore text is
+  snapshotted first. Diffing reuses `src/ui/DiffView.jsx` unmodified. `resetSession()` is called by
+  `loadArchitect` — a session carried across a reconnect would fold the first edit into a version
+  belonging to the previous org. Incidental fix that came with it: an EXTERNAL text change (restore,
+  or an accepted Refine) now repaints the preview — `preview` only followed typing, so the pane
+  kept showing superseded text until the next keystroke (the editor was always fine, since
+  `MarkdownEditor`'s value effect dispatches the new document).
+- **The collection rename is NOT a one-shot rename** (`architect/collectionPlan.js`, pure +
+  4-state, owner 2026-08-18: "think about migration strategy for older customers where we cannot
+  rename it now"). The hazard is verified in code, not hypothetical: `loadArchitect` calls
+  `ensureCollection`, which CREATES the collection when absent (`api.js:9`), so an older build
+  elsewhere recreates the legacy collection on its next boot and writes into it. `planCollection({
+  hasNew, hasOld })` therefore drives one boot-time step: **new only** → use it; **neither** →
+  create; **legacy only** → try the rename, and ON FAILURE keep using the legacy collection
+  unchanged and retry next boot (NOT surfaced as an error — that is the "cannot rename now" case);
+  **both** → use the new one, ALSO read the legacy one, union by `_id` with the newest edit
+  winning, and report the count in a `.fabry-arch-legacy` notice. A rename failing with `target
+  namespace exists` is NOT a failure — another tab won the race, so the new collection exists while
+  ours did not move, which IS the merge state and is treated as such. Nothing is ever dropped or
+  overwritten, and **writes follow the document**: `colFor(id)` routes an update to whichever
+  collection the deliverable actually lives in. Adopt-on-write was the approved design and was
+  ABANDONED during implementation for a concrete reason — `updateOne` with `upsert` creates a doc
+  WITHOUT `kind:'requirement'`, which `loadDeliverables` filters on, so the deliverable would
+  silently vanish from the list; a full copy while an older build may still be writing risks
+  resurrecting stale text over newer. Consolidating the two collections is deliberately manual.
+  LIVE-VERIFIED semantics behind all of this (internal org, throwaway collections, dropped after):
+  rename preserves documents; create-existing, rename-onto-existing and rename-missing-source all
+  return **HTTP 400** (so `src/mdh/api.js:55` throws and a try/catch is enough — no body
+  inspection); and **`find` on a missing collection returns 200 with `result: []`**, so existence is
+  NOT detectable by a find and `listCollections` is mandatory (one extra call per Architect boot).
+- **Our collections are hidden from Dataset Management** (`src/mdh/hiddenCollections.js`, owner
+  2026-08-18). `isHiddenCollection` matches the `_SA_EXTENSION__` prefix plus the legacy Architect
+  name explicitly (it cannot be renamed on every org, so it would otherwise be the one visible
+  artifact of a half-migrated fleet). Applied at `Sidebar.jsx`'s SINGLE `listCollections` site via
+  `store.applyCollectionFilter()`, which SPLITS the sorted list: `rawCollections` keeps what the
+  server returned, `collections` is the customer's (what Overview, prefetch and the empty state
+  already read, so they cannot disagree), and `hiddenCollections` is ours. Ours are NOT merged back
+  in on reveal — they render in an **expandable group pinned below the main list** (owner,
+  2026-08-18; `▸ Extension collections (n)`, expanded state = the global
+  `mdhShowHiddenCollections`, absent when there are none), built from the SAME
+  `collectionRow(name)` renderer, so a hidden collection selects/middle-clicks/right-clicks/kebabs
+  like any other. A selection is dropped only when the collection no longer EXISTS — visibility is
+  not the test, or selecting one from the group would instantly deselect it — and a restored
+  per-tab selection that is one of ours AUTO-EXPANDS the group without persisting, since a
+  highlight under a collapsed header reads as no selection. Reachability is REQUIRED rather than a
+  nicety — the MDH record editor is currently the only way to hand-edit a deliverable or read a
+  stored version. Hiding is decluttering and must never read as a security boundary: the collection
+  is plainly visible to anything else holding the org token.
+- **The unified specification view** (owner, 2026-08-19; spec
+  `docs/superpowers/specs/2026-08-19-architect-unified-specification-view-design.md`, plan
+  `docs/superpowers/plans/2026-08-19-architect-unified-specification-view.md`) — the Architect no
+  longer shows one deliverable at a time. `SpecView.jsx` renders EVERY deliverable in `order` as a
+  `<section data-deliverable data-slug>` inside ONE scroller, so a specification reads top-to-bottom
+  and **Cmd+F reaches all of it**. The deliverable list (`ArchitectSidebar`) became pure navigation —
+  every deliverable with its headings nested, verdict dot, highlight driven by the scroll spy — while
+  keeping the operations nothing else can own (add, drag-reorder, rename, delete, Run all, PDF).
+  `DeliverableEditor.jsx` and the bottom action console are **deleted**; their panels live on in
+  `InspectorRail.jsx`, and the Check/Implement markup was extracted verbatim into `CheckPanel.jsx` /
+  `ImplementPanel.jsx`. The three-way `Editor | Editor and Preview | Preview` switch is now two-way:
+  `docView` is `'edit' | 'preview'`, a stored `'split'` maps to `'preview'` (`migrateDocView`), and an
+  older build still understands both remaining values — the pref degrades in both directions.
+  **Cmd+F is a PREVIEW-mode guarantee, and that is measured, not assumed**: a real CodeMirror with a
+  600-line document renders **52** `.cm-line` elements, and a marker near the end is neither in the DOM
+  nor findable. So Edit mode gives each deliverable **its own CodeMirror, mounted immediately** and with Markdown
+  highlighting (`components/SourceEditor.jsx`; owner, 2026-08-19: fields visible at once, and "I still
+  want the Markdown highlighting when editing") — no click-to-activate and no swap, so nothing shifts
+  under the reader. MEASURED that this is affordable and well-behaved at CONTENT HEIGHT inside the
+  page's scroller: five 700-line editors mount in **70ms**, their inner scroll range is **0** (the page
+  owns scrolling, which is what makes the specification one document), and CodeMirror still renders only
+  what is visible (**79** line elements out of 3500), so a fast scroll stays cheap. Editors are seeded
+  and then SYNCED — a store update that originated in an editor is not dispatched back into it (that
+  would move the cursor mid-typing) while a genuinely external one (a restore, an accepted Refine) is —
+  and pending edits are held **per deliverable** in a Map, since every section is editable at once and
+  a single slot would drop an edit the moment the reader moved fields. Saving still goes through the
+  same `updateDeliverable`, so per-session version capture is untouched.
+- **Edit-mode navigation goes through CodeMirror, NOT through arithmetic** (`SourceEditor.jsx
+  scrollLineIntoView`). Clicking a heading in the list must land on it in either mode (owner,
+  2026-08-19), and in source a heading is a LINE — but **CodeMirror estimates the height of lines it has
+  not rendered, and the estimate assumes ONE visual line**, so in wrapped prose an unvisited region
+  undershoots by thousands of pixels. Measured consequences, in order: `line * lineHeight` was hopeless;
+  a mirror element that copies the textarea's metrics worked but died with the textareas; `lineBlockAt`
+  arithmetic landed a click on `3.5` at the SECTION START; and a bounded re-measure-and-correct loop
+  still drifted two or three headings (`3.5` → `3.8`). What works is CodeMirror's OWN
+  `EditorView.scrollIntoView` — VERIFIED to scroll the ANCESTOR scroller when the editor itself has no
+  scroll range — followed by one exact correction from `coordsAtPos` once the line is actually rendered.
+  All five test entries then land on the clicked heading. The scroll SPY still uses estimated tops, and
+  that is fine: they are accurate near the viewport, which is the only place the highlight looks.
+
+  The same estimation moves a SECTION target too, which is a separate jump (a sidebar ROW click, and
+  the mode-switch restore) with no line to hand CodeMirror. MEASURED on the five-document fixture: the
+  arithmetic said 4725 and the section settled at 5153, so the reader landed **428px short** — and the
+  restore that "worked" was landing short in exactly the same way. `SourceColumn`'s `jumpToEl` therefore
+  tweens to the computed top and then corrects from the element's live rect (up to three passes,
+  2px tolerance), which puts all three test targets at **offBy 0** and holds the restore at 0 across
+  Preview → Edit → Preview. A monotonic `seq` makes a newer jump win, so a late correction can never
+  yank a reader who has clicked somewhere else. Section geometry is read from RECTS, not `offsetTop`:
+  they agree today (4393 == 4393, offsetParent `.docs-pane`) only because that ancestor shares the
+  scroller's top edge, and any padding added above `.docs-root` would silently shift every jump.
+
+  **A slug alone cannot say WHICH deliverable's heading was clicked.** Two documents may legitimately
+  carry the same heading — `## 2. Scope` in both slugs to `2-scope` in both — so Edit mode scanned in
+  document order and landed inside the FIRST one (measured: asking for the second deliverable's
+  `2-scope` landed at scrollTop 49, inside the first). Preview disambiguates with the id prefix (F2);
+  the source column needs the id itself, so it travels in the shared options argument
+  (`scrollToSlug(slug, prefix, { docId })`) and that deliverable is searched first. DocView already
+  treated the third argument as options and reads only `instant` from it, so one signature serves both.
+- **A mode switch keeps the reader in place.** Switching unmounts one column and mounts another, so the
+  new scroller starts at the top and the document appears to jump away. `SpecView` remembers the
+  deliverable being read and restores it INSTANTLY when the new column reports itself (an animated
+  restore would be the very jump it is avoiding). Measured: the third deliverable stays at the top
+  across Preview → Edit → Preview, at 6507 → 6157 → 6507px, each mode's own layout. **Heading ids are namespaced per deliverable**
+  (`src/docs/idNamespace.js`, `slug--id`) because they collide otherwise — measured: two deliverables
+  containing `## 2. Scope` both render `id="2-scope"`, and in a concatenated page `querySelector`
+  returns the first, so every fragment link and outline jump would land in the wrong document. Only
+  IDS move; authored hrefs are left exactly as written (prefixing `#2.1` would defeat
+  `anchorResolve`'s forgiving matching, whose real id is `slug--21-entities`) and `resolveInPage`
+  reconciles them, resolving inside the reader's own section FIRST. Namespacing is applied to the
+  ADOPTED COPY, never the cached render, so `render.js` stays byte-faithful to upstream and the cache
+  is still shared with the print path. `src/docs/specDocument.js` is that shared assembler, extracted
+  from `printDoc.js` so the printed specification and the on-screen one cannot drift; it returns DATA
+  (state/verdict), never chrome, because print draws SVG badges and the screen draws `console.css`
+  pills. The rail FOLLOWS the scroll (owner) and is safe to do so because of two rules in the pure
+  `specTarget.js`: an explicit **pin** wins, and a deliverable with a run in flight **HOLDS** the
+  target until it finishes — verified in a browser: with a check running on the section being read,
+  scrolling to the end of the document left the rail where it was and showed a "held while this runs"
+  badge, then released to the reader's actual position when the run ended. The **inspector** collapses from the document bar (646 → 906px at a 1280px window) and is
+  **drag-resizable** from its left edge (`railWidth`, clamp 260–620, persisted as
+  `fabryArchRailWidth`; live during the drag, persisted on release — the `sidebarWidth` pattern). The
+  **deliverable list is deliberately NOT collapsible** (owner, 2026-08-19: it is the navigation, and
+  navigation that can disappear is a trap), so `fabryArchTocOpen` and the toggle that wrote it were
+  removed rather than left as an orphan. A word-diff in a
+  322px rail is unreadable, so Refine and History carry "⤢ Open at document width", which renders the
+  diff in the document column above its section (`ReviewHost` in `SpecView.jsx`, closed by its own
+  button, by the rail's "Bring it back", or by Escape) — and the rail then shows a pointer instead of
+  mounting the same panel twice, because `HistoryPanel`'s selection is a shared signal that two copies
+  would fight over. `ReviewHost` was **referenced and never defined** in the first cut, which threw
+  `ReviewHost is not defined` as an unhandled rejection inside Preact's async render and took the whole
+  Architect view down with it — silently, since no test ever set a `reviewTarget` and mounting alone
+  cannot reach the branch. Three tests now do.
+- **The sidebar never repeats a deliverable's own title** (`outline.js outlineWithoutTitle`, owner
+  report 2026-08-19). The row shows `displayTitle`, which prefers the document's opening heading — so
+  a specification whose document starts `## 1. Overview` (rather than `# 1. Overview`) had the same
+  words on the row and again one line below it, because `extractOutline` lists h2 and h3. The opening
+  heading is dropped by **LINE**, not by text: two headings can legitimately share a title, and the one
+  being removed is specifically the one on the document's first non-empty line.
+- **Edit mode carries `.markdown-body` for its BOX** (`SpecView` + `console.css`), rather than
+  restating that rule. Copying the wide rule's `padding: 45px` made Edit sit narrower than Preview,
+  because the ported sheet also has an `@container (max-width: 767px)` branch that drops the padding to
+  **15px** — and a 646px reading column is inside that branch. Measured after the fix: both modes
+  `left 312 / right 958 / content 616 / padding 15px`. Restating a ported number is how you drift from
+  it; carrying the class cannot.
+- **Navigation jumps use the repo's own tween, never `behavior: 'smooth'`** (`DocView jumpTo` →
+  `src/mdh/smoothScroll.js animateScrollTop`). MEASURED on the same ~13,000px jump in one continuous
+  specification: native `scrollIntoView({ behavior: 'smooth' })` took **≥1481ms** (the sampling window
+  ended at 1500ms), the tween **198ms** — Chrome's smooth duration scales with distance, which is
+  exactly why a one-page specification felt sluggish (owner report). The target is computed from
+  RECTS, not `offsetTop`, so it does not care which ancestor is the offsetParent.
+- **The inspector follows a SETTLED target, and the spy geometry is cached** — both because a rail that
+  follows the scroll is the expensive consumer. MEASURED over a 60-frame scroll of a 130-heading
+  specification: the rail produced **44 DOM mutations → 0** once scroll-driven target changes were
+  debounced by `RAIL_SETTLE_MS` (120ms, `store.setSettledTarget`), because switching it remounts a
+  panel and re-parses the check evidence as markdown — work nobody can read mid-flight. An explicit
+  click (a section header, a list row) passes `{ immediate: true }` and is never delayed. Separately,
+  reading 130 headings' `offsetTop` every frame cost **0.136ms**; caching the geometry and invalidating
+  it on a `scrollHeight` change (one cheap layout read per frame) plus on resize costs **0.001ms** —
+  136× less. `spyTarget` stays live for the cheap consumers (the list highlight); only the rail waits.
+- **`chrome.storage.local.get([keys])` returns ONLY the keys it is asked for** — a preference that is
+  written but not requested reads back `undefined` for ever. That is how the inspector's width came to
+  be saved and never restored (owner report, 2026-08-19): the write was right, the boot read list had
+  never been updated. `architect/store.js` now has ONE `PREF_KEYS` list feeding the read, and
+  `tests/fabry-architect-store-view.test.js` scans the module for every `set(...)`/`persistBool(...)`
+  key and asserts the list covers it, so the next preference cannot regress the same way. (`railWidth`
+  is clamped 260–620 and persisted as `fabryArchRailWidth`; the bottom console's
+  `fabryArchConsoleHeight` machinery was removed as dead.)
+- **Deleting a host deletes its actions — check what went with it.** "Download PDF" lived in the
+  deliverable pane, and vanished when the unified view replaced that pane (owner report): nothing
+  called `openPdfDialog` any more, and `printAction.js` + `PdfDialog.jsx` sat orphaned while the docs
+  claimed the sidebar had kept it. The flow now lives in `architect/pdfAction.js` (`openPdfFlow`) and
+  the document bar owns the button; "this deliverable" means the one the rail is on. Its outcome note
+  and document warnings render in the bar, as they did in the pane.
+- **A scroll listener must be owned by the effect that owns the element** (measured 2026-08-19, and it
+  cost a real defect). `DocView` is remounted by a mode switch, which builds a NEW `.docs-root`;
+  `SpecView` had attached the spy listener from the parent on `[sections]` deps, which do not change
+  across a mode switch — so the listener kept listening to the destroyed node and **the scroll spy
+  died permanently after one switch**, while every unit test passed. `DocView` and `SourceColumn` now
+  each attach their own listener and pass their live `{ scroller, sectionTops, headingTops }` API INTO
+  the callback, so a stale reference is impossible by construction. The same class of bug as the
+  `.cm-scroller`-has-no-range trap: invisible to jsdom, obvious in a browser.
+- **Collapsing the deliverable list is a GRID-COLUMN change, not a component one**
+  (`src/fabry/components/App.jsx`): the Fabry shell sizes the sidebar with
+  `gridTemplateColumns: sidebarWidth + 'px 1fr'`, so hiding it means collapsing that column to `0` and
+  not rendering `<Sidebar />`. Leaving the sidebar mounted at its old width would simply cover the
+  document.
 - **Architect implement loop** (ralph-style, write-enabled; spec
   `docs/superpowers/specs/2026-07-14-architect-implement-loop-design.md`, plan
   `docs/superpowers/plans/2026-07-14-architect-implement-loop.md`): an autonomous
@@ -667,6 +932,264 @@ The server owns ALL chat state; the client holds it in signals only:
   dogfood item: a stable customer-facing rollout decision (this is an autonomous
   write-to-prod-org capability; ON by default within the Fabry app, which is
   public since 2026-08-11, Arm-gated per run).
+
+### Document rendering & export — the localpages port (`src/docs/`)
+
+A port of [localpages](https://github.com/mrtnzlml/localpages) (pinned at **`4d43f26`**, per-file
+sha1s in the spec) into the **Architect's deliverable pane**: GitHub-faithful Markdown rendering,
+GFM alerts, section state labels, anchors, a TOC sidebar, hover previews of in-document sections,
+copy buttons and print-quality PDF. (A self-contained static-HTML **ZIP export** was part of the
+port and was **REMOVED 2026-08-18** at the owner's request — "PDF should be enough or people can go
+directly to the Rossum org" — see Revision v8 of the spec for exactly what went with it.) Spec:
+`docs/superpowers/specs/2026-08-17-localpages-port-architect-design.md` (read its **Revision v2**
+first — it is the record of what implementation changed). Of localpages' 14 documented features, **11 ported, 1 partially, 2 were dropped** at port time; the
+static export was then removed, so **10 remain**. §7 of the spec is the exhaustive ledger.
+
+**`FabryMarkdown` is NOT touched.** Chat, Academy, MDH's empty-stage explanation and the Architect's
+own Check-evidence panel keep it, with its deliberate subset (heading shift `#`→`h3`, https-only
+links, no images). The ported renderer is used ONLY by the deliverable Preview. Two markdown
+renderers in one bundle is the intended state, not an oversight: one renders streaming agent chat,
+the other renders documents.
+
+- **`render.js`** ← `render.mjs`, with FOUR marked deltas and everything else verbatim (`highlight`,
+  `highlightTodoInSvg`, the anchor slugify, the alerts→anchor→stateLabels order,
+  `disable('replacements')`, the whole `link_open` `.md`→`.html` rewrite including its linkify
+  `bogus http://foo.md` fixup). The deltas: mermaid is **injected** (beautiful-mermaid is already a
+  1.5MB lazy bundle here — importing it would drag it into `console.js`); hljs is the curated
+  `./hljs.js`; `env.syncLines` stamps `data-src-line` on **top-level blocks only** (`token.level
+  === 0` — stamping nested opens gave 8 anchors for 5 blocks, and a nested element resolves
+  `offsetTop` against a different offsetParent); and `wrapStandaloneImages` had to accept a `<p>`
+  WITH attributes, because DELTA 3 broke its bare-`<p>` regex and standalone images silently lost
+  their `<figure>` in the live pane. `env.syncLines` is live-only, which is what keeps exported
+  output byte-identical to upstream's.
+- **Section states are NOT document markup here** (owner, 2026-08-18: "add the support for
+  state-label, but let's make it part of the Fabry's Architect (not inside the markdown)").
+  Upstream's `state-labels.mjs` plugin — which this port originally carried byte-identically,
+  with its 25 assertions ported verbatim — has been **removed from the pipeline and deleted**,
+  and `<state-label>` in a deliverable now renders a diagnostic instead of a badge. The
+  Architect property that briefly replaced it is gone too (2026-08-19) — status is the check
+  verdict alone; see *Status is the CHECK VERDICT alone* above and `src/docs/docWarnings.js`
+  for the diagnostic. The cost is recorded honestly: `states.md` is no longer byte-equivalent to
+  upstream, and `tests/docs-render-equivalence.test.js` says so in a dedicated block rather
+  than quietly dropping the fixture.
+- **A hook's implementation previews as code, not as escaped JSON** (`resources.js`
+  `formatResource` + `highlightCode.js`). Verified from the Rossum API tool contract, not
+  guessed: a function hook carries `config: { runtime: "python3.12", code: … }` and a webhook
+  carries `config: { url }` with no code — so the modal showed a three-line handler as ONE
+  130-character escaped line, which is the "cannot preview the JSON/PY files (the hooks
+  implementation)" report. Code is now shown as **Python** (language read from `runtime`
+  rather than assumed), everything else as pretty JSON, and the modal's path line names WHICH
+  part of the resource is on screen so nobody mistakes a hook's code for the whole object.
+  The same highlighter feeds the print page, so a printed hook reads as Python too.
+- **An extension is TWO files, so the resource has TWO VIEWS** (owner, 2026-08-18). A prd2
+  extension is `<hook>.json` (the whole definition) and `<hook>.py` (its implementation), but
+  both resolve to ONE API resource — and since a code-bearing hook prefers its code, the JSON
+  definition was unreachable. The view now rides in the resource KEY as `?view=code` /
+  `?view=json`, which is the only addressing scheme that survives BOTH paths untouched:
+  `apiPathFromHref` already preserves a query and strips a fragment, and the export's `keyFor`
+  reduces an href to `pathname + search`, so one marker keys a `<template>` offline exactly as
+  it keys a fetch live. `splitResourceView` **removes it before the request**, so nothing
+  unrecognised ever reaches the Rossum API — and it claims the parameter ONLY when the value is
+  one of ours, so a real `view` parameter (Rossum has none today) would still pass through
+  rather than being silently eaten. `formatResource(raw, view)` keeps `view === null` **byte-
+  identical to the pre-view behaviour** (code when there is code), so every link and every
+  embedded template written before this behaves exactly as it did; it also returns `views`,
+  which is what decides whether the modal offers a switcher at all — a queue or a webhook has
+  one view and gets none. Asking for `code` on a webhook shows the definition with an explicit
+  "no code" note rather than passing one off as the other. `sourceViewer.js` gains a
+  `[Code | Definition]` switcher (its SECOND documented delta; `theme.css` DELTA G), and a
+  switch is just the same modal reopened on the sibling key, so live and offline take the paths
+  they already took. `sourceViewer.js` still reads `data-view`/`data-views` off a
+  `<template data-source-path>` when one is present — that was the ZIP export's offline path and
+  no longer has a producer in this repo, but the branch is three lines, it is what makes an
+  older exported bundle still open, and it is the seam any future offline mode would use. **Authoring:** link
+  `/api/v1/hooks/42?view=json` for the definition and `?view=code` (or the bare path) for the
+  implementation; a bare link still opens the code and the switcher reaches the rest.
+- **`sanitize.js`** (new) — an element/attribute **allowlist** applied to the parsed tree before it
+  is adopted, because `html: true` must stay on (it is what makes `<state-label>`, `<details>`,
+  `<mark>` and `<div class="wide">` work) and deliverable `text` has **four writers**: the SA, the
+  *agent* (`RefineDock.jsx` `accept()` writes a refine proposal straight in), any org-token holder
+  writing the Data Storage collection, and this extension's own MDH record editor (nothing filters
+  `__`-prefixed collections). The exported HTML carries **no CSP at all** (measured), so the same
+  string would execute in the pane and on the print page. Three rules earn their place: an unknown element is
+  **unwrapped, not deleted** (deleting subtrees would swallow prose — the `<queue_id>` migration
+  hazard below); inside an `<svg>` subtree **everything but `on*`/`<script>`/`javascript:` is
+  allowed**, which is what keeps `render.js`'s fence override verbatim, since mermaid emits an
+  SVG-internal `<style>` that `highlightTodoInSvg` writes into and every state badge is inline SVG
+  with `stroke-dasharray`/`paint-order` geometry no HTML allowlist would name; and `tabindex` is on
+  the attribute list because markdown-it-anchor puts it on EVERY heading (omitting it changed every
+  heading in every document — caught only by the fixture-idempotence test).
+- **The four client behaviours** ← `client/*.js`, each now `init(root, scroller[, navHost])` plus a
+  **teardown** (upstream is a page-scoped IIFE; a pane that re-renders on every keystroke must
+  unwind). Upstream's timings and caps are untouched (hover 280ms, hide 160ms, `MAX_BLOCKS` 8, copy
+  flash 1500ms). `toc.js`'s scroll-spy formula is upstream's own — `rect.top + scrollY - 80 <=
+  scrollY` reduces to `rect.top <= 80`, already viewport-relative, so only the base it measures
+  against changes. Two Chrome-only APIs needed the repo's usual guards: `CSS.escape` (absent in
+  jsdom, same treatment as the training tether) and `scrollIntoView` (stubbed in tests, not guarded
+  in the port). `reload.js` is **dropped** — no server to reconnect to, and the preview is live per
+  keystroke. Fragment links and relative links are intercepted rather than navigated: on an
+  extension page a plain `<a href="other.md">` click would replace the whole Console.
+- **`theme.css`** ← `theme.css` with SIX marked deltas and every light colour value verbatim, plus an
+  appended dark branch (D3; `github-markdown.css`'s light half computes **identically** to the
+  light-only sheet upstream ships — verified across 19 elements × 14 properties). A: the two
+  page-level rules (`:root{color-scheme}`, `html,body{margin/padding/background}`) are scoped to
+  `.docs-root`, or they would force the whole Console light and paint it white; `scroll-padding-top`
+  and `overscroll-behavior-y` are deliberately left global because the Console root never scrolls.
+  B/C: `@media`→`@container` and `100vw`→`100cqw`, because in a pane those numbers must measure the
+  COLUMN — measured, a wide table came out **904px = pane(936) − 32** where `100vw` would have given
+  1248 and overflowed. D: `.docs-pane > .toc` re-homes upstream's `position: fixed; left: 0` to
+  absolute inside the pane — measured `paneLeft 344 == tocLeft 344`, where upstream's rule would
+  have put it at 0, over the app rail and the Fabry sidebar. F:
+  `.section-preview` becomes `position: fixed` (page coordinates are meaningless when an element
+  scrolls) — behaviour-preserving precisely because upstream already dismisses the card on any
+  scroll, so the two schemes can never visibly differ.
+- **Print** — upstream's ENTIRE `@media print` block ports verbatim; `console.css` ADDS the shell
+  teardown (app rail, Fabry sidebar, the specification bar, the inspector rail, `#app{height:100vh}`
+  and every `overflow:hidden` ancestor between the page and `.docs-root`, plus un-sticking the
+  section headers so they print as a band at the top of their section). MEASURED after the unified
+  view landed: the five-deliverable fixture prints as **19 flowing pages** with no chrome on page 1,
+  where without the teardown it would be one clipped viewport. Every added rule is scoped
+  `body:has(.docs-pane)`, so printing MDH, Audit or Chat is untouched; there was no `@media print`
+  anywhere in this extension before. `Cmd-P` prints **what is on screen** — in Edit mode that is the
+  Markdown source, because Edit and Preview are now separate mounts and there is no hidden preview
+  column to reveal (the old pane kept one, and this block used to force it visible). The **⤓ PDF**
+  button is the path that always prints the rendered document, in either mode and at any scope.
+- **Export (REMOVED 2026-08-18)** — one self-contained `<slug>.html` per deliverable plus a
+  generated `index.html`, zipped. Deleted at the owner's request to simplify the surface: PDF
+  covers handing a specification over, and anything live is in the org itself. Gone with it:
+  `docExport.js`, `page.js`, `zip.js`, `exportClient.js`, `download.js`, `assetsLoader.js`, the
+  `console/doc-export-client` esbuild entry, `build.js`'s `doc-assets.js` registrar, and
+  **`client/toc.js`** — the in-pane TOC had already moved to the sidebar, so the exported pages
+  were that module's last consumer (its 8 tests went too). Three things it had earned stay
+  because the live pane or the print page still need them: `slug.js` (slugs address
+  cross-document references, not just filenames), `contents.js` (printDoc generates the printed
+  contents page from it), and `sanitize.js` — whose justification shifts but does not weaken,
+  since the four writers of deliverable `text` are unchanged and the sanitizer still guards what
+  the pane and the print page adopt. `resourceFetcher.raw` and `slug.js`'s `mdHref`/`htmlHref`
+  were export-only and were removed with it. What is genuinely LOST: offline `<template>`
+  embedding of referenced API resources, the `index.html` landing page, org-hosted images as
+  `data:` URIs, and the unresolvable-cross-document-link report (`collectBrokenLinks`).
+- **PDF / print** (`printDoc.js`, `printEntry.js`, `print.html`, `printAction.js`,
+  `PdfDialog.jsx`) — an extension cannot WRITE a .pdf here: `chrome.printing` is ChromeOS-only
+  and `chrome.debugger`'s `Page.printToPDF` needs a permission that disables every existing
+  install until each user re-approves. So "PDF" is a print-ready page plus the browser's print
+  dialog ("Save as PDF" is its default destination), and the dialog says so. Cmd-P on the
+  Console **does** work — MEASURED with headless Chrome's `--print-to-pdf`: a long document
+  prints to 3 pages standalone and 3 pages in-pane, 204,267 vs 204,208 bytes — but only for the
+  deliverable that is OPEN, which is the gap this fills. The page is a REAL extension page, not
+  a blob: URL, because a blob inherits the creator's CSP and could never run an inline script;
+  its payload is staged single-use in `chrome.storage.session` (`docPrint_<uuid>`, removed on
+  read, so specification text never lands at rest). Scope is asked per use; the content options
+  are remembered. Three defects that only appeared in real printed output are pinned by tests:
+  unwrapping every `<a>` leaves markdown-it-anchor's `#` as literal text (the permalink must be
+  REMOVED), the contents page must not describe itself as a self-contained bundle (its
+  ZIP-flavoured default note is gone now that print is its only caller), and a
+  title must NOT be injected above a document that already names itself.
+- **Cross-deliverable hover previews** — upstream's card is same-page only (a localpages page is
+  one file); a specification here is many deliverables, so `initSectionPreview` takes
+  `resolveExternal(href)`/`onOpenExternal(href)`. A reference to another deliverable previews
+  THAT document's section (its opening when there is no fragment), carries provenance, and its
+  footer opens that deliverable. Rendered from the store — every deliverable's text is already
+  in memory, so a hover costs no request — cached by `slug + text` so an edit invalidates only
+  its own entry. Same-document previews were never broken: `eligible()` refuses a link inside
+  `.toc`, which is what a naive probe hits first. In-document `#` clicks are intercepted too
+  (they used to fall to the browser and append a stray fragment to the Console's URL).
+- **The document outline lives in the SIDEBAR, not in the document** (owner, 2026-08-18):
+  `src/docs/outline.js` (pure) + `ArchitectSidebar`'s `Outline`, nested under the open
+  deliverable so the sidebar is one navigation tree. This is also why the in-pane `.toc` is
+  gone — it needs a 1280px column and the pane is ~936px at a 1280px window, so it was hidden
+  in practice; `client/toc.js` went with the export that was its last consumer. The
+  outline is read from the MARKDOWN (works in Editor mode, needs no layout) and its slugs are
+  asserted against the LIVE renderer, because they must match markdown-it-anchor exactly or a
+  click scrolls to nothing: duplicates take `-1`/`-2`, the counter spans every heading level,
+  and `Ünïcode heading` becomes `ncode-heading`. Clicking navigates whichever surface the
+  reader is on (source while editing, preview otherwise — one mode at a time since 2026-08-19,
+  so there is no second surface to drag along; `syncScroll.js` and its `lineAtPreviewTop`/
+  `previewScrollTop` pair were deleted with the combined mode). TWO bugs worth remembering:
+  naming a map variable `h` SHADOWS Preact's `h` factory (the JSX inside compiles to `h(...)`),
+  and `scrollToLine` must resolve the scrolling ancestor by overflow AND range — writing
+  `scrollTop` to a non-scrolling div is accepted and IGNORED, so the jump did nothing and threw
+  nothing (measured: correct 1450px delta, `after: 0`).
+- **Callbacks that close over the store must NEVER reach DocView's adopt-effect deps.** They are
+  fresh functions every host render, and `setPreview` fires one on every keystroke — so an
+  effect that depends on them tears the document down and re-inits every behaviour, which
+  CLOSES an open resource modal (`initSourceViewer`'s teardown calls closeModal) and CANCELS the
+  280ms hover timer. That one line was behind two "the preview doesn't work" reports; the fix is
+  refs, and the lesson is that module harnesses could not see it because they never typed.
+- **Which element scrolls a CodeMirror depends on the layout — measure BOTH.** In the old
+  deliverable pane `.cm-editor` was bounded and `.cm-scroller` owned the range (349px vs 0); in a
+  harness whose wrapper has no definite height `.cm-editor` grows to content and the outer host
+  owns it (14,002px vs 0). The `scrollTargetFor` helper that compared them went with that pane —
+  the unified view's editors have **no** scroll range at all (measured 0; the page owns scrolling),
+  which is why `SourceEditor.scrollLineIntoView` leans on CodeMirror's own `scrollIntoView`, verified
+  to scroll the ANCESTOR scroller. The lesson survives its helper: writing scrollTop to the wrong
+  element is accepted and IGNORED — no error, no movement — so measure, as `JsonEditor.jsx` does.
+- **Fragment references are resolved forgivingly** (`src/docs/anchorResolve.js`): the id for
+  `### 2.1 Entities` is `21-entities` (the dot is stripped), so the `#2.1` a human writes matched
+  nothing. Resolution order is exact id → normalized equality → leading section number, and the
+  prefix branch refuses to continue into a digit so `#2.1` can never resolve to "2.10 Appendix".
+  Used by the hover card, fragment clicks and the sidebar outline.
+- **Deliverables are pre-rendered in idle time** (`src/docs/renderCache.js` +
+  `architect/preload.js`), because the switch cost is RENDERING, not loading — all text arrives in
+  the single Data Storage `find`. The cache key includes whether a diagram renderer existed, or a
+  document rendered before the 1.5MB bundle landed would be served with code fences where diagrams
+  belong. The preloader warms diagram-free documents FIRST and only then waits for the bundle —
+  waiting up front measured as nothing cached at all. Two related bugs fixed with it: a switch
+  painted the PREVIOUS deliverable's text for one frame (`preview` is now tagged `{id, text}`),
+  which also meant the cache was never hit; and `latest.current` is stale after a switch, so the
+  outline jump now reads what is on screen.
+- **A popup inside an `overflow: hidden` pane must be `position: fixed`** — the deliverable
+  header sat inside one, so an absolutely positioned menu was CLIPPED, and with the control at the
+  right end its right edge measured **1347px against a 1280px viewport**. The rule to remember is
+  the clamp ORDER: right-then-left horizontally (so a too-wide menu shows its start) and
+  bottom-then-top vertically — the latter is not cosmetic, the reverse produced `top: -38px` and an
+  unreachable first item. `architect/menuPlacement.js` held that logic and was **deleted on
+  2026-08-19** together with the header it served: the unified view's only popup is the sidebar
+  kebab, which places itself. (`src/mdh/libraryPlacement.js` implements the same pattern and is NOT
+  in the working tree — it lives in a stash.)
+- **The view switch** (originally the owner's ask for WebStorm's `Editor | Editor and Preview |
+  Preview`; **two-way since 2026-08-19**, see the unified-view section) — `.fabry-arch-viewtoggle`
+  was already an N-button `aria-pressed` group, so it needed **no new CSS**. `docView` is a
+  **global** pref in `architect/store.js` following the width prefs exactly (boot load in a
+  `try/catch` for tests). The pane's old toggle reset itself to `'edit'` on every deliverable
+  switch; a chosen mode outlives one, deliberately. The combined mode was what first made the
+  ported container queries earn their keep — and they still do at the reading column's own width:
+  at ~450px the `@container` branches hide the TOC and drop padding to 15px, upstream's own
+  narrow-screen behaviour driven by the column instead of the window. `splitRatio` and its
+  `fabryArchSplitRatio` key went with the mode (nothing reads the stored value; it is left inert
+  rather than migrated).
+- **Scroll sync** (editor → preview, combined mode only) is **gone** — `MarkdownEditor`,
+  `syncScroll.js` and `DocView`'s `onOutlineScroll`/`anchors` hooks were all deleted with the mode
+  they served (2026-08-19; the sync had no producer left, so it was a listener computing nothing).
+  What it proved is worth keeping, because it is the same trap MDH records: **`view.scrollDOM
+  .scrollTop` does nothing here.** Measured against the shipping CSS of the time, the outer host
+  owned a **14,002px** scroll range while `.cm-editor` (computed height `14402px`, so `height:100%`
+  never resolved), `.cm-scroller` and the host div all had **0** — so a line's position had to be
+  measured from the wrapper's rect minus `view.documentTop`, correct whichever element scrolls, and
+  a scroll listener had to subscribe to BOTH candidates rather than resolve one at mount before
+  layout settles. Pure mapping + browser-verified measurement: the
+  `stageLink.js`/`smoothScroll.js`/`tether.js` split.
+- **The 1:1 proof** — `tests/docs-render-equivalence.test.js` renders upstream's own
+  `examples/basic/*.md` and compares **byte-for-byte** against HTML generated by localpages itself
+  (checked in under `tests/fixtures/localpages/expected/`, live and export mode — "export mode" is
+  a `render.js` option, kept because it is what proves fidelity to upstream, not because anything
+  still exports). Regenerating those
+  fixtures against a newer upstream is how a future localpages change gets migrated. The SANITIZER
+  cannot be byte-identical — a DOMParser round-trip rewrites `&#x27;`→`'` and
+  `<circle/>`→`<circle></circle>` — so its guard asserts it changes nothing **beyond a round-trip**,
+  which is the precise claim and is what caught `tabindex`.
+- **Migration hazard worth a sweep**: prose containing bare angle brackets (`<queue_id>`,
+  `<invoice_number>`) rendered as literal text under `FabryMarkdown` and is now an unknown HTML
+  element — the sanitizer's unwrap rule keeps children, but an empty tag has none, so such a
+  placeholder becomes **invisible**. Smart quotes and auto-linked bare URLs also arrive with real
+  GFM. Not defects; consequences of rendering actual Markdown.
+- **Two known items, deliberately not acted on** (both in the spec): the TOC is hidden at realistic
+  pane widths — upstream's 1280px threshold is the same arithmetic in a container, but a 1280px
+  window leaves the pane 936px, so it needs a window of roughly 1620px+; and `beautiful-mermaid`
+  embeds `@import url('https://fonts.googleapis.com/…Inter…')` inside every diagram's `<style>`, so
+  a rendered diagram fetches a Google font in the pane. The second is
+  upstream's behaviour too and is **pre-existing in this extension** — Fabry chat already renders
+  mermaid the same way — so it was reported rather than changed.
 
 ### DevTools panel (Raw Object Editor) (`src/devtools/`)
 
@@ -805,10 +1328,10 @@ feature request behind it. Spec:
 - Console staging auth: `consoleAuth_<uuid>` (single-use, 24h TTL, removed on first read; carries `app` + optional DS pipeline prefill)
 - Console state: `consoleActiveApp` — per-tab (see MDH state below: session-first read with a `chrome.storage.local` seed)
 - Side panel state: **none** — Chrome remembers open/closed per window. The panel shares the popup's `mdhProvenanceFilter` (the card's schema-ID filter) and its `mdhProv:*` `chrome.storage.session` caches
-- MDH state: `mdhPipelineWidth`, `mdhSidebarWidth`, `mdhUploadsColumnWidths`, `mdhOverviewChartsScale`, `mdhResultsView`, `mdhStagesAutoscroll`, `mdhStagesSampleSize`, `mdhStagesShowDef`, `mdhStagesSourceOpen` are **global** (shared across tabs, persisted in `chrome.storage.local`). The **navigation** keys `mdhActiveView`, `mdhSelectedCollection`, `mdhActivePanel`, `mdhOpsSearch` (and the Console-level `consoleActiveApp`), plus `fabryActiveChat` (per-tab, content-free server chat id for the Fabry Chat app), `fabryMode` (per-tab, content-free Chat|Architect sub-app selection), and `fabryArchitectActive` (per-tab, content-free open-deliverable id for Architect), are **per-tab**: read session-first from `sessionStorage`, written to BOTH `sessionStorage` (this tab's truth on reload) and `chrome.storage.local` (cross-session seed for a freshly-opened tab), via `src/console/tabState.js`. `mdhLastPipeline::<scope>::<collection>` is keyed per-org **and per-collection** (legacy un-collection-scoped `mdhLastPipeline::<scope>` entries from older builds are orphaned, not migrated).
+- MDH state: `mdhPipelineWidth`, `mdhSidebarWidth`, `mdhUploadsColumnWidths`, `mdhOverviewChartsScale`, `mdhResultsView`, `mdhStagesAutoscroll`, `mdhStagesSampleSize`, `mdhStagesShowDef`, `mdhStagesSourceOpen`, `mdhShowHiddenCollections` (reveal this extension's own collections in the sidebar) are **global** (shared across tabs, persisted in `chrome.storage.local`). The **navigation** keys `mdhActiveView`, `mdhSelectedCollection`, `mdhActivePanel`, `mdhOpsSearch` (and the Console-level `consoleActiveApp`), plus `fabryActiveChat` (per-tab, content-free server chat id for the Fabry Chat app), `fabryMode` (per-tab, content-free Chat|Architect sub-app selection), and `fabryArchitectActive` (per-tab, content-free open-deliverable id for Architect), are **per-tab**: read session-first from `sessionStorage`, written to BOTH `sessionStorage` (this tab's truth on reload) and `chrome.storage.local` (cross-session seed for a freshly-opened tab), via `src/console/tabState.js`. `mdhLastPipeline::<scope>::<collection>` is keyed per-org **and per-collection** (legacy un-collection-scoped `mdhLastPipeline::<scope>` entries from older builds are orphaned, not migrated).
 - Audit state: `auditActiveSource`, `auditFiltersBySource`
 - Galaxy state: none (no persisted state in v1)
-- Fabry Chat state: `fabrySidebarWidth` is a **global** layout pref (sidebar drag-resize, clamp 200–420; the sidebar collapse toggle was removed, so the former `fabrySidebarOpen` key is orphaned/unused); `fabryArchConsoleHeight` is a **global** layout pref too (the Architect deliverable pane's action-console height — fixed so tabs don't jump, drag-resizable via its top-edge grip, clamp 140–620); `fabryActiveChat` (open chat id), `fabryMode` (Chat|Architect sub-app selection), and `fabryArchitectActive` (open Architect deliverable id) are the only other persisted values — all per-tab (tabState pattern) and content-free; chat content/images/transcripts and Architect deliverable text/evidence never touch storage (server-owned; privacy constraint — deliverables + their last results live in the `__mrfabry_architect` Data Storage collection, in-memory otherwise)
+- Fabry Chat state: `fabrySidebarWidth` is a **global** layout pref (sidebar drag-resize, clamp 200–420; the sidebar collapse toggle was removed, so the former `fabrySidebarOpen` key is orphaned/unused); `fabryArchPdfOptions` (`{contents,verdicts}` — what a printed specification includes; the scope is asked per use, these are remembered) is a **global** pref; `fabryArchDocView` is now **`edit`|`preview`** (a stored `split` maps to `preview`), `fabryArchRailOpen` (default true) and `fabryArchRailWidth` (default 322, clamp 260–620) are the inspector's collapse and width — also global. There is deliberately no list-collapse pref: the deliverable list is always shown. `fabryArchSplitRatio` and `fabryArchConsoleHeight` are **orphaned** (2026-08-19): the combined mode and the bottom console they sized no longer exist, and nothing reads or migrates them; `fabryActiveChat` (open chat id), `fabryMode` (Chat|Architect sub-app selection), and `fabryArchitectActive` (open Architect deliverable id) are the only other persisted values — all per-tab (tabState pattern) and content-free; chat content/images/transcripts and Architect deliverable text/evidence never touch storage (server-owned; privacy constraint — deliverables, their last results AND their version history live in the `_SA_EXTENSION__fabry_architect` Data Storage collection, in-memory otherwise)
 - Inspector state: `rossumViewedAnnotations` — annotations the user OPENED IN THE ROSSUM UI (`{id, origin, at}`, deduped by (origin,id), newest-first, cap 12), written by the always-on `track-viewed` content-script feature (pure tracker, no DOM) and read by the Inspector landing, which also live-refreshes via `chrome.storage.onChanged`, which filters to the connected org's origin (cap 8 shown) and enriches file/queue/status via ONE sideloaded call (`/annotations?id=<csv>&sideload=documents,queues` — verified live). Clear-all removes only the current origin's entries. Opening the Inspector lands on this list — only an explicitly staged `pendingAnnotationId` (deep-link) auto-loads. (Legacy keys `inspectorRecents` [investigated-recents, retired 2026-07-04] and the older per-tab `consoleInspectorAnn` are orphaned, not migrated.)
 - AI pipeline input availability: cached in **`sessionStorage`** (key `mdhAiAvailable_<org>`), NOT `chrome.storage` — ephemeral per-session result of the `/internal/llmchat` probe, so availability is never persisted at rest.
 - Onboarding training state: `trainingProgress` (per-org-origin progress + any issued receipt, capped at 3 orgs). The gate is the shared `experimentalUnlocked` above; the former `trainingUnlocked` key (2026-08-07 to 2026-08-11) is orphaned, never migrated — no profile can hold it without `experimentalUnlocked`, so nothing was lost.
@@ -831,6 +1354,7 @@ Answers "which features are actually used" so unused ones get deleted instead of
 ## CSS Architecture
 
 - **Console** (`console.css`): CSS custom properties for all colors, surfaces, typography shared by the Console's apps (Dataset Management, Audit, and Galaxy — Galaxy adds `.galaxy-*` rules). Includes `.app-rail*` rules for the left app-switcher rail. Dark mode via `@media (prefers-color-scheme: dark)` overriding `:root` variables. Semantic color variables: `--accent`, `--success`, `--warning`, `--danger` plus `-hover`, `-bg`, `-fg`, `-border` variants. (`mdh.css` was renamed to `console.css`; `audit.css` was removed — the Audit app now uses `console.css`.)
+- **Document styling** (the localpages port): `console.html` links three more sheets AFTER the two above — `github-markdown.css` (GitHub's own, light+dark), `hljs-github.css` (highlight.js light + dark wrapped in a media query, concatenated by `build.js`), and `doc-theme.css` (the ported `src/docs/theme.css`). They are scoped in practice to `.markdown-body` / `.docs-*` / `.toc` / `.state-*` / `.source-*` / `.section-preview` / `.code-copy-btn`; the only class names shared with `console.css` are `active`/`failed`, and both sheets only ever use them compound or descendant-scoped, so neither leaks into the other (checked, and worth re-checking before adding a bare class to either).
 - **Popup** (`popup.css`): Separate variable system, also supports dark mode.
 - **Content scripts**: Inject styles dynamically via `init()` functions (styles only in DOM when feature enabled). All classes prefixed `rossum-sa-extension-*`.
 - **CodeMirror**: Custom highlight themes (light + dark) in `JsonEditor.jsx` matching the JSON tree renderer colors via `@lezer/highlight` tags.
@@ -838,7 +1362,8 @@ Answers "which features are actually used" so unused ones get deleted instead of
 ## Dependencies
 
 - **preact** + **@preact/signals** — UI rendering and reactive state for the popup and Console apps (MDH, Audit, Galaxy)
-- **codemirror** + **@codemirror/lang-json** + **@codemirror/lang-markdown** + **@codemirror/theme-one-dark** — JSON/pipeline editor with MongoDB operator autocompletion (lang-json); the Fabry Architect deliverable Markdown-source editor (`MarkdownEditor.jsx`, lang-markdown; ~+100KB to `console.js`)
+- **codemirror** + **@codemirror/lang-json** + **@codemirror/lang-markdown** + **@codemirror/theme-one-dark** — JSON/pipeline editor with MongoDB operator autocompletion (lang-json); the unified specification view's per-deliverable Markdown source editors (`components/SourceEditor.jsx`, lang-markdown — content-height, page-scrolled, one per deliverable)
+- **markdown-it** + **markdown-it-github-alerts** + **markdown-it-anchor** + **highlight.js** + **github-markdown-css** — the localpages port's document renderer (see that section). Pinned to EXACT versions (no carets) because the golden-file equivalence test compares byte-for-byte against upstream localpages' own output; a minor bump could change rendering with no code change. markdown-it + both plugins + hljs core-and-11-grammars = 219,393 B bundled (+12.2% on console.js); the full hljs grammar set would have been 1,080,512 B. All verified CSP-clean (zero `new Function`, zero `eval`)
 - **json5** — lenient JSON parsing (allows trailing commas, unquoted keys in pipeline editor)
 - **beautiful-mermaid** — diagram rendering for Fabry chat replies (replaced the 3.3MB `mermaid` package). SYNCHRONOUS `renderMermaidSVG(text, themeOpts)` (flat `{bg, fg, accent, ...}` theme read live from the console tokens — `themeFromTokens`); escapes label text itself (probe-verified); throws on invalid input → code-fence fallback. Ships one flat ~1.5MB module (no tree-shakable subpaths), so it's bundled as its OWN lazy entry (`src/fabry/mermaidEntry.js` → `dist/console/mermaid.js`, registers `window.__fabryMermaidSvg`) script-injected on the first mermaid fence (`src/ui/fabry/mermaidLoader.js`); output parsed via DOMParser text/html (no innerHTML sinks)
 - **three** + **d3-force-3d** — WebGL rendering + force-directed layout for the Galaxy app. The scene is hand-rolled on these directly; `3d-force-graph` was deliberately avoided (its bundled ngraph engine uses `new Function`, which the Console page's default MV3 CSP forbids). Adds ~360KB to `console.js`.
@@ -846,6 +1371,14 @@ Answers "which features are actually used" so unused ones get deleted instead of
 
 ## Key Patterns
 
+- **A raw control byte in a source file makes it invisible to git AND to grep.** `SpecView.jsx`
+  carried a memo cache key written with LITERAL `\x00`/`\x01` delimiters instead of the two-character
+  escapes, and the consequences were both silent: `git diff --numstat` reported `-  -` (git had staged
+  a 345-line component as a **binary blob** — no line diff, no blame, no textual merge), and ugrep's
+  `-I` skipped the file entirely, so every `grep` across `src/` came back clean while the largest new
+  component went unread. That is how a `ReviewHost` referenced-but-never-defined survived a review
+  pass. Two cheap checks: `file <path>` on a source file must not say `data`, and
+  `git diff --numstat` must show real line counts. Write control characters as escapes.
 - Most features are gated behind chrome.storage.local toggles controlled via popup. The `closable-tooltips`, `dataset-mgmt-suggest`, and `track-viewed` features are always on (no toggle, no storage key) and are not advertised in the popup UI. `dataset-mgmt-suggest` self-gates on the legacy MDH web app path (`/svc/master-data-hub/web/`).
 - Rossum entry point builds handlers array from enabled settings — disabled features add zero overhead
 - NetSuite and Coupa content scripts are self-contained single files (no MutationObserver pattern)

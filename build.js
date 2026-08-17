@@ -48,6 +48,10 @@ const options = {
     'scripts/coupa': 'src/coupa/index.js',
     'popup/popup': 'src/popup/popup.jsx',
     'console/console': 'src/console/index.jsx',
+    // The print page's own script (dist/console/print.html → doc-print.js). A real extension
+    // page rather than a blob: URL, because a blob inherits the creator's CSP and could not
+    // run an inline script — measured during the port.
+    'console/doc-print': 'src/docs/printEntry.js',
     // Lazy-loaded by the Fabry chat's MermaidBlock (script-injected on the
     // first mermaid fence): beautiful-mermaid ships one flat ~1.5MB module,
     // so it gets its own bundle instead of weighing down console.js.
@@ -82,8 +86,34 @@ const options = {
   jsxFragment: 'Fragment',
 };
 
+// ── Document stylesheets (src/docs/, the localpages port) ─────────────────────
+// Both surfaces that render a document — the Architect's preview pane and the print
+// page — are extension pages, so they LINK these as ordinary stylesheets and nothing
+// needs inlining. (Until 2026-08-18 they were also baked, together with a client
+// bundle, into a `doc-assets.js` registrar the Console injected on demand: an exported
+// ZIP had to be self-contained. That export was removed, and the registrar with it.)
+function copyDocStylesheets() {
+  cpSync('node_modules/github-markdown-css/github-markdown.css', 'dist/console/github-markdown.css');
+  cpSync('src/docs/theme.css', 'dist/console/doc-theme.css');
+  writeFileSync('dist/console/hljs-github.css', hljsCombinedCss());
+  // The print page links the three sheets above plus its own extras.
+  cpSync('src/docs/print.html', 'dist/console/print.html');
+  cpSync('src/docs/print.css', 'dist/console/print.css');
+}
+
+function hljsCombinedCss() {
+  const light = readFileSync('node_modules/highlight.js/styles/github.css', 'utf8');
+  const dark = readFileSync('node_modules/highlight.js/styles/github-dark.css', 'utf8');
+  return `${light}\n@media (prefers-color-scheme: dark) {\n${dark}\n}\n`;
+}
+
+
 if (isWatch) {
+  // Once, up front: the watcher rebuilds JS only, so re-run `npm run build` after editing a
+  // stylesheet or an HTML page.
+  copyDocStylesheets();
   esbuild.context(options).then((ctx) => ctx.watch());
 } else {
   esbuild.buildSync(options);
+  copyDocStylesheets();
 }

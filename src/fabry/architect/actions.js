@@ -12,10 +12,11 @@ import { EXAMPLE_DELIVERABLE } from './example.js';
 import * as refine from './refine.js';
 import * as title from './title.js';
 import { formatAnswers } from '../chat.js';
-import { summaryLine } from './format.js';
+import { summaryLine, headingTitle } from './format.js';
 import * as plan from './plan.js';
 import { runImplement } from './implementLoop.js';
 import * as audit from './audit.js';
+import { shouldSnapshot, openSession, touchSession, prunePlan } from './revisionPolicy.js';
 
 let controller = null;
 let runId = 0;
@@ -40,8 +41,13 @@ export async function loadArchitect() {
   loading = true;
   store.loadError.value = null;
   try {
-    await api.ensureCollection();
-    const { deliverables, results, implement } = await api.loadDeliverables();
+    // WHICH collection this org uses is resolved (and migrated where possible) before any
+    // read — see collectionPlan.js. A rename that cannot happen is not an error: the
+    // Architect simply keeps using the legacy collection and tries again next boot.
+    resetSession();
+    const plan = await api.resolveCollection();
+    const { deliverables, results, implement, legacyCount } = await api.loadDeliverables();
+    store.legacyNotice.value = legacyCount > 0 ? { count: legacyCount, collection: plan.legacy } : null;
     store.deliverables.value = deliverables;
     store.results.value = results;
     // Rehydrate persisted implement-loop state (status / task list / write audit)
@@ -108,11 +114,22 @@ export async function moveDeliverable(id, toIndex) {
   }
 }
 
-export async function updateDeliverable(id, text) {
+// `source` describes the CHANGE being made ('edit' | 'refine' | 'restore'), which is what
+// the version it supersedes is labelled with — the entry reads "at 11:07 a Refine
+// acceptance changed this; here is what it looked like before".
+export async function updateDeliverable(id, text, source = 'edit') {
   const t = String(text ?? '');
   const prev = store.deliverables.value.find((d) => d.id === id);
   if (!prev || prev.text === t) return;
-  store.deliverables.value = store.deliverables.value.map((d) => (d.id === id ? { ...d, text: t } : d));
+  const now = Date.now();
+  // Decided BEFORE the store is mutated, because the version stores the text as it WAS.
+  if (shouldSnapshot({ session, deliverableId: id, source, now })) {
+    captureRevision(id, prev.text, now, source);   // deliberately not awaited — see below
+    session = openSession({ deliverableId: id, source, now });
+  } else {
+    session = touchSession(session, now);
+  }
+  store.deliverables.value = store.deliverables.value.map((d) => (d.id === id ? { ...d, text: t, editedAt: now } : d));
   const r = store.results.value[id];
   if (r && !r.running && !r.stale) store.setResult(id, { ...r, stale: true });
   try {
@@ -125,36 +142,128 @@ export async function updateDeliverable(id, text) {
 
 const titleInFlight = new Set();
 
-// Manual rename (persists the explicit title).
-export async function renameDeliverable(id, newTitle) {
+// Persist a title and WHERE IT CAME FROM. The source is what lets a heading
+// beat a generated title while still losing to a deliberate rename (format.js).
+async function setTitle(id, newTitle, source) {
   const clean = String(newTitle ?? '').trim();
-  store.deliverables.value = store.deliverables.value.map((d) => (d.id === id ? { ...d, title: clean } : d));
-  try { await api.saveTitle(id, clean); }
+  store.deliverables.value = store.deliverables.value.map((d) => (d.id === id ? { ...d, title: clean, titleSource: source } : d));
+  try { await api.saveTitle(id, clean, source); }
   catch (err) { store.loadError.value = err?.message || 'Could not save title.'; }
 }
 
-// Read-only AI title generation — only when the deliverable has meaningful text and
-// no title yet. Offline/error → silently keep the derived fallback. Guarded against
-// duplicate in-flight calls.
+// Manual rename (persists the explicit title) — the one title that outranks a heading.
+export function renameDeliverable(id, newTitle) { return setTitle(id, newTitle, 'manual'); }
+
+
+// Read-only AI title generation — only when the deliverable has meaningful text,
+// no title yet, and DECLARES NO HEADING OF ITS OWN (the heading already wins in
+// displayTitle, so generating one would just burn an agent chat). Offline/error →
+// silently keep the derived fallback. Guarded against duplicate in-flight calls.
 export async function generateTitle(id) {
   const d = store.deliverables.value.find((x) => x.id === id);
-  if (!d || (d.title && d.title.trim()) || d.text.trim().length < 8 || titleInFlight.has(id)) return;
+  if (!d || (d.title && d.title.trim()) || d.text.trim().length < 8 || headingTitle(d.text) || titleInFlight.has(id)) return;
   titleInFlight.add(id);
   try {
     const chatId = await agentApi.createChat();
     const acc = newAcc();
     await agentApi.streamMessage(chatId, title.buildTitlePrompt(d.text), { onEvent: (e) => foldEvents(acc, [e]) });
     const t = title.parseTitle(replyText(acc));
-    if (t && !store.deliverables.value.find((x) => x.id === id)?.title) await renameDeliverable(id, t);
+    if (t && !store.deliverables.value.find((x) => x.id === id)?.title) await setTitle(id, t, 'ai');
   } catch { /* offline / error → keep the derived fallback */ }
   finally { titleInFlight.delete(id); }
 }
 
-// Backfill titles for all untitled-with-text deliverables (bounded concurrency 3).
+// Backfill titles for all untitled, headingless-with-text deliverables (bounded
+// concurrency 3). The heading filter mirrors generateTitle's own guard.
 export async function backfillTitles() {
-  const q = store.deliverables.value.filter((d) => !(d.title && d.title.trim()) && d.text.trim().length >= 8).map((d) => d.id);
+  const q = store.deliverables.value.filter((d) => !(d.title && d.title.trim()) && d.text.trim().length >= 8 && !headingTitle(d.text)).map((d) => d.id);
   const worker = async () => { while (q.length) await generateTitle(q.shift()); };
   await Promise.all([worker(), worker(), worker()]);
+}
+
+// ── Version history ───────────────────────────────────────────────────────────
+// One version per editing session (revisionPolicy.js), so the 600ms autosave cannot mint
+// dozens per paragraph. `session` is in-memory and per-tab by construction; losing it on
+// reload only means the next edit opens a new version, which is the honest reading anyway.
+let session = null;
+
+// Boot reset (and the seam tests use): a fresh load means a fresh org, tab or reconnect, and
+// a session carried across it would fold the first edit into a version that belongs to the
+// previous one. Cheap to be strict about — the cost of an extra version is one document.
+export function resetSession() { session = null; }
+
+function newRevisionId() {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  return 'rev_' + (uuid || `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`);
+}
+
+async function fetchRevisions(deliverableId) {
+  const res = await api.listRevisions(deliverableId);
+  return ((res && res.result) || [])
+    .map((d) => ({ id: d._id, at: typeof d.at === 'number' ? d.at : 0, source: d.source || 'edit' }))
+    .sort((a, b) => b.at - a.at);
+}
+
+// Best-effort and deliberately NOT awaited by the save path: a user's text must never wait
+// on its history, and a failed insert costs one missing entry rather than an unsaved edit.
+async function captureRevision(deliverableId, text, at, source) {
+  try {
+    await api.addRevision({ id: newRevisionId(), deliverableId, text, at, source });
+    const items = await fetchRevisions(deliverableId);
+    const drop = prunePlan(items);
+    if (drop.length) await api.deleteRevisions(deliverableId, drop);
+    const kept = drop.length ? items.filter((i) => !drop.includes(i.id)) : items;
+    // Only repaint a list the user actually has open.
+    if (store.revisions.value[deliverableId]) store.setRevisions(deliverableId, { loading: false, items: kept, error: null });
+  } catch { /* history is secondary to saving the text */ }
+}
+
+export async function loadRevisions(deliverableId, { force = false } = {}) {
+  const have = store.revisions.value[deliverableId];
+  if (have && !force && (have.loading || have.items)) return;
+  store.setRevisions(deliverableId, { loading: true, error: null, items: have?.items || null });
+  try {
+    store.setRevisions(deliverableId, { loading: false, items: await fetchRevisions(deliverableId), error: null });
+  } catch (err) {
+    store.setRevisions(deliverableId, { loading: false, error: err?.message || 'Could not load versions.' });
+  }
+}
+
+// Fetch (and cache) one version's text WITHOUT selecting it — the "vs next" diff needs its
+// neighbour's text, and going through openRevision would move the selection.
+export async function ensureRevisionText(deliverableId, revisionId) {
+  const cached = store.revisionTexts.value[revisionId];
+  if (typeof cached === 'string') return cached;
+  const res = await api.getRevision(deliverableId, revisionId);
+  const doc = ((res && res.result) || [])[0];
+  if (!doc) return null;
+  const text = typeof doc.text === 'string' ? doc.text : '';
+  store.cacheRevisionText(revisionId, text);
+  return text;
+}
+
+// Select a version to diff. The text is fetched on demand: the list projects it out, so a
+// long specification costs nothing until a version is actually looked at.
+export async function openRevision(deliverableId, revisionId) {
+  store.selectedRevision.value = revisionId;
+  try {
+    const text = await ensureRevisionText(deliverableId, revisionId);
+    if (text == null) store.loadError.value = 'That version is no longer stored.';
+  } catch (err) {
+    store.loadError.value = err?.message || 'Could not read that version.';
+  }
+}
+
+// Restoring is an ordinary edit whose source is 'restore', so the pre-restore text is
+// itself snapshotted first (a source change always opens a new version) — which is what
+// makes restore undoable and why it needs no confirmation dialog.
+export async function restoreRevision(deliverableId, revisionId) {
+  let text = null;
+  try { text = await ensureRevisionText(deliverableId, revisionId); }
+  catch (err) { store.loadError.value = err?.message || 'Could not read that version.'; return; }
+  if (text == null) { store.loadError.value = 'That version is no longer stored.'; return; }
+  await updateDeliverable(deliverableId, text, 'restore');
+  store.selectedRevision.value = null;
 }
 
 export async function deleteDeliverable(id) {
@@ -164,6 +273,10 @@ export async function deleteDeliverable(id) {
   store.results.value = rest;
   if (store.activeId.value === id) store.activeId.value = null;
   try {
+    // History first, while colFor(id) can still resolve where the document lives. Its own
+    // try/catch: orphaned revisions are tidier to leave behind than a deliverable that
+    // refuses to delete.
+    try { await api.deleteRevisionsFor(id); } catch { /* orphans are harmless */ }
     await api.deleteDeliverable(id);
   } catch (err) {
     store.loadError.value = err?.message || 'Could not delete deliverable.';

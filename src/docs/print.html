@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Specification</title>
+  <!-- The same three document stylesheets the pane links, plus the print-page extras.
+       Real <link>s, not inlined: this is a page of the extension's own package, so
+       script-src/style-src 'self' is satisfied and there is nothing to embed. -->
+  <link href="github-markdown.css" rel="stylesheet" />
+  <link href="hljs-github.css" rel="stylesheet" />
+  <link href="doc-theme.css" rel="stylesheet" />
+  <link href="print.css" rel="stylesheet" />
+</head>
+<body class="docs-root">
+  <div class="print-hint" id="hint">Preparing the print dialog… if it does not appear, <button type="button" id="again">open it</button>.</div>
+  <main class="markdown-body" id="doc"></main>
+  <script src="doc-print.js"></script>
+</body>
+</html>

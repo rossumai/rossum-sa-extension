@@ -1,0 +1,97 @@
+<h1 id="section-state-labels" tabindex="-1"><a class="anchor" href="#section-state-labels" aria-hidden="true">#</a> Section state labels</h1>
+<div class="state-summary" aria-label="Section state summary"><span class="state-summary-title">Section state</span><span class="state-summary-item state-rough-draft"><svg class="state-label-icon" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-dasharray="2 2.4" stroke-linecap="round"/></svg><span class="state-summary-count">1</span> Rough draft</span><span class="state-summary-item state-in-progress"><svg class="state-label-icon" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="8" cy="8" r="2.4" fill="currentColor"/></svg><span class="state-summary-count">2</span> In progress</span><span class="state-summary-item state-ready"><svg class="state-label-icon" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><span class="state-summary-count">1</span> Ready for review</span><span class="state-summary-item state-verified"><svg class="state-label-icon" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><circle cx="8" cy="8" r="7.2" fill="currentColor"/><path d="M4.6 8.3l2.2 2.2 4.6-4.7" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="state-summary-count">1</span> Verified</span><span class="state-summary-item state-stale"><svg class="state-label-icon" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M7.1 2.2a1.05 1.05 0 0 1 1.8 0l5.9 10.6a1.05 1.05 0 0 1-.9 1.6H2.1a1.05 1.05 0 0 1-.9-1.6z" fill="currentColor"/><path d="M8 6.3v3.3" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="11.9" r="1" fill="#fff"/></svg><span class="state-summary-count">1</span> Stale</span></div>
+<p>A long-lived document rots unevenly. Some sections were checked against the code
+this morning; others were written from notes months ago and nobody has looked
+since. A state label records which is which, per section.</p>
+<h2 id="1-overview" tabindex="-1" class="has-state-label"><a class="anchor" href="#1-overview" aria-hidden="true">#</a> 1. Overview<span class="state-label state-verified" data-state="verified"><svg class="state-label-icon" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><circle cx="8" cy="8" r="7.2" fill="currentColor"/><path d="M4.6 8.3l2.2 2.2 4.6-4.7" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="state-label-text">Verified</span><span class="state-label-date">2026-08-17</span></span></h2>
+<p>Put the element on the first line below a heading:</p>
+<pre><code class="hljs language-markdown"><span class="hljs-section">## 1. Overview</span>
+
+<span class="language-xml"><span class="hljs-tag">&lt;<span class="hljs-name">state-label</span> <span class="hljs-attr">state</span>=<span class="hljs-string">&quot;verified&quot;</span> <span class="hljs-attr">date</span>=<span class="hljs-string">&quot;2026-08-17&quot;</span> /&gt;</span></span>
+</code></pre>
+<p><code>localpages</code> lifts it onto the heading row as a badge, counts it in the tally
+under the document title, and mirrors it as a dot in the sidebar.</p>
+<p>The fenced example above is <em>not</em> turned into a badge. Detection runs on the
+parsed document, where a fence is never an HTML block.</p>
+<h2 id="2-the-five-states" tabindex="-1" class="has-state-label"><a class="anchor" href="#2-the-five-states" aria-hidden="true">#</a> 2. The five states<span class="state-label state-ready" data-state="ready"><svg class="state-label-icon" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><span class="state-label-text">Ready for review</span><span class="state-label-date">2026-08-14</span></span></h2>
+<table>
+<thead>
+<tr>
+<th><code>state</code></th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rough-draft</code></td>
+<td>Written from notes, or still a stub. Checked against nothing.</td>
+</tr>
+<tr>
+<td><code>in-progress</code></td>
+<td>Being written or reworked right now.</td>
+</tr>
+<tr>
+<td><code>ready</code></td>
+<td>Complete and self-consistent, but not yet checked against the code.</td>
+</tr>
+<tr>
+<td><code>verified</code></td>
+<td>Every claim traced to a file, command output, or API response, on the date shown.</td>
+</tr>
+<tr>
+<td><code>stale</code></td>
+<td>Was true; the implementation has since moved. Warns the reader off without deleting the content.</td>
+</tr>
+</tbody>
+</table>
+<p><code>ready</code> and <code>verified</code> are both green. They are told apart by icon shape and
+fill weight, not by hue alone, so they survive greyscale printing and
+colour-blindness.</p>
+<h2 id="3-attributes" tabindex="-1" class="has-state-label"><a class="anchor" href="#3-attributes" aria-hidden="true">#</a> 3. Attributes<span class="state-label state-in-progress" data-state="in-progress"><svg class="state-label-icon" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="8" cy="8" r="2.4" fill="currentColor"/></svg><span class="state-label-text">In progress</span><span class="state-label-date">2026-08-16</span></span></h2>
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Required</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>state</code></td>
+<td>yes</td>
+<td>One of the five above. Anything else is an error.</td>
+</tr>
+<tr>
+<td><code>date</code></td>
+<td>no</td>
+<td>Rendered verbatim — <code>localpages</code> never reformats it. Omit it and no date shows.</td>
+</tr>
+<tr>
+<td><code>label</code></td>
+<td>no</td>
+<td>Overrides the display text, for custom wording or another language.</td>
+</tr>
+</tbody>
+</table>
+<p>The date is the day the state <strong>last changed</strong> — not the day the text was last
+edited. Write <code>date=&quot;—&quot;</code> when that day cannot be established.</p>
+<h2 id="4-implementation-reference" tabindex="-1" class="has-state-label"><a class="anchor" href="#4-implementation-reference" aria-hidden="true">#</a> 4. Implementation reference<span class="state-label state-stale" data-state="stale"><svg class="state-label-icon" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M7.1 2.2a1.05 1.05 0 0 1 1.8 0l5.9 10.6a1.05 1.05 0 0 1-.9 1.6H2.1a1.05 1.05 0 0 1-.9-1.6z" fill="currentColor"/><path d="M8 6.3v3.3" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="11.9" r="1" fill="#fff"/></svg><span class="state-label-text">Stale</span><span class="state-label-date">2026-08-02</span></span></h2>
+<p><code>stale</code> does not mean delete. Behaviour that still runs somewhere stays
+documented — the label warns the reader off without removing the content.</p>
+<h2 id="5-operations" tabindex="-1" class="has-state-label"><a class="anchor" href="#5-operations" aria-hidden="true">#</a> 5. Operations<span class="state-label state-rough-draft" data-state="rough-draft"><svg class="state-label-icon" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-dasharray="2 2.4" stroke-linecap="round"/></svg><span class="state-label-text">Rough draft</span><span class="state-label-date">—</span></span></h2>
+<p>Labels are optional. A section with no label is legal and simply means “state
+not assessed”, so the convention can be adopted one section at a time.</p>
+<h2 id="6-when-something-is-wrong" tabindex="-1" class="has-state-label"><a class="anchor" href="#6-when-something-is-wrong" aria-hidden="true">#</a> 6. When something is wrong<span class="state-label state-in-progress" data-state="in-progress"><svg class="state-label-icon" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="8" cy="8" r="2.4" fill="currentColor"/></svg><span class="state-label-text">Being rewritten</span></span></h2>
+<p>A browser renders an unknown element as nothing at all, so mistakes are reported
+rather than swallowed. Each of these prints a warning naming the file and line,
+and marks the spot in the page:</p>
+<ul>
+<li>a <code>state</code> that isn’t one of the five, or no <code>state</code> at all</li>
+<li>the paired form <code>&lt;state-label …&gt;&lt;/state-label&gt;</code>, or attributes wrapped across
+several lines — neither parses as an HTML block</li>
+<li>an element that doesn’t directly follow a heading</li>
+</ul>
+<h2 id="7-unlabelled-section" tabindex="-1"><a class="anchor" href="#7-unlabelled-section" aria-hidden="true">#</a> 7. Unlabelled section</h2>
+<p>This heading carries no label, and renders exactly as it always has — no badge,
+no dot in the sidebar, no change to its anchor.</p>

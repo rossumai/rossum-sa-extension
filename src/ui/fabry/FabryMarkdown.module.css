@@ -46,10 +46,12 @@
 .code::-webkit-scrollbar, .mermaid::-webkit-scrollbar, .tablewrap::-webkit-scrollbar { width: 9px; height: 9px; }
 .code::-webkit-scrollbar-thumb, .mermaid::-webkit-scrollbar-thumb, .tablewrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
 
-/* Architect renders markdown a touch smaller (preview + evidence panes). Context
-   overrides co-located with the component; .fabry-arch-* are global ancestors. */
-:global(.fabry-arch-preview) .md, :global(.fabry-arch-evidence) .md { font-size: 12px; }
-:global(.fabry-arch-preview) .md h3.h, :global(.fabry-arch-evidence) .md h3.h { font-size: 14px; margin: 14px 0 6px; }
-:global(.fabry-arch-preview) .md h4.h, :global(.fabry-arch-evidence) .md h4.h { font-size: 12.5px; }
-:global(.fabry-arch-preview) .md h5.h, :global(.fabry-arch-preview) .md h6.h,
+/* Architect renders the CHECK EVIDENCE a touch smaller. Context overrides
+   co-located with the component; .fabry-arch-evidence is a global ancestor.
+   (.fabry-arch-preview was dropped from these selectors when the deliverable preview
+   moved to the ported localpages renderer in src/docs/ — it no longer contains a
+   FabryMarkdown tree, so those halves matched nothing.) */
+:global(.fabry-arch-evidence) .md { font-size: 12px; }
+:global(.fabry-arch-evidence) .md h3.h { font-size: 14px; margin: 14px 0 6px; }
+:global(.fabry-arch-evidence) .md h4.h { font-size: 12.5px; }
 :global(.fabry-arch-evidence) .md h5.h, :global(.fabry-arch-evidence) .md h6.h { font-size: 11.5px; }

@@ -6,12 +6,13 @@ globalThis.requestAnimationFrame = (cb) => { cb(0); return 0; };
 globalThis.cancelAnimationFrame = () => {};
 vi.mock('../src/fabry/architect/actions.js', () => ({
   loadArchitect: vi.fn().mockResolvedValue(undefined),
+  openDeliverable: vi.fn(),
   addDeliverable: vi.fn(), openDeliverable: vi.fn(), runAll: vi.fn(), stopRun: vi.fn(),
   moveDeliverable: vi.fn(), reRun: vi.fn(), deleteDeliverable: vi.fn(),
 }));
-vi.mock('../src/ui/Modal.jsx', () => ({ confirmModal: vi.fn() }));
+vi.mock('../src/ui/Modal.jsx', () => ({ confirmModal: vi.fn(), promptModal: vi.fn() }));
 import * as actions from '../src/fabry/architect/actions.js';
-import { confirmModal } from '../src/ui/Modal.jsx';
+import { confirmModal, promptModal } from '../src/ui/Modal.jsx';
 import * as store from '../src/fabry/architect/store.js';
 import ArchitectSidebar from '../src/fabry/architect/components/ArchitectSidebar.jsx';
 const flush = () => new Promise((r) => setTimeout(r, 0));
@@ -38,6 +39,18 @@ describe('ArchitectSidebar', () => {
     expect(root.querySelector('.fabry-arch-item.active')).toBeTruthy();
     root.querySelector('.fabry-arch-item').click();
     expect(actions.openDeliverable).toHaveBeenCalledWith('a');
+  });
+  it('names a row by the heading its text declares, over an AI-generated title', () => {
+    store.deliverables.value = [{ id: 'a', text: '# Vendor Matching\nbody', order: 1, title: 'Generated Name', titleSource: 'ai' }];
+    const root = mount();
+    expect(root.querySelector('.fabry-arch-item-title').textContent).toBe('Vendor Matching');
+  });
+  it('kebab Rename prefills with the name on screen, not the (absent) stored title', () => {
+    store.deliverables.value = [{ id: 'a', text: '# Vendor Matching\nbody', order: 1 }];
+    const root = mount();
+    act(() => { root.querySelector('.fabry-arch-kebab').click(); });
+    act(() => { [...root.querySelectorAll('.fabry-arch-menu-item')].find((b) => /Rename/.test(b.textContent)).click(); });
+    expect(promptModal.mock.calls[0][1].initialValue).toBe('Vendor Matching');
   });
   it('renders status dots by verdict + running spinner + stale', () => {
     store.deliverables.value = [{ id: 'a', text: 'A', order: 1 }, { id: 'b', text: 'B', order: 2 }, { id: 'c', text: 'C', order: 3 }];
@@ -135,5 +148,108 @@ describe('ArchitectSidebar — kebab menu', () => {
     const onConfirm = confirmModal.mock.calls[0][2];
     onConfirm();
     expect(actions.deleteDeliverable).toHaveBeenCalledWith('a');
+  });
+});
+
+describe('the document outline in the sidebar', () => {
+  // Owner, 2026-08-18: the TOC moved out of the document and into the sidebar, nested under
+  // the deliverable it belongs to, because the in-page one needs a 1280px column and the pane
+  // is ~936px at a 1280px window — it was hidden in practice.
+  const WITH_HEADINGS = [
+    '# Solution', '', 'Intro.', '',
+    '## Overview', '', 'a', '',
+    '### Detail', '', 'b', '',
+    '## Operations', '', 'c', '',
+    '```markdown', '## Not a heading', '```', '',
+  ].join('\n');
+
+  it('lists the open deliverable\'s h2/h3 headings, nested and indented by level', () => {
+    store.deliverables.value = [{ id: 'a', text: WITH_HEADINGS, order: 1 }];
+    store.activeId.value = 'a';
+    const root = mount();
+    const items = [...root.querySelectorAll('.fabry-arch-outline-item')];
+    expect(items.map((b) => b.textContent)).toEqual(['Overview', 'Detail', 'Operations']);
+    expect(items[0].classList.contains('level-2')).toBe(true);
+    expect(items[1].classList.contains('level-3')).toBe(true);   // indented deeper
+  });
+
+  it('shows the outline for EVERY deliverable — the list is the whole table of contents', () => {
+    // Inverted deliberately on 2026-08-19: the deliverable list became pure navigation over one
+    // continuous document, so headings are no longer scoped to whichever deliverable was "open".
+    store.deliverables.value = [
+      { id: 'a', text: WITH_HEADINGS, order: 1 },
+      // A title line plus a real sub-heading: the title is the ROW, so only the sub-heading is listed.
+      { id: 'b', text: '# Second deliverable\n\n## Elsewhere\n\nx\n', order: 2 },
+    ];
+    store.activeId.value = 'a';
+    const root = mount();
+    const labels = [...root.querySelectorAll('.fabry-arch-outline-item')].map((b) => b.textContent);
+    expect(labels).toContain('Overview');
+    expect(labels).toContain('Elsewhere');
+    expect(root.querySelectorAll('.fabry-arch-outline')).toHaveLength(2);
+  });
+
+  it('does not repeat the deliverable own title, which the row already shows', () => {
+    // Owner report, 2026-08-19: a specification whose document starts `## 1. Overview` had the same
+    // words on the row and again one line below it.
+    store.deliverables.value = [{ id: 'a', text: '## 1. Overview\n\ntext\n\n## 1.1 Scope\n\nmore\n', order: 1 }];
+    const root = mount();
+    const labels = [...root.querySelectorAll('.fabry-arch-outline-item')].map((b) => b.textContent);
+    expect(labels).toEqual(['1.1 Scope']);
+    expect(root.querySelector('.fabry-arch-item').textContent).toMatch(/1\. Overview/);
+  });
+
+  it('carries the deliverable id with the heading, so a shared slug resolves in the right section', () => {
+    store.deliverables.value = [
+      { id: 'a', text: '# One\n\n## Scope\n\nx\n', order: 1 },
+      { id: 'b', text: '# Two\n\n## Scope\n\ny\n', order: 2 },
+    ];
+    const jumped = [];
+    store.setOutlineNavigator((slug, docId) => jumped.push([slug, docId]));
+    const root = mount();
+    const items = [...root.querySelectorAll('.fabry-arch-outline-item')];
+    items[1].click();
+    expect(jumped).toEqual([['scope', 'b']]);
+    store.setOutlineNavigator(null);
+  });
+
+  it('renders nothing for a deliverable with no headings', () => {
+    store.deliverables.value = [{ id: 'a', text: 'Just prose, no headings.\n', order: 1 }];
+    store.activeId.value = 'a';
+    const root = mount();
+    expect(root.querySelector('.fabry-arch-outline')).toBeNull();
+  });
+
+  it('clicking an entry asks the open pane to navigate, and does not open/re-open the row', () => {
+    store.deliverables.value = [{ id: 'a', text: WITH_HEADINGS, order: 1 }];
+    store.activeId.value = 'a';
+    const jumped = [];
+    store.setOutlineNavigator((slug) => jumped.push(slug));
+    const root = mount();
+    act(() => { root.querySelectorAll('.fabry-arch-outline-item')[2].click(); });
+    expect(jumped).toEqual(['operations']);
+    // The row's own click handler must not fire: the outline is a SIBLING of the row, and the
+    // handler stops propagation as well.
+    expect(actions.openDeliverable).not.toHaveBeenCalled();
+    store.setOutlineNavigator(null);
+  });
+
+  it('highlights the heading the reader is in', () => {
+    store.deliverables.value = [{ id: 'a', text: WITH_HEADINGS, order: 1 }];
+    store.activeId.value = 'a';
+    store.setActiveHeading('detail');
+    const root = mount();
+    const active = [...root.querySelectorAll('.fabry-arch-outline-item.active')];
+    expect(active).toHaveLength(1);
+    expect(active[0].textContent).toBe('Detail');
+    store.setActiveHeading(null);
+  });
+
+  it('ignores a heading inside a fenced block, as the renderer does', () => {
+    store.deliverables.value = [{ id: 'a', text: WITH_HEADINGS, order: 1 }];
+    store.activeId.value = 'a';
+    const root = mount();
+    expect([...root.querySelectorAll('.fabry-arch-outline-item')].map((b) => b.textContent))
+      .not.toContain('Not a heading');
   });
 });

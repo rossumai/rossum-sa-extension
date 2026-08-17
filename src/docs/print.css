@@ -1,0 +1,51 @@
+/* Print-page-only rules. The three document stylesheets do the rendering; this adds what a
+   multi-document paper artifact needs and the single-page export does not. */
+.print-doc { break-inside: auto; }
+/* Every document after the first starts its own page — a specification is read as parts. */
+.print-doc + .print-doc { break-before: page; }
+.print-doc-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0 0 18px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #d0d7de;
+  break-after: avoid;
+}
+.print-doc-title { margin: 0 !important; border-bottom: 0 !important; padding-bottom: 0 !important; font-size: 26px; }
+.print-doc-meta { display: flex; align-items: center; gap: 8px; }
+.print-verdict {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 12px; font-weight: 500; padding: 3px 9px; border-radius: 999px;
+  border: 1px solid #d0d7de; color: #656d76;
+}
+.print-verdict.verdict-pass { color: #1a7f37; border-color: rgba(26, 127, 55, .35); }
+.print-verdict.verdict-fail { color: #cf222e; border-color: rgba(207, 34, 46, .35); }
+.print-verdict.verdict-uncertain { color: #9a6700; border-color: rgba(154, 103, 0, .35); }
+/* The contents page is a list, so it does not need the 45px column padding twice over. */
+.print-contents table { width: 100%; }
+
+/* On screen (before the dialog opens, and if the user cancels it) the page should still read
+   as a document rather than as a bare column. */
+.docs-root { min-height: 100vh; }
+.print-hint {
+  max-width: 980px; margin: 0 auto; padding: 10px 45px 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 12px; color: #656d76;
+}
+.print-hint button {
+  font: inherit; font-weight: 600; color: #0969da; background: none; border: 0;
+  padding: 0 2px; cursor: pointer; text-decoration: underline;
+}
+@media print { .print-hint { display: none !important; } }
+@media (prefers-color-scheme: dark) {
+  .print-doc-head { border-bottom-color: #3d444d; }
+  .print-verdict { color: #9198a1; border-color: #3d444d; }
+  .print-hint { color: #9198a1; }
+  .print-hint button { color: #4493f8; }
+}
+
+/* A document that names itself gets a meta-only header: the badge row sits above its own
+   heading without repeating the title. No rule, because its heading brings one. */
+.print-doc-head.meta-only { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }

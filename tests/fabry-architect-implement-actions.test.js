@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../src/agent/agentApi.js', () => ({ createChat: vi.fn(), streamMessage: vi.fn() }));
 vi.mock('../src/fabry/architect/api.js', () => ({
-  COLLECTION: '__mrfabry_architect',
+  COLLECTION: '_SA_EXTENSION__fabry_architect',
   ensureCollection: vi.fn().mockResolvedValue(undefined),
   loadDeliverables: vi.fn().mockResolvedValue({ deliverables: [], results: {}, implement: {} }),
   addDeliverable: vi.fn().mockResolvedValue({}), updateDeliverable: vi.fn().mockResolvedValue({}),

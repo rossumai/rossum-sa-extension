@@ -1,0 +1,37 @@
+<h1 id="welcome-to-localpages" tabindex="-1"><a class="anchor" href="#welcome-to-localpages" aria-hidden="true">#</a> Welcome to localpages</h1>
+<p>This is a small example documentation site. Run <code>npx github:mrtnzlml/localpages</code> (or <code>node ../../bin/localpages.mjs</code> from the repo root) inside this directory to see it rendered.</p>
+<h2 id="whats-here" tabindex="-1"><a class="anchor" href="#whats-here" aria-hidden="true">#</a> What’s here</h2>
+<ul>
+<li>This page (<code>index.md</code>) — a feature tour</li>
+<li><a href="architecture.md"><code>architecture.md</code></a> — a Mermaid diagram, JSON5, a wide table, and section anchors</li>
+<li><a href="sample.py"><code>sample.py</code></a> — a tiny Python file to demo the source-viewer modal</li>
+<li><code>assets/diagram.svg</code> — a placeholder diagram for the figure rendering</li>
+</ul>
+<h2 id="github-flavored-alerts" tabindex="-1"><a class="anchor" href="#github-flavored-alerts" aria-hidden="true">#</a> GitHub-flavored alerts</h2>
+<div class="markdown-alert markdown-alert-note"><p class="markdown-alert-title"><svg class="octicon octicon-info mr-2" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p><p>This is a <code>NOTE</code> callout. Five flavours exist: <code>NOTE</code>, <code>TIP</code>, <code>IMPORTANT</code>, <code>WARNING</code>, <code>CAUTION</code>.</p>
+</div>
+<div class="markdown-alert markdown-alert-tip"><p class="markdown-alert-title"><svg class="octicon octicon-light-bulb mr-2" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path d="M8 1.5c-2.363 0-4 1.69-4 3.75 0 .984.424 1.625.984 2.304l.214.253c.223.264.47.556.673.848.284.411.537.896.621 1.49a.75.75 0 0 1-1.484.211c-.04-.282-.163-.547-.37-.847a8.456 8.456 0 0 0-.542-.68c-.084-.1-.173-.205-.268-.32C3.201 7.75 2.5 6.766 2.5 5.25 2.5 2.31 4.863 0 8 0s5.5 2.31 5.5 5.25c0 1.516-.701 2.5-1.328 3.259-.095.115-.184.22-.268.319-.207.245-.383.453-.541.681-.208.3-.33.565-.37.847a.751.751 0 0 1-1.485-.212c.084-.593.337-1.078.621-1.489.203-.292.45-.584.673-.848.075-.088.147-.173.213-.253.561-.679.985-1.32.985-2.304 0-2.06-1.637-3.75-4-3.75ZM5.75 12h4.5a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1 0-1.5ZM6 15.25a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z"></path></svg>Tip</p><p>Hovering a heading reveals a <code>#</code> permalink at its left margin. Click to copy a deep link.</p>
+</div>
+<div class="markdown-alert markdown-alert-warning"><p class="markdown-alert-title"><svg class="octicon octicon-alert mr-2" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg>Warning</p><p>The default blocklist hides <code>credentials.*</code>, <code>.env*</code>, and other secret-shaped files from the source-file viewer. Add to it with <code>--block</code>.</p>
+</div>
+<h2 id="code-blocks" tabindex="-1"><a class="anchor" href="#code-blocks" aria-hidden="true">#</a> Code blocks</h2>
+<p>Plain JavaScript:</p>
+<pre><code class="hljs language-javascript"><span class="hljs-keyword">const</span> <span class="hljs-title function_">greet</span> = (<span class="hljs-params">name</span>) =&gt; <span class="hljs-string">`hello, <span class="hljs-subst">${name}</span>`</span>;
+<span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(<span class="hljs-title function_">greet</span>(<span class="hljs-string">&#x27;localpages&#x27;</span>));
+</code></pre>
+<p>A JSON5 fenced block — <code>//</code> comments highlight cleanly because the block is treated as JS:</p>
+<pre><code class="hljs language-json5">{
+  <span class="hljs-string">&quot;name&quot;</span>: <span class="hljs-string">&quot;localpages&quot;</span>,        <span class="hljs-comment">// the tool</span>
+  <span class="hljs-string">&quot;version&quot;</span>: <span class="hljs-string">&quot;0.1.0&quot;</span>,          <span class="hljs-comment">// initial release</span>
+  <span class="hljs-string">&quot;license&quot;</span>: <span class="hljs-string">&quot;MIT&quot;</span>
+}
+</code></pre>
+<h2 id="source-file-modal" tabindex="-1"><a class="anchor" href="#source-file-modal" aria-hidden="true">#</a> Source-file modal</h2>
+<p>Click on <a href="sample.py"><code>sample.py</code></a> above. Instead of navigating, a modal opens with the file syntax-highlighted. Press <code>Esc</code> or click outside to close.</p>
+<h2 id="standalone-image-figure" tabindex="-1"><a class="anchor" href="#standalone-image-figure" aria-hidden="true">#</a> Standalone image → figure</h2>
+<p>The image below is the only thing in its paragraph, so it gets auto-wrapped in <code>&lt;figure&gt;</code> and the alt text becomes its caption.</p>
+<figure><img src="assets/diagram.svg" alt="Schematic showing how localpages turns Markdown into rendered HTML"><figcaption>Schematic showing how localpages turns Markdown into rendered HTML</figcaption></figure>
+<h2 id="inline-highlights" tabindex="-1"><a class="anchor" href="#inline-highlights" aria-hidden="true">#</a> Inline highlights</h2>
+<p>Wrap unfinished prose in <code>&lt;mark&gt;</code> for a yellow highlight: <mark>this section is TBD</mark>. Useful for marking work-in-progress that should be hard to miss.</p>
+<h2 id="whats-next" tabindex="-1"><a class="anchor" href="#whats-next" aria-hidden="true">#</a> What’s next</h2>
+<p>Head over to <a href="architecture.md">the architecture page</a> for the Mermaid + JSON5 + wide-table demo.</p>

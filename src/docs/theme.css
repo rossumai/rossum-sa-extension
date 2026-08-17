@@ -1,0 +1,730 @@
+/* Ported from localpages@4d43f26 src/theme.css (sha1 38155513…).
+   DELTA A (this block): upstream's two page-level rules were `:root { color-scheme:
+   light }` and `html, body { margin:0; padding:0; background:#fff }`. Both are scoped
+   to `.docs-root` here — unscoped they would force the whole Console to light and
+   paint it white, since this sheet loads after console.base.css at equal specificity.
+   The other two globals are left alone deliberately: `scroll-padding-top` and
+   `overscroll-behavior-y` are no-ops on the Console page (its root never scrolls,
+   #app is height:100vh/overflow:hidden), and the export needs them on `html`.
+   `color-scheme` gains `dark` because the document follows the Console theme (D3);
+   every colour value below is upstream's, with a dark branch appended at the end. */
+.docs-root { color-scheme: light dark; }
+
+/* Anchor deep-links scroll the target below the sticky docs nav (otherwise
+   heading disappears behind the bar). 52 = nav height + a little air. */
+html { scroll-padding-top: 52px; }
+.docs-root { scroll-padding-top: 52px; }
+
+/* Suppress macOS rubber-band / overscroll. Without this, pulling past the top
+   edge translates the whole page (sticky nav included) downward before snapping
+   back. */
+html, body { overscroll-behavior-y: none; }
+.docs-root { overscroll-behavior-y: none; }
+.docs-root { margin: 0; padding: 0; background: #ffffff; }
+
+/* ── Docs nav bar (sticky top) ── */
+.docs-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 16px;
+  background: #f6f8fa;
+  border-bottom: 1px solid #d0d7de;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+}
+.docs-nav-list {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.docs-nav-list a {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  color: #656d76;
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+.docs-nav-list a:hover { color: #0969da; background: #ffffff; border-color: #d0d7de; }
+.docs-nav-list a.active {
+  color: #0969da;
+  background: #ffffff;
+  border-color: #d0d7de;
+  font-weight: 500;
+}
+
+.markdown-body {
+  box-sizing: border-box;
+  min-width: 200px;
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 45px;
+}
+/* DELTA B: viewport → container. In-pane the document column is a fraction of the
+   window (split view halves it again), so the threshold has to measure the column.
+   In the export there is no container, and @container simply never matches — so the
+   equivalent @media rule is kept alongside it. */
+@media (max-width: 767px) { .markdown-body { padding: 15px; } }
+@container (max-width: 767px) { .markdown-body { padding: 15px; } }
+
+/* Heading anchors: hidden by default, revealed on hover. */
+.markdown-body :is(h1,h2,h3,h4,h5,h6) { position: relative; }
+.markdown-body .anchor {
+  position: absolute;
+  left: -1em;
+  padding-right: 0.4em;
+  text-decoration: none;
+  font-weight: normal;
+  color: inherit;
+  opacity: 0;
+}
+.markdown-body :is(h1,h2,h3,h4,h5,h6):hover .anchor,
+.markdown-body .anchor:focus { opacity: 0.5; }
+.markdown-body .anchor:hover { opacity: 1 !important; }
+
+/* Very subtle background tint on alert callouts, matching the alert hue. */
+.markdown-body .markdown-alert-note      { background-color: rgba(9, 105, 218, 0.06); }
+.markdown-body .markdown-alert-tip       { background-color: rgba(26, 127, 55, 0.06); }
+.markdown-body .markdown-alert-important { background-color: rgba(130, 80, 223, 0.06); }
+.markdown-body .markdown-alert-warning   { background-color: rgba(154, 103, 0, 0.07); }
+.markdown-body .markdown-alert-caution   { background-color: rgba(207, 34, 46, 0.06); }
+
+/* ── TOC sidebar (sits below the docs nav) ── */
+.toc {
+  position: fixed;
+  top: 44px;
+  left: 0;
+  width: 220px;
+  height: calc(100vh - 44px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 20px 12px 20px 16px;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.toc a {
+  display: block;
+  color: #656d76;
+  text-decoration: none;
+  padding: 2px 0 2px 10px;
+  border-left: 2px solid transparent;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.toc a:hover { color: #0969da; }
+.toc a.active { color: #0969da; border-left-color: #0969da; font-weight: 500; }
+.toc a.toc-h3 { padding-left: 22px; font-size: 11px; }
+@media (max-width: 1280px) { .toc { display: none; } }
+@container (max-width: 1280px) { .toc { display: none; } }
+
+/* ── Section state labels ──
+   `🔴 **Stale** · 2026-08-17` under a heading becomes a badge on the heading
+   row. Palette reuses the five hues already used by the alert tints above.
+
+   Ready-for-review and Verified are both green in the source convention, so
+   they are told apart two ways that survive greyscale and colour-blindness:
+   icon shape (ring vs check) and fill weight (outline vs tinted). */
+.state-rough-draft { --state-fg: #9a6700; --state-bg: rgba(212, 167, 44, 0.12); --state-br: rgba(154, 103, 0, 0.30); }
+.state-in-progress { --state-fg: #0969da; --state-bg: rgba(9, 105, 218, 0.08);  --state-br: rgba(9, 105, 218, 0.30); }
+.state-ready       { --state-fg: #1a7f37; --state-bg: transparent;              --state-br: rgba(26, 127, 55, 0.45); }
+.state-verified    { --state-fg: #1a7f37; --state-bg: rgba(26, 127, 55, 0.10);  --state-br: rgba(26, 127, 55, 0.30); }
+.state-stale       { --state-fg: #cf222e; --state-bg: rgba(207, 34, 46, 0.08);  --state-br: rgba(207, 34, 46, 0.30); }
+/* Malformed <state-label>. Red like Stale, but dashed — a broken tag should not
+   be mistakable for a legitimate state. */
+.state-error       { --state-fg: #cf222e; --state-bg: rgba(207, 34, 46, 0.08);  --state-br: rgba(207, 34, 46, 0.55); }
+.markdown-body .state-error { border-style: dashed; }
+/* An error badge stands alone in the flow rather than riding a heading. */
+.markdown-body > .state-label.state-error { margin: 0 0 16px; }
+
+/* Only labelled headings become flex rows, so every other heading keeps its
+   stock layout untouched. The permalink anchor is absolutely positioned with an
+   explicit `left`, so it is unaffected by the switch. */
+.markdown-body :is(h1,h2,h3,h4,h5,h6).has-state-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+
+.markdown-body .state-label {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 8px;
+  border: 1px solid var(--state-br);
+  border-radius: 999px;
+  background: var(--state-bg);
+  color: var(--state-fg);
+  /* Absolute values — the badge must not inherit the heading's size or weight. */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.markdown-body .state-label-icon { flex: none; display: block; }
+.markdown-body .state-label-date {
+  position: relative;
+  margin-left: 8px;
+  padding-left: 9px;
+  font-weight: 400;
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+}
+/* Hairline divider in the state hue, instead of repeating the source's middot. */
+.markdown-body .state-label-date::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 11px;
+  background: currentColor;
+  opacity: 0.35;
+}
+
+/* Narrow viewports: give the badge its own line rather than squeezing the
+   heading. `display:flex` makes it block-level; `width:max-content` keeps it
+   pill-shaped instead of stretching into a full-width bar. */
+@media (max-width: 767px) {
+  .markdown-body :is(h1,h2,h3,h4,h5,h6).has-state-label { display: block; }
+  .markdown-body .state-label { display: flex; width: max-content; margin-top: 8px; }
+}
+
+/* Document-level tally, injected below the <h1>. */
+.markdown-body .state-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 0 0 24px;
+  padding: 8px 12px;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  background: #f6f8fa;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.markdown-body .state-summary-title {
+  margin-right: 2px;
+  color: #656d76;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.markdown-body .state-summary-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px 2px 7px;
+  border: 1px solid var(--state-br);
+  border-radius: 999px;
+  background: var(--state-bg);
+  color: var(--state-fg);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.markdown-body .state-summary-item .state-label-icon { flex: none; display: block; }
+.markdown-body .state-summary-count { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* TOC mirror: a dot per labelled section turns the sidebar into a health map.
+   inline-block (not flex) so the entry keeps its ellipsis truncation. */
+.toc-state-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--state-fg);
+  vertical-align: middle;
+}
+/* Ready-for-review reads as an outline here too, matching its pill. */
+.toc-state-dot.state-ready { background: transparent; box-shadow: inset 0 0 0 2px var(--state-fg); }
+
+/* Bright yellow for <mark> TODO/TBD highlights */
+.markdown-body mark { background-color: #ffdd33; padding: 0 2px; border-radius: 2px; }
+
+/* Fenced code blocks — let github-markdown-css paint the <pre> chrome (gray bg,
+   padding, rounded corners) and let hljs supply only the token colors on the
+   inner <code>. Without this, the hljs github theme paints the <code> white and
+   the two backgrounds clash. */
+.markdown-body pre code.hljs {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* Copy-to-clipboard button on every fenced code block. Anchored to the
+   top-right of the <pre>; revealed on hover. */
+.markdown-body pre { position: relative; }
+.code-copy-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 3px 9px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #656d76;
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.markdown-body pre:hover .code-copy-btn,
+.code-copy-btn:focus { opacity: 1; }
+.code-copy-btn:hover { color: #0969da; background: #f6f8fa; }
+.code-copy-btn.copied { color: #1a7f37; border-color: #1a7f37; opacity: 1; }
+.code-copy-btn.failed { color: #cf222e; border-color: #cf222e; opacity: 1; }
+@media print { .code-copy-btn { display: none !important; } }
+
+/* ── Figures (standalone images + auto-generated caption) ── */
+.markdown-body figure {
+  margin: 1.75em auto;
+  padding: 10px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #f6f8fa;
+  text-align: center;
+}
+.markdown-body figure img {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  background: #ffffff;
+}
+.markdown-body figure figcaption {
+  margin-top: 10px;
+  padding: 0 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #656d76;
+  font-style: italic;
+}
+
+/* "Download ZIP" link — sits on the right side of the docs nav bar. Live preview
+   only; stripped from exported pages. */
+.export-link {
+  font-size: 12px;
+  color: #656d76;
+  text-decoration: none;
+  padding: 4px 10px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #ffffff;
+  white-space: nowrap;
+}
+.export-link:hover { color: #0969da; border-color: #0969da; }
+
+/* Tables: stretch to the full content width instead of sizing to content. */
+.markdown-body table { display: table; width: 100%; }
+
+/* Clamp any inline SVG to the content column. Mermaid diagrams live inside .wide
+   and override this relative to their wider wrapper via the .wide > svg rule. */
+.markdown-body svg { max-width: 100%; height: auto; }
+
+/* ── "Wide" breakout — opt-in container that can extend past the 980px content
+   column, centred on the page. Used automatically for Mermaid diagrams (wrapped
+   by the fence renderer) and available to authors via a div.wide wrapper. */
+.markdown-body .wide {
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  /* DELTA C: 100vw → 100cqw. A wide table measured against the window would
+     overflow the pane by the width of the rail + sidebar. cqw falls back to the
+     viewport-based value in the export, where there is no container. */
+  max-width: min(1400px, calc(100vw - 32px));
+  max-width: min(1400px, calc(100cqw - 32px));
+  margin-top: 16px;
+  margin-bottom: 16px;
+  overflow-x: auto;
+}
+@media (min-width: 1281px) {
+  .markdown-body .wide {
+    max-width: max(980px, min(1400px, calc(100vw - 472px)));
+  }
+}
+@container (min-width: 1281px) {
+  .markdown-body .wide {
+    max-width: max(980px, min(1400px, calc(100cqw - 472px)));
+  }
+}
+.markdown-body .wide > svg {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  height: auto;
+}
+.markdown-body .wide > table {
+  display: table;
+  width: auto;
+  max-width: 100%;
+  margin: 0 auto;
+}
+.markdown-body .wide > table th,
+.markdown-body .wide > table td {
+  overflow-wrap: anywhere;
+}
+
+/* ── Source-file viewer modal ── */
+.source-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+}
+.source-overlay.open { display: flex; }
+.source-modal {
+  background: #ffffff; border-radius: 12px;
+  width: min(calc(100vw - 48px), 1200px); height: calc(100vh - 48px);
+  display: flex; flex-direction: column;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25); overflow: hidden;
+}
+.source-modal-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 20px; border-bottom: 1px solid #d0d7de; background: #f6f8fa;
+}
+.source-modal-info { flex: 1; min-width: 0; overflow: hidden; }
+.source-modal-title {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 14px; font-weight: 600; color: #1f2328;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.source-modal-path {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px; color: #656d76; margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* DELTA G (2026-08-18): view switcher in the source modal. Upstream has no such control —
+   its two files are two paths on disk, while here `hook.json` and `hook.py` are two views of
+   one API resource. Styled as a quiet segmented pair so it reads as a mode, not an action. */
+.source-modal-views { display: flex; gap: 2px; margin-left: auto; padding: 2px; border-radius: 7px; background: var(--color-canvas-subtle, #f6f8fa); }
+.source-modal-views[hidden] { display: none; }
+.source-view-btn {
+  border: 0; background: none; cursor: pointer; padding: 3px 10px; border-radius: 5px;
+  font: inherit; font-size: 12px; font-weight: 600; color: var(--color-fg-muted, #656d76);
+}
+.source-view-btn:hover { color: var(--color-fg-default, #1f2328); }
+.source-view-btn[aria-pressed="true"] { background: var(--color-canvas-default, #fff); color: var(--color-fg-default, #1f2328); box-shadow: 0 1px 2px rgba(31, 35, 40, .1); }
+
+.source-modal-copy {
+  flex-shrink: 0; height: 32px; padding: 0 12px;
+  border: 1px solid #d0d7de; border-radius: 6px; background: #ffffff;
+  color: #1f2328;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 12px; font-weight: 500; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.source-modal-copy:hover { color: #0969da; background: #f6f8fa; }
+.source-modal-copy.copied { color: #1a7f37; border-color: #1a7f37; }
+.source-modal-copy.failed { color: #cf222e; border-color: #cf222e; }
+.source-modal-close {
+  flex-shrink: 0; width: 32px; height: 32px;
+  border: none; border-radius: 6px; background: transparent;
+  color: #656d76; font-size: 20px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.source-modal-close:hover { background: #d0d7de; color: #1f2328; }
+.source-modal-body { flex: 1; overflow: auto; padding: 0; }
+.source-modal-body pre {
+  margin: 0; padding: 16px 20px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px; line-height: 1.6; color: #1f2328;
+  white-space: pre; tab-size: 4;
+}
+.source-modal-body code.hljs {
+  display: block; padding: 0; background: transparent; overflow: visible;
+}
+.markdown-body a.source-link { text-decoration-style: dotted; }
+
+/* ── Section-reference hover preview ── */
+.section-preview {
+  /* DELTA F: upstream positions this card `absolute` in PAGE coordinates
+     (lr.bottom + window.scrollY). In the pane the scroller is an element, so page
+     coordinates are meaningless and the card would fly off. `fixed` + viewport
+     coordinates is behaviour-preserving in both homes precisely because upstream
+     already dismisses the card on any scroll — so a card never has to survive one,
+     and the two positioning schemes can never visibly differ. */
+  position: fixed;
+  z-index: 40;
+  display: none;
+  width: min(820px, calc(100vw - 24px));
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.25);
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.12s ease-out;
+}
+.section-preview.open { display: block; opacity: 1; }
+.section-preview-inner {
+  max-height: min(560px, calc(100vh - 120px));
+  overflow-y: auto;
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.section-preview-inner > :first-child { margin-top: 0; }
+.section-preview-inner > :last-child { margin-bottom: 0; }
+.section-preview-inner :is(h1,h2,h3,h4,h5,h6) {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin: 10px 0 6px;
+  font-size: 15px;
+}
+.section-preview-inner :is(h1,h2,h3,h4,h5,h6):first-child { margin-top: 0; }
+.section-preview-inner p,
+.section-preview-inner ul,
+.section-preview-inner ol,
+.section-preview-inner table { margin: 6px 0; font-size: 13px; }
+.section-preview-inner pre { margin: 6px 0; font-size: 12px; }
+.section-preview-inner .anchor { display: none !important; }
+.section-preview-inner .wide {
+  position: static !important;
+  left: auto !important;
+  transform: none !important;
+  width: auto !important;
+  max-width: 100% !important;
+  margin: 8px 0 !important;
+  overflow-x: auto;
+}
+.section-preview-inner .wide > svg {
+  display: block;
+  margin: 0 auto;
+  max-width: 100% !important;
+  height: auto !important;
+}
+.section-preview-inner .wide > table {
+  display: table;
+  width: auto !important;
+  max-width: 100%;
+  margin: 0 auto;
+}
+.section-preview-body {
+  position: relative;
+}
+.section-preview-body::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 28px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0), #ffffff);
+  pointer-events: none;
+}
+.section-preview-jump {
+  display: block;
+  padding: 6px 12px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  color: #0969da;
+  text-decoration: none;
+  background: #f6f8fa;
+  border-top: 1px solid #d0d7de;
+}
+.section-preview-jump:hover { background: #ffffff; text-decoration: underline; }
+@media print { .section-preview { display: none !important; } }
+
+/* ── Print / PDF export ── */
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+  html, body { margin: 0; padding: 0; background: #ffffff; }
+  .toc { display: none !important; }
+  .docs-nav { display: none !important; }
+  .export-link { display: none !important; }
+  .markdown-body {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 20px 0;
+  }
+  .markdown-body .anchor { display: none !important; }
+  .markdown-body :is(h1,h2,h3,h4,h5,h6) { break-after: avoid; }
+  .markdown-body table, .markdown-body pre, .markdown-body img,
+  .markdown-body svg, .markdown-body figure { break-inside: avoid; }
+  .markdown-body p, .markdown-body li { orphans: 3; widows: 3; }
+  .markdown-body pre { white-space: pre-wrap; word-break: break-all; }
+  .markdown-body pre code { white-space: pre-wrap; word-break: break-all; }
+  .markdown-body a { color: #0969da; text-decoration: underline; }
+  .markdown-body a::after { content: none !important; }
+  .markdown-body .markdown-alert-note      { background-color: rgba(9, 105, 218, 0.06) !important; }
+  .markdown-body .markdown-alert-tip       { background-color: rgba(26, 127, 55, 0.06) !important; }
+  .markdown-body .markdown-alert-important { background-color: rgba(130, 80, 223, 0.06) !important; }
+  .markdown-body .markdown-alert-warning   { background-color: rgba(154, 103, 0, 0.07) !important; }
+  .markdown-body .markdown-alert-caution   { background-color: rgba(207, 34, 46, 0.06) !important; }
+  .markdown-body code { background-color: rgba(175, 184, 193, 0.2) !important; }
+  .markdown-body pre { background-color: #f6f8fa !important; }
+  .markdown-body table tr { background-color: #ffffff !important; }
+  .markdown-body table tr:nth-child(2n) { background-color: #f6f8fa !important; }
+  .markdown-body table th, .markdown-body table td {
+    border: 1px solid #d0d7de !important;
+  }
+  .markdown-body mark { background-color: #ffdd33 !important; }
+  .markdown-body .state-label,
+  .markdown-body .state-summary-item {
+    color: var(--state-fg) !important;
+    background: var(--state-bg) !important;
+    border-color: var(--state-br) !important;
+  }
+  .markdown-body .state-summary {
+    background: #f6f8fa !important;
+    border-color: #d0d7de !important;
+    break-inside: avoid;
+  }
+  .markdown-body details > *:not(summary) { display: revert !important; }
+  .markdown-body details > summary { list-style: none; cursor: default; }
+  .markdown-body details > summary::-webkit-details-marker { display: none; }
+  .markdown-body details { break-inside: avoid; }
+  .markdown-body figure {
+    border: 1px solid #d0d7de !important;
+    background: #f6f8fa !important;
+  }
+  .markdown-body figure figcaption { color: #656d76 !important; }
+  .source-overlay { display: none !important; }
+  .markdown-body .wide {
+    position: static !important;
+    left: auto !important;
+    transform: none !important;
+    width: auto !important;
+    max-width: 100% !important;
+    margin: 16px 0 !important;
+  }
+  .markdown-body .wide > svg { max-width: 100% !important; height: auto !important; }
+  .markdown-body .wide > table { width: 100% !important; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   Everything below this line is ADDED by the port; nothing above it changed value.
+
+   DELTA D — pane layout. These rules only ever match in the Console, because the
+   exported page has no `.docs-pane` wrapper: there, upstream's own `.toc { position:
+   fixed; left: 0; height: calc(100vh - 44px) }` stands unmodified and behaves exactly
+   as it does in localpages. In the pane that rule would anchor the sidebar to the
+   WINDOW's left edge, on top of the app rail and the Fabry sidebar, so a more
+   specific selector re-homes it inside the column. `.docs-pane` is also the
+   container-query context the DELTA B/C rules measure.
+   ══════════════════════════════════════════════════════════════════════════════ */
+.docs-pane {
+  position: relative;
+  height: 100%;
+  min-width: 0;
+  container-type: inline-size;
+}
+/* The TOC sits OUTSIDE the scrolling element so it stays put while the document
+   scrolls — which is what upstream's `position: fixed` achieves on a whole page. */
+.docs-pane > .toc {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+}
+.docs-pane > .docs-root {
+  height: 100%;
+  overflow: auto;
+}
+
+/* DELTA E — dark branch. localpages ships light only; the document follows the
+   Console theme (D3). Every rule here restates an upstream rule with the GitHub dark
+   value for the same role, so the light branch above stays byte-for-byte upstream's:
+     #ffffff→#0d1117  #f6f8fa→#151b23  #d0d7de→#3d444d  #656d76→#9198a1
+     #1f2328→#f0f6fc  #0969da→#4493f8  #1a7f37→#3fb950  #cf222e→#f85149  #9a6700→#d29922 */
+@media (prefers-color-scheme: dark) {
+  .docs-root { background: #0d1117; }
+
+  .docs-nav { background: #151b23; border-bottom-color: #3d444d; }
+  .docs-nav-list a { color: #9198a1; }
+  .docs-nav-list a:hover { color: #4493f8; background: #0d1117; border-color: #3d444d; }
+  .docs-nav-list a.active { color: #4493f8; background: #0d1117; border-color: #3d444d; }
+
+  .toc a { color: #9198a1; }
+  .toc a:hover { color: #4493f8; }
+  .toc a.active { color: #4493f8; border-left-color: #4493f8; }
+
+  .state-rough-draft { --state-fg: #d29922; --state-bg: rgba(210, 153, 34, 0.15);  --state-br: rgba(210, 153, 34, 0.35); }
+  .state-in-progress { --state-fg: #4493f8; --state-bg: rgba(68, 147, 248, 0.12);  --state-br: rgba(68, 147, 248, 0.35); }
+  .state-ready       { --state-fg: #3fb950; --state-bg: transparent;               --state-br: rgba(63, 185, 80, 0.50); }
+  .state-verified    { --state-fg: #3fb950; --state-bg: rgba(63, 185, 80, 0.14);   --state-br: rgba(63, 185, 80, 0.35); }
+  .state-stale       { --state-fg: #f85149; --state-bg: rgba(248, 81, 73, 0.12);   --state-br: rgba(248, 81, 73, 0.35); }
+  .state-error       { --state-fg: #f85149; --state-bg: rgba(248, 81, 73, 0.12);   --state-br: rgba(248, 81, 73, 0.60); }
+  /* The knockout marks inside the Verified/Stale icons are painted #fff by the
+     plugin, so the badge body must stay saturated enough to carry them — the alphas
+     above are raised from the light values for exactly that reason. */
+  .markdown-body .state-summary { border-color: #3d444d; background: #151b23; }
+  .markdown-body .state-summary-title { color: #9198a1; }
+
+  /* #ffdd33 is the point of a highlight, so it is kept — but the inherited text
+     colour is light in dark mode, which would leave yellow-on-white text. */
+  .markdown-body mark { color: #1f2328; }
+
+  .code-copy-btn { color: #9198a1; background: #0d1117; border-color: #3d444d; }
+  .code-copy-btn:hover { color: #4493f8; background: #151b23; }
+  .code-copy-btn.copied { color: #3fb950; border-color: #3fb950; }
+  .code-copy-btn.failed { color: #f85149; border-color: #f85149; }
+
+  .markdown-body figure { border-color: #3d444d; background: #151b23; }
+  .markdown-body figure img { background: #0d1117; }
+  .markdown-body figure figcaption { color: #9198a1; }
+
+  .export-link { color: #9198a1; border-color: #3d444d; background: #0d1117; }
+  .export-link:hover { color: #4493f8; border-color: #4493f8; }
+
+  .source-modal { background: #0d1117; }
+  .source-modal-header { border-bottom-color: #3d444d; background: #151b23; }
+  .source-modal-title { color: #f0f6fc; }
+  .source-modal-path { color: #9198a1; }
+  .source-modal-copy { border-color: #3d444d; background: #0d1117; color: #f0f6fc; }
+  .source-modal-copy:hover { color: #4493f8; background: #151b23; }
+  .source-modal-copy.copied { color: #3fb950; border-color: #3fb950; }
+  .source-modal-copy.failed { color: #f85149; border-color: #f85149; }
+  .source-modal-close { color: #9198a1; }
+  .source-modal-close:hover { background: #3d444d; color: #f0f6fc; }
+
+  .section-preview { background: #0d1117; border-color: #3d444d; }
+  .section-preview-jump { color: #4493f8; background: #151b23; border-top-color: #3d444d; }
+  .section-preview-jump:hover { background: #0d1117; }
+}
+
+/* Cross-document preview card (ADDED — upstream's card is same-page only, so it never
+   needed to say where its contents came from). A reader must be able to tell a quotation
+   from another deliverable apart from their own text at a glance. */
+.section-preview-from {
+  padding: 6px 14px 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #656d76;
+}
+.section-preview-from[hidden] { display: none; }
+@media (prefers-color-scheme: dark) {
+  .section-preview-from { color: #9198a1; }
+}

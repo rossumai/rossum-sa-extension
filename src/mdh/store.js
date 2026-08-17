@@ -1,5 +1,6 @@
 // src/mdh/store.js
 import { signal } from '@preact/signals';
+import { visibleCollections } from './hiddenCollections.js';
 
 export const domain = signal('');
 export const token = signal('');
@@ -7,6 +8,41 @@ export const token = signal('');
 // api.getOrgId). null until resolved, or if the lookup failed.
 export const orgId = signal(null);
 export const collections = signal([]);
+// The collection list EXACTLY as Data Storage returned it. `collections` above is the
+// filtered, sorted view the UI renders — this extension's own collections are hidden from
+// Dataset Management (owner, 2026-08-18; see hiddenCollections.js). Kept separate so the
+// expandable group costs no refetch, and so the group's header can say how many there are.
+export const rawCollections = signal([]);
+// This extension's own collections, kept OUT of `collections` and listed separately in an
+// expandable group under it (owner, 2026-08-18) rather than merged in on reveal. Sorted the
+// same way; a member is selectable exactly like any other collection once the group is open.
+export const hiddenCollections = signal([]);
+// Whether that group is expanded. Global pref, persisted as `mdhShowHiddenCollections`
+// (hydrated in index.jsx like the Stages options). Collapsed by default.
+export const showHiddenCollections = signal(false);
+
+// The single place the split is applied, so the sidebar, the Overview table and the
+// prefetcher can never disagree about what exists. Mirrors loadCollections' own
+// normalization: sort naturally, then drop a selection that no longer EXISTS.
+export function applyCollectionFilter() {
+  const all = [...(rawCollections.value || [])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const visible = visibleCollections(all, false);
+  collections.value = visible;
+  hiddenCollections.value = all.filter((n) => !visible.includes(n));
+  // Existence, not visibility, is the test: a hidden collection can be selected from the
+  // expanded group, and clearing it just because it sits below the fold would silently
+  // deselect what the user is looking at.
+  if (selectedCollection.value && !all.includes(selectedCollection.value)) {
+    selectedCollection.value = null;
+  }
+  // A restored per-tab selection may BE one of ours (mdhSelectedCollection survives a
+  // reload). Open the group so the highlight is visible rather than hidden below a collapsed
+  // header — deliberately without persisting, so it does not overwrite the user's preference.
+  if (selectedCollection.value && hiddenCollections.value.includes(selectedCollection.value)) {
+    showHiddenCollections.value = true;
+  }
+  return visible;
+}
 export const selectedCollection = signal(null);
 export const records = signal([]);
 export const skip = signal(0);

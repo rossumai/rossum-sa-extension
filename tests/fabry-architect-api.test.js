@@ -14,7 +14,17 @@ import * as api from '../src/fabry/architect/api.js';
 beforeEach(() => vi.clearAllMocks());
 
 describe('architect api v2', () => {
-  it('uses the __mrfabry_architect collection', () => { expect(api.COLLECTION).toBe('__mrfabry_architect'); });
+  it('no longer offers a manual state write, and no longer maps the fields', async () => {
+    // Dropped 2026-08-19 (owner): status is the check verdict alone. Existing documents keep their
+    // `state`/`stateDate` — retiring a feature must not delete customer data.
+    expect(api.saveState).toBeUndefined();
+    mdh.find.mockResolvedValueOnce({ result: [{ _id: 'a', kind: 'requirement', text: 'x', order: 1, state: 'verified', stateDate: '2026-08-12' }] });
+    const { deliverables } = await api.loadDeliverables();
+    expect(deliverables[0].state).toBeUndefined();
+    expect(deliverables[0].stateDate).toBeUndefined();
+  });
+
+  it('uses the _SA_EXTENSION__fabry_architect collection', () => { expect(api.COLLECTION).toBe('_SA_EXTENSION__fabry_architect'); });
 
   it('ensureCollection tolerates already-exists but rethrows 401', async () => {
     mdh.createCollection.mockRejectedValueOnce(Object.assign(new Error('exists'), { status: 400 }));
@@ -29,8 +39,15 @@ describe('architect api v2', () => {
       { _id: 'b', kind: 'requirement', text: '# B', order: 2 },
     ] });
     const { deliverables, results } = await api.loadDeliverables();
-    expect(mdh.find).toHaveBeenCalledWith('__mrfabry_architect', { query: { kind: 'requirement' }, sort: { order: 1 }, limit: 1000 });
-    expect(deliverables).toEqual([{ id: 'a', text: '# A', order: 1, title: '' }, { id: 'b', text: '# B', order: 2, title: '' }]);
+    expect(mdh.find).toHaveBeenCalledWith('_SA_EXTENSION__fabry_architect', { query: { kind: 'requirement' }, sort: { order: 1 }, limit: 1000 });
+    // `state`/`stateDate` are no longer mapped at all: the manual state was dropped on 2026-08-19 and
+    // status comes from the check verdict. Existing docs keep the fields; nothing reads them.
+    // createdAt/editedAt are carried so the merge in collectionPlan.js can pick the newest
+    // edit when two collections hold the same id, and so History can date an entry.
+    expect(deliverables).toEqual([
+      { id: 'a', text: '# A', order: 1, title: '', titleSource: '', createdAt: null, editedAt: null },
+      { id: 'b', text: '# B', order: 2, title: '', titleSource: '', createdAt: null, editedAt: null },
+    ]);
     expect(results.a).toEqual({ verdict: 'pass', evidence: 'ok', chatId: 'c1', ranAt: 111, stale: true });
     expect(results.b).toBeUndefined(); // no lastVerdict → no result
   });
@@ -40,36 +57,48 @@ describe('architect api v2', () => {
       { _id: 'a', kind: 'requirement', text: '# A', order: 1, title: 'A Nice Title' },
     ] });
     const { deliverables } = await api.loadDeliverables();
-    expect(deliverables).toEqual([{ id: 'a', text: '# A', order: 1, title: 'A Nice Title' }]);
+    expect(deliverables).toEqual([{ id: 'a', text: '# A', order: 1, title: 'A Nice Title', titleSource: '', createdAt: null, editedAt: null }]);
   });
+
+
 
   it('loadDeliverables tolerates a missing result envelope', async () => {
     mdh.find.mockResolvedValueOnce({});
-    expect(await api.loadDeliverables()).toEqual({ deliverables: [], results: {}, implement: {} });
+    expect(await api.loadDeliverables()).toEqual({ deliverables: [], results: {}, implement: {}, legacyCount: 0 });
   });
 
   it('addDeliverable inserts the documented shape', async () => {
     await api.addDeliverable({ id: 'x', text: 'body', order: 3, createdAt: 111 });
-    expect(mdh.insertOne).toHaveBeenCalledWith('__mrfabry_architect', { _id: 'x', kind: 'requirement', text: 'body', order: 3, createdAt: 111 });
+    expect(mdh.insertOne).toHaveBeenCalledWith('_SA_EXTENSION__fabry_architect', { _id: 'x', kind: 'requirement', text: 'body', order: 3, createdAt: 111 });
   });
   it('updateDeliverable $sets text + editedAt', async () => {
     await api.updateDeliverable('x', 'new', 222);
-    expect(mdh.updateOne).toHaveBeenCalledWith('__mrfabry_architect', { _id: 'x' }, { $set: { text: 'new', editedAt: 222 } });
+    expect(mdh.updateOne).toHaveBeenCalledWith('_SA_EXTENSION__fabry_architect', { _id: 'x' }, { $set: { text: 'new', editedAt: 222 } });
   });
   it('deleteDeliverable deletes by _id', async () => {
     await api.deleteDeliverable('x');
-    expect(mdh.deleteOne).toHaveBeenCalledWith('__mrfabry_architect', { _id: 'x' });
+    expect(mdh.deleteOne).toHaveBeenCalledWith('_SA_EXTENSION__fabry_architect', { _id: 'x' });
   });
   it('saveResult $sets the last-run fields', async () => {
     await api.saveResult('x', { verdict: 'fail', evidence: 'bad', chatId: 'c9', ranAt: 333 });
-    expect(mdh.updateOne).toHaveBeenCalledWith('__mrfabry_architect', { _id: 'x' }, { $set: { lastVerdict: 'fail', lastEvidence: 'bad', lastChatId: 'c9', ranAt: 333 } });
+    expect(mdh.updateOne).toHaveBeenCalledWith('_SA_EXTENSION__fabry_architect', { _id: 'x' }, { $set: { lastVerdict: 'fail', lastEvidence: 'bad', lastChatId: 'c9', ranAt: 333 } });
   });
   it('setOrder $sets order by _id', async () => {
     await api.setOrder('x', 4);
-    expect(mdh.updateOne).toHaveBeenCalledWith('__mrfabry_architect', { _id: 'x' }, { $set: { order: 4 } });
+    expect(mdh.updateOne).toHaveBeenCalledWith('_SA_EXTENSION__fabry_architect', { _id: 'x' }, { $set: { order: 4 } });
   });
-  it('saveTitle $sets title by _id', async () => {
-    await api.saveTitle('x', 'A Nice Title');
-    expect(mdh.updateOne).toHaveBeenCalledWith('__mrfabry_architect', { _id: 'x' }, { $set: { title: 'A Nice Title' } });
+  it('saveTitle $sets title + its source by _id', async () => {
+    await api.saveTitle('x', 'A Nice Title', 'manual');
+    expect(mdh.updateOne).toHaveBeenCalledWith('_SA_EXTENSION__fabry_architect', { _id: 'x' }, { $set: { title: 'A Nice Title', titleSource: 'manual' } });
+  });
+
+  it('loadDeliverables maps titleSource, defaulting legacy docs (no marker) to ""', async () => {
+    mdh.find.mockResolvedValueOnce({ result: [
+      { _id: 'a', kind: 'requirement', text: '# A', order: 1, title: 'Renamed', titleSource: 'manual' },
+      { _id: 'b', kind: 'requirement', text: '# B', order: 2, title: 'Generated', titleSource: 'ai' },
+      { _id: 'c', kind: 'requirement', text: '# C', order: 3, title: 'Legacy' },
+    ] });
+    const { deliverables } = await api.loadDeliverables();
+    expect(deliverables.map((d) => d.titleSource)).toEqual(['manual', 'ai', '']);
   });
 });

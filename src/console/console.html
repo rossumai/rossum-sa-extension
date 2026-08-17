@@ -7,6 +7,13 @@
        self-contained CSS Module styles from design-system components. -->
   <link href="console.base.css" rel="stylesheet" />
   <link href="console.css" rel="stylesheet" />
+  <!-- The localpages port's document styling (src/docs/): GitHub's own stylesheet
+       (light+dark), highlight.js's themes, and the ported theme.css. Scoped in
+       practice to .markdown-body / .docs-* / .toc / .state-* / .source-* — checked
+       against console.css for class collisions. -->
+  <link href="github-markdown.css" rel="stylesheet" />
+  <link href="hljs-github.css" rel="stylesheet" />
+  <link href="doc-theme.css" rel="stylesheet" />
 </head>
 <body>
   <div id="app"></div>

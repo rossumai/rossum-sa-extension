@@ -124,6 +124,7 @@ export async function initMdh({ pendingCollection, pendingPipeline, pendingVaria
   const stored = await chrome.storage.local.get([
     'mdhActiveView', 'mdhSelectedCollection', 'mdhActivePanel', 'mdhOpsSearch',
     'mdhStagesAutoscroll', 'mdhStagesSampleSize', 'mdhStagesShowDef', 'mdhStagesSourceOpen',
+    'mdhShowHiddenCollections',
   ]);
 
   // Navigation state is per-tab: prefer this tab's sessionStorage, fall back to
@@ -156,6 +157,10 @@ export async function initMdh({ pendingCollection, pendingPipeline, pendingVaria
   }
   if (typeof stored.mdhStagesSourceOpen === 'boolean') {
     store.stagesSourceOpen.value = stored.mdhStagesSourceOpen;
+  }
+  // Hydrated BEFORE the sidebar's first load, so a revealed list does not flash filtered.
+  if (typeof stored.mdhShowHiddenCollections === 'boolean') {
+    store.showHiddenCollections.value = stored.mdhShowHiddenCollections;
   }
 
   if (pendingCollection) {

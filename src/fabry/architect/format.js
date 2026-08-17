@@ -5,11 +5,29 @@ export function deliverableTitle(text) {
   return line.replace(/^#+\s*/, '').replace(/[*_`>]/g, '').trim().slice(0, 80) || 'Untitled';
 }
 
-// The title to show for a deliverable: an explicit (AI-generated or renamed)
-// title if present, else derived from the Markdown first line.
+// The name a deliverable declares for ITSELF: a Markdown heading on the first
+// non-empty line. The pattern is copied from src/ui/fabry/markdown.js:76 on
+// purpose — it must accept exactly what the Preview tab RENDERS as a heading
+// (`#`–`####`, a space after the hashes, column 0, untrimmed), so a deliverable
+// is never named after a line the user sees as plain text.
+export function headingTitle(text) {
+  const line = String(text || '').split('\n').find((l) => l.trim());
+  const m = line && line.match(/^(#{1,4})\s+(.*)$/);
+  if (!m) return '';
+  return m[2].replace(/[*_`]/g, '').trim().slice(0, 80);
+}
+
+// The title to show for a deliverable, most explicit first:
+//   1. a manual rename (titleSource 'manual') — the one deliberate user override
+//   2. the Markdown heading the text declares for itself
+//   3. a stored title: AI-generated, or LEGACY (written before titleSource
+//      existed, so it reads as AI-generated — which is what lets the heading
+//      rule reach deliverables that already exist)
+//   4. the derived first line, else 'Untitled'
 export function displayTitle(d) {
   const t = d && typeof d.title === 'string' ? d.title.trim() : '';
-  return t || deliverableTitle(d ? d.text : '');
+  if (t && d.titleSource === 'manual') return t;
+  return headingTitle(d ? d.text : '') || t || deliverableTitle(d ? d.text : '');
 }
 
 // One-line plain-text summary of Markdown evidence for the collapsed verdict

@@ -3,9 +3,52 @@ import { useEffect, useState, useRef } from 'preact/hooks';
 import * as store from '../store.js';
 import { loadArchitect, addDeliverable, openDeliverable, runAll, stopRun, moveDeliverable, reRun, deleteDeliverable, reImplement, renameDeliverable } from '../actions.js';
 import { displayTitle } from '../format.js';
+import { outlineWithoutTitle } from '../../../docs/outline.js';
 import { confirmModal, promptModal } from '../../../ui/Modal.jsx';
 import * as fstore from '../../store.js';
 import { openArmDialog } from './ArmDialog.jsx';
+
+// One-entry memo keyed on the exact text. The sidebar re-renders on every keystroke in the
+// open deliverable, and re-parsing the document each time would be pure waste; the key cannot
+// go stale because it IS the content.
+let outlineMemoText = null;
+let outlineMemoValue = [];
+function outlineFor(text) {
+  const t = String(text || '');
+  if (t !== outlineMemoText) {
+    outlineMemoText = t;
+    outlineMemoValue = outlineWithoutTitle(t);
+  }
+  return outlineMemoValue;
+}
+
+// The document's headings, nested under the deliverable they belong to — one navigation tree
+// rather than a second panel (owner's choice, 2026-08-18).
+function Outline({ deliverable }) {
+  const entries = outlineFor(deliverable.text);
+  if (!entries.length) return null;
+  const active = store.activeHeading.value;
+  return (
+    <nav class="fabry-arch-outline" aria-label="Document outline">
+      {/* NOT `h` as the loop variable: it would shadow Preact's own `h` factory, which the
+          JSX in this scope compiles down to. */}
+      {entries.map((entry) => (
+        <button
+          type="button"
+          key={entry.slug}
+          class={'fabry-arch-outline-item level-' + entry.level + (active === entry.slug ? ' active' : '')}
+          title={entry.text}
+          onClick={(e) => {
+            e.stopPropagation();
+            // The deliverable id travels with the slug: two deliverables can own the same heading
+            // slug, and only the id says which section to resolve it inside.
+            store.navigateOutline(entry.slug, deliverable.id);
+          }}
+        >{entry.text}</button>
+      ))}
+    </nav>
+  );
+}
 
 function dotClass(r) {
   if (!r) return 'none';
@@ -97,20 +140,22 @@ export default function ArchitectSidebar() {
       <div class="fabry-arch-list" ref={listRef}>
         {ds.length === 0 && <div class="fabry-arch-empty">No deliverables yet.</div>}
         {ds.map((d, i) => (
+          <Fragment key={d.id}>
           <div
-            key={d.id}
             role="button"
             tabIndex={0}
             draggable
             class={'fabry-arch-item'
-              + (store.activeId.value === d.id ? ' active' : '')
+              // Highlighted by what the reader is LOOKING AT, which in one continuous document is the
+              // scroll spy's answer rather than a stored selection.
+              + (store.spyTarget.value === d.id || (!store.spyTarget.value && store.activeId.value === d.id) ? ' active' : '')
               + (dragId === d.id ? ' dragging' : '')
               + (menuId === d.id ? ' menuopen' : '')
               + (overId === d.id && dragId && dragId !== d.id
                 ? (dragIndex >= 0 && dragIndex < i ? ' dragover-after' : ' dragover-before')
                 : '')}
-            onClick={() => openDeliverable(d.id)}
-            onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDeliverable(d.id); } }}
+            onClick={() => { openDeliverable(d.id); store.navigateOutline(null, d.id); }}
+            onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDeliverable(d.id); store.navigateOutline(null, d.id); } }}
             onDragStart={(e) => { setDragId(d.id); if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'; }}
             onDragOver={(e) => { e.preventDefault(); if (overId !== d.id) setOverId(d.id); }}
             onDragLeave={() => setOverId((v) => (v === d.id ? null : v))}
@@ -135,11 +180,15 @@ export default function ArchitectSidebar() {
                     {'Implement ▷'}
                   </button>
                 )}
-                <button type="button" class="fabry-arch-menu-item" onClick={() => { closeMenu(); promptModal('Rename deliverable', { initialValue: (d.title || '').trim(), placeholder: 'Deliverable title', submitLabel: 'Rename' }, (v) => renameDeliverable(d.id, v)); }}>{'Rename…'}</button>
+                <button type="button" class="fabry-arch-menu-item" onClick={() => { closeMenu(); promptModal('Rename deliverable', { initialValue: displayTitle(d), placeholder: 'Deliverable title', submitLabel: 'Rename' }, (v) => renameDeliverable(d.id, v)); }}>{'Rename…'}</button>
                 <button type="button" class="fabry-arch-menu-item danger" onClick={() => confirmDelete(d.id)}>Delete</button>
               </div>
             )}
           </div>
+          {/* The list is the specification's table of contents now (owner, 2026-08-19), so every
+              deliverable shows its headings — not just the one being worked on. */}
+          <Outline deliverable={d} />
+          </Fragment>
         ))}
       </div>
       <div class="fabry-arch-foot">

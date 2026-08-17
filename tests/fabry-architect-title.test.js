@@ -34,6 +34,23 @@ describe('format.displayTitle', () => {
   it('prefers an explicit title over the derived one', () => {
     expect(displayTitle({ title: 'Nice', text: 'x' })).toBe('Nice');
   });
+  it('prefers a heading the text declares over an AI-generated title', () => {
+    expect(displayTitle({ title: 'AI Title', titleSource: 'ai', text: '# Heading Wins\nbody' })).toBe('Heading Wins');
+  });
+  it('prefers a heading over a legacy stored title that carries no source marker', () => {
+    // Every title written before titleSource existed reads as AI-generated —
+    // which is what lets the new rule reach deliverables that already exist.
+    expect(displayTitle({ title: 'Legacy Title', text: '# Heading Wins' })).toBe('Heading Wins');
+  });
+  it('lets a manual rename beat the heading', () => {
+    expect(displayTitle({ title: 'Renamed', titleSource: 'manual', text: '# Heading' })).toBe('Renamed');
+  });
+  it('falls back to the heading when a manual rename is blanked out', () => {
+    expect(displayTitle({ title: '  ', titleSource: 'manual', text: '# Heading' })).toBe('Heading');
+  });
+  it('keeps the stored title when the text declares no heading', () => {
+    expect(displayTitle({ title: 'AI Title', titleSource: 'ai', text: '> banner\n# not the first line' })).toBe('AI Title');
+  });
   it('falls back to the derived title when the title is blank/whitespace', () => {
     expect(displayTitle({ title: '  ', text: '# Derived' })).toBe('Derived');
   });

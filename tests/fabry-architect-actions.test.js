@@ -2,8 +2,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../src/agent/agentApi.js', () => ({ createChat: vi.fn(), streamMessage: vi.fn() }));
 vi.mock('../src/fabry/architect/api.js', () => ({
-  COLLECTION: '__mrfabry_architect',
+  COLLECTION: '_SA_EXTENSION__fabry_architect',
   ensureCollection: vi.fn().mockResolvedValue(undefined),
+  // Boot now resolves WHICH collection this org uses before reading it (collectionPlan.js).
+  resolveCollection: vi.fn().mockResolvedValue({ use: '_SA_EXTENSION__fabry_architect', legacy: null, action: 'none', migrated: false }),
+  listRevisions: vi.fn().mockResolvedValue({ result: [] }),
+  getRevision: vi.fn().mockResolvedValue({ result: [] }),
+  addRevision: vi.fn().mockResolvedValue({}),
+  deleteRevisions: vi.fn().mockResolvedValue({}),
+  deleteRevisionsFor: vi.fn().mockResolvedValue({}),
   loadDeliverables: vi.fn().mockResolvedValue({ deliverables: [], results: {} }),
   addDeliverable: vi.fn().mockResolvedValue({}),
   updateDeliverable: vi.fn().mockResolvedValue({}),
@@ -42,7 +49,7 @@ describe('loadArchitect', () => {
   it('loads deliverables + persisted (stale) results', async () => {
     api.loadDeliverables.mockResolvedValueOnce({ deliverables: [{ id: 'a', text: '# A', order: 1 }], results: { a: { verdict: 'pass', evidence: 'ok', chatId: 'c', ranAt: 5, stale: true } } });
     await loadArchitect();
-    expect(api.ensureCollection).toHaveBeenCalled();
+    expect(api.resolveCollection).toHaveBeenCalled();
     expect(store.deliverables.value.length).toBe(1);
     expect(store.results.value.a.stale).toBe(true);
     expect(store.loaded.value).toBe(true);
@@ -64,7 +71,7 @@ describe('loadArchitect', () => {
     expect(store.implement.value).toEqual({});
   });
   it('records loadError without throwing', async () => {
-    api.ensureCollection.mockRejectedValueOnce(new Error('nope'));
+    api.resolveCollection.mockRejectedValueOnce(new Error('nope'));
     await loadArchitect();
     expect(store.loadError.value).toMatch(/nope/);
     expect(store.loaded.value).toBe(false);
@@ -84,7 +91,7 @@ describe('loadArchitect', () => {
   it('guards against a concurrent double load', async () => {
     api.loadDeliverables.mockResolvedValue({ deliverables: [], results: {} });
     await Promise.all([loadArchitect(), loadArchitect()]);
-    expect(api.ensureCollection).toHaveBeenCalledTimes(1);
+    expect(api.resolveCollection).toHaveBeenCalledTimes(1);
     expect(api.loadDeliverables).toHaveBeenCalledTimes(1);
   });
 });
@@ -249,11 +256,11 @@ describe('runAll', () => {
 });
 
 describe('renameDeliverable / generateTitle / backfillTitles', () => {
-  it('renameDeliverable sets the store title (trimmed) and persists it', async () => {
+  it('renameDeliverable sets the store title (trimmed) and persists it as a MANUAL rename', async () => {
     store.deliverables.value = [{ id: 'a', text: 'Add a VAT rule', order: 1 }];
     await renameDeliverable('a', '  Add VAT Rule  ');
-    expect(store.deliverables.value[0].title).toBe('Add VAT Rule');
-    expect(api.saveTitle).toHaveBeenCalledWith('a', 'Add VAT Rule');
+    expect(store.deliverables.value[0]).toMatchObject({ title: 'Add VAT Rule', titleSource: 'manual' });
+    expect(api.saveTitle).toHaveBeenCalledWith('a', 'Add VAT Rule', 'manual');
   });
 
   it('generateTitle opens a READ-ONLY chat and sets the parsed title on an untitled deliverable', async () => {
@@ -266,7 +273,8 @@ describe('renameDeliverable / generateTitle / backfillTitles', () => {
     });
     await generateTitle('a');
     expect(store.deliverables.value[0].title).toBe('Add VAT Rule');
-    expect(api.saveTitle).toHaveBeenCalledWith('a', 'Add VAT Rule');
+    // marked 'ai', NOT 'manual' — a generated title must stay beatable by a heading
+    expect(api.saveTitle).toHaveBeenCalledWith('a', 'Add VAT Rule', 'ai');
     // read-only contract: no write-enabling flag on the chat or the message
     expect(agentApi.createChat).toHaveBeenCalledWith();
     const opts = agentApi.streamMessage.mock.calls[0][2];
@@ -286,11 +294,31 @@ describe('renameDeliverable / generateTitle / backfillTitles', () => {
     expect(agentApi.createChat).not.toHaveBeenCalled();
   });
 
-  it('backfillTitles generates titles only for untitled deliverables with enough text', async () => {
+  it('generateTitle is a no-op when the text declares its own heading', async () => {
+    // The heading already wins in displayTitle, so the agent call is pure waste.
+    store.deliverables.value = [{ id: 'a', text: '# Invoices Queue Automation\nmust be touchless', order: 1 }];
+    await generateTitle('a');
+    expect(agentApi.createChat).not.toHaveBeenCalled();
+    expect(api.saveTitle).not.toHaveBeenCalled();
+  });
+
+  it('generateTitle still runs when the heading is not on the first non-empty line', async () => {
+    store.deliverables.value = [{ id: 'a', text: '> banner line\n\n# Not the first line', order: 1 }];
+    agentApi.createChat.mockResolvedValue('chat_x');
+    agentApi.streamMessage.mockImplementation(async (chatId, content, { onEvent }) => {
+      onEvent({ type: 'text-delta', delta: 'Generated Title' });
+      onEvent({ type: 'finish' });
+    });
+    await generateTitle('a');
+    expect(store.deliverables.value[0].title).toBe('Generated Title');
+  });
+
+  it('backfillTitles generates titles only for untitled, headingless deliverables with enough text', async () => {
     store.deliverables.value = [
       { id: 'a', text: 'Add a VAT rule to the Invoices queue', order: 1 },
       { id: 'b', text: 'Add a currency rule to the Invoices queue', order: 2, title: 'Already Titled' },
       { id: 'c', text: 'short', order: 3 },
+      { id: 'd', text: '# Vendor Matching\nmatch every vendor against the master data', order: 4 },
     ];
     agentApi.createChat.mockResolvedValue('chat_x');
     agentApi.streamMessage.mockImplementation(async (chatId, content, { onEvent }) => {
@@ -301,6 +329,7 @@ describe('renameDeliverable / generateTitle / backfillTitles', () => {
     expect(store.deliverables.value.find((d) => d.id === 'a').title).toBe('Generated Title');
     expect(store.deliverables.value.find((d) => d.id === 'b').title).toBe('Already Titled'); // untouched
     expect(store.deliverables.value.find((d) => d.id === 'c').title).toBeUndefined(); // too short, untouched
+    expect(store.deliverables.value.find((d) => d.id === 'd').title).toBeUndefined(); // declares its own heading, untouched
     expect(agentApi.createChat).toHaveBeenCalledTimes(1); // only 'a' qualified
   });
 });
