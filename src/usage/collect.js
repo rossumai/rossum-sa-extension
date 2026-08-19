@@ -1,6 +1,4 @@
-import {
-  buildPayload, buildSnapshotParams, EVENT_NAMES, SNAPSHOT_KEYS,
-} from './event.js';
+import { buildPayload, EVENT_NAMES } from './event.js';
 import { GA4_ENDPOINT, MEASUREMENT_ID, API_SECRET } from './ga4Config.js';
 
 // Worker-side collector. The service worker is the ONLY sender: it owns the
@@ -16,7 +14,6 @@ export const defaultDeps = {
   getSession: (keys) => chrome.storage.session.get(keys),
   setSession: (obj) => chrome.storage.session.set(obj),
   uuid: () => crypto.randomUUID(),
-  today: () => new Date().toISOString().slice(0, 10),
   version: () => {
     const m = chrome.runtime.getManifest();
     return m.version_name || m.version;
@@ -28,9 +25,7 @@ export const defaultDeps = {
 // Deliberately an explicit key list, never getLocal(null): the local store also
 // holds staged consoleAuth_* entries carrying session tokens, and this module
 // has no business reading them.
-const READ_KEYS = [
-  'usageConsent', 'usageClientId', 'usageSnapshotDay', ...Object.values(SNAPSHOT_KEYS),
-];
+const READ_KEYS = ['usageConsent', 'usageClientId'];
 
 async function sessionId(d) {
   const { usageSessionId } = await d.getSession(['usageSessionId']);
@@ -40,9 +35,9 @@ async function sessionId(d) {
   return id;
 }
 
-async function post(d, name, params, clientId) {
+async function post(d, name, clientId) {
   const body = buildPayload({
-    name, params, clientId, sessionId: await sessionId(d), version: d.version(),
+    name, clientId, sessionId: await sessionId(d), version: d.version(),
   });
   await d.fetch(d.endpoint(), { method: 'POST', body: JSON.stringify(body) });
 }
@@ -51,12 +46,13 @@ async function post(d, name, params, clientId) {
 // through this worker — see the measurement in that file. This module only READS
 // it.
 // Returns how many requests were sent. Never rejects: a usage-reporting failure must
-// not surface anywhere. `0` covers no-consent, unknown name, invalid params and
-// network failure alike.
-// Serialized: collect() is a check-then-act read-modify-write across awaits
-// (lazy client id, daily snapshot marker). A burst of events in one tick would
-// otherwise each observe pre-state, minting several client ids and sending
-// duplicate snapshots. The queue never rejects — collectOne already swallows.
+// not surface anywhere. `0` covers no-consent, unknown name and network failure
+// alike. Any `params` on the message is ignored, never forwarded.
+// Serialized: collect() is a check-then-act read-modify-write across an await
+// (the lazy client id). A burst of events in one tick would otherwise each
+// observe pre-state and mint several ids, sending events under different
+// identifiers. This looks deletable now that the daily snapshot is gone — it is
+// not. The queue never rejects — collectOne already swallows.
 let queue = Promise.resolve();
 
 export function collect(msg, deps = {}) {
@@ -84,28 +80,8 @@ async function collectOne(msg, deps = {}) {
       await d.setLocal({ usageClientId: clientId });
     }
 
-    let sent = 0;
-    const day = d.today();
-    if (stored.usageSnapshotDay !== day) {
-      // Isolated, and the marker is committed only AFTER a successful post:
-      // otherwise one transient failure both loses that day's snapshot forever
-      // and aborts the event that triggered it. Retrying on a later event today
-      // is the lesser evil. The snapshot piggybacks on the first event of the
-      // day because a scheduled alternative would need chrome.alarms, and adding
-      // a permission would disable every existing install until re-approved.
-      try {
-        await post(d, 'sa_config_snapshot', buildSnapshotParams(stored), clientId);
-        await d.setLocal({ usageSnapshotDay: day });
-        sent += 1;
-      } catch {
-        // fall through to the real event
-      }
-    }
-    if (name !== 'sa_config_snapshot') {
-      await post(d, name, msg.params || {}, clientId);
-      sent += 1;
-    }
-    return sent;
+    await post(d, name, clientId);
+    return 1;
   } catch {
     return 0;
   }

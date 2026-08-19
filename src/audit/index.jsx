@@ -88,9 +88,11 @@ export async function runDefaultSummary() {
 export async function askAuditFabry(question) {
   const q = String(question || '').trim();
   if (!q) return;
-  track('sa_audit_fabry_ask');
   const cur = store.fabry.value;
   if (cur.turns.some((t) => t.state === 'streaming')) return; // one at a time
+  // Tracked below every guard: above them a refused click counted as a question
+  // that ran (same rule as architect/actions.js and fabry/chat.js).
+  track('sa_audit_fabry_ask');
   if (fabryController) fabryController.abort();
   fabryController = new AbortController();
   const signal = fabryController.signal;
@@ -188,15 +190,20 @@ export async function initAudit() {
   // once per app activation — so it counted opening the app (already covered by
   // sa_console_app_audit) and never a search. It now fires only when the source
   // or filters actually CHANGE, which is a real user action.
-  let lastQuerySig = null;
+  //
+  // The signature it compares deliberately EXCLUDES `page`/`cursor`
+  // (store.searchSignature): paging is patched through the same filters object,
+  // so the whole-object signature counted every next-page click as a search.
+  // The effect still re-queries on a paging change — only the COUNTING skips it.
+  let lastSearchSig = null;
   effect(() => {
     const _src = store.activeSource.value;
     const _f = store.filtersBySource.value;
     const _app = activeApp.value;
     if (activeApp.value !== 'audit') return;
-    const sig = JSON.stringify([_src, _f]);
-    if (lastQuerySig !== null && sig !== lastQuerySig) track('sa_audit_search');
-    lastQuerySig = sig;
+    const searchSig = store.searchSignature(_src, _f);
+    if (lastSearchSig !== null && searchSig !== lastSearchSig) track('sa_audit_search');
+    lastSearchSig = searchSig;
     if (queryController) queryController.abort();
     queryController = new AbortController();
     fetchActive({ signal: queryController.signal });

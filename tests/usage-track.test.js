@@ -27,10 +27,10 @@ describe('track', () => {
     expect(sent).toEqual([{ type: 'sa-usage', name: 'sa_popup_open' }]);
   });
 
-  it('includes params only when given', async () => {
+  it('never puts params on the message, even when a caller passes one', async () => {
     const { track } = await freshTrack();
-    track('sa_popup_toggle_on', { feature: 'scrollLockEnabled' });
-    expect(sent[0].params).toEqual({ feature: 'scrollLockEnabled' });
+    track('sa_popup_open', { feature: 'scrollLockEnabled' });
+    expect(sent).toEqual([{ type: 'sa-usage', name: 'sa_popup_open' }]);
   });
 
   it('returns undefined and never throws when messaging is unavailable', async () => {

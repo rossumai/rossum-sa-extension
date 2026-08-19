@@ -308,8 +308,10 @@ export async function askFabry(question) {
   const syn = store.synthesis.value;
   const q = String(question || '').trim();
   if (!q || !syn || syn.status !== 'done' || !syn.chatId) return;
-  track('sa_inspector_followup');
   if ((syn.followups || []).some((f) => f.status === 'streaming')) return; // one at a time
+  // Tracked below every guard: above them a refused click counted as a
+  // follow-up that ran (same rule as architect/actions.js and fabry/chat.js).
+  track('sa_inspector_followup');
   const myId = loadId;
   const signal = attrController ? attrController.signal : undefined;
   const patch = (fn) => {

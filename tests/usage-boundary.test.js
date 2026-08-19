@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
 import { join } from 'path';
-import { EVENT_NAMES } from '../src/usage/event.js';
+import { EVENT_NAMES, buildPayload } from '../src/usage/event.js';
 
 // Network boundary: exactly ONE module may name the analytics host, and only the
 // service worker may send. If the host appears anywhere else, some other surface
@@ -60,8 +60,11 @@ describe('usage-data network boundary', () => {
 describe('PRIVACY.md', () => {
   const text = readFileSync(join(ROOT, 'PRIVACY.md'), 'utf8');
 
-  it('publishes every event name so the claim is auditable', () => {
-    expect(EVENT_NAMES.filter((n) => !text.includes(n))).toEqual([]);
+  it('publishes every event name in backticks, so the list is a real list', () => {
+    // The looser `text.includes(name)` would accept a name buried in prose, or
+    // matched only as a substring of a longer name. The document IS the
+    // published vocabulary, so every name must appear as code.
+    expect(EVENT_NAMES.filter((n) => !text.includes(`\`${n}\``))).toEqual([]);
   });
 
   it('carries the Chrome Web Store Limited Use affirmation', () => {
@@ -75,5 +78,26 @@ describe('PRIVACY.md', () => {
     const inDoc = [...new Set([...text.matchAll(/`(sa_[a-z0-9_]+)`/g)].map((m) => m[1]))];
     expect(inDoc.filter((n) => !EVENT_NAMES.includes(n))).toEqual([]);
     expect(inDoc.length).toBe(EVENT_NAMES.length);
+  });
+
+  // PRIVACY.md promises each event contains EXACTLY: the event name, the
+  // extension version, a random client identifier and a random per-session
+  // identifier. That is a promise about the PAYLOAD, and after 2026-08-19
+  // nothing else pins it — the parameter allowlist that used to make it
+  // self-evident was deleted, because no caller can supply a param any more.
+  // If this fails, the payload gained or lost a field and the "containing
+  // exactly" list in PRIVACY.md is now FALSE. Fix the document, not the
+  // assertion.
+  it('sends exactly the fields PRIVACY.md promises, for every event', () => {
+    for (const name of EVENT_NAMES) {
+      const body = buildPayload({
+        name, clientId: 'c1', sessionId: 's1', version: 'abc1234',
+      });
+      expect(Object.keys(body).sort()).toEqual(['client_id', 'events']);
+      expect(body.events).toHaveLength(1);
+      expect(Object.keys(body.events[0]).sort()).toEqual(['name', 'params']);
+      expect(Object.keys(body.events[0].params).sort())
+        .toEqual(['engagement_time_msec', 'ext_ver', 'session_id']);
+    }
   });
 });

@@ -82,7 +82,15 @@ export default function RecordList({
     });
   }, []);
   function changeView(v) {
-    if (v === 'stages') track('sa_mdh_stages_view');
+    // Count ENTERING the Stages view, not clicking the button: this control has
+    // no `v === view` guard, so clicking the already-active option re-fires.
+    //
+    // Deliberately NOT collapsed with trackOnce (tried, reverted 2026-08-19).
+    // The analogy to sa_mdh_query_run does not hold: runQuery is auto-invoked on
+    // every keystroke, sort, filter and page change, so no user intent maps onto
+    // a call — whereas this is a deliberate click, and someone who opens Stages
+    // three times in a session used it three times.
+    if (v === 'stages' && resultsView.value !== 'stages') track('sa_mdh_stages_view');
     resultsView.value = v;
     inspectTarget.value = null; // a manual view switch isn't a "jump to stage"
     chrome.storage.local.set({ mdhResultsView: v });

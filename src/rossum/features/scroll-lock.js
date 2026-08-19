@@ -25,7 +25,6 @@ export function initScrollLock(element) {
   let userScrollUntil = 0;
 
   element.__saScrollLockAttached = true;
-  trackOnce('sa_rossum_scroll_lock');
 
   requestAnimationFrame(() => {
     if (element instanceof HTMLElement) element.scrollTop = 0;
@@ -33,6 +32,21 @@ export function initScrollLock(element) {
 
   const markUserScrollActive = () => {
     userScrollUntil = Date.now() + USER_SCROLL_DETECTION_MS;
+  };
+
+  // The single place the position is put back, so both callers count the same
+  // way. Counted where the feature has demonstrably ACTED — where it really
+  // moved the position — not where it merely attached: attaching happens on
+  // every Rossum page carrying a sidebar, so counting there measured "the
+  // toggle is on", i.e. enablement, which this extension stopped reporting when
+  // the daily config snapshot was deleted (2026-08-19).
+  //
+  // Skipping the write when the position already matches is behaviour-preserving:
+  // assigning scrollTop its current value is a no-op and fires no scroll event.
+  const restoreTo = (top) => {
+    if (element.scrollTop === top) return;
+    element.scrollTop = top;
+    trackOnce('sa_rossum_scroll_lock');
   };
 
   element.addEventListener('wheel', markUserScrollActive, { passive: true });
@@ -43,12 +57,24 @@ export function initScrollLock(element) {
   element.addEventListener(
     'scroll',
     () => {
-      markUserScrollActive();
-
       const now = Date.now();
       const cur = element.scrollTop;
 
-      if (!isRestoring && now <= userScrollUntil) {
+      // Read the user-activity window BEFORE touching it. Until 2026-08-19 this
+      // handler called markUserScrollActive() FIRST, which set userScrollUntil
+      // to now + 250 and made the check below unconditionally true — so this
+      // listener only ever RECORDED the position and the restore branch was
+      // dead code. The feature still worked, but only through armLockWindow's
+      // pre-emptive write; a reset arriving later in the lock window (which is
+      // the case the file header describes) was never corrected.
+      //
+      // Extending the window is still right for MOMENTUM scrolling, which keeps
+      // firing scroll events with no further wheel/touch/key input — but only
+      // when the run was already attributable to the user.
+      const userDriven = now <= userScrollUntil;
+      if (userDriven) markUserScrollActive();
+
+      if (!isRestoring && userDriven) {
         savedScrollTop = cur;
         return;
       }
@@ -56,7 +82,7 @@ export function initScrollLock(element) {
       if (!isRestoring && now < lockUntil && savedScrollTop > MIN_SCROLL_POSITION_FOR_LOCK) {
         if (Math.abs(cur - savedScrollTop) > SCROLL_TOLERANCE_PX) {
           isRestoring = true;
-          element.scrollTop = savedScrollTop;
+          restoreTo(savedScrollTop);
           queueMicrotask(() => {
             isRestoring = false;
           });
@@ -69,10 +95,8 @@ export function initScrollLock(element) {
   const armLockWindow = (ms) => {
     if (savedScrollTop <= MIN_SCROLL_POSITION_FOR_LOCK) return;
     lockUntil = Date.now() + ms;
-    element.scrollTop = savedScrollTop;
-    requestAnimationFrame(() => {
-      if (element.scrollTop !== savedScrollTop) element.scrollTop = savedScrollTop;
-    });
+    restoreTo(savedScrollTop);
+    requestAnimationFrame(() => restoreTo(savedScrollTop));
   };
 
   const contentObserver = new MutationObserver(() => {

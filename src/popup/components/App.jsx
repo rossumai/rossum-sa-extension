@@ -200,7 +200,6 @@ export default function App({ tab }) {
   };
 
   const setStorageToggle = async (key, value) => {
-    track(value ? 'sa_popup_toggle_on' : 'sa_popup_toggle_off', { feature: key });
     setStorageValues((prev) => ({ ...prev, [key]: value }));
     await chrome.storage.local.set({ [key]: value });
     chrome.tabs.reload(tab.id);
@@ -231,7 +230,6 @@ export default function App({ tab }) {
     // the local state in step with the page.
     const next = await runInTab(tab.id, togglePageFlag, [key]);
     if (typeof next === 'boolean') {
-      track(next ? 'sa_popup_toggle_on' : 'sa_popup_toggle_off', { feature: key });
       setMessageValues((prev) => ({ ...prev, [key]: next }));
       chrome.tabs.reload(tab.id);
     }

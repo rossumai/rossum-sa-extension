@@ -32,7 +32,7 @@ export function writeConsent(value, deps = {}) {
   // The SESSION id must go too, or a re-enable inside the same browser session
   // would share it with the previous client id and be trivially joinable —
   // PRIVACY.md promises the opposite.
-  const removed = d.removeLocal(['usageClientId', 'usageSnapshotDay']);
+  const removed = d.removeLocal(['usageClientId']);
   const session = d.removeSession(['usageSessionId']);
   const written = d.setLocal({ usageConsent: false });
   return Promise.all([written, removed, session]);

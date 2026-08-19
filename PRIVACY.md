@@ -1,6 +1,6 @@
 # Privacy policy — Rossum SA extension
 
-Last updated: 2026-08-03
+Last updated: 2026-08-19
 
 This is a community project supported by enthusiasts and volunteers, not an
 official Rossum product.
@@ -30,8 +30,7 @@ containing exactly:
 - the extension version (a short git commit hash);
 - a random identifier, created the first time an event is sent after you enable
   usage data, and stored on your device;
-- a random per-browser-session identifier;
-- for the once-a-day configuration event, one 0/1 flag per feature toggle.
+- a random per-browser-session identifier.
 
 The request is an ordinary HTTPS request, so Google receives your IP address at
 the network layer as it would for any web request. Google's Measurement Protocol
@@ -65,7 +64,7 @@ list and the code disagree.
 | `sa_rossum_resource_ids` | the resource-ID overlay drew at least one label on a page |
 | `sa_rossum_expand_formulas` | a formula field was auto-expanded on a page |
 | `sa_rossum_expand_reasoning` | a reasoning field's options were auto-expanded on a page |
-| `sa_rossum_scroll_lock` | the sidebar scroll lock attached on a page |
+| `sa_rossum_scroll_lock` | the sidebar scroll lock actually restored a scroll position Rossum had reset |
 | `sa_rossum_tooltip_close` | you dismissed a validation tooltip with its × button |
 | `sa_rossum_mdh_suggest_click` | you clicked "Open Dataset Management" on the legacy Master Data Hub banner |
 
@@ -84,8 +83,6 @@ once per document — the extension deliberately does not count repeatedly.
 | Event | Meaning |
 | --- | --- |
 | `sa_popup_open` | you opened the popup |
-| `sa_popup_toggle_on` | you switched a feature on (carries which toggle, from a fixed list of the nine toggle names) |
-| `sa_popup_toggle_off` | you switched a feature off (same fixed list) |
 | `sa_popup_experimental_unlock` | you unlocked the extension's experimental features |
 | `sa_popup_unlock_annotation` | you released an annotation another reviewer was holding |
 
@@ -106,7 +103,7 @@ once per document — the extension deliberately does not count repeatedly.
 | `sa_mdh_stages_view` | the aggregation Stages view was opened |
 | `sa_mdh_agent_query` | you asked the AI query box for a pipeline |
 | `sa_mdh_index_create` | an index was created |
-| `sa_audit_search` | you changed the audit-log source or filters |
+| `sa_audit_search` | you changed the audit-log source or filters. Turning a page is **not** counted |
 | `sa_audit_fabry_ask` | you asked Mr. Fabry a question about audit logs |
 | `sa_inspector_report` | an annotation diagnosis report was built |
 | `sa_inspector_followup` | you asked a follow-up question in a diagnosis report |
@@ -135,12 +132,6 @@ once per document — the extension deliberately does not count repeatedly.
 | Event | Meaning |
 | --- | --- |
 | `sa_sidepanel_open` | the side panel was opened (however you opened it) |
-
-**Configuration**
-
-| Event | Meaning |
-| --- | --- |
-| `sa_config_snapshot` | sent at most once per day: one 0/1 flag per feature toggle, so an unused feature can be told apart from an undiscovered one. No other content. |
 
 ## Data retention
 

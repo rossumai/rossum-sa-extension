@@ -33,6 +33,18 @@ export function patchFilters(key, patch) {
   filtersBySource.value = { ...filtersBySource.value, [key]: { ...cur, ...patch } };
 }
 
+// Pagination is patched THROUGH filtersBySource (Pagination.jsx sends `page` /
+// `cursor` here), so anything asking "did the SEARCH change" must ignore those
+// two keys — otherwise every next-page click reads as a brand new search. Keys
+// are sorted so a patch that merely reorders them is not mistaken for a change.
+const PAGING_KEYS = new Set(['page', 'cursor']);
+export function searchSignature(source, bySource) {
+  const f = (bySource && bySource[source]) || {};
+  const stable = {};
+  for (const k of Object.keys(f).sort()) if (!PAGING_KEYS.has(k)) stable[k] = f[k];
+  return JSON.stringify([source, stable]);
+}
+
 // Rossum Agent API ("Mr. Fabry") reachable — set from probeAgent() at init.
 export const aiAvailable = signal(false);
 

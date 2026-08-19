@@ -58,7 +58,9 @@ export function handleNode(node) {
     });
     node.appendChild(span);
     // Counted where the feature has demonstrably ACTED, not where it was merely
-    // enabled — enablement is already covered by the daily config snapshot.
+    // enabled. Enablement is NOT reported at all since the daily config snapshot
+    // was deleted (2026-08-19), which makes this rule the only signal there is —
+    // count on the draw, never on init. scroll-lock.js broke it and was fixed.
     trackOnce('sa_rossum_schema_ids');
   }
 }

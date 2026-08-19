@@ -1,7 +1,8 @@
 // The only usage-reporting API feature code sees. Fire-and-forget by
 // construction: never awaited, never throws, always returns undefined — a fault
 // must not alter, delay or break a feature. The service worker validates the
-// name and params and may drop the event (e.g. when consent is absent).
+// name and may drop the event (e.g. when consent is absent). A name is ALL a
+// caller can send: there is no params argument, by design.
 const sentOnce = new Set();
 
 // Cached consent, so a user who declined does not pay a service-worker wake plus
@@ -28,12 +29,10 @@ try {
   // A context without storage access — fall back to always messaging the worker.
 }
 
-export function track(name, params) {
+export function track(name) {
   if (consentKnown === false) return undefined;
   try {
-    const msg = { type: 'sa-usage', name };
-    if (params) msg.params = params;
-    const p = chrome.runtime.sendMessage(msg);
+    const p = chrome.runtime.sendMessage({ type: 'sa-usage', name });
     // No receiver (worker asleep mid-teardown, page closing) rejects; ignore.
     if (p && typeof p.catch === 'function') p.catch(() => {});
   } catch {
@@ -45,8 +44,8 @@ export function track(name, params) {
 // For features driven by the MutationObserver: they act per DOM node, so this
 // collapses a whole page's activity into one event. The set lives for the
 // content script instance, i.e. one page load.
-export function trackOnce(name, params) {
+export function trackOnce(name) {
   if (sentOnce.has(name)) return undefined;
   sentOnce.add(name);
-  return track(name, params);
+  return track(name);
 }

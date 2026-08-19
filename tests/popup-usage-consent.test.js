@@ -23,11 +23,11 @@ describe('writeConsent', () => {
     expect(d.calls).toEqual([['set', { usageConsent: true }]]);
   });
 
-  it('revoking drops the identifier and the snapshot marker too', async () => {
+  it('revoking drops the identifier too', async () => {
     const d = makeDeps();
     await writeConsent(false, d);
     expect(d.calls).toContainEqual(['set', { usageConsent: false }]);
-    expect(d.calls).toContainEqual(['remove', ['usageClientId', 'usageSnapshotDay']]);
+    expect(d.calls).toContainEqual(['remove', ['usageClientId']]);
   });
 
   it('revoking also clears the session id, or a re-enable stays linkable', () => {

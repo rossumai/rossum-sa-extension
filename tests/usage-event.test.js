@@ -1,7 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  EVENT_NAMES, SNAPSHOT_KEYS, buildPayload, buildSnapshotParams,
-} from '../src/usage/event.js';
+import { EVENT_NAMES, buildPayload } from '../src/usage/event.js';
 
 const base = { clientId: 'c1', sessionId: 's1', version: 'abc1234' };
 
@@ -12,6 +10,16 @@ describe('usage event vocabulary', () => {
 
   it('has no duplicate names', () => {
     expect(new Set(EVENT_NAMES).size).toBe(EVENT_NAMES.length);
+  });
+
+  it('carries exactly the 44 names PRIVACY.md publishes', () => {
+    expect(EVENT_NAMES).toHaveLength(44);
+  });
+
+  it('no longer reports configuration changes, only use', () => {
+    for (const gone of ['sa_config_snapshot', 'sa_popup_toggle_on', 'sa_popup_toggle_off']) {
+      expect(EVENT_NAMES).not.toContain(gone);
+    }
   });
 });
 
@@ -30,48 +38,22 @@ describe('buildPayload', () => {
     expect(() => buildPayload({ ...base, name: 'sa_made_up' })).toThrow(/unknown event/);
   });
 
-  it('rejects a param key that is not allowlisted — the leak guard', () => {
-    expect(() => buildPayload({ ...base, name: 'sa_popup_open', params: { org: 'acme' } }))
-      .toThrow(/not allowed/);
-    expect(() => buildPayload({ ...base, name: 'sa_popup_open', params: { page_location: 'https://x' } }))
-      .toThrow(/not allowed/);
-  });
-
-  it('rejects Object.prototype keys — they must not resolve to inherited validators', () => {
-    // Plain bracket access made `constructor` resolve to Object.prototype's
-    // function, which is truthy and was then called as the validator, waving the
-    // param through. Verified as a real bypass before the hasOwnProperty guard.
-    for (const key of ['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__proto__']) {
-      expect(() => buildPayload({ ...base, name: 'sa_popup_open', params: { [key]: 'LEAKED' } }))
-        .toThrow(/param not allowed/);
-    }
-  });
-
-  it('rejects a feature value outside the toggle enum', () => {
-    expect(() => buildPayload({ ...base, name: 'sa_popup_toggle_on', params: { feature: 'whatever' } }))
-      .toThrow(/not allowed/);
-    expect(buildPayload({ ...base, name: 'sa_popup_toggle_on', params: { feature: 'scrollLockEnabled' } })
-      .events[0].params.feature).toBe('scrollLockEnabled');
-  });
-
-  it('rejects a missing client id and an over-long version', () => {
-    expect(() => buildPayload({ ...base, clientId: '', name: 'sa_popup_open' })).toThrow(/clientId/);
-    expect(() => buildPayload({ ...base, version: 'v'.repeat(101), name: 'sa_popup_open' }))
-      .toThrow(/not allowed/);
-  });
-
-  it('maps stored toggles to 0/1 snapshot params', () => {
-    const params = buildSnapshotParams({ schemaAnnotationsEnabled: true, experimentalUnlocked: 1 });
-    expect(params.schema_ids).toBe(1);
-    expect(params.experimental).toBe(1);
-    expect(params.resource_ids).toBe(0);
-    expect(Object.keys(params).sort()).toEqual(Object.keys(SNAPSHOT_KEYS).sort());
-  });
-
-  it('accepts the snapshot event with all eight booleans', () => {
+  it('ignores any params a caller passes — there is no field for them', () => {
     const body = buildPayload({
-      ...base, name: 'sa_config_snapshot', params: buildSnapshotParams({}),
+      ...base, name: 'sa_popup_open', params: { org: 'acme', page_location: 'https://x' },
     });
-    expect(Object.keys(body.events[0].params).length).toBe(11);
+    expect(body.events[0].params).toEqual({
+      ext_ver: 'abc1234', session_id: 's1', engagement_time_msec: 1,
+    });
+  });
+
+  it('rejects a missing client id', () => {
+    expect(() => buildPayload({ ...base, clientId: '', name: 'sa_popup_open' })).toThrow(/clientId/);
+  });
+
+  it('omits an unusable version rather than dropping the whole event', () => {
+    // A throw here would lose a real feature-use event over a cosmetic field.
+    const body = buildPayload({ ...base, version: 'v'.repeat(101), name: 'sa_popup_open' });
+    expect(body.events[0].params).toEqual({ session_id: 's1', engagement_time_msec: 1 });
   });
 });

@@ -420,7 +420,10 @@ export default function DataPanel() {
   // targets that stage for scroll + highlight. `index` is the active-stage
   // index (-1 = input). A fresh object re-fires the highlight on each click.
   function handleInspectStage(index) {
-    track('sa_mdh_stages_view');
+    // Only when this actually OPENS the view — see RecordList.changeView.
+    // Clicking through stage rows while Stages is already showing is a jump
+    // between stages, not another use of the view.
+    if (resultsView.value !== 'stages') track('sa_mdh_stages_view');
     resultsView.value = 'stages';
     inspectTarget.value = { index };
     chrome.storage.local.set({ mdhResultsView: 'stages' });
