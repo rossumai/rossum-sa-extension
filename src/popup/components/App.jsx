@@ -3,7 +3,7 @@ import { useEffect, useState } from 'preact/hooks';
 import Toggle from './Toggle.jsx';
 import MdhProvenancePanel from './MdhProvenancePanel.jsx';
 import ReviewingLockBanner from './ReviewingLockBanner.jsx';
-import UsageCard, { UsageFooterButton, overlayMode } from './UsageCard.jsx';
+import UsageStrip, { UsageFooterButton, stripVisible } from './UsageStrip.jsx';
 import { track } from '../../usage/track.js';
 import { writeConsent } from '../usageConsent.js';
 import { openConsoleTab, runInTab, detectSite, findRossumTabs, activateTab, isConsoleTab } from '../utils.js';
@@ -127,15 +127,25 @@ export default function App({ tab }) {
   // Reopened-from-the-footer state. Never persisted: it is a view mode, not a
   // preference.
   const [reviewingUsage, setReviewingUsage] = useState(false);
-  const usageMode = overlayMode({ asked, reviewing: reviewingUsage });
+  // Deliberately WITHOUT `reviewing`: this is "the first ask is on screen", not
+  // "the surface is on screen". A footer reopen must not look like a fresh ask.
+  const askOnScreen = stripVisible({ consent });
 
-  // Persist "asked" only once the overlay has actually PAINTED. Writing it in the
+  // Persist "asked" only once the ask has actually PAINTED. Writing it in the
   // storage callback meant a popup dismissed within that tick consumed the single
   // automatic ask without ever showing it — and it never returns.
+  //
+  // Since 2026-08-19 this no longer gates the ask itself (the strip keys on
+  // `consent`, so it persists until answered). It is kept because it is what
+  // makes the footer control reachable, and its meaning — "the ask has been
+  // shown" — is unchanged.
+  // `asked === false` is load-bearing, not defensive: the strip stays on screen
+  // for every open until it is answered, so without it this would re-write the
+  // flag on each one. undefined = storage unresolved, true = already recorded.
   useEffect(() => {
-    if (usageMode !== 'ask') return;
+    if (!askOnScreen || asked !== false) return;
     Promise.resolve(chrome.storage.local.set({ usageAsked: true })).catch(() => {});
-  }, [usageMode]);
+  }, [askOnScreen, asked]);
 
   useEffect(() => {
     if (site) return;
@@ -316,6 +326,12 @@ export default function App({ tab }) {
         ) : null}
       </header>
 
+      {/* The first ask, IN FLOW rather than over the popup — it blocks nothing,
+          so it stays until answered instead of being spent on one showing. Sits
+          outside the site branch below for the same reason the overlay used to:
+          it must reach people whose current tab isn't Rossum/NetSuite/Coupa. */}
+      <UsageStrip consent={consent} reviewing={reviewingUsage} onAnswer={onUsageAnswer} />
+
       {!site ? (
         <UnsupportedSite tabs={rossumTabs} isConsole={isConsole} />
       ) : (
@@ -448,7 +464,11 @@ export default function App({ tab }) {
             third item floating in the middle of the footer. */}
         <div class="footer-left">
           <span class="version" onClick={onVersionClick}>{version}</span>
-          <UsageFooterButton asked={asked} consent={consent} onOpen={() => setReviewingUsage(true)} />
+          <UsageFooterButton
+            asked={asked}
+            consent={consent}
+            onToggle={() => setReviewingUsage((v) => !v)}
+          />
         </div>
         {unlockNotice ? <span class="unlock-notice">{unlockNotice}</span> : null}
         <a
@@ -461,16 +481,6 @@ export default function App({ tab }) {
           <ExternalIconSmall />
         </a>
       </footer>
-
-      {/* Last in the DOM so it stacks above everything, and OUTSIDE the
-          site-specific branch above: the ask must reach people whose current tab
-          isn't Rossum/NetSuite/Coupa too. */}
-      <UsageCard
-        mode={usageMode}
-        consent={consent}
-        onAnswer={onUsageAnswer}
-        onClose={() => setReviewingUsage(false)}
-      />
     </Fragment>
   );
 }
