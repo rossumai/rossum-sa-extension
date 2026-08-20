@@ -12,11 +12,14 @@
   "scripts": {
     "build": "node build.js",
     "dev": "node build.js --watch",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "devDependencies": {
+    "@types/chrome": "0.2.6",
     "esbuild": "^0.28.1",
     "jsdom": "^29.1.1",
+    "typescript": "5.9.3",
     "vitest": "^4.1.10"
   },
   "dependencies": {

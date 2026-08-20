@@ -1,0 +1,30 @@
+{
+  // Type-checking only — esbuild does the building. `checkJs` is off, so ONLY migrated
+  // .ts files are checked and CI stays green as the ratchet advances one file at a time.
+  // `erasableSyntaxOnly` forbids the TS syntax that has runtime meaning (enum, namespace,
+  // parameter properties), so a .ts file here is JavaScript plus annotations, nothing more.
+  "compilerOptions": {
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": false,
+    "strict": true,
+    // esbuild READS this file, and `strict` implies `alwaysStrict`, which made it emit a
+    // `"use strict"` prologue into every bundle — flipping all three content scripts from
+    // sloppy to strict mode. That may well be an improvement, but it is a runtime change
+    // with nothing to do with types, so it stays a separate decision. Turning it off here
+    // keeps type-checking strict and the emitted bundles byte-identical.
+    "alwaysStrict": false,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react",
+    "jsxFactory": "h",
+    "jsxFragmentFactory": "Fragment",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["chrome"],
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}

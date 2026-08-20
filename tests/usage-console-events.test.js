@@ -10,7 +10,7 @@ function walk(dir) {
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
     if (statSync(p).isDirectory()) out.push(...walk(p));
-    else if (/\.(js|jsx)$/.test(name)) out.push(p);
+    else if (/\.(js|jsx|ts|tsx)$/.test(name)) out.push(p);
   }
   return out;
 }
@@ -21,18 +21,20 @@ function walk(dir) {
 // (rather than for `track('…')` call sites) also catches names dispatched
 // through a lookup map, which is how the Console emits its per-app events.
 // event.js is excluded because it IS the vocabulary.
-const VOCAB_FILE = join('src', 'usage', 'event.js');
+// Extension-agnostic: this module moved to .ts on 2026-08-20, and naming it by extension
+// silently turned the skip below into a no-op.
+const VOCAB_RE = /src[/\\]usage[/\\]event\.(js|ts)$/;
 
 describe('instrumented event names', () => {
   const used = new Set();
   for (const file of walk(join(ROOT, 'src'))) {
-    if (file.endsWith(VOCAB_FILE)) continue;
+    if (VOCAB_RE.test(file)) continue;
     const src = readFileSync(file, 'utf8');
     for (const m of src.matchAll(/'(sa_[a-z0-9_]+)'/g)) used.add(m[1]);
   }
 
   it('actually skips the vocabulary file — otherwise these tests are tautologies', () => {
-    expect(existsSync(join(ROOT, VOCAB_FILE))).toBe(true);
+    expect(walk(join(ROOT, 'src')).filter((f) => VOCAB_RE.test(f))).toHaveLength(1);
   });
 
   it('found call sites', () => {

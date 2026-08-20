@@ -21,14 +21,16 @@ function walk(dir) {
     const p = join(dir, name);
     const st = statSync(p);
     if (st.isDirectory()) out.push(...walk(p));
-    else if (/\.(js|jsx)$/.test(name)) out.push(p);
+    else if (/\.(js|jsx|ts|tsx)$/.test(name)) out.push(p);
   }
   return out;
 }
 const rel = (p) => p.slice(ROOT.length + 1);
 
 function isAllowed(r) {
-  return r === 'src/agent/agentApi.js' || r.startsWith('src/fabry/architect/');
+  // Extension-agnostic: the transport moved to .ts on 2026-08-20 and this guard went
+  // vacuous until the walker above learned about it.
+  return /^src\/agent\/agentApi\.(js|ts)$/.test(r) || r.startsWith('src/fabry/architect/');
 }
 
 describe('agent write-enablement is Architect-only (Chat is strictly read-only)', () => {

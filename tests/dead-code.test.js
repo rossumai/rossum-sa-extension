@@ -14,6 +14,9 @@
 //     has no layout, so no test in this suite can see a stylesheet regression.
 //   • Anything reached through a string: `window.__fabryMermaidSvg`, a `chrome.storage`
 //     key, a `data-*` attribute contract.
+//   • `export type` / `export interface`. Only runtime exports are checked: a boundary type
+//     is exported to DOCUMENT the boundary, and consumers pick it up as they migrate, so an
+//     as-yet-unimported one is not dead weight. It also costs nothing at runtime.
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -22,17 +25,19 @@ const ROOT = path.resolve(import.meta.dirname, '..');
 
 // Exports deliberately kept without a consumer. Each needs a reason, and the reason is
 // the point: an entry here is a decision, not a snooze button.
-const UNCONSUMED_EXPORTS_ALLOWLIST = {
-  // The list of per-tab navigation keys. Production cannot consult it — every call site
-  // passes only the keys it needs, and `writeTabState` must not reject an unknown key
-  // (a silent storage failure is worse than a drifted comment). It stays as the single
-  // written-down answer to "which keys are per-tab", pinned by console-tab-state.test.js.
-  'src/console/tabState.js': ['TAB_SCOPED_KEYS'],
-};
+// Empty today. An entry is `'src/path.ts': ['exportName']`, and it needs a reason —
+// an entry here is a decision, not a snooze button.
+const UNCONSUMED_EXPORTS_ALLOWLIST = {};
 
 // `h` and `Fragment` are the JSX pragma pair: the compiler emits calls to them, so they
 // are used by every JSX file that imports them without ever appearing by name.
 const JSX_PRAGMA = new Set(['h', 'Fragment']);
+
+const CODE_EXT = /\.(js|jsx|ts|tsx)$/;
+// An ambient declaration file (`src/types/*.d.ts`) is consumed by tsc through tsconfig's
+// `include`, never by an import, and declares no runtime value — so it is invisible to
+// both checks below by construction, not by exemption.
+const DECL_EXT = /\.d\.ts$/;
 
 function walk(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -44,10 +49,10 @@ function walk(dir, out = []) {
 }
 
 const ALL_SRC = walk(path.join(ROOT, 'src')).map((p) => p.split(path.sep).join('/'));
-const CODE = ALL_SRC.filter((f) => /\.(js|jsx)$/.test(f));
+const CODE = ALL_SRC.filter((f) => CODE_EXT.test(f) && !DECL_EXT.test(f));
 const TESTS = walk(path.join(ROOT, 'tests'))
   .map((p) => p.split(path.sep).join('/'))
-  .filter((f) => /\.(js|jsx|mjs)$/.test(f));
+  .filter((f) => /\.(js|jsx|mjs|ts|tsx)$/.test(f));
 
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 
@@ -63,8 +68,16 @@ function resolveSpec(fromFile, spec) {
   // join+normalize, never resolve: `resolve` would anchor to process.cwd() and hand back
   // an absolute path that never matches a repo-relative entry in ALL_SRC.
   const base = path.posix.normalize(path.posix.join(path.posix.dirname(fromFile), spec));
-  const cands = [base, `${base}.js`, `${base}.jsx`, `${base}.css`,
-    path.posix.join(base, 'index.js'), path.posix.join(base, 'index.jsx')];
+  // A `./x.js` specifier resolves to `x.ts` when that is what is on disk — the TypeScript
+  // rewrite that esbuild, vite and tsc all implement, which is why a .js -> .ts rename needs
+  // no importer edits.
+  const swapped = base.replace(/\.jsx?$/, '');
+  const cands = [
+    base, `${base}.js`, `${base}.jsx`, `${base}.ts`, `${base}.tsx`, `${base}.css`,
+    `${swapped}.ts`, `${swapped}.tsx`,
+    path.posix.join(base, 'index.js'), path.posix.join(base, 'index.jsx'),
+    path.posix.join(base, 'index.ts'), path.posix.join(base, 'index.tsx'),
+  ];
   return cands.find((c) => ALL_SRC.includes(c)) || null;
 }
 
@@ -93,7 +106,7 @@ function importGraph(files) {
     while ((m = re.exec(text))) {
       const target = resolveSpec(f, m[2]);
       if (!target) continue;
-      const clause = m[1].trim();
+      const clause = m[1].trim().replace(/^type\s+/, '');   // `import type {…}` is not a default import
       const braced = clause.match(/\{([^}]*)\}/);
       const bare = clause.replace(/\{[^}]*\}/, '').replace(/,/g, ' ').trim();
       if (bare.startsWith('*')) add(target, '*');
@@ -167,9 +180,12 @@ describe('every file under src/ is reachable from a build entry point', () => {
       seen.add(f);
       for (const d of graph.get(f) || []) if (!seen.has(d)) stack.push(d);
     }
-    // Stylesheets and HTML pages are copied by build.js and linked by the pages, so they
-    // are never imported. Everything else must be reachable.
-    const orphans = ALL_SRC.filter((f) => !seen.has(f) && !/\.(css|html)$/.test(f));
+    // Stylesheets and HTML pages are copied by build.js and linked by the pages, and
+    // ambient .d.ts files are read by tsc, so none of them are ever imported. Everything
+    // else must be reachable.
+    const orphans = ALL_SRC.filter(
+      (f) => !seen.has(f) && !/\.(css|html)$/.test(f) && !DECL_EXT.test(f),
+    );
     expect(orphans).toEqual([]);
   });
 });
@@ -212,7 +228,7 @@ describe('no unused local declaration or import', () => {
 
       const imp = /\bimport\s+([^'";]+?)\s+from\s*['"]([^'"]+)['"]/g;
       while ((m = imp.exec(text))) {
-        const clause = m[1].trim();
+        const clause = m[1].trim().replace(/^type\s+/, '');
         const braced = clause.match(/\{([^}]*)\}/);
         const bare = clause.replace(/\{[^}]*\}/, '').replace(/,/g, ' ').trim();
         const bound = [];
@@ -224,7 +240,7 @@ describe('no unused local declaration or import', () => {
         }
         for (const name of bound) {
           if (!/^[A-Za-z_$][\w$]*$/.test(name)) continue;
-          if (JSX_PRAGMA.has(name) && f.endsWith('.jsx')) continue;
+          if (JSX_PRAGMA.has(name) && /\.(jsx|tsx)$/.test(f)) continue;
           if (exported.has(name)) continue;                    // imported purely to re-export
           if (bodyUses(text, name) === 0) dead.push(`${f} :: import ${name} <- ${m[2]}`);
         }

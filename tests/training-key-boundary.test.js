@@ -13,7 +13,7 @@ function walk(dir) {
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
     if (statSync(p).isDirectory()) out.push(...walk(p));
-    else if (/\.(js|jsx)$/.test(name)) out.push(p);
+    else if (/\.(js|jsx|ts|tsx)$/.test(name)) out.push(p);
   }
   return out;
 }
@@ -25,9 +25,9 @@ describe('receipt key boundary', () => {
     expect(RECEIPT_KEY.length).toBeGreaterThan(20);
   });
 
-  it('only src/training/receiptKey.js names it', () => {
+  it('only src/training/receiptKey names it', () => {
     const offenders = walk(join(ROOT, 'src'))
-      .filter((p) => rel(p) !== 'src/training/receiptKey.js')
+      .filter((p) => !/^src\/training\/receiptKey\.(js|ts)$/.test(rel(p)))
       .filter((p) => readFileSync(p, 'utf8').includes(RECEIPT_KEY))
       .map(rel);
     expect(offenders).toEqual([]);

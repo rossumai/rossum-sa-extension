@@ -1,4 +1,8 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+
+const srcUrl = (base) => ['.ts', '.js']
+  .map((ext) => new URL(`../src/${base}${ext}`, import.meta.url))
+  .find((u) => existsSync(u));
 import { describe, it, expect, vi } from 'vitest';
 import { PREF_KEYS, DOC_VIEWS, migrateDocView, docView, railOpen, setRailOpen, railWidth, setRailWidth,
   settledTarget, setSettledTarget, RAIL_SETTLE_MS,
@@ -109,7 +113,7 @@ describe('persisted preferences', () => {
   // written but not requested reads back as undefined for ever — which is how the inspector's width
   // was persisted and never restored (owner report, 2026-08-19). This asserts the two lists agree.
   it('requests every key the store writes', () => {
-    const src = readFileSync(new URL('../src/fabry/architect/store.js', import.meta.url), 'utf8');
+    const src = readFileSync(srcUrl('fabry/architect/store'), 'utf8');
     const written = new Set([
       ...[...src.matchAll(/local\?\.set\(\{\s*(fabryArch\w+)/g)].map((m) => m[1]),
       ...[...src.matchAll(/persistBool\('(fabryArch\w+)'/g)].map((m) => m[1]),

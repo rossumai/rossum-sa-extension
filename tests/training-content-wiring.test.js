@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 
-const SRC = readFileSync('src/rossum/index.js', 'utf8');
+// Extension-agnostic: this file is still .js today, but a rename must not silently
+// turn this whole suite into a no-op.
+const SRC = readFileSync(['src/rossum/index.ts', 'src/rossum/index.js'].find(existsSync), 'utf8');
 
 describe('content script wiring', () => {
   it('imports and starts the training quest feature', () => {

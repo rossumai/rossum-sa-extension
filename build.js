@@ -43,21 +43,21 @@ cpSync('src/sidepanel/sidepanel.css', 'dist/sidepanel/sidepanel.css');
 
 const options = {
   entryPoints: {
-    'scripts/rossum': 'src/rossum/index.js',
-    'scripts/netsuite': 'src/netsuite/index.js',
-    'scripts/coupa': 'src/coupa/index.js',
+    'scripts/rossum': 'src/rossum/index.ts',
+    'scripts/netsuite': 'src/netsuite/index.ts',
+    'scripts/coupa': 'src/coupa/index.ts',
     'popup/popup': 'src/popup/popup.jsx',
     'console/console': 'src/console/index.jsx',
     // The print page's own script (dist/console/print.html → doc-print.js). A real extension
     // page rather than a blob: URL, because a blob inherits the creator's CSP and could not
     // run an inline script — measured during the port.
-    'console/doc-print': 'src/docs/printEntry.js',
+    'console/doc-print': 'src/docs/printEntry.ts',
     // Lazy-loaded by the Fabry chat's MermaidBlock (script-injected on the
     // first mermaid fence): beautiful-mermaid ships one flat ~1.5MB module,
     // so it gets its own bundle instead of weighing down console.js.
-    'console/mermaid': 'src/fabry/mermaidEntry.js',
-    'background': 'src/background/index.js',
-    'devtools/devtools': 'src/devtools/devtools.js',
+    'console/mermaid': 'src/fabry/mermaidEntry.ts',
+    'background': 'src/background/index.ts',
+    'devtools/devtools': 'src/devtools/devtools.ts',
     'devtools/panel': 'src/devtools/panel.jsx',
     'sidepanel/sidepanel': 'src/sidepanel/index.jsx',
   },

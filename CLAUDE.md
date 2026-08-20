@@ -16,6 +16,7 @@ esbuild bundles ES modules from `src/` into `dist/`. No transpilation, no other 
 
 - `npm run build` — clean build into `dist/`
 - `npm run dev` — watch mode (JS only; re-run the full build for CSS/HTML changes)
+- `npm run typecheck` — `tsc --noEmit`. See TypeScript below.
 - `npm test` — Vitest. `tests/dead-code.test.js` is a repo-hygiene guard, not a behaviour
   test: it derives the entry points from `build.js` and fails on an unreachable module, an
   export nothing imports, or an unused local/import. Its header lists what it deliberately
@@ -23,19 +24,71 @@ esbuild bundles ES modules from `src/` into `dist/`. No transpilation, no other 
 - `dist/` is the loadable extension, and is gitignored. **Tests run `src/`, the browser runs
   `dist/` — rebuild before asking anyone to reload the extension.**
 
+## TypeScript
+
+**Every non-JSX module is TypeScript: 199 `.ts` + 1 `.d.ts`, zero `.js`, and 159 `.jsx`
+remain.** Adopted 2026-08-20 for readability, not bug-finding: `tsc --checkJs` over the whole
+repo found no runtime defect, but 70% of its diagnostics were one question — *what may I pass
+to this?* — and there was no `@param`, `@typedef` or `@type` anywhere in `src/`.
+
+The `.jsx` components are the remaining half and are deliberately untouched so far: a component
+conversion is `.jsx` → `.tsx`, which brings Preact's own prop typing into scope and is a
+different (larger) piece of work from annotating a module boundary.
+
+A `.ts` file may import a `.jsx` one — `allowJs` resolves it — so nothing in the component layer
+blocked this. `src/mdh/store.ts`, `src/mdh/formats/index.ts` and
+`src/fabry/architect/pdfAction.ts` each do exactly that.
+
+Rules, all in `tsconfig.json`:
+
+- **`checkJs: false`** — only `.ts` files are checked, so CI is green at every step and the
+  ratchet advances one file at a time. Do not flip it on globally.
+- **`strict: true`** — `noImplicitAny` is the point; without it the shapes never get written down.
+- **`erasableSyntaxOnly`** — no `enum`, `namespace` or parameter properties. A `.ts` file here is
+  JavaScript plus annotations, and nothing else.
+- **`alwaysStrict: false`** — load-bearing, see Traps.
+- Migration needs **no importer edits**: esbuild, vite and tsc all resolve a `./x.js` specifier
+  to `x.ts`. Rename the file, annotate, done. An **entry point** is the exception — `build.js`
+  lists those paths literally, so renaming one means editing `build.js` too. Anything else that
+  names a source path by extension is the same trap: a **test** that reads a file directly, or
+  filters `ALL_SRC` on `/\.(js|jsx)$/`, silently stops checking what it guards (eight of them did
+  — see Traps).
+
+Conventions the existing `.ts` files follow:
+
+- **Every conversion is emit-neutral.** Verify by building both trees unminified and diffing:
+  minified byte-identity is too strict, because esbuild's identifier allocation shifts under a
+  file rename. Line WRAPPING is not emit either — adding a parameter type forces a signature
+  onto several lines and esbuild's unminified printer follows, so compare whitespace-collapsed
+  text before believing a diff. Prefer an erased cast to a runtime change: `x as string` over
+  `String(x)`, `a!.b` over `a?.b`, `(window as any).f` over hoisting `const w = window as any`
+  (that emits a binding), and keep an `= {}` parameter default — widen the type's own fields to
+  optional rather than dropping it. The three defects this caught, each invisible to the test
+  suite: a hoisted `const`, an added `?.`, and a lost `= {}` on `buildGenPrompt` (which would
+  have made a no-argument call throw).
+- **`any` is allowed where the wire genuinely is untyped** — a parsed JSON body, a raw Rossum API
+  object, a markdown-it token — and says so in a comment. The value is in the RETURN shapes and
+  the options bags, which is where a reader actually needs the answer.
+- **Signals need an explicit parameter**: `signal(null)` infers `Signal<null>` and rejects every
+  later assignment. Write `signal<Foo | null>(null)`.
+- **Class fields must be `declare`d.** Under `target: ES2022`, `useDefineForClassFields` is on, so
+  a bare `x: T` field emits a define and changes the constructor. `declare x: T` emits nothing.
+- Types are exported to document a boundary even when nothing imports them yet, so the
+  dead-code guard deliberately ignores `export type`.
+
 ## Architecture
 
 Nine entry points, plus two bundles nothing imports that are script-injected on demand:
-`console/mermaid` (`src/fabry/mermaidEntry.js`, the ~1.5MB diagram renderer) and
-`console/doc-print` (`src/docs/printEntry.js`).
+`console/mermaid` (`src/fabry/mermaidEntry.ts`, the ~1.5MB diagram renderer) and
+`console/doc-print` (`src/docs/printEntry.ts`).
 
 | Entry | Surface |
 |---|---|
-| `src/rossum/index.js` · `src/netsuite/index.js` · `src/coupa/index.js` | content scripts |
+| `src/rossum/index.ts` · `src/netsuite/index.ts` · `src/coupa/index.ts` | content scripts |
 | `src/popup/popup.jsx` | extension popup (Preact) |
 | `src/console/index.jsx` | Console page — an app rail over six apps |
-| `src/background/index.js` | MV3 service worker |
-| `src/devtools/devtools.js` · `src/devtools/panel.jsx` | DevTools "Rossum" panel |
+| `src/background/index.ts` | MV3 service worker |
+| `src/devtools/devtools.ts` · `src/devtools/panel.jsx` | DevTools "Rossum" panel |
 | `src/sidepanel/index.jsx` | Chrome side panel |
 
 ### Content scripts
@@ -44,7 +97,7 @@ Nine entry points, plus two bundles nothing imports that are script-injected on 
 features, and runs ONE MutationObserver over added subtrees. Each module in
 `src/rossum/features/` exports an optional `init()` (inject CSS, add listeners; called once) and
 `handleNode(node)` (called for every added element; must be fast, and a no-op when irrelevant).
-To add a feature: create the module, add its key to `SETTINGS_KEYS` in `index.js`, wire
+To add a feature: create the module, add its key to `SETTINGS_KEYS` in `index.ts`, wire
 `init()`/`handleNode()`, add a popup checkbox. Disabled features add zero overhead.
 
 **NetSuite** and **Coupa** are self-contained single files with no observer. Coupa uses two
@@ -56,12 +109,12 @@ Reloading the extension does NOT re-inject content scripts into open tabs — re
 ### Console apps (`src/console/`)
 
 An app-switcher rail over six apps. Adding one touches three hardcoded switch points
-(`Rail.jsx` APPS, `Console.jsx` render switch, `boot.js` `isValidApp`) plus `console/index.jsx`.
+(`Rail.jsx` APPS, `Console.jsx` render switch, `boot.ts` `isValidApp`) plus `console/index.jsx`.
 
 - **Dataset Management** (`src/mdh/`) — Preact SPA over Rossum Data Storage: collections,
   records, a CodeMirror+JSON5 aggregation-pipeline editor, indexes, one import and one export
-  wizard, and a Stages view that debugs a pipeline stage by stage. Signals in `store.js`, REST in
-  `api.js`, plus an LRU cache, background prefetch and streamed export.
+  wizard, and a Stages view that debugs a pipeline stage by stage. Signals in `store.ts`, REST in
+  `api.ts`, plus an LRU cache, background prefetch and streamed export.
 - **Audit Log Viewer** (`src/audit/`) — one generic shell driven by per-source descriptors in
   `sources/`. Only `audit_logs` is registered; the descriptor shape exists to host more.
 - **Galaxy** (`src/galaxy/`) — the live org as a 3D force graph on raw three.js + d3-force-3d.
@@ -69,7 +122,7 @@ An app-switcher rail over six apps. Adding one touches three hardcoded switch po
   Console page's MV3 CSP forbids.
 - **Inspector** (`src/inspector/`) — read-only "what happened to this annotation, and why" as one
   progressively-filling Diagnosis Report: a deterministic evidence model and verdict
-  (`evidence.js`), then a Fabry narrative with `[e:<id>]` citations (`synthesize.js`).
+  (`evidence.ts`), then a Fabry narrative with `[e:<id>]` citations (`synthesize.ts`).
 - **Fabry Chat** (`src/fabry/`) — chat over the Rossum Agent API. There is **no 👍/👎
   feedback**: `PUT /feedback`'s `turn_index` addresses the raw stored history while
   `GET /chats` drops text-less tool-only steps, so a thread index mis-targets feedback on any
@@ -111,7 +164,7 @@ Enforced by tests, not by convention. Do not weaken them.
 
 - **Write boundary** — Fabry Chat is strictly read-only. ONLY `src/fabry/architect/**` (the
   implement loop) may send `mcp_mode: 'read-write'`, and only the transport
-  `src/agent/agentApi.js` may name it. There is **no server-side write-lock** — the backend
+  `src/agent/agentApi.ts` may name it. There is **no server-side write-lock** — the backend
   honours whatever the client sends, so the boundary is entirely client-side. Guarded by
   `tests/fabry-write-boundary.test.js` plus a `dist/` grep.
 - **Training never mutates** — no request the onboarding track makes can change the org. That is
@@ -121,7 +174,7 @@ Enforced by tests, not by convention. Do not weaken them.
 - **Usage data** — the worker is the only sender, gated on `usageConsent === true`. Events are
   name-only by construction (no caller can supply a field), so the leak guard is structural.
   Adding an event means adding it to `EVENT_NAMES` **and** to `PRIVACY.md` in backticks; a test
-  enforces the pairing. Only `src/usage/ga4Config.js` may name `google-analytics.com`.
+  enforces the pairing. Only `src/usage/ga4Config.ts` may name `google-analytics.com`.
 - A **read-only agent framing** (cautious persona, standing notices) is defense-in-depth, never a
   guarantee.
 - **Retiring a feature must never delete customer data** — stop reading a field, do not drop it.
@@ -136,8 +189,8 @@ Enforced by tests, not by convention. Do not weaken them.
 
 - **Pure core, impure glue.** Geometry, prompts, parsers, state machines and decisions live in
   DOM-free unit-tested modules; DOM and network wiring is a thin layer over them.
-- **One home per grammar.** Annotation-URL parsing lives only in `src/rossum/annotationUrl.js`,
-  MDH placeholder syntax only in `src/mdh/placeholderSyntax.js`. `src/popup/tab-readers.js` keeps
+- **One home per grammar.** Annotation-URL parsing lives only in `src/rossum/annotationUrl.ts`,
+  MDH placeholder syntax only in `src/mdh/placeholderSyntax.ts`. `src/popup/tab-readers.ts` keeps
   a deliberate copy, because its functions are serialized into the page by `executeScript` and
   cannot close over an import — both carry a comment saying so.
 - **Additive keys and sibling documents** keep older builds working; that is the migration
@@ -165,8 +218,19 @@ Enforced by tests, not by convention. Do not weaken them.
 - **`CSSStyleRule` has a `cssRules` property** (empty, there for CSS nesting), so `if
   (r.cssRules) recurse()` descends into every ordinary rule and records none. Test
   `selectorText` first when walking a stylesheet.
+- **esbuild READS `tsconfig.json`**, so a compiler option can change what ships. `strict: true`
+  implies `alwaysStrict`, which made esbuild emit a `"use strict"` prologue into every bundle —
+  flipping all three content scripts from sloppy to strict mode, in a commit that was supposed to
+  add types and nothing else. Hence `alwaysStrict: false`. Verify a "types only" change by
+  diffing built bundle hashes; ours are byte-identical.
+- **A test that names or walks a source file by extension goes blind when that file is renamed**
+  — and blind looks exactly like passing. `tests/fabry-write-boundary.test.js` passed while
+  ignoring four `read-write` mentions in the transport it exists to guard. The migration broke
+  eight guards this way, in three shapes: an extension filter (`/\.(js|jsx)$/`), an allowlist
+  literal (`'src/usage/ga4Config.ts'`), and a direct read (`readFileSync('…/store.js')`). All are
+  now extension-agnostic. Mutation-test a guard after touching what it scans.
 - Guard Chrome-only APIs for jsdom (`CSS.escape`, `scrollIntoView`), and use the repo's own tween
-  (`src/mdh/smoothScroll.js`) for navigation jumps rather than `behavior: 'smooth'`, whose
+  (`src/mdh/smoothScroll.ts`) for navigation jumps rather than `behavior: 'smooth'`, whose
   duration scales with distance (measured ≥1481ms vs 198ms).
 
 ## Chrome Storage Keys
@@ -183,7 +247,7 @@ Enforced by tests, not by convention. Do not weaken them.
   `mdhProvenanceFilter`, `fabrySidebarWidth`, `fabryArchDocView`, `fabryArchRailOpen`,
   `fabryArchRailWidth`, `fabryArchPdfOptions`.
 - **Per-tab navigation**, read session-first from `sessionStorage` with a `chrome.storage.local`
-  seed (`src/console/tabState.js`), all content-free — `consoleActiveApp`, `mdhActiveView`,
+  seed (`src/console/tabState.ts`), all content-free — `consoleActiveApp`, `mdhActiveView`,
   `mdhSelectedCollection`, `mdhActivePanel`, `mdhOpsSearch`, `fabryActiveChat`, `fabryMode`,
   `fabryArchitectActive`.
 - **Other** — `mdhLastPipeline::<scope>::<collection>` (per org and per collection),
@@ -238,6 +302,7 @@ and all their classes are prefixed `rossum-sa-extension-*`.
 - **json5** — lenient parsing for the pipeline editor (trailing commas, unquoted keys)
 - **beautiful-mermaid** — diagrams; one flat ~1.5MB module, so it ships as its own lazy entry
 - **three** + **d3-force-3d** — Galaxy (~360KB)
+- **typescript** (dev) — type-checking only; esbuild does the building
 - **esbuild** (dev)
 
 All are CSP-clean (no `eval`, no `new Function`). The Console runs under the default MV3 CSP —

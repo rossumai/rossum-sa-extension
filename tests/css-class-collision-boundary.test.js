@@ -50,7 +50,7 @@ const rel = (p) => p.slice(ROOT.length + 1);
 // short enough to plausibly collide with a generated CSS-module name.
 function bareShortClasses() {
   const found = [];
-  for (const file of walk(join(ROOT, 'src'), /\.jsx$/)) {
+  for (const file of walk(join(ROOT, 'src'), /\.(jsx|tsx)$/)) {
     const text = readFileSync(file, 'utf8');
     const lines = text.split('\n');
     lines.forEach((line, i) => {

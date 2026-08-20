@@ -19,16 +19,16 @@ function walk(dir) {
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
     if (statSync(p).isDirectory()) out.push(...walk(p));
-    else if (/\.(js|jsx)$/.test(name)) out.push(p);
+    else if (/\.(js|jsx|ts|tsx)$/.test(name)) out.push(p);
   }
   return out;
 }
 const rel = (p) => p.slice(ROOT.length + 1);
 
 describe('usage-data network boundary', () => {
-  it('only src/usage/ga4Config.js names the analytics host', () => {
+  it('only src/usage/ga4Config names the analytics host', () => {
     const offenders = walk(join(ROOT, 'src'))
-      .filter((p) => rel(p) !== 'src/usage/ga4Config.js')
+      .filter((p) => !/^src\/usage\/ga4Config\.(js|ts)$/.test(rel(p)))
       .filter((p) => readFileSync(p, 'utf8').includes(HOST))
       .map(rel);
     expect(offenders).toEqual([]);
