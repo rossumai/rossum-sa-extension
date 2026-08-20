@@ -17,7 +17,6 @@ const TOP_N = 15;
 const MAX_TOP_FIELDS = 8;
 const cache = new Map();
 
-export function _resetSchemaHintsCache() { cache.clear(); }
 
 // ---- extended-JSON awareness -----------------------------------------------
 const EXT_JSON_TYPES = {

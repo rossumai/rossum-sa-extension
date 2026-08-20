@@ -6,7 +6,6 @@ import xml from './xml.jsx';
 
 export const FORMATS = { json, jsonl, csv, xlsx, xml };
 export function getFormat(id) { return FORMATS[id]; }
-export const FORMAT_ORDER = ['json', 'csv', 'xlsx', 'xml', 'jsonl'];
 
 // Union of every format's `accept` — used by the file drop area so ONE picker
 // accepts any supported type.

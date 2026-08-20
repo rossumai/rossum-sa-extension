@@ -7,7 +7,6 @@ import { initCodeCopy } from '../client/codeCopy.js';
 import { initSectionPreview } from '../client/sectionPreview.js';
 import { initSourceViewer } from '../client/sourceViewer.js';
 import { apiPathFromHref, isResourceHref, createResourceFetcher, splitResourceView, withResourceView } from '../resources.js';
-import { resolveHeadingElement } from '../anchorResolve.js';
 import { namespaceSection, prefixFor, resolveInPage } from '../idNamespace.js';
 import { animateScrollTop, SCROLL_MS } from '../../mdh/smoothScroll.js';
 import { highlightCode } from '../highlightCode.js';
@@ -98,20 +97,6 @@ function usePrefersDark() {
   return dark;
 }
 
-// Rendering runs markdown-it + the sanitizer + (once) a mermaid pass, so it is
-// debounced off the keystroke that produced the text. 120ms is below the 600ms the
-// editor already waits before persisting, so the preview still reads as live.
-function useDebounced(value, ms) {
-  const [held, setHeld] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setHeld(value), ms);
-    return () => clearTimeout(t);
-  }, [value, ms]);
-  // Switching deliverable must not show the previous one's text for 120ms — the host
-  // gives DocView a `key` per deliverable, so a switch remounts and `held` initialises
-  // to the new text rather than lagging.
-  return held;
-}
 
 // `sections` is the unified specification: one entry per deliverable, rendered into its own
 // `.markdown-body` inside its own `<section>`, with every section in the DOM at once — which is what

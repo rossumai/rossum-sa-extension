@@ -150,46 +150,6 @@ export function buildFieldProfiles({ fields, total, coverage, empties, typeSumma
     };
   });
 }
-
-// Surfaces fields penalized by the health-score components, as human-readable
-// rows. One row per field (highest severity wins); a single collection-level
-// schema row when the collection has >1 document shape.
-export function deriveIssues(profiles, schemaShapes) {
-  const rows = [];
-  for (const p of (profiles || [])) {
-    let pick = null;
-    if (p.sentinel && p.sentinel.total > 0) {
-      const top = p.sentinel.values[0];
-      pick = { field: p.field, kind: 'placeholder', severity: 'danger', detail: `${p.sentinel.total.toLocaleString()}× placeholder${top ? ` "${top.value}"` : ''}`, count: p.sentinel.total };
-    } else if (p.isMixed) {
-      const parts = p.types.map((t) => `${friendlyType(t.type)} ${t.count.toLocaleString()}`).join(' · ');
-      pick = { field: p.field, kind: 'type-mix', severity: 'danger', detail: `mixed types — ${parts}`, count: p.types.reduce((s, t) => s + t.count, 0) };
-    } else {
-      const ws = p.string && (p.string.leading > 0 || p.string.trailing > 0);
-      const gap = (p.nullCount + p.missingCount + p.emptyCount) > 0;
-      if (ws) {
-        const total = (p.string.leading || 0) + (p.string.trailing || 0);
-        pick = { field: p.field, kind: 'whitespace', severity: 'warning', detail: `whitespace on ${total.toLocaleString()} values`, count: total };
-      } else if (gap) {
-        const total = p.nullCount + p.missingCount + p.emptyCount;
-        const bits = [];
-        if (p.nullCount) bits.push(`${p.nullCount.toLocaleString()} null`);
-        if (p.missingCount) bits.push(`${p.missingCount.toLocaleString()} missing`);
-        if (p.emptyCount) bits.push(`${p.emptyCount.toLocaleString()} empty`);
-        pick = { field: p.field, kind: 'coverage-gap', severity: 'warning', detail: bits.join(' · '), count: total };
-      }
-    }
-    if (pick) rows.push(pick);
-  }
-  const rank = { danger: 0, warning: 1 };
-  rows.sort((a, b) => (rank[a.severity] - rank[b.severity]) || (b.count - a.count));
-  const out = rows.map(({ count, ...r }) => r);
-  if (schemaShapes && schemaShapes.length > 1) {
-    out.push({ field: null, kind: 'schema', severity: 'warning', detail: `${schemaShapes.length} document shapes` });
-  }
-  return out;
-}
-
 function toTimestamp(d) {
   if (!d) return null;
   const s = typeof d === 'string' ? d : d.$date || String(d);
@@ -211,24 +171,6 @@ export function spanBar(earliest, latest) {
   if (a == null || b == null) return null;
   return { ms: Math.max(0, b - a) };
 }
-
-// Moved from StatsPanel.jsx DateTimeline — global-span layout for the
-// cross-field date comparison.
-export function buildDateTimeline(ranges) {
-  const stamps = (ranges || []).flatMap((d) => [toTimestamp(d.earliest), toTimestamp(d.latest)]).filter((x) => x != null);
-  if (stamps.length < 2) return null;
-  const min = Math.min(...stamps);
-  const max = Math.max(...stamps);
-  const span = (max - min) || 1;
-  const rows = (ranges || []).map((d) => {
-    const s = toTimestamp(d.earliest);
-    const e = toTimestamp(d.latest);
-    if (s == null || e == null) return null;
-    return { field: d.field, left: ((s - min) / span) * 100, width: Math.max(((e - s) / span) * 100, 1), earliest: d.earliest, latest: d.latest };
-  }).filter(Boolean);
-  return { rows, min, max };
-}
-
 // Build a filter pipeline (as editor text) that filters a collection to
 // documents where `field` equals `value` — used by the Stats cards' "click a top
 // value to see those records" jump. Placeholder/sentinel string tokens use a

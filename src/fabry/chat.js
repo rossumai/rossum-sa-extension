@@ -5,7 +5,7 @@ import * as agentApi from '../agent/agentApi.js';
 import { newAcc, foldEvents, replyText } from '../agent/agentStream.js';
 import { runDeepTurn, REVIEWER_MARKER } from './deepLoop.js';
 import * as store from './store.js';
-import { normalizeMessages, serverMessageIndex } from './thread.js';
+import { normalizeMessages } from './thread.js';
 import { track } from '../usage/track.js';
 
 let controller = null;
@@ -237,26 +237,6 @@ export function stopStreaming() {
   const acc = store.liveTurn.value;
   if (acc) pushTurn(accTurn(acc, true));
   if (controller) controller.abort();
-}
-
-// DORMANT: the 👍/👎 UI is currently hidden (AssistantTurn) because PUT
-// /feedback's turn_index addresses the RAW stored history while GET /chats
-// drops text-less tool-only steps, so a thread index mis-targets feedback on
-// tool-using turns (live-confirmed 2026-07-13; spec §9b). Kept for a one-line
-// re-enable once the backend exposes a stable per-message feedback id.
-// `threadIdx` is the turn's index in store.thread; serverMessageIndex maps it.
-export async function sendFeedback(threadIdx, isPositive) {
-  const chatId = store.activeChatId.value;
-  if (!chatId) return;
-  const serverIdx = serverMessageIndex(store.thread.value, threadIdx);
-  if (serverIdx < 0) return;
-  try {
-    await agentApi.submitFeedback(chatId, serverIdx, isPositive);
-    store.thread.value = store.thread.value.map((t, i) => (i === threadIdx ? { ...t, feedback: isPositive } : t));
-  } catch (err) {
-    if (err?.status === 401) store.error.value = err.message;
-    else store.sendError.value = friendly(err);
-  }
 }
 
 export async function downloadFile(filename) {

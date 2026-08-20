@@ -16,7 +16,10 @@ esbuild bundles ES modules from `src/` into `dist/`. No transpilation, no other 
 
 - `npm run build` — clean build into `dist/`
 - `npm run dev` — watch mode (JS only; re-run the full build for CSS/HTML changes)
-- `npm test` — Vitest
+- `npm test` — Vitest. `tests/dead-code.test.js` is a repo-hygiene guard, not a behaviour
+  test: it derives the entry points from `build.js` and fails on an unreachable module, an
+  export nothing imports, or an unused local/import. Its header lists what it deliberately
+  cannot see — chiefly dead CSS, and code reachable only from a test.
 - `dist/` is the loadable extension, and is gitignored. **Tests run `src/`, the browser runs
   `dist/` — rebuild before asking anyone to reload the extension.**
 
@@ -67,7 +70,13 @@ An app-switcher rail over six apps. Adding one touches three hardcoded switch po
 - **Inspector** (`src/inspector/`) — read-only "what happened to this annotation, and why" as one
   progressively-filling Diagnosis Report: a deterministic evidence model and verdict
   (`evidence.js`), then a Fabry narrative with `[e:<id>]` citations (`synthesize.js`).
-- **Fabry Chat** (`src/fabry/`) — chat over the Rossum Agent API, plus **Architect**: per-org
+- **Fabry Chat** (`src/fabry/`) — chat over the Rossum Agent API. There is **no 👍/👎
+  feedback**: `PUT /feedback`'s `turn_index` addresses the raw stored history while
+  `GET /chats` drops text-less tool-only steps, so a thread index mis-targets feedback on any
+  tool-using turn (live-confirmed 2026-07-13). The plumbing was kept dormant for a year and
+  deleted on 2026-08-20 — restoring it means restoring `chat.sendFeedback`,
+  `agentApi.submitFeedback` and `thread.serverMessageIndex` from git, and it should wait for a
+  stable per-message feedback id regardless. Plus **Architect**: per-org
   Markdown deliverables kept in a Data Storage collection, rendered as ONE scrolling
   specification (`components/SpecView.jsx`) and checked against live org state.
 - **Academy** (`src/academy/`) — the onboarding training track; the only app behind
@@ -145,6 +154,17 @@ Enforced by tests, not by convention. Do not weaken them.
   but missing from the boot read list reads back `undefined` for ever.
 - **A listener must be owned by the effect that owns the element**, or a remount leaves it bound
   to a destroyed node — silent, and invisible to unit tests.
+- **Deleting dead CSS has three traps, all silent, none visible to jsdom.** (a) A rule whose
+  selector *list* is grouped must lose only the dead selectors — deleting the whole rule
+  detaches the survivors from their block, and braces still balance afterwards. (b) A selector
+  is dead when it names *any* class no code emits, not only when every class is dead:
+  `.live .dead` matches nothing either. (c) Splicing a note into an existing CSS comment closes
+  it early, and the orphaned prose then swallows the next rule. Verify by comparing Chrome's own
+  CSSOM (`sheet.cssRules`) before and after, plus computed styles over real markup — a
+  hand-rolled CSS parser is what these traps defeat.
+- **`CSSStyleRule` has a `cssRules` property** (empty, there for CSS nesting), so `if
+  (r.cssRules) recurse()` descends into every ordinary rule and records none. Test
+  `selectorText` first when walking a stylesheet.
 - Guard Chrome-only APIs for jsdom (`CSS.escape`, `scrollIntoView`), and use the repo's own tween
   (`src/mdh/smoothScroll.js`) for navigation jumps rather than `behavior: 'smooth'`, whose
   duration scales with distance (measured ≥1481ms vs 198ms).
@@ -195,7 +215,9 @@ The Console ships **two** stylesheets, linked in that order by `console.html`:
 
 Also linked, all build artifacts rather than source: `github-markdown.css` (copied from the
 `github-markdown-css` package), `hljs-github.css` (light + dark concatenated by `build.js`) and
-`doc-theme.css` (copied from `src/docs/theme.css`, the ported localpages sheet). These are scoped
+`doc-theme.css` (copied from `src/docs/theme.css`, the ported localpages sheet — no longer a
+superset of upstream's since **DELTA H**, 2026-08-20, pruned 38 rules whose features this port
+dropped; its header says which, and a re-port must drop them again). These are scoped
 in practice to `.markdown-body`/`.docs-*`/`.source-*` — before adding a bare class to either
 side, check it cannot leak. The print page has its own `src/docs/print.css`.
 

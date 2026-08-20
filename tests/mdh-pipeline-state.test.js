@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   savePipelineState,
   getPipelineState,
-  clearPipelineState,
   clearAllPipelineState,
 } from '../src/mdh/pipelineState.js';
 
@@ -46,14 +45,6 @@ describe('pipelineState', () => {
     savePipelineState('', { pipelineText: 'y', variables: {}, skip: 0 });
     expect(getPipelineState('null')).toBeNull();
     expect(getPipelineState('')).toBeNull();
-  });
-
-  it('clearPipelineState removes a single collection without touching others', () => {
-    savePipelineState('colA', { pipelineText: 'A', variables: {}, skip: 0 });
-    savePipelineState('colB', { pipelineText: 'B', variables: {}, skip: 0 });
-    clearPipelineState('colA');
-    expect(getPipelineState('colA')).toBeNull();
-    expect(getPipelineState('colB').pipelineText).toBe('B');
   });
 
   it('clearAllPipelineState removes all entries', () => {

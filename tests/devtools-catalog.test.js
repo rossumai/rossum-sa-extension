@@ -1,6 +1,6 @@
 // tests/devtools-catalog.test.js
 import { describe, it, expect } from 'vitest';
-import { ENDPOINTS, suggest, isKnownCollection, mergeLiveCollections, relPath, shortPath } from '../src/devtools/catalog.js';
+import { ENDPOINTS, suggest, relPath, shortPath } from '../src/devtools/catalog.js';
 
 describe('catalog', () => {
   it('ships a non-trivial curated catalog of {collection,kind,pathTemplate,label,description}', () => {
@@ -26,17 +26,6 @@ describe('catalog', () => {
   it('suggest returns [] for empty input', () => {
     expect(suggest('')).toEqual([]);
     expect(suggest('   ')).toEqual([]);
-  });
-  it('isKnownCollection recognises catalog collections and flags unknowns', () => {
-    expect(isKnownCollection('/api/v1/queues')).toBe(true);
-    expect(isKnownCollection('/api/v1/annotations/5/content')).toBe(true);
-    expect(isKnownCollection('/api/v1/florps')).toBe(false);
-  });
-  it('mergeLiveCollections adds only unknown names', () => {
-    const before = ENDPOINTS.length;
-    mergeLiveCollections(['queues', 'florps']);
-    expect(isKnownCollection('/api/v1/florps')).toBe(true);
-    expect(ENDPOINTS.length).toBe(before + 1); // queues already present
   });
 });
 

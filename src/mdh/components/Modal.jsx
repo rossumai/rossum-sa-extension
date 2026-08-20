@@ -2,6 +2,6 @@
 // apps (Fabry Architect) reuse the same dialog. This file stays as the stable
 // import path for the many MDH call sites — a thin re-export, no behavior change.
 export {
-  default, modalContent, confirmModal, closeModal, openModal, promptModal, setModalTitle,
-  ModalBody, ModalActions, ModalMessage, ModalFieldLabel, ModalLoading, ModalClose, ModalFileTitle,
+  default, confirmModal, closeModal, openModal, promptModal, setModalTitle,
+  ModalBody, ModalActions, ModalMessage, ModalFieldLabel, ModalLoading, ModalFileTitle,
 } from '../../ui/Modal.jsx';

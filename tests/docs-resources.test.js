@@ -7,7 +7,7 @@
 // config: { runtime: "python3.12", code: "def rossum_hook_request_handler(...)" }, and a
 // webhook carries config: { url } with no code.
 import { describe, it, expect, vi } from 'vitest';
-import { apiPathFromHref, isResourceHref, resourceLabel, formatResource, runtimeLanguage, createResourceFetcher,
+import { apiPathFromHref, isResourceHref, formatResource, runtimeLanguage, createResourceFetcher,
   splitResourceView, withResourceView, RESOURCE_VIEWS } from '../src/docs/resources.js';
 import { highlightCode, escapeHtml } from '../src/docs/highlightCode.js';
 
@@ -86,7 +86,6 @@ describe('scope and addressing', () => {
   it('drops a fragment and a trailing slash so one resource has one template key', () => {
     expect(apiPathFromHref(`${ORIGIN}/api/v1/hooks/42#code`, ORIGIN)).toBe('/api/v1/hooks/42');
     expect(apiPathFromHref(`${ORIGIN}/api/v1/hooks/42/`, ORIGIN)).toBe('/api/v1/hooks/42');
-    expect(resourceLabel('/api/v1/hooks/42')).toBe('hooks/42');
   });
 });
 

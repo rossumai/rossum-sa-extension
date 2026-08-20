@@ -2,13 +2,6 @@ import JSON5 from 'json5';
 
 const SENTINEL = '@disabled-stage';
 
-// Wrap a plain stage array as all-enabled entries (for callers/tests that hand
-// us a parsed pipeline rather than editor text).
-export function stagesToEntries(arr) {
-  if (!Array.isArray(arr)) return [];
-  return arr.map((stage) => ({ disabled: false, stage }));
-}
-
 // Single string/comment/depth-aware scan of the outer array. Returns ordered
 // top-level items: active object-stages (char span) and @disabled-stage block
 // comments (span + inner text). Aggregation stages are always objects, so an

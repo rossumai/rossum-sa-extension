@@ -7,7 +7,6 @@ vi.mock('../src/agent/agentApi.js', () => ({
   createChat: vi.fn().mockResolvedValue('chat_new'),
   listChats: vi.fn().mockResolvedValue({ chats: [{ chat_id: 'chat_1', timestamp: 1, message_count: 2, first_message: 'hi' }], total: 1, limit: 50, offset: 0 }),
   getChat: vi.fn().mockResolvedValue({ chat_id: 'chat_1', messages: [{ role: 'user', content: 'hi' }, { role: 'assistant', content: 'hello' }], created_at: 'x', files: [{ filename: 'out.csv', size: 3, timestamp: 't' }] }),
-  submitFeedback: vi.fn().mockResolvedValue({ turn_index: 0, is_positive: true }),
   listCommands: vi.fn().mockResolvedValue([{ name: '/persona', description: 'd' }]),
   downloadChatFile: vi.fn().mockResolvedValue(new Blob(['x'])),
   streamMessage: vi.fn(),
@@ -15,7 +14,7 @@ vi.mock('../src/agent/agentApi.js', () => ({
 
 import * as agentApi from '../src/agent/agentApi.js';
 import * as store from '../src/fabry/store.js';
-import { loadChats, openChat, sendMessage, sendFeedback, stopStreaming, formatAnswers, answerQuestions } from '../src/fabry/chat.js';
+import { loadChats, openChat, sendMessage, stopStreaming, formatAnswers, answerQuestions } from '../src/fabry/chat.js';
 
 function streamOk(reply) {
   agentApi.streamMessage.mockImplementation(async (id, content, { onEvent }) => {
@@ -140,28 +139,6 @@ describe('stale-guard', () => {
     expect(store.thread.value.map((t) => t.role)).toEqual(['user', 'assistant']);
     expect(store.thread.value.some((t) => t.text === 'stale question' || t.text === 'stale answer')).toBe(false);
     expect(store.streaming.value).toBe(false);
-  });
-});
-
-describe('sendFeedback', () => {
-  it('PUTs the server index and optimistically marks the turn (server thread, no chips)', async () => {
-    await openChat('chat_1'); // getChat returns [user, assistant]
-    await sendFeedback(1, true);
-    expect(agentApi.submitFeedback).toHaveBeenCalledWith('chat_1', 1, true);
-    expect(store.thread.value[1].feedback).toBe(true);
-  });
-
-  it('primed thread: maps the client thread index down past the stripped chip+ack', async () => {
-    store.activeChatId.value = 'chat_1';
-    store.thread.value = [
-      { role: 'user', chip: true, command: true, text: '/persona cautious', images: [], feedback: null, reasoning: '', tools: [], interrupted: false },
-      { role: 'assistant', chip: false, command: false, text: 'Persona set.', images: [], feedback: null, reasoning: '', tools: [], interrupted: false },
-      { role: 'user', chip: false, command: false, text: 'q', images: [], feedback: null, reasoning: '', tools: [], interrupted: false },
-      { role: 'assistant', chip: false, command: false, text: 'a', images: [], feedback: null, reasoning: '', tools: [], interrupted: false },
-    ];
-    await sendFeedback(3, true);
-    expect(agentApi.submitFeedback).toHaveBeenCalledWith('chat_1', 1, true);
-    expect(store.thread.value[3].feedback).toBe(true);
   });
 });
 

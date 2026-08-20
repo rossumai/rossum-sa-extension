@@ -117,7 +117,6 @@ export function operatorColonOffset(text, fromOffset, beforeOffset) {
   return (i !== -1 && i < beforeOffset) ? i : -1;
 }
 
-const f = (n) => n.toFixed(1);
 
 // A --[leg]-- B ==[bevel diagonal]== C --[leg]-- D, with a small quadratic round
 // at each bend ("small bends"). A is the editor end, D the section end; each LEG

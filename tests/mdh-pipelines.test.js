@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import {
-  discoverFields,
   discoverFieldsWithTotal,
   encKey,
   buildFieldCoveragePipeline,
@@ -27,13 +26,13 @@ describe('field discovery', () => {
       { _id: '1', name: 'Alice', age: 30 },
       { _id: '2', name: 'Bob', email: 'bob@test.com' },
     ];
-    const fields = discoverFields(docs);
+    const fields = discoverFieldsWithTotal(docs).fields;
     expect(fields).toEqual(['age', 'email', 'name']);
   });
 
   it('discovers nested field paths with dot notation', () => {
     const docs = [{ address: { city: 'NYC', zip: '10001' } }];
-    expect(discoverFields(docs)).toEqual(['address.city', 'address.zip']);
+    expect(discoverFieldsWithTotal(docs).fields).toEqual(['address.city', 'address.zip']);
   });
 
   it('treats BSON types ($oid, $date) as leaf values', () => {
@@ -42,7 +41,7 @@ describe('field discovery', () => {
       ref: { $oid: '507f1f77' },
       name: 'test',
     }];
-    const fields = discoverFields(docs);
+    const fields = discoverFieldsWithTotal(docs).fields;
     expect(fields).toContain('name');
     expect(fields).toContain('created');
     expect(fields).toContain('ref');
@@ -52,7 +51,7 @@ describe('field discovery', () => {
 
   it('treats arrays as leaf values', () => {
     const docs = [{ tags: ['a', 'b'], name: 'test' }];
-    const fields = discoverFields(docs);
+    const fields = discoverFieldsWithTotal(docs).fields;
     expect(fields).toContain('tags');
     expect(fields).toContain('name');
   });
@@ -60,7 +59,7 @@ describe('field discovery', () => {
   it('truncates to MAX_FIELDS', () => {
     const doc = {};
     for (let i = 0; i < 60; i++) doc[`field_${String(i).padStart(3, '0')}`] = i;
-    const fields = discoverFields([doc]);
+    const fields = discoverFieldsWithTotal([doc]).fields;
     expect(fields).toHaveLength(MAX_FIELDS);
   });
 
@@ -85,12 +84,12 @@ describe('field discovery', () => {
 
   it('returns sorted field names', () => {
     const docs = [{ z: 1, a: 2, m: 3 }];
-    expect(discoverFields(docs)).toEqual(['a', 'm', 'z']);
+    expect(discoverFieldsWithTotal(docs).fields).toEqual(['a', 'm', 'z']);
   });
 
   it('merges fields across multiple documents', () => {
     const docs = [{ a: 1 }, { b: 2 }, { a: 3, c: 4 }];
-    expect(discoverFields(docs)).toEqual(['a', 'b', 'c']);
+    expect(discoverFieldsWithTotal(docs).fields).toEqual(['a', 'b', 'c']);
   });
 
   it('removes parent fields when child paths exist to avoid $project collisions', () => {
@@ -99,7 +98,7 @@ describe('field discovery', () => {
       { line_items: [{ item_amount: 10 }], contract_number: 'C1' },
       { line_items: { item_amount: 20, item_description: 'Widget' }, contract_number: 'C2' },
     ];
-    const fields = discoverFields(docs);
+    const fields = discoverFieldsWithTotal(docs).fields;
     // "line_items" parent should be removed since child paths exist
     expect(fields).not.toContain('line_items');
     expect(fields).toContain('line_items.item_amount');

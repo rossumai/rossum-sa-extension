@@ -27,7 +27,3 @@ export function visibleCollections(names, showHidden = false) {
   const list = Array.isArray(names) ? names : [];
   return showHidden ? [...list] : list.filter((n) => !isHiddenCollection(n));
 }
-
-export function hiddenCount(names) {
-  return (Array.isArray(names) ? names : []).filter(isHiddenCollection).length;
-}

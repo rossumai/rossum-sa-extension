@@ -820,3 +820,47 @@ dangling `other.md` reference was reported, so a rename that orphans a link is n
 Suite after the removal: **310 files / 3356 tests**, from 311 / 3384 (−1 file, −28 tests: 20 export,
 8 TOC), build clean, `dist/console/` down to eleven files.
 
+
+## Revision v9 (2026-08-20) — dead rules pruned from `theme.css` (DELTA H)
+
+A repo-wide dead-code sweep reached this sheet. 39 rules went; the sheet is 731 → 577 lines.
+The owner's call was explicit: prune, and document the delta rather than leave the sheet a
+superset of upstream.
+
+**What went, and why each was unreachable.** Every deleted selector names at least one class
+that appears in no source file *and* in no built JS bundle. That is the whole argument: a class
+no code emits is on no element, so any selector requiring it never matches — which makes
+`.live .dead` and `.live.dead` just as dead as `.dead`.
+
+| Group | Classes | Why they cannot match |
+|---|---|---|
+| Section states | `.state-rough-draft` `.state-in-progress` `.state-ready` `.state-verified` `.state-stale` `.state-label-icon` `.state-label-date(::before)` `.state-summary-{title,item,count}` `.has-state-label` | Upstream's `state-labels.mjs` left the pipeline in Revision v3 (2026-08-18) and the Architect property that replaced it went on 2026-08-19. Nothing emits a state badge. |
+| In-pane TOC | `.toc a.toc-h3` `.toc-state-dot` | The outline moved to the Architect sidebar (Revision v5) and `client/toc.js` was deleted with the export (Revision v8). |
+| Static export | `.docs-nav` `.docs-nav-list` (+`a`, `:hover`, `.active`) `.export-link` | Removed in Revision v8. No nav bar and no export link are rendered anywhere. |
+
+`.state-label` and `.state-error` **stay** — `docWarnings.js` still emits that pair for an
+unsupported `<state-label>` tag, which is exactly the diagnostic Revision v3 introduced.
+
+**Verification.** Both stylesheets were flattened to (at-rule context, single selector) →
+declaration block before and after. Result: 204 → 165 rules, every dropped selector names a dead
+class, **every surviving block byte-identical, nothing newly appeared**. Braces and comment
+delimiters balance; no dangling selector fragment. Two pruning bugs were caught and fixed by
+that check rather than shipped — a naive whole-rule delete detached the surviving selectors of a
+grouped list from their block, and splitting a prelude on commas tore a comment in half.
+
+**Cost, stated plainly.** This sheet is no longer a superset of upstream's, so a future re-port
+against a newer localpages cannot be a straight copy of the changed hunks: these rules will come
+back with it and have to be dropped again. That is the same bargain `states.md` already made —
+its fixture stopped being byte-equivalent to upstream in Revision v3, and
+`tests/docs-render-equivalence.test.js` says so in a dedicated block rather than quietly dropping
+it. DELTA H is recorded in the sheet's own header for the same reason.
+
+**Also in this sweep, in `src/docs/`:** `sanitize.js`'s `_internals` export (a test hook that
+never acquired a test), `printDoc.js`'s `declaresOwnHeading` re-export (the test imports it from
+`specDocument.js`), `outline.js`'s `activeOutlineSlug` and `resources.js`'s `resourceLabel` (both
+production-dead), `DocView.jsx`'s `useDebounced` hook and its `resolveHeadingElement` import
+(orphaned when Edit and Preview became separate mounts, so the preview no longer follows
+keystrokes), and — reversing the decision quoted three paragraphs above — `sourceViewer.js`'s
+`<template data-source-path>` branch. It was kept in v8 as "the seam any future offline mode
+would reuse"; the owner chose deletion, and it becomes DELTA 3 of that file. Its `!resolve`
+guard survives with honest wording, since `Not available offline.` no longer describes anything.

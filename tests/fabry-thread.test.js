@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeMessages, personaOf, serverMessageIndex } from '../src/fabry/thread.js';
+import { normalizeMessages, personaOf } from '../src/fabry/thread.js';
 
 describe('normalizeMessages', () => {
   it('maps string and content-part messages, marking slash turns as chips', () => {
@@ -31,14 +31,6 @@ describe('reviewer turns (deep verify)', () => {
     expect(t[4]).toMatchObject({ chip: true, command: false });
     expect(t[0]).toMatchObject({ chip: true, command: true });
   });
-  it('serverMessageIndex counts reviewer turns and their replies', () => {
-    const t = normalizeMessages(msgs);
-    expect(serverMessageIndex(t, 3)).toBe(1);
-    expect(serverMessageIndex(t, 4)).toBe(2);  // reviewer turn is feedback-addressable
-    expect(serverMessageIndex(t, 5)).toBe(3);  // the corrected answer
-    expect(serverMessageIndex(t, 0)).toBe(-1); // command still excluded
-    expect(serverMessageIndex(t, 1)).toBe(-1); // command ack still excluded
-  });
 });
 
 describe('personaOf', () => {
@@ -49,35 +41,5 @@ describe('personaOf', () => {
     ]);
     expect(personaOf(t)).toBe('default');
     expect(personaOf([])).toBe(null);
-  });
-});
-
-describe('serverMessageIndex', () => {
-  it('plain thread: client indices map 1:1 to server indices', () => {
-    const t = normalizeMessages([
-      { role: 'user', content: 'q1' }, { role: 'assistant', content: 'a1' },
-      { role: 'user', content: 'q2' }, { role: 'assistant', content: 'a2' },
-    ]);
-    expect(serverMessageIndex(t, 1)).toBe(1);
-    expect(serverMessageIndex(t, 3)).toBe(3);
-  });
-
-  it('primed thread: chip + ack are excluded, later turns shift down', () => {
-    const t = normalizeMessages([
-      { role: 'user', content: '/persona cautious' }, { role: 'assistant', content: 'Persona set.' },
-      { role: 'user', content: 'q' }, { role: 'assistant', content: 'a' },
-    ]);
-    expect(serverMessageIndex(t, 3)).toBe(1);
-    expect(serverMessageIndex(t, 1)).toBe(-1); // ack
-    expect(serverMessageIndex(t, 0)).toBe(-1); // chip
-  });
-
-  it('chip mid-conversation: only the chip+ack pair is excluded', () => {
-    const t = normalizeMessages([
-      { role: 'user', content: 'q1' }, { role: 'assistant', content: 'a1' },
-      { role: 'user', content: '/persona cautious' }, { role: 'assistant', content: 'Persona set.' },
-      { role: 'user', content: 'q2' }, { role: 'assistant', content: 'a2' },
-    ]);
-    expect(serverMessageIndex(t, 5)).toBe(3);
   });
 });

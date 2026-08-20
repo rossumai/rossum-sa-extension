@@ -29,13 +29,3 @@ export function stripAiComment(text) {
   if (i > 0 && i < lines.length && lines[i].trim() === '') i += 1;
   return lines.slice(i).join('\n');
 }
-
-// Prepend a single-line AI-request comment above the pipeline, replacing any
-// existing one. The request is collapsed to one line so it stays a valid `//`
-// comment (JSON5 strips it on execution).
-export function prependAiComment(pipelineText, request) {
-  const body = stripAiComment(typeof pipelineText === 'string' ? pipelineText : '');
-  const oneLine = String(request ?? '').replace(/\s+/g, ' ').trim();
-  if (!oneLine) return body;
-  return `${AI_COMMENT_PREFIX}${oneLine}\n${body}`;
-}

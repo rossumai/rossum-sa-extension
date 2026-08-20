@@ -1,9 +1,12 @@
 // Ported from localpages@4d43f26 `src/client/source-viewer.js` (sha1 485f1b4e…).
 //
 // Source viewer modal. Intercepts clicks on links to referenced resources and shows
-// their content in a popup. In live mode a resolver fetches it; in export mode it is
-// read from embedded <template data-source-path="..."> elements baked into the page —
-// upstream's own two modes, unchanged.
+// their content in a popup, fetched through the caller's resolver.
+//
+// THIRD DELTA (2026-08-20): upstream has two modes — a live resolver and embedded
+// <template data-source-path="..."> elements baked into an exported page. The export was
+// removed on 2026-08-18, taking the only producer of those templates with it, so the
+// offline branch went too rather than staying as a path nothing could reach.
 //
 // The one delta is what a "source link" IS: upstream matches file extensions
 // (.py/.json/.yaml…) under a git root, this matches Rossum API resource URLs (D5).
@@ -82,12 +85,6 @@ export function initSourceViewer(root, opts) {
   }
   copyBtn.addEventListener('click', onCopy);
 
-  function templateFor(key) {
-    var tpls = doc.querySelectorAll('template[data-source-path]');
-    for (var i = 0; i < tpls.length; i++) if (tpls[i].dataset.sourcePath === key) return tpls[i];
-    return null;
-  }
-
   // `views` is what the RESOURCE offers, so a queue or a webhook (one view) shows no switcher
   // at all and nothing changes for them.
   function renderViews(path, current, views) {
@@ -115,18 +112,9 @@ export function initSourceViewer(root, opts) {
     overlay.classList.add('open');
     doc.body.style.overflow = 'hidden';
     renderViews(display, null, null);
-    // Embedded template (static export) — instant, no server needed.
-    var tpl = templateFor(key);
-    if (tpl) {
-      codeEl.innerHTML = tpl.innerHTML;
-      if (tpl.dataset.note) pathEl.textContent = display + ' · ' + tpl.dataset.note;
-      // A template written by an older build carries neither attribute, so it simply gets no
-      // switcher — the pre-view behaviour, unchanged.
-      renderViews(display, tpl.dataset.view || split.view || null,
-        (tpl.dataset.views || '').split(',').filter(Boolean));
-      return;
-    }
-    if (!resolve) { codeEl.textContent = 'Not available offline.'; return; }
+    // Defensive: DocView always passes a resolver, but calling a null one would throw
+    // inside a click handler and take the modal down silently.
+    if (!resolve) { codeEl.textContent = 'No resolver — cannot load this resource.'; return; }
     // Live mode — fetch it.
     codeEl.textContent = 'Loading…';
     resolve(key)

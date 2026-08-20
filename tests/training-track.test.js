@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { TRACK } from '../src/training/track.js';
-import { checkIds } from '../src/training/steps.js';
+import { CHECKS } from '../src/training/steps.js';
 import { detectResource, ROUTES } from '../src/devtools/detect.js';
 
 const steps = TRACK.missions.flatMap((m) => m.steps);
@@ -30,7 +30,7 @@ describe('curriculum integrity', () => {
 
   it('points every api step at a check that exists', () => {
     for (const s of steps.filter((x) => x.kind === 'api')) {
-      expect(checkIds()).toContain(s.check);
+      expect(Object.keys(CHECKS)).toContain(s.check);
     }
   });
 

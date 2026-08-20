@@ -46,12 +46,6 @@ export function isResourceHref(href, origin) {
   return apiPathFromHref(href, origin) !== null;
 }
 
-// "hooks/123" — the modal's title, mirroring upstream's use of the basename.
-export function resourceLabel(apiPath) {
-  const clean = String(apiPath || '').split('?')[0];
-  return clean.slice(API_PREFIX.length) || clean;
-}
-
 // ── Which PART of a resource a link means (owner, 2026-08-18) ────────────────────────────
 //
 // A prd2 extension is TWO files: `<hook>.json` (the whole hook definition) and `<hook>.py`

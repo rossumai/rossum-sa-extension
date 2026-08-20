@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  CHECKS, evaluateVisit, evaluateApi, signatureFor, checkIds, collectResponses,
+  CHECKS, evaluateVisit, evaluateApi, signatureFor, collectResponses,
 } from '../src/training/steps.js';
 
 const loc = (pathname, search = '') => ({ pathname, search });
@@ -31,7 +31,7 @@ describe('evaluateVisit', () => {
 
 describe('CHECKS', () => {
   it('every check declares an id, paths and both functions', () => {
-    for (const id of checkIds()) {
+    for (const id of Object.keys(CHECKS)) {
       const c = CHECKS[id];
       expect(c.id).toBe(id);
       expect(Array.isArray(c.paths)).toBe(true);
@@ -74,7 +74,7 @@ describe('CHECKS', () => {
     const { TRACK } = await import('../src/training/track.js');
     const referenced = new Set(TRACK.missions
       .flatMap((m) => m.steps).filter((s) => s.kind === 'api').map((s) => s.check));
-    expect([...checkIds()].sort()).toEqual([...referenced].sort());
+    expect([...Object.keys(CHECKS)].sort()).toEqual([...referenced].sort());
   });
 });
 
@@ -93,7 +93,7 @@ describe('paging strategy', () => {
   // no error), and for thresholdChanged it is actively worse than the ascending
   // default — see the test below.
   it('no check relies on an ordering query parameter', () => {
-    for (const id of checkIds()) {
+    for (const id of Object.keys(CHECKS)) {
       for (const p of CHECKS[id].paths) expect(p).not.toContain('ordering');
     }
   });

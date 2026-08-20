@@ -16,7 +16,6 @@ export const IDLE_MS = 5 * 60 * 1000;
 // specification started from — hence the earliest revision is never the one pruned.
 export const CAP = 40;
 
-export const SOURCES = ['edit', 'refine', 'restore'];
 
 // session: { deliverableId, source, lastAt } | null
 export function shouldSnapshot({ session, deliverableId, source = 'edit', now = 0, idleMs = IDLE_MS } = {}) {

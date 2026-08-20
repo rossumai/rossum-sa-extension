@@ -196,13 +196,10 @@ async function boot() {
   inspectorStore.domain.value = domain;
   inspectorStore.token.value = token;
   inspectorApi.init(domain, token);
-  // Open a specific annotation only when one was explicitly staged (a deep-link).
-  // Otherwise leave it unset so the Inspector opens to its recent-annotations list
-  // rather than jumping straight back into the last-inspected one.
-  const pendingAnn = entry?.pendingAnnotationId;
-  if (pendingAnn) {
-    inspectorStore.annotationId.value = String(pendingAnn);
-  }
+  // annotationId is deliberately left unset: the Inspector opens to its
+  // recent-annotations list rather than jumping back into the last one. (A
+  // `pendingAnnotationId` deep-link consumer lived here until 2026-08-20 and was
+  // removed — nothing ever staged that key.)
 
   // Fabry reuses the Agent API transport already initialized above (agentApi.init).
   fabryStore.domain.value = domain;

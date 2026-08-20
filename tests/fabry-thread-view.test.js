@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { h, render } from 'preact';
 
 vi.mock('../src/fabry/chat.js', () => ({
-  sendFeedback: vi.fn(), openChat: vi.fn(), sendMessage: vi.fn(), answerQuestions: vi.fn(),
+  openChat: vi.fn(), sendMessage: vi.fn(), answerQuestions: vi.fn(),
 }));
 
 import * as chat from '../src/fabry/chat.js';

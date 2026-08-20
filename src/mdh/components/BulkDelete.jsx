@@ -1,6 +1,6 @@
 import { h } from 'preact';
 import { useState, useEffect, useLayoutEffect, useRef } from 'preact/hooks';
-import { selectedCollection, loading, error } from '../store.js';
+import { loading, error } from '../store.js';
 import { openModal, closeModal, ModalBody, ModalFieldLabel } from './Modal.jsx';
 import JsonEditor from './JsonEditor.jsx';
 import BulkConfirm from './BulkConfirm.jsx';

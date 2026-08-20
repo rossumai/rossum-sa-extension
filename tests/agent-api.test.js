@@ -78,7 +78,7 @@ describe('streamMessage — error & abort exit paths', () => {
   });
 });
 
-describe('listChats / getChat / submitFeedback / downloadChatFile', () => {
+describe('listChats / getChat / downloadChatFile', () => {
   it('listChats GETs with pagination and auth headers', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ chats: [{ chat_id: 'chat_1' }], total: 1, limit: 50, offset: 0 }) });
     global.fetch = fetchMock;
@@ -97,15 +97,6 @@ describe('listChats / getChat / submitFeedback / downloadChatFile', () => {
     const out = await agentApi.getChat('chat_1');
     expect(out.chat_id).toBe('chat_1');
     expect(global.fetch.mock.calls[0][0]).toContain('/chats/chat_1');
-  });
-  it('submitFeedback PUTs snake_case body', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ turn_index: 2, is_positive: true }) });
-    global.fetch = fetchMock;
-    await agentApi.submitFeedback('chat_1', 2, true);
-    const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain('/chats/chat_1/feedback');
-    expect(opts.method).toBe('PUT');
-    expect(JSON.parse(opts.body)).toEqual({ turn_index: 2, is_positive: true });
   });
   it('downloadChatFile returns a blob and URL-encodes the filename', async () => {
     const blob = new Blob(['x']);

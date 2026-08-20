@@ -3,7 +3,7 @@
 // than against my expectations of it.
 import { describe, it, expect } from 'vitest';
 import { createMarkdownRenderer } from '../src/docs/render.js';
-import { extractOutline, activeOutlineSlug, slugifyHeading, outlineWithoutTitle } from '../src/docs/outline.js';
+import { extractOutline, slugifyHeading, outlineWithoutTitle } from '../src/docs/outline.js';
 
 const renderedIds = (text) => {
   const html = createMarkdownRenderer().render(text, {});
@@ -66,29 +66,6 @@ describe('extractOutline', () => {
     expect(extractOutline('')).toEqual([]);
     expect(extractOutline(null)).toEqual([]);
     expect(extractOutline('#no space\n')).toEqual([]);
-  });
-});
-
-describe('activeOutlineSlug', () => {
-  const outline = [
-    { level: 2, text: 'A', slug: 'a', line: 2 },
-    { level: 3, text: 'B', slug: 'b', line: 10 },
-    { level: 2, text: 'C', slug: 'c', line: 20 },
-  ];
-
-  it('is the last heading at or before the line', () => {
-    expect(activeOutlineSlug(outline, 0)).toBeNull();     // above the first heading
-    expect(activeOutlineSlug(outline, 2)).toBe('a');
-    expect(activeOutlineSlug(outline, 9)).toBe('a');
-    expect(activeOutlineSlug(outline, 10)).toBe('b');
-    expect(activeOutlineSlug(outline, 19.7)).toBe('b');   // fractional, as lineAtTop reports
-    expect(activeOutlineSlug(outline, 999)).toBe('c');
-  });
-
-  it('returns null when there is nothing to highlight', () => {
-    expect(activeOutlineSlug([], 5)).toBeNull();
-    expect(activeOutlineSlug(outline, NaN)).toBeNull();
-    expect(activeOutlineSlug(null, 5)).toBeNull();
   });
 });
 

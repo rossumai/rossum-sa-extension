@@ -14,14 +14,12 @@
 import { sanitizeHtml } from './sanitize.js';
 import { assignSlugs } from './slug.js';
 import { buildContentsMarkdown } from './contents.js';
-import { buildSpecSections, declaresOwnHeading } from './specDocument.js';
+import { buildSpecSections } from './specDocument.js';
 
 export const DEFAULT_OPTIONS = { contents: true, verdicts: false };
 
 const VERDICT = { pass: '✓ Met', fail: '✗ Not met', uncertain: '? Uncertain' };
 
-// Re-exported from specDocument.js, where the rule now lives with the assembler.
-export { declaresOwnHeading };
 
 function esc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

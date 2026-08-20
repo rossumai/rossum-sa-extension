@@ -30,10 +30,6 @@ export function buildSynthesisPrompt(evidence, annotation = {}) {
   return budgetedJoin(head, middle, tail);
 }
 
-// Canonical narrative parsing lives in the shared UI seed (src/ui/fabry/) —
-// re-exported so existing imports keep working.
-export { parseCitations, parseNarrative } from '../ui/fabry/narrative.js';
-
 export async function runSynthesis({ agentApi, evidence, annotation, onPhase = () => {}, onText = () => {}, signal }) {
   onPhase('thinking');
   const chatId = await agentApi.createChat();

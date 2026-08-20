@@ -2,7 +2,7 @@ import { h } from 'preact';
 import { useState, useMemo, useEffect } from 'preact/hooks';
 import JsonTree, { countFields, AUTO_COLLAPSE_FIELD_THRESHOLD } from './JsonTree.jsx';
 import { selectionMode } from '../store.js';
-import { recordIdKey, isRecordSelected, toggleRecordSelection } from '../recordSelection.js';
+import { isRecordSelected, toggleRecordSelection } from '../recordSelection.js';
 import { recordSummary, MIN_CHAR_BUDGET, EMPTY_SENTINEL } from '../recordSummary.js';
 
 export default function RecordCard({

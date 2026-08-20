@@ -11,7 +11,7 @@ globalThis.cancelAnimationFrame = () => {};
 
 vi.mock('../src/fabry/chat.js', () => ({
   loadChats: vi.fn(), openChat: vi.fn(), startNewChat: vi.fn(), sendMessage: vi.fn(),
-  stopStreaming: vi.fn(), sendFeedback: vi.fn(), downloadFile: vi.fn(),
+  stopStreaming: vi.fn(), downloadFile: vi.fn(),
 }));
 
 import * as chat from '../src/fabry/chat.js';

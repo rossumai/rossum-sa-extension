@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { buildSynthesisPrompt, buildFollowupPrompt, parseCitations, parseNarrative, runSynthesis, continueSynthesis } from '../src/inspector/synthesize.js';
+import { buildSynthesisPrompt, buildFollowupPrompt, runSynthesis, continueSynthesis } from '../src/inspector/synthesize.js';
 
 const EV = {
   verdict: { state: 'blocked', headline: 'Not automated — 1 blocking error', reasons: [{ fact: 'f', evidenceId: 'blocker:0' }] },
@@ -20,43 +20,12 @@ describe('buildSynthesisPrompt', () => {
   });
 });
 
-describe('parseCitations', () => {
-  it('splits text and cite segments', () => {
-    const seg = parseCitations('Blocked by a rule [e:blocker:0] and logs are gone [e:gap:hookLogs].');
-    expect(seg.filter((s) => s.type === 'cite').map((s) => s.id)).toEqual(['blocker:0', 'gap:hookLogs']);
-    expect(seg[0]).toEqual({ type: 'text', text: 'Blocked by a rule ' });
-    expect(seg[seg.length - 1].text).toContain('.');
-  });
-  it('no markers → single text segment; empty → []', () => {
-    expect(parseCitations('plain')).toEqual([{ type: 'text', text: 'plain' }]);
-    expect(parseCitations('')).toEqual([]);
-  });
-});
-
 describe('buildSynthesisPrompt — bullet format', () => {
   it('instructs a takeaway line, "- " bullets, and a Next step line', () => {
     const p = buildSynthesisPrompt(EV, { id: 1, status: 'to_review', queueId: '5' });
     expect(p).toMatch(/takeaway/i);
     expect(p).toContain('"- "');
     expect(p).toContain('Next step:');
-  });
-});
-
-describe('parseNarrative', () => {
-  it('splits lines into paragraph and bullet blocks with citation segments', () => {
-    const blocks = parseNarrative('Blocked by one rule.\n- Rule fired [e:blocker:0]\n- Logs gone [e:gap:hookLogs]\nNext step: fill the PO.');
-    expect(blocks.map((b) => b.type)).toEqual(['p', 'li', 'li', 'p']);
-    expect(blocks[1].segments.some((s) => s.type === 'cite' && s.id === 'blocker:0')).toBe(true);
-    expect(blocks[3].segments[0].text).toContain('Next step');
-  });
-  it('tolerates blank lines, • bullets, and a partial streaming line', () => {
-    const blocks = parseNarrative('Take away\n\n• first bullet\n- second bul');
-    expect(blocks.map((b) => b.type)).toEqual(['p', 'li', 'li']);
-    expect(blocks[2].segments[0].text).toBe('second bul');
-  });
-  it('empty/non-string → []', () => {
-    expect(parseNarrative('')).toEqual([]);
-    expect(parseNarrative(null)).toEqual([]);
   });
 });
 

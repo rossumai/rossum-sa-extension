@@ -157,24 +157,6 @@ describe('source viewer', () => {
     await vi.waitFor(() => expect(document.getElementById('srcCode').innerHTML).toMatch(/hljs-attr/));
   });
 
-  it('prefers an embedded <template> — the offline path an exported bundle uses', () => {
-    const { root } = mountDoc(`See [the hook](${ORIGIN}/api/v1/hooks/42).\n`);
-    withModal();
-    const tpl = document.createElement('template');
-    tpl.setAttribute('data-source-path', '/api/v1/hooks/42');
-    tpl.innerHTML = '<span class="hljs-attr">from-template</span>';
-    document.body.appendChild(tpl);
-    const resolve = vi.fn();
-    initSourceViewer(root, {
-      isSourceLink: (href) => !!href && href.includes('/api/v1/'),
-      keyFor: (href) => new URL(href).pathname,
-      resolve,
-    });
-    root.querySelector('a').dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
-    expect(document.getElementById('srcCode').innerHTML).toMatch(/from-template/);
-    expect(resolve).not.toHaveBeenCalled();      // no network when the bundle has it
-  });
-
   it('leaves ordinary links alone', () => {
     const { root } = mountDoc('A [normal link](https://example.test/page) here.\n');
     withModal();
@@ -250,54 +232,6 @@ describe('source viewer — an extension is two files (definition + implementati
     await vi.waitFor(() => expect(document.getElementById('srcCode').textContent).toMatch(/Invoices/));
     expect(viewButtons()).toEqual([]);
     expect(document.getElementById('srcViews').hidden).toBe(true);
-  });
-
-  it('works offline from the templates the export bakes, with no network at all', () => {
-    const { root } = mountDoc(`See [the hook](${ORIGIN}/api/v1/hooks/42).\n`);
-    withModal();
-    for (const [key, view, text] of [
-      ['/api/v1/hooks/42', 'code', 'def handler(p):'],
-      ['/api/v1/hooks/42?view=code', 'code', 'def handler(p):'],
-      ['/api/v1/hooks/42?view=json', 'json', '"name": "Index doctor"'],
-    ]) {
-      const tpl = document.createElement('template');
-      tpl.setAttribute('data-source-path', key);
-      tpl.setAttribute('data-view', view);
-      tpl.setAttribute('data-views', 'code,json');
-      tpl.innerHTML = `<span>${text}</span>`;
-      document.body.appendChild(tpl);
-    }
-    const resolve = vi.fn();
-    initSourceViewer(root, {
-      isSourceLink: (href) => !!href && href.includes('/api/v1/'),
-      keyFor: (href) => new URL(href).pathname,
-      resolve,
-      splitView: splitResourceView,
-      withView: withResourceView,
-    });
-    root.querySelector('a').dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
-    expect(labels()).toEqual(['Code', 'Definition']);
-    viewButtons()[1].click();
-    expect(document.getElementById('srcCode').textContent).toMatch(/"name": "Index doctor"/);
-    expect(resolve).not.toHaveBeenCalled();
-  });
-
-  it('offers nothing on a template written by an older build — no attributes, no switcher', () => {
-    const { root } = mountDoc(`See [the hook](${ORIGIN}/api/v1/hooks/42).\n`);
-    withModal();
-    const tpl = document.createElement('template');
-    tpl.setAttribute('data-source-path', '/api/v1/hooks/42');
-    tpl.innerHTML = '<span>old bundle</span>';
-    document.body.appendChild(tpl);
-    initSourceViewer(root, {
-      isSourceLink: (href) => !!href && href.includes('/api/v1/'),
-      keyFor: (href) => new URL(href).pathname,
-      splitView: splitResourceView,
-      withView: withResourceView,
-    });
-    root.querySelector('a').dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
-    expect(document.getElementById('srcCode').textContent).toBe('old bundle');
-    expect(viewButtons()).toEqual([]);
   });
 });
 

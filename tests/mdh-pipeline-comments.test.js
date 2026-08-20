@@ -2,23 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   parseEntries,
   parsePipelineDoc,
-  stagesToEntries,
 } from '../src/mdh/pipelineComments.js';
 
 const A = '[\n  { "$match": { "x": 1 } },\n  { "$limit": 50 }\n]';
-
-describe('stagesToEntries', () => {
-  it('wraps a plain stage array as all-enabled entries', () => {
-    expect(stagesToEntries([{ $match: {} }, { $limit: 5 }])).toEqual([
-      { disabled: false, stage: { $match: {} } },
-      { disabled: false, stage: { $limit: 5 } },
-    ]);
-  });
-  it('returns [] for null / non-array', () => {
-    expect(stagesToEntries(null)).toEqual([]);
-    expect(stagesToEntries({})).toEqual([]);
-  });
-});
 
 describe('parseEntries', () => {
   it('parses an all-active pipeline in order', () => {

@@ -119,13 +119,6 @@ export function getChat(chatId) {
   return getJson(`/chats/${chatId}`);
 }
 
-// PUT /chats/{id}/feedback — thumbs on one assistant turn.
-export function submitFeedback(chatId, turnIndex, isPositive) {
-  return getJson(`/chats/${chatId}/feedback`, {
-    method: 'PUT', body: JSON.stringify({ turn_index: turnIndex, is_positive: isPositive }),
-  });
-}
-
 // GET /commands — unauthenticated per the spec; [] on any failure so the
 // composer's autocomplete simply hides instead of erroring.
 export async function listCommands() {

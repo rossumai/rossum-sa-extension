@@ -7,7 +7,8 @@ vi.mock('../src/mdh/api.js');
 import * as api from '../src/mdh/api.js';
 import PipelineDebug from '../src/mdh/components/PipelineDebug.jsx';
 import { selectedCollection } from '../src/mdh/store.js';
-import { stagesToEntries } from '../src/mdh/pipelineComments.js';
+// Wrap a plain stage array as all-enabled entries, the shape usePipeline hands the panel.
+const stagesToEntries = (arr) => (Array.isArray(arr) ? arr.map((stage) => ({ disabled: false, stage })) : []);
 
 // The 0th "input" row counts the whole collection via $collStats (instant
 // metadata count) — distinct from the per-stage prefix runs, which end with

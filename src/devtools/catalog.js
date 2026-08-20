@@ -85,17 +85,3 @@ export function suggest(raw) {
   scored.sort((a, b) => a.rank - b.rank);
   return scored.slice(0, 8).map((x) => x.e);
 }
-
-export function isKnownCollection(apiPath) {
-  const m = String(apiPath || '').match(/^\/api\/v1\/([a-z_]+)/);
-  if (!m) return false;
-  return ENDPOINTS.some((e) => e.collection === m[1]);
-}
-
-export function mergeLiveCollections(names) {
-  for (const name of names || []) {
-    if (typeof name !== 'string' || !name) continue;
-    if (ENDPOINTS.some((e) => e.collection === name)) continue;
-    ENDPOINTS.push({ collection: name, kind: 'list', pathTemplate: `/api/v1/${name}`, label: name, description: 'list (discovered)' });
-  }
-}

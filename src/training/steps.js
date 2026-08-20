@@ -108,7 +108,6 @@ export const CHECKS = {
   },
 };
 
-export const checkIds = () => Object.keys(CHECKS);
 
 // Hard stop on the page walk. 50 pages x 100 = 5000 schemas; a malformed or
 // self-referential `next` must not spin a content script forever.

@@ -18,10 +18,8 @@ export function getPipelineState(collection) {
   return stateByCollection.get(collection) || null;
 }
 
-export function clearPipelineState(collection) {
-  stateByCollection.delete(collection);
-}
-
+// No production caller: this is the reset seam the tests use to clear the module-level
+// Map between cases, like undo.js `_reset`.
 export function clearAllPipelineState() {
   stateByCollection.clear();
 }

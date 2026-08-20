@@ -40,13 +40,13 @@ export default function AssistantTurn({ turn, threadIdx, streaming }) {
       )}
       {!streaming && !turn.interrupted && !turn.questions && !fallbackNotice(turn) && (
         <div class="fabry-turn-foot">
-          {/* 👍/👎 hidden pending a backend fix: PUT /feedback's turn_index
-              addresses the RAW stored history, but GET /chats drops text-less
-              tool-only steps, so our thread index mis-targets feedback on any
-              tool-using turn (live-confirmed 2026-07-13; spec §9b). The
-              plumbing (sendFeedback / serverMessageIndex / submitFeedback) is
-              kept dormant for a one-line re-enable once the backend exposes a
-              stable per-message feedback id. */}
+          {/* No 👍/👎. PUT /feedback's turn_index addresses the RAW stored history,
+              but GET /chats drops text-less tool-only steps, so a thread index
+              mis-targets feedback on any tool-using turn (live-confirmed
+              2026-07-13; spec §9b). The plumbing was removed 2026-08-20 rather
+              than kept dormant — restoring it means restoring sendFeedback,
+              agentApi.submitFeedback and thread.serverMessageIndex from git, and
+              it should wait for a stable per-message feedback id anyway. */}
           <button type="button" class="fabry-copy" title="Copy reply" onClick={() => navigator.clipboard?.writeText(turn.text)}>Copy</button>
           {turn.deep && (
             <button type="button" class={'fabry-deep-chip ' + turn.deep.verdict} onClick={() => setShowDeep(!showDeep)}>

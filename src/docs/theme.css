@@ -1,3 +1,27 @@
+/* DELTA H (2026-08-20): DEAD RULES PRUNED. 39 rules were removed because the features
+   that produced their classes are gone from this port, so the selectors could never
+   match. Three groups, each traceable to a decision already recorded elsewhere:
+
+     • section states — .state-rough-draft / .state-in-progress / .state-ready /
+       .state-verified / .state-stale, .state-label-icon, .state-label-date(::before),
+       .state-summary-{title,item,count}, .has-state-label. Upstream's state-labels
+       plugin left the pipeline on 2026-08-18 and the Architect property that briefly
+       replaced it went on 2026-08-19; status is the check verdict alone now.
+       (.state-label and .state-error STAY — docWarnings.js still emits them.)
+     • the in-pane table of contents — .toc a.toc-h3, .toc-state-dot. The outline moved
+       to the Architect sidebar on 2026-08-18 and client/toc.js was deleted.
+     • the static-HTML export — .docs-nav, .docs-nav-list*, .export-link. Removed
+       2026-08-18; nothing renders a nav bar or an export link any more.
+
+   COST, stated plainly: this sheet is no longer a superset of upstream's, so a future
+   re-port cannot be a straight copy of the changed hunks — these rules will come back
+   with it and have to be dropped again. Verified before removing: every deleted selector
+   names at least one class that appears in NO source file and in NO built JS bundle
+   (a class no code emits is on no element, so any selector requiring it never matches),
+   and every surviving rule's declaration block is byte-identical. states.md's fixture
+   was already not byte-equivalent to upstream for the same reason — see
+   tests/docs-render-equivalence.test.js. */
+
 /* Ported from localpages@4d43f26 src/theme.css (sha1 38155513…).
    DELTA A (this block): upstream's two page-level rules were `:root { color-scheme:
    light }` and `html, body { margin:0; padding:0; background:#fff }`. Both are scoped
@@ -21,45 +45,6 @@ html { scroll-padding-top: 52px; }
 html, body { overscroll-behavior-y: none; }
 .docs-root { overscroll-behavior-y: none; }
 .docs-root { margin: 0; padding: 0; background: #ffffff; }
-
-/* ── Docs nav bar (sticky top) ── */
-.docs-nav {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 6px 16px;
-  background: #f6f8fa;
-  border-bottom: 1px solid #d0d7de;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  font-size: 13px;
-}
-.docs-nav-list {
-  display: flex;
-  flex: 1;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.docs-nav-list a {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 6px;
-  color: #656d76;
-  text-decoration: none;
-  border: 1px solid transparent;
-}
-.docs-nav-list a:hover { color: #0969da; background: #ffffff; border-color: #d0d7de; }
-.docs-nav-list a.active {
-  color: #0969da;
-  background: #ffffff;
-  border-color: #d0d7de;
-  font-weight: 500;
-}
 
 .markdown-body {
   box-sizing: border-box;
@@ -124,39 +109,14 @@ html, body { overscroll-behavior-y: none; }
 }
 .toc a:hover { color: #0969da; }
 .toc a.active { color: #0969da; border-left-color: #0969da; font-weight: 500; }
-.toc a.toc-h3 { padding-left: 22px; font-size: 11px; }
 @media (max-width: 1280px) { .toc { display: none; } }
 @container (max-width: 1280px) { .toc { display: none; } }
-
-/* ── Section state labels ──
-   `🔴 **Stale** · 2026-08-17` under a heading becomes a badge on the heading
-   row. Palette reuses the five hues already used by the alert tints above.
-
-   Ready-for-review and Verified are both green in the source convention, so
-   they are told apart two ways that survive greyscale and colour-blindness:
-   icon shape (ring vs check) and fill weight (outline vs tinted). */
-.state-rough-draft { --state-fg: #9a6700; --state-bg: rgba(212, 167, 44, 0.12); --state-br: rgba(154, 103, 0, 0.30); }
-.state-in-progress { --state-fg: #0969da; --state-bg: rgba(9, 105, 218, 0.08);  --state-br: rgba(9, 105, 218, 0.30); }
-.state-ready       { --state-fg: #1a7f37; --state-bg: transparent;              --state-br: rgba(26, 127, 55, 0.45); }
-.state-verified    { --state-fg: #1a7f37; --state-bg: rgba(26, 127, 55, 0.10);  --state-br: rgba(26, 127, 55, 0.30); }
-.state-stale       { --state-fg: #cf222e; --state-bg: rgba(207, 34, 46, 0.08);  --state-br: rgba(207, 34, 46, 0.30); }
 /* Malformed <state-label>. Red like Stale, but dashed — a broken tag should not
    be mistakable for a legitimate state. */
 .state-error       { --state-fg: #cf222e; --state-bg: rgba(207, 34, 46, 0.08);  --state-br: rgba(207, 34, 46, 0.55); }
 .markdown-body .state-error { border-style: dashed; }
 /* An error badge stands alone in the flow rather than riding a heading. */
 .markdown-body > .state-label.state-error { margin: 0 0 16px; }
-
-/* Only labelled headings become flex rows, so every other heading keeps its
-   stock layout untouched. The permalink anchor is absolutely positioned with an
-   explicit `left`, so it is unaffected by the switch. */
-.markdown-body :is(h1,h2,h3,h4,h5,h6).has-state-label {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px 16px;
-}
 
 .markdown-body .state-label {
   flex: 0 0 auto;
@@ -176,33 +136,11 @@ html, body { overscroll-behavior-y: none; }
   letter-spacing: 0;
   white-space: nowrap;
 }
-.markdown-body .state-label-icon { flex: none; display: block; }
-.markdown-body .state-label-date {
-  position: relative;
-  margin-left: 8px;
-  padding-left: 9px;
-  font-weight: 400;
-  opacity: 0.8;
-  font-variant-numeric: tabular-nums;
-}
-/* Hairline divider in the state hue, instead of repeating the source's middot. */
-.markdown-body .state-label-date::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 1px;
-  height: 11px;
-  background: currentColor;
-  opacity: 0.35;
-}
 
 /* Narrow viewports: give the badge its own line rather than squeezing the
    heading. `display:flex` makes it block-level; `width:max-content` keeps it
    pill-shaped instead of stretching into a full-width bar. */
 @media (max-width: 767px) {
-  .markdown-body :is(h1,h2,h3,h4,h5,h6).has-state-label { display: block; }
   .markdown-body .state-label { display: flex; width: max-content; margin-top: 8px; }
 }
 
@@ -221,42 +159,6 @@ html, body { overscroll-behavior-y: none; }
   font-size: 12px;
   line-height: 1.4;
 }
-.markdown-body .state-summary-title {
-  margin-right: 2px;
-  color: #656d76;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-.markdown-body .state-summary-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 9px 2px 7px;
-  border: 1px solid var(--state-br);
-  border-radius: 999px;
-  background: var(--state-bg);
-  color: var(--state-fg);
-  font-weight: 500;
-  white-space: nowrap;
-}
-.markdown-body .state-summary-item .state-label-icon { flex: none; display: block; }
-.markdown-body .state-summary-count { font-weight: 600; font-variant-numeric: tabular-nums; }
-
-/* TOC mirror: a dot per labelled section turns the sidebar into a health map.
-   inline-block (not flex) so the entry keeps its ellipsis truncation. */
-.toc-state-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-right: 6px;
-  border-radius: 50%;
-  background: var(--state-fg);
-  vertical-align: middle;
-}
-/* Ready-for-review reads as an outline here too, matching its pill. */
-.toc-state-dot.state-ready { background: transparent; box-shadow: inset 0 0 0 2px var(--state-fg); }
 
 /* Bright yellow for <mark> TODO/TBD highlights */
 .markdown-body mark { background-color: #ffdd33; padding: 0 2px; border-radius: 2px; }
@@ -324,20 +226,6 @@ html, body { overscroll-behavior-y: none; }
   color: #656d76;
   font-style: italic;
 }
-
-/* "Download ZIP" link — sits on the right side of the docs nav bar. Live preview
-   only; stripped from exported pages. */
-.export-link {
-  font-size: 12px;
-  color: #656d76;
-  text-decoration: none;
-  padding: 4px 10px;
-  border: 1px solid #d0d7de;
-  border-radius: 6px;
-  background: #ffffff;
-  white-space: nowrap;
-}
-.export-link:hover { color: #0969da; border-color: #0969da; }
 
 /* Tables: stretch to the full content width instead of sizing to content. */
 .markdown-body table { display: table; width: 100%; }
@@ -559,8 +447,6 @@ html, body { overscroll-behavior-y: none; }
   }
   html, body { margin: 0; padding: 0; background: #ffffff; }
   .toc { display: none !important; }
-  .docs-nav { display: none !important; }
-  .export-link { display: none !important; }
   .markdown-body {
     max-width: 980px;
     margin: 0 auto;
@@ -588,8 +474,7 @@ html, body { overscroll-behavior-y: none; }
     border: 1px solid #d0d7de !important;
   }
   .markdown-body mark { background-color: #ffdd33 !important; }
-  .markdown-body .state-label,
-  .markdown-body .state-summary-item {
+  .markdown-body .state-label {
     color: var(--state-fg) !important;
     background: var(--state-bg) !important;
     border-color: var(--state-br) !important;
@@ -659,26 +544,14 @@ html, body { overscroll-behavior-y: none; }
 @media (prefers-color-scheme: dark) {
   .docs-root { background: #0d1117; }
 
-  .docs-nav { background: #151b23; border-bottom-color: #3d444d; }
-  .docs-nav-list a { color: #9198a1; }
-  .docs-nav-list a:hover { color: #4493f8; background: #0d1117; border-color: #3d444d; }
-  .docs-nav-list a.active { color: #4493f8; background: #0d1117; border-color: #3d444d; }
-
   .toc a { color: #9198a1; }
   .toc a:hover { color: #4493f8; }
   .toc a.active { color: #4493f8; border-left-color: #4493f8; }
-
-  .state-rough-draft { --state-fg: #d29922; --state-bg: rgba(210, 153, 34, 0.15);  --state-br: rgba(210, 153, 34, 0.35); }
-  .state-in-progress { --state-fg: #4493f8; --state-bg: rgba(68, 147, 248, 0.12);  --state-br: rgba(68, 147, 248, 0.35); }
-  .state-ready       { --state-fg: #3fb950; --state-bg: transparent;               --state-br: rgba(63, 185, 80, 0.50); }
-  .state-verified    { --state-fg: #3fb950; --state-bg: rgba(63, 185, 80, 0.14);   --state-br: rgba(63, 185, 80, 0.35); }
-  .state-stale       { --state-fg: #f85149; --state-bg: rgba(248, 81, 73, 0.12);   --state-br: rgba(248, 81, 73, 0.35); }
   .state-error       { --state-fg: #f85149; --state-bg: rgba(248, 81, 73, 0.12);   --state-br: rgba(248, 81, 73, 0.60); }
   /* The knockout marks inside the Verified/Stale icons are painted #fff by the
      plugin, so the badge body must stay saturated enough to carry them — the alphas
      above are raised from the light values for exactly that reason. */
   .markdown-body .state-summary { border-color: #3d444d; background: #151b23; }
-  .markdown-body .state-summary-title { color: #9198a1; }
 
   /* #ffdd33 is the point of a highlight, so it is kept — but the inherited text
      colour is light in dark mode, which would leave yellow-on-white text. */
@@ -692,9 +565,6 @@ html, body { overscroll-behavior-y: none; }
   .markdown-body figure { border-color: #3d444d; background: #151b23; }
   .markdown-body figure img { background: #0d1117; }
   .markdown-body figure figcaption { color: #9198a1; }
-
-  .export-link { color: #9198a1; border-color: #3d444d; background: #0d1117; }
-  .export-link:hover { color: #4493f8; border-color: #4493f8; }
 
   .source-modal { background: #0d1117; }
   .source-modal-header { border-bottom-color: #3d444d; background: #151b23; }

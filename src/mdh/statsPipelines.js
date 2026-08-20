@@ -65,10 +65,6 @@ export function discoverFieldsWithTotal(docs) {
   return { fields, total };
 }
 
-export function discoverFields(docs) {
-  return discoverFieldsWithTotal(docs).fields;
-}
-
 export function buildOverviewPipeline() {
   return [{ $collStats: { count: {} } }, { $project: { host: 0, localTime: 0 } }, { $limit: 1 }];
 }

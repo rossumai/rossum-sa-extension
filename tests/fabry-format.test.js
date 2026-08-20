@@ -1,22 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { tsToMs, relativeTime, chatTitle, sanitizeTitle } from '../src/fabry/format.js';
-
-describe('tsToMs', () => {
-  it('passes ms through, upscales seconds', () => {
-    expect(tsToMs(1760000000000)).toBe(1760000000000);
-    expect(tsToMs(1760000000)).toBe(1760000000000);
-  });
-});
-
-describe('relativeTime', () => {
-  const now = 1760000000000;
-  it('buckets', () => {
-    expect(relativeTime(now - 5_000, now)).toBe('just now');
-    expect(relativeTime(now - 120_000, now)).toBe('2m ago');
-    expect(relativeTime(now - 7_200_000, now)).toBe('2h ago');
-    expect(relativeTime(now - 172_800_000, now)).toBe('2d ago');
-  });
-});
+import { chatTitle, sanitizeTitle } from '../src/fabry/format.js';
 
 describe('chatTitle', () => {
   it('summary > preview > first_message > placeholder', () => {

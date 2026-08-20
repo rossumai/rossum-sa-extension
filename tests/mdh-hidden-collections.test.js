@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isHiddenCollection, visibleCollections, hiddenCount, HIDDEN_PREFIX } from '../src/mdh/hiddenCollections.js';
+import { isHiddenCollection, visibleCollections, HIDDEN_PREFIX } from '../src/mdh/hiddenCollections.js';
 import { COLLECTION, LEGACY_COLLECTION } from '../src/fabry/architect/collectionNames.js';
 
 describe('hiddenCollections', () => {
@@ -25,11 +25,6 @@ describe('hiddenCollections', () => {
     expect(visibleCollections(names)).toEqual(['alpha', 'beta']);
     expect(visibleCollections(names, true)).toEqual(names);
     expect(visibleCollections(names, true)).not.toBe(names);   // copy, never the caller's array
-  });
-
-  it('counts what is hidden so the toggle can say how many', () => {
-    expect(hiddenCount(['a', COLLECTION, LEGACY_COLLECTION])).toBe(2);
-    expect(hiddenCount(null)).toBe(0);
   });
 
   it('tolerates junk', () => {

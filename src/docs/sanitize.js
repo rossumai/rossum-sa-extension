@@ -163,4 +163,3 @@ export function markLinksForPane(body) {
   return body;
 }
 
-export const _internals = { ALLOWED, HARD_DELETE, ATTRS, safeHref, safeSrc };

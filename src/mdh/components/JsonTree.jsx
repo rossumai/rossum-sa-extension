@@ -1,10 +1,9 @@
 import { h } from 'preact';
 import { useState } from 'preact/hooks';
-import { EJSON_TYPES, getEjsonType, formatEjsonValue, displayValue, copyTextFor } from '../displayValue.js';
+import { EJSON_TYPES, getEjsonType, formatEjsonValue, copyTextFor } from '../displayValue.js';
 import { ALT_KEY } from '../platform.js';
 import SpecialText from './SpecialText.jsx';
 
-export { displayValue };
 
 export const AUTO_COLLAPSE_FIELD_THRESHOLD = 50;
 

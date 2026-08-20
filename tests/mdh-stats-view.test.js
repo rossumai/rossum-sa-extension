@@ -5,8 +5,7 @@ import {
   fieldTypeSummary, friendlyType,
   indexPrefixMap,
   buildFieldProfiles,
-  deriveIssues,
-  rangeBar, spanBar, buildDateTimeline,
+  rangeBar, spanBar,
   buildValueFilterPipeline,
 } from '../src/mdh/statsView.js';
 
@@ -174,32 +173,6 @@ describe('buildFieldProfiles', () => {
   });
 });
 
-describe('deriveIssues', () => {
-  const mk = (field, over) => ({ field, pct: 100, nullCount: 0, missingCount: 0, emptyCount: 0, isMixed: false, types: [], sentinel: null, string: null, ...over });
-
-  it('one row per field at highest severity, danger before warning', () => {
-    const profiles = [
-      mk('clean'),
-      mk('ws', { string: { leading: 0, trailing: 5, count: 10 } }),
-      mk('sent', { sentinel: { total: 89, values: [{ value: 'n/a', count: 89 }] } }),
-      mk('mixWs', { isMixed: true, types: [{ type: 'double', count: 9 }, { type: 'string', count: 1 }], string: { leading: 2, trailing: 0, count: 10 } }),
-      mk('gap', { pct: 90, nullCount: 10 }),
-    ];
-    const issues = deriveIssues(profiles, [{ fieldCount: 4, docCount: 100 }]);
-    expect(issues.find((i) => i.field === 'clean')).toBeUndefined();
-    expect(issues.find((i) => i.field === 'mixWs').kind).toBe('type-mix'); // danger wins over whitespace
-    const kinds = issues.map((i) => i.severity);
-    expect(kinds.indexOf('danger')).toBeLessThan(kinds.lastIndexOf('warning'));
-  });
-
-  it('adds a single collection-level schema row only when >1 shape', () => {
-    expect(deriveIssues([], [{ fieldCount: 4, docCount: 100 }]).some((i) => i.kind === 'schema')).toBe(false);
-    const multi = deriveIssues([], [{ fieldCount: 4, docCount: 60 }, { fieldCount: 3, docCount: 40 }]);
-    expect(multi.filter((i) => i.kind === 'schema').length).toBe(1);
-    expect(multi[multi.length - 1].field).toBeNull();
-  });
-});
-
 describe('rangeBar', () => {
   it('positions the avg tick within min..max', () => {
     expect(rangeBar({ min: 0, max: 100, value: 25 })).toEqual({ left: 0, right: 0, avgPct: 25 });
@@ -216,20 +189,5 @@ describe('spanBar', () => {
   it('returns span ms or null', () => {
     expect(spanBar('2020-01-01', '2021-01-01').ms).toBeGreaterThan(0);
     expect(spanBar(null, '2021-01-01')).toBeNull();
-  });
-});
-
-describe('buildDateTimeline', () => {
-  it('null for fewer than 2 timestamps', () => {
-    expect(buildDateTimeline([{ field: 'a', earliest: '2020-01-01', latest: '2020-01-01' }])).not.toBeNull();
-    expect(buildDateTimeline([])).toBeNull();
-  });
-  it('positions rows on the global span', () => {
-    const t = buildDateTimeline([
-      { field: 'a', earliest: '2020-01-01', latest: '2020-06-01' },
-      { field: 'b', earliest: '2020-06-01', latest: '2021-01-01' },
-    ]);
-    expect(t.rows.length).toBe(2);
-    expect(t.rows[0].left).toBeCloseTo(0, 1);
   });
 });

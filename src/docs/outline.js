@@ -58,18 +58,6 @@ export function extractOutline(text) {
   return out;
 }
 
-// The entry a reader is "in", given the source line at the top of the view: the last heading
-// at or before it. Pure, so the sidebar's highlight is testable without layout.
-export function activeOutlineSlug(outline, line) {
-  if (!Array.isArray(outline) || !outline.length || !Number.isFinite(line)) return null;
-  let active = null;
-  for (const h of outline) {
-    if (h.line <= line) active = h.slug;
-    else break;
-  }
-  return active;
-}
-
 // The outline as the SIDEBAR wants it: without the heading the deliverable is already named by.
 //
 // The row shows `displayTitle`, which prefers the document's own opening heading — so when that
