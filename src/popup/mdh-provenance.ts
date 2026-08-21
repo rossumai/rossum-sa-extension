@@ -539,7 +539,9 @@ export async function loadAnnotationValues(domain: string, token: string, annota
 
 // ── Status metadata (consumed by QueryItem renderer) ──
 
-export const STATUS_GLYPH = {
+// Keyed by the replay status string, which the popup reads from a value it does not
+// control — so the lookup is by string rather than by the literal union.
+export const STATUS_GLYPH: Record<string, { glyph: string; cls: string; title: string; showHint: boolean }> = {
   pending: { glyph: '…', cls: 'mdh-q-status--pending', title: 'Replaying…', showHint: false },
   winner: { glyph: '✓', cls: 'mdh-q-status--winner', title: 'Winning query', showHint: false },
   empty: { glyph: '—', cls: 'mdh-q-status--empty', title: 'No results', showHint: false },

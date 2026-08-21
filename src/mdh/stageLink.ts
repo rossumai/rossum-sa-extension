@@ -59,7 +59,7 @@ const EDGE_INSET = 8;
 // A box shorter than the two insets has no band; collapsing to its midpoint
 // keeps the endpoint inside rather than pushing it past the edge it was meant to
 // stop at.
-function clampToBox(y: number, boxRect: Box) {
+function clampToBox(y: number, boxRect: Box | null | undefined) {
   if (!boxRect) return { y, edge: null };
   let lo = boxRect.top + EDGE_INSET;
   let hi = boxRect.bottom - EDGE_INSET;
@@ -78,7 +78,11 @@ function clampToBox(y: number, boxRect: Box) {
 // a section overlapping the pane passes `sectionInPane`, yet its header anchor
 // can still sit above the pane top, which drew over the options toolbar.
 export function computeStageLink(
-  editorLineRect: Box, sectionRect: Box, panelRect: Box, paneRect: Box, clipRect: Box,
+  // All five are measured from live DOM/CodeMirror and any of them can be absent — the
+  // guard below is the contract, so the signature says so rather than the callers casting.
+  editorLineRect: Box | null | undefined, sectionRect: Box | null | undefined,
+  panelRect: Box | null | undefined, paneRect: Box | null | undefined,
+  clipRect: Box | null | undefined,
 ) {
   if (!editorLineRect || !sectionRect || !panelRect) return null;
   const x1 = editorLineRect.left - panelRect.left + START_GAP; // a bit right of the '{'

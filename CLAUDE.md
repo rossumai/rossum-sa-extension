@@ -26,30 +26,37 @@ esbuild bundles ES modules from `src/` into `dist/`. No transpilation, no other 
 
 ## TypeScript
 
-**Every non-JSX module is TypeScript: 199 `.ts` + 1 `.d.ts`, zero `.js`, and 159 `.jsx`
-remain.** Adopted 2026-08-20 for readability, not bug-finding: `tsc --checkJs` over the whole
-repo found no runtime defect, but 70% of its diagnostics were one question — *what may I pass
-to this?* — and there was no `@param`, `@typedef` or `@type` anywhere in `src/`.
+**Every file under `src/` is TypeScript: 199 `.ts` + 159 `.tsx` + 1 `.d.ts`, and zero `.js` or
+`.jsx`.** Migrated 2026-08-20 for readability, not bug-finding: `tsc --checkJs` over the whole
+repo found no runtime defect, but 70% of its diagnostics were one question — *what may I pass to
+this?* — and there was no `@param`, `@typedef` or `@type` anywhere in `src/`.
 
-The `.jsx` components are the remaining half and are deliberately untouched so far: a component
-conversion is `.jsx` → `.tsx`, which brings Preact's own prop typing into scope and is a
-different (larger) piece of work from annotating a module boundary.
-
-A `.ts` file may import a `.jsx` one — `allowJs` resolves it — so nothing in the component layer
-blocked this. `src/mdh/store.ts`, `src/mdh/formats/index.ts` and
-`src/fabry/architect/pdfAction.ts` each do exactly that.
+It ran in dependency order — modules first, then components **children before parents**, in four
+waves — because of the prop-inference rule below. `checkJs` is now vacuous, since nothing is
+`.js`: flipping it to `true` reports zero errors, and would only guard a future `.js` file.
 
 Rules, all in `tsconfig.json`:
 
-- **`checkJs: false`** — only `.ts` files are checked, so CI is green at every step and the
-  ratchet advances one file at a time. Do not flip it on globally.
+- **`checkJs: false`** — the migration ratchet: only `.ts`/`.tsx` were checked, so CI stayed
+  green while it advanced one file at a time. Now that nothing is `.js`, it guards only against
+  a future untyped file being added.
 - **`strict: true`** — `noImplicitAny` is the point; without it the shapes never get written down.
 - **`erasableSyntaxOnly`** — no `enum`, `namespace` or parameter properties. A `.ts` file here is
   JavaScript plus annotations, and nothing else.
-- **`alwaysStrict: false`** — load-bearing, see Traps.
-- Migration needs **no importer edits**: esbuild, vite and tsc all resolve a `./x.js` specifier
-  to `x.ts`. Rename the file, annotate, done. An **entry point** is the exception — `build.js`
-  lists those paths literally, so renaming one means editing `build.js` too. Anything else that
+- **`alwaysStrict: true`** — the one option here with a RUNTIME effect, because esbuild reads
+  this file: it emits the `"use strict"` prologue. Off through the migration to keep that out
+  of a types-only commit, measured and turned on separately afterwards. See Traps.
+- Renames need **no importer edits**: esbuild, vite and tsc all resolve a `./x.js` specifier
+  to `x.ts`, and `./x.jsx` to `x.tsx`. Rename the file, annotate, done. That second half was
+  load-bearing: every component import still SPELLS `.jsx` (256 in `src`, 158 in tests) and none
+  were edited, so had the rewrite not held the migration would have meant touching 414 import
+  sites instead of zero. Those specifiers are now permanently a lie about the file on disk and
+  that is fine — do not mass-rewrite them, and do not be surprised by them.
+  `jsx: "react"` + `jsxFactory: "h"` already makes Preact's own `JSX.IntrinsicElements` resolve
+  inside a `.tsx`, so the component wave needed **no tsconfig change** (checked by planting a
+  bad prop and an unknown tag and confirming both were caught). An **entry point** is the exception — `build.js`
+  lists those paths literally, so renaming one means editing `build.js` too (all nine now end
+  in `.ts`/`.tsx`). Anything else that
   names a source path by extension is the same trap: a **test** that reads a file directly, or
   filters `ALL_SRC` on `/\.(js|jsx)$/`, silently stops checking what it guards (eight of them did
   — see Traps).
@@ -67,14 +74,58 @@ Conventions the existing `.ts` files follow:
   suite: a hoisted `const`, an added `?.`, and a lost `= {}` on `buildGenPrompt` (which would
   have made a no-argument call throw).
 - **`any` is allowed where the wire genuinely is untyped** — a parsed JSON body, a raw Rossum API
-  object, a markdown-it token — and says so in a comment. The value is in the RETURN shapes and
-  the options bags, which is where a reader actually needs the answer.
+  object, a Data Storage record, a markdown-it token. The value is in the RETURN shapes and the
+  options bags, which is where a reader actually needs the answer. At a **module boundary** say
+  why in a comment. Inside a component, a callback over such an array (`records.map((r: any) =>
+  …)`) does not each need one — the array's element type is the untyped thing, and ~1,500 such
+  comments would be noise. There are ~1,560 `any` annotations and most are this shape.
+- **Reach for an existing named type before writing `any`.** A type review after the migration
+  found `any` at 20+ sites where `Deliverable`, `Turn`, `FabryTurn`, `Mission`, `TrackStep`,
+  `CheckResult` or `Verdict` already existed, and swapping them in surfaced four real defects:
+  `Turn` omitted the display extras chat.ts merges in; `setStageDisabled`'s `string | null` was
+  never null and pushed a phantom null onto its caller; `computeStageLink`/`clampToBox` declared
+  non-null params they guard for null on line one; and `SourceColumn`/`DocView` take RAW source
+  sections while printDoc takes RENDERED ones — both were `any[]`, so nothing said so.
+- **An imperative handle passed by ref is a boundary — name it.** `JsonEditor` publishes eleven
+  methods on its `editorRef`, assembled in TWO places, and all six consumers held it as `any`;
+  `JsonEditorHandle` is now the one place to read what you may call. Same for the sort/filter
+  quartet, which four components declared independently and disagreed on: it is
+  `SortFilterControls` in `usePipeline.ts`, next to the state and togglers it describes.
 - **Signals need an explicit parameter**: `signal(null)` infers `Signal<null>` and rejects every
   later assignment. Write `signal<Foo | null>(null)`.
 - **Class fields must be `declare`d.** Under `target: ES2022`, `useDefineForClassFields` is on, so
   a bare `x: T` field emits a define and changes the constructor. `declare x: T` emits nothing.
 - Types are exported to document a boundary even when nothing imports them yet, so the
   dead-code guard deliberately ignores `export type`.
+
+Extra conventions for `.tsx` (components):
+
+- **Children before parents** (why the migration was ordered, kept because it still applies to
+  any new component). TS infers every default-less destructured prop as REQUIRED, so typing a
+  parent whose children are untyped invents "missing required prop" errors. It is not always
+  noise — it caught `FabryMarkdown({ text, streaming })`, whose `streaming` has no default and
+  which 2 of 5 call sites omit — but the fix belongs in the child's prop type.
+- **A prop's optionality is evidence, not taste.** Marking one `?` to silence a diagnostic just
+  moves it into the body as "possibly undefined"; marking one required when a caller omits it
+  moves it to the call site. Read the body and the call sites, and let the two errors triangulate.
+  Several shapes were guessed wrong this way and corrected from real code: `QueryItem`'s `status`
+  is an object, not a string; `Modal`'s `render` takes no arguments; `StatsSummary`'s `storage`
+  and `docSize` are objects; `RecordList`'s `onPageChange` takes `'prev'|'next'`, not a number.
+- **`useRef(null)` / `useState(null)` need a type parameter**, exactly like `signal(null)`:
+  an untyped null init infers `Ref<null>` / `StateUpdater<null>` and rejects every later
+  assignment. Do NOT "fix" it by changing the initialiser — `useRef(undefined)` emits
+  `void 0` where the source said `null`, which is a real emit change. And prefer the ACTUAL
+  element over `HTMLElement`: Preact's `ref` on a `<div>` wants `Ref<HTMLDivElement>` and
+  rejects the wider type, so a ref is typed from the tag it is attached to.
+- **A prop the body indexes unconditionally is required, not optional.** Guessing `?` to
+  silence a diagnostic just moves it into the body as "possibly undefined"; the honest answer
+  is almost always that the prop is required.
+- **`e.target.value` needs the handler parameter annotated**, not each access guarded: Preact
+  types `e.target` as `EventTarget | null`, and every one of these reads a form control.
+- **CSS Modules** have no types of their own; `src/types/vendor.d.ts` declares `*.module.css`
+  as `Record<string, string>` for all 16 importers. A build step emitting exact key sets would
+  have to run before tsc, and the payoff is already covered by
+  `tests/css-class-collision-boundary.test.js` reading the BUILT stylesheet.
 
 ## Architecture
 
@@ -85,11 +136,11 @@ Nine entry points, plus two bundles nothing imports that are script-injected on 
 | Entry | Surface |
 |---|---|
 | `src/rossum/index.ts` · `src/netsuite/index.ts` · `src/coupa/index.ts` | content scripts |
-| `src/popup/popup.jsx` | extension popup (Preact) |
-| `src/console/index.jsx` | Console page — an app rail over six apps |
+| `src/popup/popup.tsx` | extension popup (Preact) |
+| `src/console/index.tsx` | Console page — an app rail over six apps |
 | `src/background/index.ts` | MV3 service worker |
-| `src/devtools/devtools.ts` · `src/devtools/panel.jsx` | DevTools "Rossum" panel |
-| `src/sidepanel/index.jsx` | Chrome side panel |
+| `src/devtools/devtools.ts` · `src/devtools/panel.tsx` | DevTools "Rossum" panel |
+| `src/sidepanel/index.tsx` | Chrome side panel |
 
 ### Content scripts
 
@@ -109,7 +160,7 @@ Reloading the extension does NOT re-inject content scripts into open tabs — re
 ### Console apps (`src/console/`)
 
 An app-switcher rail over six apps. Adding one touches three hardcoded switch points
-(`Rail.jsx` APPS, `Console.jsx` render switch, `boot.ts` `isValidApp`) plus `console/index.jsx`.
+(`Rail.tsx` APPS, `Console.tsx` render switch, `boot.ts` `isValidApp`) plus `console/index.tsx`.
 
 - **Dataset Management** (`src/mdh/`) — Preact SPA over Rossum Data Storage: collections,
   records, a CodeMirror+JSON5 aggregation-pipeline editor, indexes, one import and one export
@@ -131,7 +182,7 @@ An app-switcher rail over six apps. Adding one touches three hardcoded switch po
   `agentApi.submitFeedback` and `thread.serverMessageIndex` from git, and it should wait for a
   stable per-message feedback id regardless. Plus **Architect**: per-org
   Markdown deliverables kept in a Data Storage collection, rendered as ONE scrolling
-  specification (`components/SpecView.jsx`) and checked against live org state.
+  specification (`components/SpecView.tsx`) and checked against live org state.
 - **Academy** (`src/academy/`) — the onboarding training track; the only app behind
   `experimentalUnlocked`.
 
@@ -220,9 +271,10 @@ Enforced by tests, not by convention. Do not weaken them.
   `selectorText` first when walking a stylesheet.
 - **esbuild READS `tsconfig.json`**, so a compiler option can change what ships. `strict: true`
   implies `alwaysStrict`, which made esbuild emit a `"use strict"` prologue into every bundle —
-  flipping all three content scripts from sloppy to strict mode, in a commit that was supposed to
-  add types and nothing else. Hence `alwaysStrict: false`. Verify a "types only" change by
-  diffing built bundle hashes; ours are byte-identical.
+  flipping all three content scripts from sloppy to strict mode, inside a commit that was
+  supposed to add types and nothing else. It was pinned off until the migration was done, then
+  measured and turned on as its own commit; it is `true` today. The lesson is the general one:
+  a "types only" change must be verified by diffing built output, not assumed.
 - **A test that names or walks a source file by extension goes blind when that file is renamed**
   — and blind looks exactly like passing. `tests/fabry-write-boundary.test.js` passed while
   ignoring four `read-write` mentions in the transport it exists to guard. The migration broke

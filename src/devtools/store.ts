@@ -158,8 +158,9 @@ export function moveTab(dragId: string, dropId: string) {
   tabs.value = without;
 }
 
-// Non-signal holder for the active CodeMirror view (for search integration).
-export const views = { active: null };
+// Non-signal holder for the active CodeMirror view (for search integration). `any` because
+// the only consumer calls into CodeMirror's own API, which this module does not import.
+export const views: { active: any } = { active: null };
 
 // Seed the permanent default tab so it's visible from the panel's first paint.
 ensurePageTab();

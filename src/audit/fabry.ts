@@ -1,4 +1,4 @@
-// src/audit/fabry.js
+// src/audit/fabry.ts
 // Mr. Fabry over the Audit Logs app — one agent chat per session that answers
 // questions about audit activity as a citation-free narrative. Pure prompt
 // builders + injected-transport runners (agentApi injected), so the network

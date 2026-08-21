@@ -1,21 +1,38 @@
 // Pure view-model helpers for chat history. Server Message → Turn.
+import type { Verdict } from './deepLoop.js';
 
 export type TurnImage = { media_type: string; data: string };
 
-/** What normalizeMessages produces. chat.js adds display-only extras (a deep-verify
- *  verdict, agent questions) while streaming; those join this type when chat.js converts. */
-export type Turn = {
+/** The assistant-side fields AssistantTurn renders. Named separately because the LIVE
+ *  streaming turn supplies only these — it has no role/chip/command/images yet — so the
+ *  component must not demand a whole Turn. */
+export type AssistantTurnView = {
+  text: string;
+  reasoning: string;
+  tools: unknown[];
+  interrupted?: boolean;
+  /** Agent clarifying questions, when the turn asked instead of answering. */
+  questions?: unknown[] | null;
+  /** Deep-verify verdict, attached by chat.ts after a critic pass — the loop's own Verdict
+   *  plus the critic's raw text. Both Verdict fields are always present. */
+  deep?: (Verdict & { criticText: string | null }) | null;
+  /** Supplied by the thread but not rendered here; kept so a whole Turn is assignable. */
+  feedback?: boolean | null;
+};
+
+/** What normalizeMessages produces, plus the display-only extras chat.ts merges in while
+ *  streaming (see its BLANK_TURN). They are optional because stored history has none. */
+export type Turn = AssistantTurnView & {
   role: string;
   /** Rendered as a system-style chip rather than a message bubble. */
   chip: boolean;
   /** A `/`-command turn. The server strips these from stored history. */
   command: boolean;
-  text: string;
   images: TurnImage[];
   feedback: boolean | null;
-  reasoning: string;
-  tools: unknown[];
-  interrupted: boolean;
+  /** Tool calls the client could not render. */
+  unhandled?: unknown[] | null;
+  error?: unknown;
 };
 
 /** A message as GET /chats/{id} returns it. */

@@ -1,4 +1,4 @@
-// src/mdh/store.js
+// src/mdh/store.ts
 import { signal } from '@preact/signals';
 import { visibleCollections } from './hiddenCollections.js';
 

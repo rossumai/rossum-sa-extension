@@ -70,10 +70,22 @@ function userName(url: unknown, usersById?: Record<string, any> | null) {
   return usersById?.[id as string]?.username || (url ? `user ${id}` : null);
 }
 
+/** Every arm carries all of these; `type: 'none'` is the not-rejected case. */
+export type RejectionVerdict = {
+  current: boolean;
+  historical: boolean;
+  type: string;
+  culprit: { kind: string; id: string | null; name: string } | null;
+  reason: { text: string | null; reliability: string };
+  when: string | null;
+  automatic: boolean;
+  reliability: string;
+};
+
 export function classifyRejection(
   { annotation = {}, workflowActivities = [], notes = [], usersById = {} }:
     { annotation?: any; workflowActivities?: any[]; notes?: any[]; usersById?: Record<string, any> } = {},
-) {
+): RejectionVerdict {
   const current = annotation.status === 'rejected';
   const historical = current || !!annotation.rejected_at;
   const wfReject = (workflowActivities || []).find((a) => a.action === 'rejected');

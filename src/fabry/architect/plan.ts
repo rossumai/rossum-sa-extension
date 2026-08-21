@@ -15,7 +15,7 @@ const SAFETY_RULES = [
   'NEVER lose customer DATA or DOCUMENTS: do not delete or truncate annotations, documents, datasets, uploads, or fields that hold data; never drop collections; always prefer creating or patching over deleting. If it appears to require destroying or overwriting existing data, STOP and explain what you would need instead of doing it.',
 ];
 
-export function buildPlanPrompt(deliverable: any): string {
+export function buildPlanPrompt(deliverable: string): string {
   return [
     'You are planning how to implement a single requirement from a Statement of Work (SOW) against a live Rossum organization.',
     'Using YOUR TOOLS, inspect the live organization first, then break the requirement into a SHORT ordered list of small, concrete implementation TASKS — each task is one focused change an engineer could do in a single sitting (e.g. "create the VAT validation rule", not "set up the whole queue").',
@@ -27,7 +27,7 @@ export function buildPlanPrompt(deliverable: any): string {
 }
 
 export function buildTaskPrompt(
-  deliverable: any, task: any,
+  deliverable: string, task: { text?: string; acceptance?: string },
   { journal = [], doneTasks = [] }: { journal?: any[]; doneTasks?: string[] } = {},
 ): string {
   const lines = [

@@ -17,7 +17,7 @@ import { isUnlocked, onUnlockChange } from '../../training/gate.js';
 import { fetchRossumApiFresh } from '../api.js';
 import { showTether, hideTether } from './training-tether.js';
 import { track } from '../../usage/track.js';
-import type { Track } from '../../training/track.js';
+import type { Track, Mission, TrackStep } from '../../training/track.js';
 import type { Progress } from '../../training/progress.js';
 
 // Everything the loop reads from the outside world, all injectable so a test can drive it
@@ -84,7 +84,7 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return n;
 }
 
-function renderCard(progress: Progress, active: { mission: any; step: any } | null) {
+function renderCard(progress: Progress, active: { mission: Mission; step: TrackStep } | null) {
   document.getElementById(CARD_ID)?.remove();
   if (!active) return;
   injectStyle();

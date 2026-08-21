@@ -46,8 +46,8 @@ const options = {
     'scripts/rossum': 'src/rossum/index.ts',
     'scripts/netsuite': 'src/netsuite/index.ts',
     'scripts/coupa': 'src/coupa/index.ts',
-    'popup/popup': 'src/popup/popup.jsx',
-    'console/console': 'src/console/index.jsx',
+    'popup/popup': 'src/popup/popup.tsx',
+    'console/console': 'src/console/index.tsx',
     // The print page's own script (dist/console/print.html → doc-print.js). A real extension
     // page rather than a blob: URL, because a blob inherits the creator's CSP and could not
     // run an inline script — measured during the port.
@@ -58,8 +58,8 @@ const options = {
     'console/mermaid': 'src/fabry/mermaidEntry.ts',
     'background': 'src/background/index.ts',
     'devtools/devtools': 'src/devtools/devtools.ts',
-    'devtools/panel': 'src/devtools/panel.jsx',
-    'sidepanel/sidepanel': 'src/sidepanel/index.jsx',
+    'devtools/panel': 'src/devtools/panel.tsx',
+    'sidepanel/sidepanel': 'src/sidepanel/index.tsx',
   },
   bundle: true,
   // Full minification, INCLUDING identifier renaming — which also shortens CSS

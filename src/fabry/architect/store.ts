@@ -131,11 +131,11 @@ export function setActiveHeading(slug: string | null) {
 // The open deliverable's pane registers how to reach a heading; the sidebar calls it. A
 // callback rather than a signal because the same slug may be clicked twice in a row, and a
 // signal would need a nonce to re-fire.
-let outlineNavigator: ((slug: string, docId?: string) => void) | null = null;
+let outlineNavigator: ((slug: string | null | undefined, docId?: string) => void) | null = null;
 export function setOutlineNavigator(fn: unknown) { outlineNavigator = (typeof fn === 'function' ? fn : null) as typeof outlineNavigator; }
 // `docId` is optional and only matters in the unified view, where two deliverables can own the same
 // heading slug: it tells the navigator which section to resolve the slug inside.
-export function navigateOutline(slug: string, docId?: string) { if (outlineNavigator) outlineNavigator(slug, docId); }
+export function navigateOutline(slug: string | null | undefined, docId?: string) { if (outlineNavigator) outlineNavigator(slug, docId); }
 
 // Every persisted preference in this file, in ONE list, because `chrome.storage.local.get([keys])`
 // returns only the keys it was asked for — a read of an unrequested key is silently `undefined`, and

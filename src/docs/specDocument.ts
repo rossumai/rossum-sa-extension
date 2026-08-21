@@ -23,6 +23,23 @@ export function declaresOwnHeading(text: string | null | undefined): boolean {
 export type SpecDoc = { id: string; text?: string; title?: string };
 export type SpecResults = Record<string, { verdict?: string | null } | undefined>;
 
+/** One deliverable's RAW MARKDOWN, as the on-screen view and the source column receive it.
+ *  Distinct from SpecSection below, which is the RENDERED form — both were `any[]` before, so
+ *  nothing said that DocView takes source and printDoc takes rendered HTML. */
+export type SourceSection = { id: string; slug: string; text: string };
+
+/** One rendered document in a specification — what buildSpecSections returns per deliverable
+ *  and what the print page consumes. */
+export type SpecSection = {
+  id: string;
+  slug: string;
+  title: string;
+  /** False when the document opens with its own Markdown heading. */
+  showTitle: boolean;
+  verdict: string | null;
+  bodyHtml: string;
+};
+
 export function buildSpecSections({
   deliverables = [], displayTitle = (d: SpecDoc) => (d && d.title) || 'Untitled', results = {}, md,
 }: {
@@ -33,14 +50,14 @@ export function buildSpecSections({
 }) {
   const warnings: string[] = [];
   const slugs = assignSlugs(deliverables, displayTitle);
-  const sections = deliverables.map((d) => {
+  const sections: SpecSection[] = deliverables.map((d): SpecSection => {
     const title = displayTitle(d);
     const env: Record<string, unknown> = {};
     const bodyHtml = sanitizeHtml(wrapStandaloneImages(md.render(d.text || '', env)));
     reportDocWarnings(env, title, (m) => warnings.push(m));
     return {
       id: d.id,
-      slug: slugs.get(d.id),
+      slug: slugs.get(d.id)!,
       title,
       showTitle: !declaresOwnHeading(d.text),
       verdict: (results[d.id] && results[d.id]!.verdict) || null,

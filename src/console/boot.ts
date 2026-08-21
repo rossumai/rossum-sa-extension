@@ -27,7 +27,7 @@ export function pickInitialApp(
 
 // Re-locking the gate while the Academy is active falls back to Dataset
 // Management; every other app is unaffected.
-export function appAfterGateChange(activeApp: string, unlocked: boolean): string {
+export function appAfterGateChange(activeApp: AppId, unlocked: boolean): AppId {
   if (activeApp === 'academy' && !unlocked) return 'mdh';
   return activeApp;
 }
@@ -48,7 +48,8 @@ export type StagingEntry = {
 };
 
 export function resolveBootAuth(
-  { entry, session }: { entry?: StagingEntry | null; session: { token?: string; domain?: string } },
+  { entry, session }:
+  { entry?: StagingEntry | null; session: { token?: string | null; domain?: string | null } },
 ) {
   if (entry?.token && entry?.domain) {
     return {

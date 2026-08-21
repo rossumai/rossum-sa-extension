@@ -4,9 +4,22 @@ import csv from './csv.jsx';
 import xlsx from './xlsx.jsx';
 import xml from './xml.jsx';
 
-export const FORMATS = { json, jsonl, csv, xlsx, xml };
-export type FormatId = keyof typeof FORMATS;
-export function getFormat(id: string) { return FORMATS[id as FormatId]; }
+export type Format = {
+  id: string;
+  label: string;
+  accept: string;
+  read: string;
+  parse: (text: any, opts?: any) => any;
+  defaultOpts?: any;
+  /** Sniff options out of the input (csv delimiter, xml record key). */
+  detectOpts?: (text: any) => any;
+  /** The format's own Configure step, when it has options worth showing. */
+  ConfigureControls?: any;
+};
+
+export const FORMATS: Record<string, Format> = { json, jsonl, csv, xlsx, xml };
+export type FormatId = string;
+export function getFormat(id: string): Format { return FORMATS[id]; }
 
 // Union of every format's `accept` — used by the file drop area so ONE picker
 // accepts any supported type.

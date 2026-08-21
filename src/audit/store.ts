@@ -13,6 +13,10 @@ export type AuditFilters = {
   cursor: string | null;
   pageSize: number;
   search: string;
+  /** Per-source descriptors name their own filter keys (see sources/), so the shell reads
+   *  and patches this by a key it only knows at runtime. The named members above are the
+   *  ones every source has; the index signature is what lets a descriptor add more. */
+  [key: string]: unknown;
 };
 
 export type FiltersBySource = Record<string, AuditFilters>;
@@ -34,8 +38,10 @@ export type FabryState = {
   error: string | null;
   /** View signature the summary was computed for; a mismatch means it is stale. */
   forView: string | null;
-  /** Give-up marker: the view signature a refresh last FAILED for. */
-  refreshFailedFor: string | null;
+  /** Give-up marker: the view signature a refresh last FAILED for. Omitted by the
+   *  transitions that do not carry one forward (start / success), which is why it is
+   *  optional rather than required-nullable. */
+  refreshFailedFor?: string | null;
 };
 
 // Shared connection (set by the console shell before initAudit runs).

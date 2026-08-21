@@ -1,4 +1,4 @@
-// src/training/steps.js
+// src/training/steps.ts
 // PURE. Evaluation only — the curriculum lives in track.js, so a syllabus
 // rewrite never touches this file and these rules are testable without it.
 import { detectResource } from '../devtools/detect.js';
@@ -6,14 +6,15 @@ import {
   hookQueuePairs, fieldCount, ruleIds, thresholds, collectionCount,
   grew, changed,
 } from './baseline.js';
+import type { TrackStep } from './track.js';
 
 // A `visit` step names a resource TYPE from the live-verified route table in
 // src/devtools/detect.js. `detail: true` requires a detail route (the
 // descriptor carries an id); `detail: false` requires a list route.
-export function evaluateVisit(step: any, location: { pathname: string; search?: string }): boolean {
+export function evaluateVisit(step: TrackStep, location: { pathname: string; search?: string }): boolean {
   const found = detectResource(location);
   if (!found) return false;
-  const want = step.target || {};
+  const want: { type?: string; detail?: string | boolean } = step.target || {};
   if (found.type !== want.type) return false;
   if (want.detail === true) return found.id != null;
   if (want.detail === false) return found.id == null;

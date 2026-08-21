@@ -26,3 +26,15 @@ declare module 'd3-force-3d' {
   export const forceY: any;
   export const forceZ: any;
 }
+
+// CSS Modules. esbuild turns `import css from './X.module.css'` into an object of
+// generated class names; only components import these, so .js -> .ts never needed it.
+// Values are strings and the key set is whatever the stylesheet declares, which is why
+// this is an index signature rather than a per-file generated type: a build step that
+// emitted exact keys would have to run before tsc, and the payoff (catching a typo'd
+// class name) is already covered by tests/css-class-collision-boundary.test.js reading
+// the BUILT stylesheet.
+declare module '*.module.css' {
+  const classes: Record<string, string>;
+  export default classes;
+}

@@ -96,10 +96,10 @@ export async function dropCachedAnnotation(domain: string, annotationId: string 
 
 const REPLAY_PREFIX = 'mdhProv:replay:';
 
-const replayKey = (domain: string, annotationId: string | number, modifiedAt: string | number, rowIdx: number, cfgKey: string) =>
+const replayKey = (domain: string, annotationId: string | number, modifiedAt: string | number | null | undefined, rowIdx: number, cfgKey: string) =>
   `${REPLAY_PREFIX}${domain}#${annotationId}#${modifiedAt}#${rowIdx}#${cfgKey}`;
 
-export async function getCachedReplay(domain: string, annotationId: string | number, modifiedAt: string | number, rowIdx: number, cfgKey: string): Promise<any[] | null> {
+export async function getCachedReplay(domain: string, annotationId: string | number, modifiedAt: string | number | null | undefined, rowIdx: number, cfgKey: string): Promise<any[] | null> {
   if (!annotationId || !modifiedAt) return null;
   const key = replayKey(domain, annotationId, modifiedAt, rowIdx, cfgKey);
   const stored = await chrome.storage.session.get(key);
@@ -109,7 +109,7 @@ export async function getCachedReplay(domain: string, annotationId: string | num
   return entry.statuses;
 }
 
-export async function setCachedReplay(domain: string, annotationId: string | number, modifiedAt: string | number, rowIdx: number, cfgKey: string, statuses: any[]): Promise<void> {
+export async function setCachedReplay(domain: string, annotationId: string | number, modifiedAt: string | number | null | undefined, rowIdx: number, cfgKey: string, statuses: any[]): Promise<void> {
   if (!annotationId || !modifiedAt || !statuses) return;
   if (!statuses.every((s: unknown) => s != null)) return;
   await chrome.storage.session.set({

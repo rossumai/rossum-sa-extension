@@ -139,7 +139,7 @@ function findSeparatorComma(text: string, from: number, to: number): number {
 // @disabled-stage block (keeping its formatting + inner comments); enabling
 // restores the inner verbatim, even when invalid (the editor then shows the
 // parse error). No-op on a bad index or unparseable text.
-export function setStageDisabled(text: string, entryIndex: number, disabled: boolean): string | null {
+export function setStageDisabled(text: string, entryIndex: number, disabled: boolean): string {
   const { ok, segments, arrayEnd } = parsePipelineDoc(text);
   if (!ok || entryIndex < 0 || entryIndex >= segments.length) return text;
   const seg = segments[entryIndex];

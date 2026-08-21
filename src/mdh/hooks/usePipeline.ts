@@ -140,6 +140,16 @@ function defaultSortState() {
   return { _id: -1 };
 }
 
+/** The sort/filter contract threaded from the Data panel down to every record row. Four
+ *  components declared this quartet independently (and disagreed on optionality); it belongs
+ *  here because this hook owns both halves — the two state signals and the two togglers. */
+export type SortFilterControls = {
+  sortState: Record<string, number>;
+  filterState: Record<string, any>;
+  onSort: (path: string) => void;
+  onFilter: (path: string, value: unknown) => void;
+};
+
 export function usePipeline() {
   const stateRef = useRef<{
     sortState: Signal<Record<string, number>>;

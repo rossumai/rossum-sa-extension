@@ -7,7 +7,7 @@
 // lowercase tag for the dense Table view (RecordTable). Numeric subtypes share
 // the `num` tag — the value + color already read as a number; the precise BSON
 // subtype stays available via `label` (shown as the tag's tooltip).
-export const EJSON_TYPES = {
+export const EJSON_TYPES: Record<string, { label: string; short: string; css: string }> = {
   $oid: { label: 'ObjectId', short: 'oid', css: 'json-tree-value-oid' },
   $date: { label: 'Date', short: 'date', css: 'json-tree-value-date' },
   $numberLong: { label: 'Long', short: 'num', css: 'json-tree-value-number' },

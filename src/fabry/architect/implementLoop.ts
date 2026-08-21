@@ -3,6 +3,7 @@
 // checkTaskOne / checkDeliverable); state streams via onEvent(id, patch). Sequential
 // across deliverables (org writes must not race). No network/DOM. See
 // docs/superpowers/specs/2026-07-14-architect-implement-loop-design.md.
+import type { Deliverable } from './collectionPlan.js';
 
 /** One unit of work in the fix_plan. `origin` says whether it was planned, discovered or remediation. */
 export type ImplementTask = {
@@ -30,7 +31,7 @@ export type ImplementDeps = {
   signal?: AbortSignal | null;
 };
 
-export async function runImplement(deliverables: any[], {
+export async function runImplement(deliverables: Deliverable[], {
   planOne, implementTaskOne, checkTaskOne, checkDeliverable, onEvent = () => {},
   maxAttemptsPerTask = 5, maxPlanTasks = 12, maxTotalTasks = 20, maxTotalWrites = 50, maxRollupRounds = 3,
   signal,

@@ -9,7 +9,13 @@
 const stateByCollection = new Map();
 
 /** The Data panel's editable state for one collection. In-memory only. */
-export type PipelineState = { pipelineText: string; variables: Record<string, unknown>; skip: number };
+export type PipelineState = {
+  pipelineText: string;
+  variables: Record<string, unknown>;
+  skip: number;
+  /** Manual per-variable type overrides, restored with the query. */
+  placeholderTypes?: Record<string, string | undefined>;
+};
 
 export function savePipelineState(collection: string, state: PipelineState): void {
   if (!collection) return;

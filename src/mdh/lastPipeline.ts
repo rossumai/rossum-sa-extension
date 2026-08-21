@@ -14,7 +14,7 @@ export function saveLastPipeline(
   collection: string | null | undefined,
   pipelineText: string,
   variables: Record<string, string> | null | undefined,
-  placeholderTypes: Record<string, string> | null | undefined,
+  placeholderTypes: Record<string, string | undefined> | null | undefined,
 ): void {
   try {
     chrome.storage.local.set({

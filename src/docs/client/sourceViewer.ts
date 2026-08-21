@@ -23,15 +23,15 @@
 export type SourceViewerOptions = {
   /** Is this href a resource link? Differs between the pane and an exported page. */
   isSourceLink?: (href: string | null) => boolean;
-  /** href -> the key a resource is addressed by (path + search). */
-  keyFor?: (href: string) => string;
+  /** href -> the key a resource is addressed by (path + search), or null if it is not one. */
+  keyFor?: (href: string) => string | null;
   /** key -> the resource. The object form is what lets a hook arrive as Python. */
   resolve?: ((key: string) => Promise<any>) | null;
   /** (text, language) -> html string. */
   highlight?: ((text: string, language: string) => string) | null;
   /** Injected from resources.js: peel our `?view=` marker off a key, and put it back. */
-  splitView?: (k: string) => { path: string; view: string | null };
-  withView?: (k: string, view: string | null) => string;
+  splitView?: (k: string) => { path: string; view: any };
+  withView?: (k: any, view: any) => string;
 };
 
 export function initSourceViewer(root: HTMLElement, opts?: SourceViewerOptions): () => void {
@@ -176,7 +176,7 @@ export function initSourceViewer(root: HTMLElement, opts?: SourceViewerOptions):
     var href = link.getAttribute('href');
     if (!isSourceLink(href)) return;
     e.preventDefault();
-    openModal(keyFor(href as string));   // isSourceLink already rejected empty
+    openModal(keyFor(href as string) as string);   // isSourceLink already rejected empty
   }
   body.addEventListener('click', onClick);
 

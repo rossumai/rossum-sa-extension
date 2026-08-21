@@ -25,7 +25,10 @@ export function currentSection(tops: any[], scrollTop: number, offset = SPY_OFFS
 // `shown` is what the rail is displaying right now; `running` is the deliverable with a check in
 // flight. A run started from the rail must not be scrolled away mid-flight, so a running AND shown
 // deliverable HOLDS the target until it finishes.
-export function railTarget({ spy = null, pinned = null, running = null, shown = null } = {}) {
+export function railTarget(
+  { spy = null, pinned = null, running = null, shown = null }:
+  { spy?: string | null; pinned?: string | null; running?: string | null; shown?: string | null } = {},
+) {
   if (pinned) return pinned;
   if (running && running === shown) return shown;
   return spy || shown || null;
