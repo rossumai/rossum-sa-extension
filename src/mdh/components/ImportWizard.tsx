@@ -1,5 +1,5 @@
 import { h, Fragment } from 'preact';
-import { useState, useRef, useEffect } from 'preact/hooks';
+import { useState, useRef, useEffect, useMemo } from 'preact/hooks';
 import { track } from '../../usage/track.js';
 import { selectedCollection } from '../store.js';
 import { closeModal, setModalTitle, ModalBody, ModalActions, ModalFieldLabel, ModalFileTitle } from './Modal.jsx';
@@ -11,6 +11,7 @@ import { ImportProgress, ImportSummary, formatBytes } from './ImportStages.jsx';
 import { getFormat, detectFormat, ALL_ACCEPT } from '../formats/index.js';
 import { runChunkedInsert, dedupeById, stripServerFields } from '../importFile.js';
 import { deriveShape } from '../shape.js';
+import { restoreDocs, formatRestoreSummary } from '../restoreValues.js';
 import * as api from '../api.js';
 import type { JsonEditorHandle } from './JsonEditor.jsx';
 
@@ -53,7 +54,15 @@ export default function ImportWizard(
   const [shapeOverride, setShapeOverride] = useState(false);
   const [shapeError, setShapeError] = useState(false);
   const [shape, setShape] = useState<any>(null);
-  const [shapeLoading, setShapeLoading] = useState(false);
+  // Starts true, not false: ImportConfirm only mounts once stage===DECIDE, at
+  // which point the shape-sampling effect below always fires — so there is no
+  // real "we haven't decided to check yet" state to distinguish from loading.
+  // Defaulting to false left a one-tick gap, before that effect's own
+  // setShapeLoading(true) runs, where the confirm button (and the restore
+  // summary) briefly read as if there were no reference shape at all — a
+  // regression the "Replace" routing tests below caught via a genuine
+  // enabled→disabled→enabled flicker once the button started gating on it.
+  const [shapeLoading, setShapeLoading] = useState(true);
   const [shapeCount, setShapeCount] = useState(0);
   const [shapeCoversAll, setShapeCoversAll] = useState(false);
   const [importProgress, setImportProgress] = useState<any>(null);
@@ -76,6 +85,10 @@ export default function ImportWizard(
   const fmt = format ? getFormat(format) : null;
   const setOpt = (k: any, v: any) => setOpts((o) => ({ ...o, [k]: v }));
 
+  // Inference is layer 3 and must lose to the collection's own types, so it is
+  // relocated out of the parser into restoreDocs whenever restore is on.
+  const parseOpts = (o: Record<string, any>) => (o.restoreValues ? { ...o, inferTypes: false } : o);
+
   // ---- file pick (drop or click) ----
   function handleFile(fileObj: any) {
     setErrorMsg(null);
@@ -90,7 +103,7 @@ export default function ImportWizard(
       const initialOpts = f.detectOpts ? { ...f.defaultOpts, ...f.detectOpts(input) } : f.defaultOpts;
       setOpts(initialOpts);
       lastParsedOptsRef.current = JSON.stringify(initialOpts);
-      const res = await Promise.resolve(f.parse(input, initialOpts));
+      const res = await Promise.resolve(f.parse(input, parseOpts(initialOpts)));
       if (!f.ConfigureControls) {
         // No parsing options to fix on the Decide screen — errors stay here.
         if (res.error) { setErrorMsg(res.error.message); return; }
@@ -130,7 +143,7 @@ export default function ImportWizard(
     if (optsKey === lastParsedOptsRef.current) return undefined;
     lastParsedOptsRef.current = optsKey;
     const token = ++parseToken.current;
-    Promise.resolve(fmt.parse(rawInput, opts))
+    Promise.resolve(fmt.parse(rawInput, parseOpts(opts)))
       .then((res) => { if (token === parseToken.current) { setParsed(res); setKeys([]); setShapeOverride(false); } })
       .catch((err) => { if (token === parseToken.current) setParsed({ docs: [], columns: [], warnings: [], error: { message: err.message } }); });
     return undefined;
@@ -169,11 +182,29 @@ export default function ImportWizard(
     return () => { alive = false; };
   }, [stage, selectedCollection.value]);
 
+  // ONE source of truth: the preview, the shape check and the upload all read
+  // these docs, so what the user sees is exactly what gets written.
+  const restored = useMemo(() => {
+    if (!parsed) return null;
+    if (!opts.restoreValues) return { docs: parsed.docs, summary: null };
+    const r = restoreDocs(parsed.docs, shape, { inferTypes: !!opts.inferTypes });
+    return { docs: r.docs, summary: r.summary };
+  }, [parsed, shape, opts.restoreValues, opts.inferTypes]);
+
+  const importDocs = restored?.docs ?? [];
+  // While the shape sample is still loading, `shape` is null — indistinguishable
+  // from "the collection is empty" — so the summary must wait rather than
+  // assert an emptiness that isn't known yet (same root cause as the confirm
+  // button gate below).
+  const restoreSummary = restored?.summary && !shapeLoading
+    ? formatRestoreSummary(restored.summary, { hasShape: !!shape, shapeError })
+    : null;
+
   // ---- import ----
   async function startImport() {
     track('sa_mdh_import');
     setErrorMsg(null);
-    const docs = parsed.docs;
+    const docs = importDocs;
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     try {
@@ -293,21 +324,27 @@ export default function ImportWizard(
             </div>
           )}
           {(parsed.error || (parsed.columns || []).length > 0)
-            ? <CsvPreview parsed={parsed} />
-            : <JsonPreview docs={parsed.docs} />}
-          {(parsed.error || !parsed.docs.length) ? (
+            ? (
+              <CsvPreview
+                parsed={{ ...parsed, docs: importDocs, warnings: [...(parsed.warnings || []), ...(restored?.summary?.warnings || [])] }}
+                nested={!!opts.restoreValues}
+              />
+            )
+            : <JsonPreview docs={importDocs} />}
+          {(parsed.error || !importDocs.length) ? (
             <ModalActions>
               <button class="btn btn-secondary" style="margin-right:auto" data-testid="import-back" onClick={decideBack}>{'←'} Back</button>
               <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>
             </ModalActions>
           ) : (
             <ImportConfirm
-              docs={parsed.docs}
+              docs={importDocs}
               mode={mode} setMode={setMode}
               keys={keys} setKeys={setKeys}
               shapeOverride={shapeOverride} setShapeOverride={setShapeOverride}
               shape={shape} shapeLoading={shapeLoading} shapeError={shapeError}
               shapeCount={shapeCount} shapeCoversAll={shapeCoversAll}
+              restoreSummary={restoreSummary}
               onImport={startImport} onCancel={closeModal} onBack={decideBack}
             />
           )}

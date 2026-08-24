@@ -5,7 +5,9 @@
 import { getEjsonType, formatEjsonValue } from './displayValue.js';
 import { dateToSerial } from './xlsxDates.js';
 import * as api from './api.js';
-import { orderColumns, buildColumnDiscoveryPipeline } from './csv.js';
+import { orderColumns } from './csv.js';
+import { discoverLeafPaths } from './columnDiscovery.js';
+import { flattenDoc } from './flatten.js';
 
 const ENC = new TextEncoder();
 
@@ -281,8 +283,7 @@ export function buildXlsxSerializer(
     ) {
       writeBytesRef = writeBytes;
       if (cols == null) {
-        const res = await api.aggregate(collectionName, buildColumnDiscoveryPipeline(pipelineStages));
-        cols = orderColumns(res?.result?.[0]?.keys ?? []);
+        cols = orderColumns(await discoverLeafPaths(collectionName, pipelineStages, { aggregate: api.aggregate }));
       }
       sheetEntryOffset = offset;
       await emit(localHeader({ name: SHEET_PART, method: 8, flag: 0x0008, crc: 0, compSize: 0, uncompSize: 0 }));
@@ -304,7 +305,8 @@ export function buildXlsxSerializer(
     async writeDocs(docs: any[]) {
       let buf = '';
       for (const doc of docs) {
-        const values = cols!.map((c) => (doc == null ? undefined : doc[c]));
+        const flat = doc == null ? {} : flattenDoc(doc);
+        const values = cols!.map((c) => flat[c]);
         buf += rowXml(rowIndex, values);
         rowIndex++;
       }

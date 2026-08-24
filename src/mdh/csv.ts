@@ -1,4 +1,5 @@
 import { getEjsonType, formatEjsonValue } from './displayValue.js';
+import { flattenDoc } from './flatten.js';
 
 // Pure, dependency-free CSV → JSON conversion for the Dataset Management app.
 //
@@ -235,22 +236,11 @@ export function detectDelimiter(text: string): string {
 
 // ---- CSV export (serialization) — symmetric with the parser above ----
 
-// Order discovered top-level keys for a CSV header: _id first (if present),
+// Order discovered leaf paths for a CSV header: _id first (if present),
 // then the rest alphabetically (locale-aware).
 export function orderColumns(keys: string[]): string[] {
   const rest = keys.filter((k) => k !== '_id').sort((a, b) => a.localeCompare(b));
   return keys.includes('_id') ? ['_id', ...rest] : rest;
-}
-
-// Aggregation that returns { _id: null, keys: [...distinct top-level field names] }
-// over the (already-filtered) docs — used to build the CSV header before streaming.
-export function buildColumnDiscoveryPipeline(filterStages: any[] = [{ $match: {} }]): any[] {
-  return [
-    ...filterStages,
-    { $project: { kv: { $objectToArray: '$$ROOT' } } },
-    { $unwind: '$kv' },
-    { $group: { _id: null, keys: { $addToSet: '$kv.k' } } },
-  ];
 }
 
 // Render one value as a CSV field (no delimiter). Objects/arrays are JSON-encoded.
@@ -274,10 +264,13 @@ export function csvCell(value: unknown, { delimiter = ',', quoteChar = '"' }: Cs
   return s;
 }
 
-// Join one document's column values into a CSV row (missing key -> empty cell).
+// Join one document's column values into a CSV row. Columns are leaf PATHS
+// (see columnDiscovery.ts), so the document is flattened by the same rule that
+// produced the header — a missing path is an empty cell.
 export function csvRow(doc: any, columns: string[], dialect: CsvDialect = {}): string {
   const delimiter = dialect.delimiter || ',';
-  return columns.map((c) => csvCell(doc == null ? undefined : doc[c], dialect)).join(delimiter);
+  const flat = doc == null ? {} : flattenDoc(doc);
+  return columns.map((c) => csvCell(flat[c], dialect)).join(delimiter);
 }
 
 // Header row from column names (names quoted by the same rule as cells).

@@ -135,4 +135,17 @@ describe('buildXlsxSerializer round-trip (writer -> reader)', () => {
     expect(error).toBe(null);
     expect(docs[0]).toEqual({ joined: { $date: '2024-01-01T00:00:00.000Z' } });
   });
+
+  // The regression this task exists to prevent: `writeDocs` must read a
+  // dotted column by flattening the real document (flattenDoc), not by a
+  // flat `doc[column]` lookup. `doc['meta.role']` is undefined on this
+  // document — the real value lives at `doc.meta.role` — so a flat lookup
+  // would silently write an empty cell under a correct, discovered header.
+  it('writes a nested value under its dotted leaf column', async () => {
+    const buf = await buildWorkbook([{ _id: 'V3', meta: { role: 'admin' } }], ['_id', 'meta.role']);
+    const { docs, columns, error } = await parseXlsx(buf, { hasHeader: true, emptyMode: 'omit' });
+    expect(error).toBe(null);
+    expect(columns).toEqual(['_id', 'meta.role']);
+    expect(docs[0]).toEqual({ _id: 'V3', 'meta.role': 'admin' });
+  });
 });

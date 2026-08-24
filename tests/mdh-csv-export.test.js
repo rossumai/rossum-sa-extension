@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { csvCell, csvRow, csvHeader, orderColumns, buildColumnDiscoveryPipeline } from '../src/mdh/csv.js';
+import { csvCell, csvRow, csvHeader, orderColumns } from '../src/mdh/csv.js';
 
 describe('csvCell', () => {
   const d = { delimiter: ',' };
@@ -55,13 +55,18 @@ describe('orderColumns', () => {
   });
 });
 
-describe('buildColumnDiscoveryPipeline', () => {
-  it('appends objectToArray/unwind/group to the filter stages', () => {
-    expect(buildColumnDiscoveryPipeline([{ $match: { active: true } }])).toEqual([
-      { $match: { active: true } },
-      { $project: { kv: { $objectToArray: '$$ROOT' } } },
-      { $unwind: '$kv' },
-      { $group: { _id: null, keys: { $addToSet: '$kv.k' } } },
-    ]);
+describe('csvRow with dotted columns', () => {
+  it('reads a nested value by its dotted path', () => {
+    const doc = { _id: 'x', address: { city: 'TOWN', line: ['PO BOX 1'] } };
+    expect(csvRow(doc, ['_id', 'address.city', 'address.line'], { delimiter: ',' }))
+      .toBe('x,TOWN,"[""PO BOX 1""]"');
+  });
+
+  it('leaves a column the document lacks empty', () => {
+    expect(csvRow({ a: { b: 1 } }, ['a.b', 'a.c'], { delimiter: ',' })).toBe('1,');
+  });
+
+  it('reads a literal dotted key through its escaped header', () => {
+    expect(csvRow({ 'a.b': 7 }, ['a\\.b'], { delimiter: ',' })).toBe('7');
   });
 });

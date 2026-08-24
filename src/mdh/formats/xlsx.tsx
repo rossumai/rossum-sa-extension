@@ -5,7 +5,7 @@ import { Segmented, Toggle } from '../components/ImportControls.jsx';
 // The options bag every format's Configure controls edit, plus its setter.
 type ControlsProps = { opts: Record<string, any>; setOpt: (key: string, value: any) => void };
 
-const defaultOpts = { sheet: null, hasHeader: true, emptyMode: 'null', trim: false };
+const defaultOpts = { sheet: null, hasHeader: true, emptyMode: 'null', trim: false, restoreValues: true };
 
 const EMPTY_SEG = [
   { value: 'empty', label: '""', title: 'Empty string' },
@@ -28,6 +28,10 @@ function ConfigureControls({ opts, setOpt, parsed }: ControlsProps & { parsed?: 
       <span class="csv-tb-item">
         <span class="csv-tb-k" title="Use row 1 as field names.">First row is a header</span>
         <Toggle checked={opts.hasHeader} onChange={(v) => setOpt('hasHeader', v)} testid="xlsx-header" title="Use row 1 as field names." />
+      </span>
+      <span class="csv-tb-item">
+        <span class="csv-tb-k" title="Rebuild objects and arrays the export flattened, and match values to the types this collection already uses.">Restore structure {'&'} types</span>
+        <Toggle checked={opts.restoreValues} onChange={(v) => setOpt('restoreValues', v)} testid="xlsx-restore" title="Rebuild what the export flattened." />
       </span>
       <span class="csv-tb-item">
         <span class="csv-tb-k" title="What an empty cell becomes.">Empty cell {'→'}</span>

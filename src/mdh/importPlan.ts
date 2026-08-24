@@ -1,9 +1,4 @@
-// A single-key object whose one key starts with '$' is an EJSON wrapper — a leaf.
-function isEjsonWrapper(v: any): boolean {
-  if (!v || typeof v !== 'object' || Array.isArray(v)) return false;
-  const ks = Object.keys(v);
-  return ks.length === 1 && ks[0].startsWith('$');
-}
+import { isEjsonWrapper } from './flatten.js';
 
 function walkPaths(obj: any, prefix: string, depth: number, maxDepth: number, out: Set<string>): void {
   for (const k of Object.keys(obj)) {

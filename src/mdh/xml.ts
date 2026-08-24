@@ -4,6 +4,7 @@
 // document each, producing the same { docs, columns, warnings, error } shape as
 // csv.js/xlsx.js so the existing import tail is reused.
 import { inferValue } from './csv.js';
+import { getEjsonType, formatEjsonValue } from './displayValue.js';
 
 const local = (name: string) => { const i = name.indexOf(':'); return i >= 0 ? name.slice(i + 1) : name; };
 const childElements = (el: Element) => [...el.children];
@@ -142,12 +143,18 @@ export function toXmlName(key: unknown): string {
   return s;
 }
 
-// null/undefined → <name/>; array → repeated <name>; object → nested; primitive → text.
+// null/undefined -> <name/>; array -> repeated <name>; EJSON wrapper -> its scalar
+// text (a nested <_oid> could never come back — toXmlName strips the '$');
+// object -> nested; primitive -> text.
 export function valueToXml(name: string, value: unknown): string {
   const tag = toXmlName(name);
   if (value === null || value === undefined) return `<${tag}/>`;
   if (Array.isArray(value)) return value.map((v) => valueToXml(name, v)).join('');
-  if (typeof value === 'object') return `<${tag}>${Object.entries(value).map(([k, v]) => valueToXml(k, v)).join('')}</${tag}>`;
+  if (typeof value === 'object') {
+    const ejson = getEjsonType(value);
+    if (ejson) return `<${tag}>${escapeXml(formatEjsonValue(value, ejson))}</${tag}>`;
+    return `<${tag}>${Object.entries(value).map(([k, v]) => valueToXml(k, v)).join('')}</${tag}>`;
+  }
   return `<${tag}>${escapeXml(value)}</${tag}>`;
 }
 

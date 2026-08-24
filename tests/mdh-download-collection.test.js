@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../src/mdh/api.js');
 import * as api from '../src/mdh/api.js';
 import { downloadCollection, BATCH_SIZE, CONCURRENCY, buildJsonSerializer, buildCsvSerializer } from '../src/mdh/downloadCollection.js';
-import { buildColumnDiscoveryPipeline } from '../src/mdh/csv.js';
+import { buildLevelPipeline } from '../src/mdh/columnDiscovery.js';
 
 function fakeWriter() {
   const chunks = [];
@@ -575,7 +575,11 @@ describe('downloadCollection — filename option', () => {
 describe('downloadCollection — CSV serializer', () => {
   it('discovers columns (_id-first, alphabetical) and writes header + CRLF rows', async () => {
     api.aggregate
-      .mockResolvedValueOnce({ result: [{ _id: null, keys: ['name', '_id', 'active'] }] })  // discovery
+      .mockResolvedValueOnce({ result: [{ f0: [
+        { _id: 'name', types: ['string'] },
+        { _id: '_id', types: ['objectId'] },
+        { _id: 'active', types: ['bool'] },
+      ] }] })  // discovery
       .mockResolvedValueOnce({ result: [
         { _id: 'V1', name: 'Acme', active: true },
         { _id: 'V2', name: 'Globex' },                 // missing `active`
@@ -589,15 +593,16 @@ describe('downloadCollection — CSV serializer', () => {
     });
 
     expect(result).toEqual({ fetched: 2, cancelled: false, streamed: true });
-    // discovery call uses the column-discovery pipeline on the default filter
-    expect(api.aggregate).toHaveBeenNthCalledWith(1, 'vendors', buildColumnDiscoveryPipeline([{ $match: {} }]));
+    // discovery's first (and, since no field is object-valued, only) round trip
+    // uses the level-1 pipeline over the default filter
+    expect(api.aggregate).toHaveBeenNthCalledWith(1, 'vendors', buildLevelPipeline([{ $match: {} }], ['']), { signal: undefined });
     // columns ordered _id, active, name
     expect(writer.chunks.join('')).toBe('_id,active,name\r\nV1,true,Acme\r\nV2,,Globex');
   });
 
   it('omits the header when header:false and prepends a BOM when bom:true', async () => {
     api.aggregate
-      .mockResolvedValueOnce({ result: [{ _id: null, keys: ['_id'] }] })
+      .mockResolvedValueOnce({ result: [{ f0: [{ _id: '_id', types: ['objectId'] }] }] })
       .mockResolvedValueOnce({ result: [{ _id: 1 }, { _id: 2 }] });
     const writer = fakeWriter();
     await downloadCollection('c', {
@@ -610,7 +615,7 @@ describe('downloadCollection — CSV serializer', () => {
 
   it('honors a custom delimiter', async () => {
     api.aggregate
-      .mockResolvedValueOnce({ result: [{ _id: null, keys: ['a', 'b'] }] })
+      .mockResolvedValueOnce({ result: [{ f0: [{ _id: 'a', types: ['string'] }, { _id: 'b', types: ['string'] }] }] })
       .mockResolvedValueOnce({ result: [{ a: '1', b: '2' }] });
     const writer = fakeWriter();
     await downloadCollection('c', {
@@ -623,7 +628,7 @@ describe('downloadCollection — CSV serializer', () => {
 
   it('uses a .csv Blob (text/csv) in the fallback path', async () => {
     api.aggregate
-      .mockResolvedValueOnce({ result: [{ _id: null, keys: ['_id'] }] })
+      .mockResolvedValueOnce({ result: [{ f0: [{ _id: '_id', types: ['objectId'] }] }] })
       .mockResolvedValueOnce({ result: [{ _id: 1 }] });
     const downloadBlob = vi.fn();
     await downloadCollection('orders', {
@@ -664,7 +669,7 @@ describe('downloadCollection — CSV serializer', () => {
   });
 
   it('writes a header-only CSV for an empty collection', async () => {
-    api.aggregate.mockResolvedValueOnce({ result: [] }); // discovery over empty collection -> no $group output
+    api.aggregate.mockResolvedValueOnce({ result: [{ f0: [] }] }); // discovery over empty collection -> facet with no rows
     const writer = fakeWriter();
     const result = await downloadCollection('empty', {
       fetchCount: async () => 0,
@@ -676,9 +681,48 @@ describe('downloadCollection — CSV serializer', () => {
     expect(writer.chunks.join('')).toBe('\r\n');     // empty header (no columns) + CRLF
   });
 
-  it('JSON-encodes a nested field value through the exporter', async () => {
+  it('JSON-encodes a non-scalar leaf value (array) through the exporter', async () => {
     api.aggregate
-      .mockResolvedValueOnce({ result: [{ _id: null, keys: ['_id', 'meta'] }] })
+      // `meta` reports 'array' only, so discovery treats it as a single leaf
+      // column rather than descending into it — flattenDoc agrees, because
+      // isLeafValue treats every array as a leaf regardless of depth. (Before
+      // Task 5, csvRow read `doc[column]` directly and a plain nested OBJECT
+      // here would have exercised the same JSON-encoding path; now that csvRow
+      // flattens the document by the same leaf rule discovery uses, a plain
+      // object under a column discovery calls a leaf would instead be
+      // descended into by flattenDoc and land under `meta.role`, not `meta` —
+      // so the value here is an array, which both discovery and flattenDoc
+      // agree is a leaf, to isolate csvCell's own JSON-encoding of a nested
+      // CELL VALUE from discovery's leaf-path expansion (covered in
+      // mdh-column-discovery.test.js).
+      .mockResolvedValueOnce({ result: [{ f0: [{ _id: '_id', types: ['objectId'] }, { _id: 'meta', types: ['array'] }] }] })
+      .mockResolvedValueOnce({ result: [{ _id: 'V3', meta: ['role', 'admin'] }] });
+    const writer = fakeWriter();
+    await downloadCollection('c', {
+      fetchCount: async () => 1,
+      serializer: buildCsvSerializer({ dialect: { delimiter: ',' }, header: true, bom: false }),
+      pickFile: () => Promise.resolve(fakeHandle(writer)),
+    });
+    expect(writer.chunks.join('')).toBe('_id,meta\r\nV3,"[""role"",""admin""]"');
+  });
+
+  it('writes a nested value under its dotted leaf column when discovery reports an object-typed field', async () => {
+    // This is the end-to-end path the whole task exists to make work: discovery
+    // sees `meta` as object-typed and descends a second round trip to find the
+    // leaf `meta.role`; the actually-fetched document really does carry an
+    // object at `meta`, so discovery and flattenDoc agree on the same real
+    // shape (contrast the array-fixture test above, which deliberately keeps
+    // `meta` a leaf on both sides). If `csvRow` ever regressed to a flat
+    // `doc[column]` lookup, `doc['meta.role']` is undefined on this document
+    // (the real value lives at `doc.meta.role`) and the cell would come back
+    // empty instead of 'admin'.
+    api.aggregate
+      // depth 1: root-level fields — meta is object-typed, so it's queued as a
+      // pending parent rather than added as a leaf.
+      .mockResolvedValueOnce({ result: [{ f0: [{ _id: '_id', types: ['objectId'] }, { _id: 'meta', types: ['object'] }] }] })
+      // depth 2: meta's own fields — role is a plain string leaf.
+      .mockResolvedValueOnce({ result: [{ f0: [{ _id: 'role', types: ['string'] }] }] })
+      // the actual fetched document, matching what discovery predicted.
       .mockResolvedValueOnce({ result: [{ _id: 'V3', meta: { role: 'admin' } }] });
     const writer = fakeWriter();
     await downloadCollection('c', {
@@ -686,6 +730,7 @@ describe('downloadCollection — CSV serializer', () => {
       serializer: buildCsvSerializer({ dialect: { delimiter: ',' }, header: true, bom: false }),
       pickFile: () => Promise.resolve(fakeHandle(writer)),
     });
-    expect(writer.chunks.join('')).toBe('_id,meta\r\nV3,"{""role"":""admin""}"');
+    expect(api.aggregate).toHaveBeenCalledTimes(3); // 2 discovery round trips + 1 data batch
+    expect(writer.chunks.join('')).toBe('_id,meta.role\r\nV3,admin');
   });
 });

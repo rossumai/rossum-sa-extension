@@ -39,7 +39,7 @@ describe('xlsx streamed export via the download engine', () => {
   it('discovers columns from the collection when none are supplied', async () => {
     api.aggregate.mockImplementation(async (col, pipeline) => {
       const last = pipeline[pipeline.length - 1];
-      if (last && last.$group) return { result: [{ _id: null, keys: ['_id', 'name'] }] };
+      if (last && last.$facet) return { result: [{ f0: [{ _id: '_id', types: ['objectId'] }, { _id: 'name', types: ['string'] }] }] };
       return { result: [{ _id: 'V1', name: 'x' }] };
     });
     let blob = null;

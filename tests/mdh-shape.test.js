@@ -16,7 +16,7 @@ describe('typeOf', () => {
 });
 
 describe('deriveShape', () => {
-  it('walks nested paths, treats arrays as leaves, and reports uniform', () => {
+  it('walks nested paths, treats arrays as leaves, and detects all fields are required', () => {
     const s = deriveShape([
       { sku: 'A1', price: 10, meta: { active: true }, tags: ['x'] },
       { sku: 'B2', price: 20, meta: { active: false }, tags: [] },
@@ -24,29 +24,33 @@ describe('deriveShape', () => {
     expect([...s.paths.keys()].sort()).toEqual(['meta.active', 'price', 'sku', 'tags']);
     expect(s.paths.get('price')).toEqual(new Set(['number']));
     expect(s.paths.get('tags')).toEqual(new Set(['array']));
-    expect(s.uniform).toBe(true);
     expect(s.optionalPaths).toEqual([]);
   });
 
-  it('flags non-uniform when a field is optional or has mixed types', () => {
+  it('detects optional fields and mixed types', () => {
     const s = deriveShape([
       { sku: 'A1', price: 10 },
       { sku: 'B2', price: '20', note: 'hi' },
     ]);
-    expect(s.uniform).toBe(false);
+    expect(s.optionalPaths.length).toBeGreaterThan(0);
     expect(s.optionalPaths).toContain('note');
     expect(s.paths.get('price')).toEqual(new Set(['number', 'string']));
   });
 
-  it('treats a nullable field (type ∪ null) as still uniform (null never over-rejects)', () => {
+  it('treats a nullable field (type ∪ null) as required (null never over-rejects)', () => {
     const s = deriveShape([
       { code: 'A', tax: 'V1' },
       { code: 'B', tax: null },   // nullable column — present everywhere, sometimes null
       { code: 'C', tax: 'V2' },
     ]);
     expect(s.paths.get('tax')).toEqual(new Set(['string', 'null']));
-    expect(s.optionalPaths).toEqual([]); // present in every doc
-    expect(s.uniform).toBe(true);        // string|null is NOT a real clash → no false warning
+    expect(s.optionalPaths).toEqual([]); // string|null is present everywhere → not optional
+    // Validate that a null value is accepted against a string-typed reference
+    const r1 = validateAgainstShape([{ code: 'D', tax: null }], s);
+    expect(r1.ok).toBe(true); // null is compatible with string|null shape
+    // And validate that a string is accepted against a nullable reference
+    const r2 = validateAgainstShape([{ code: 'E', tax: 'V3' }], s);
+    expect(r2.ok).toBe(true); // string is compatible with string|null shape
   });
 });
 
@@ -84,6 +88,38 @@ describe('validateAgainstShape', () => {
     const nullShape = deriveShape([{ sku: 'A1', price: null, meta: { active: true } }]);
     const r2 = validateAgainstShape([{ sku: 'B2', price: 20, meta: { active: false } }], nullShape);
     expect(r2.ok).toBe(true);
+  });
+});
+
+describe('validateAgainstShape — missingTypes / unknownTypes (additive)', () => {
+  it('reports the collection type for a missing path', () => {
+    const shape = deriveShape([{ sku: 'A1', price: 10, meta: { active: true } }]);
+    const r = validateAgainstShape([{ sku: 'B2', price: 20 }], shape);
+    expect(r.missing).toContain('meta.active');
+    expect(r.missingTypes.get('meta.active')).toBe('bool');
+  });
+
+  it('joins a multi-type reference set with "/"', () => {
+    const shape = deriveShape([{ sku: 'A1', price: 10 }, { sku: 'B2', price: '20' }]);
+    const r = validateAgainstShape([{ sku: 'C3' }], shape); // price omitted entirely
+    expect(r.missing).toContain('price');
+    expect(r.missingTypes.get('price').split('/').sort()).toEqual(['number', 'string']);
+  });
+
+  it('reports the file type for an unknown path', () => {
+    const shape = deriveShape([{ sku: 'A1', price: 10 }]);
+    const r = validateAgainstShape([{ sku: 'B2', price: 20, extra: 'hi' }], shape);
+    expect(r.unknown).toContain('extra');
+    expect(r.unknownTypes.get('extra')).toBe('string');
+  });
+
+  it('does not change missing/unknown themselves — still plain string arrays', () => {
+    const shape = deriveShape([{ sku: 'A1', price: 10 }]);
+    const r = validateAgainstShape([{ sku: 'B2', price: 20, extra: 'hi' }], shape);
+    expect(Array.isArray(r.missing)).toBe(true);
+    expect(r.missing.every((p) => typeof p === 'string')).toBe(true);
+    expect(Array.isArray(r.unknown)).toBe(true);
+    expect(r.unknown.every((p) => typeof p === 'string')).toBe(true);
   });
 });
 
@@ -139,5 +175,37 @@ describe('validateAgainstShape — whitespace pairing', () => {
   it('failedDocCount still counts whitespace-failing docs', () => {
     const r = validateAgainstShape([{ 'sku ': 'A1', price: 10 }, { sku: 'B2', price: 20 }], ref);
     expect(r.failedDocCount).toBe(1);
+  });
+});
+
+describe('optional paths are not required (spec §2.4)', () => {
+  it('a row missing a field that only some existing records carry is NOT missing', () => {
+    const shape = deriveShape([{ sku: 'A1', note: 'x' }, { sku: 'B2' }]); // note is optional
+    const r = validateAgainstShape([{ sku: 'C3' }], shape);
+    expect(r.ok).toBe(true);
+    expect(r.missing).toEqual([]);
+  });
+
+  it('a field present in EVERY existing record is still required', () => {
+    const shape = deriveShape([{ sku: 'A1', note: 'x' }, { sku: 'B2', note: 'y' }]);
+    const r = validateAgainstShape([{ sku: 'C3' }], shape);
+    expect(r.ok).toBe(false);
+    expect(r.missing).toEqual(['note']);
+  });
+
+  it('an optional path still type-checks when the row DOES carry it', () => {
+    const shape = deriveShape([{ sku: 'A1', n: 1 }, { sku: 'B2' }]);
+    expect(validateAgainstShape([{ sku: 'C3', n: 'not-a-number' }], shape).ok).toBe(false);
+  });
+});
+
+describe('path grammar (spec §4.2)', () => {
+  it('tells a literal dotted key apart from real nesting', () => {
+    const nested = deriveShape([{ a: { b: 1 } }]);
+    const literal = deriveShape([{ 'a.b': 1 }]);
+    expect([...nested.paths.keys()]).toEqual(['a.b']);
+    expect([...literal.paths.keys()]).toEqual(['a\\.b']);
+    expect(validateAgainstShape([{ 'a.b': 1 }], nested).ok).toBe(false);
+    expect(validateAgainstShape([{ a: { b: 1 } }], literal).ok).toBe(false);
   });
 });

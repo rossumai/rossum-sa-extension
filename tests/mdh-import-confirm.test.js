@@ -156,6 +156,22 @@ describe('ImportConfirm', () => {
     expect(root.querySelector('[data-testid="import-plan"]').textContent).toMatch(/Shape check unavailable/i);
   });
 
+  // Reviewer-measured defect: shapeCheck is null while shape is still null
+  // (i.e. still loading), so shapeOk was true and canImport was true for the
+  // whole $sample round trip — restoreDocs had already run with shape===null
+  // (heuristics only), so a fast click could import documents the
+  // shape-guided restore layer never touched.
+  it('disables Go while the shape sample is still loading, for every mode', () => {
+    const insert = mount(h(ImportConfirm, { ...base, mode: 'insert', shapeLoading: true }));
+    expect(insert.querySelector('[data-testid="import-go"]').disabled).toBe(true);
+
+    const update = mount(h(ImportConfirm, { ...base, mode: 'update', keys: ['sku'], shapeLoading: true }));
+    expect(update.querySelector('[data-testid="import-go"]').disabled).toBe(true);
+
+    const replace = mount(h(ImportConfirm, { ...base, mode: 'replace', shapeLoading: true }));
+    expect(replace.querySelector('[data-testid="import-go"]').disabled).toBe(true);
+  });
+
   it('shows the sample note inside the red panel on mismatch', () => {
     const shape = deriveShape([{ sku: 'A1', price: 10, region: 'EU' }]);
     const bad = mount(h(ImportConfirm, { ...base, shape, shapeCount: 42, docs: [{ sku: 'B2', price: 20 }] }));
@@ -174,20 +190,18 @@ describe('ImportConfirm', () => {
     expect(err.textContent).toMatch(/region/); // the missing field is named
   });
 
-  it('non-uniform + mismatching docs: the error card warns about over-rejection', () => {
-    const shape = deriveShape([{ sku: 'A1', price: 10 }, { sku: 'B2', price: 20, note: 'x' }]); // note optional -> non-uniform
-    const root = mount(h(ImportConfirm, { ...base, mode: 'insert', shape }));
-    const err = root.querySelector('[data-testid="import-shape-error"]');
-    expect(err).toBeTruthy();
-    expect(err.textContent).toMatch(/may over-reject/i);
+  it('a row missing an optional field no longer trips the guard', () => {
+    const shape = deriveShape([{ sku: 'A1', price: 10 }, { sku: 'B2', price: 20, note: 'x' }]);
+    const root = mount(h(ImportConfirm, { ...base, mode: 'insert', shape, shapeCount: 2 }));
+    expect(root.querySelector('[data-testid="import-shape-error"]')).toBe(null);
+    expect(root.querySelector('[data-testid="import-shape-ok"]')).toBeTruthy();
+    expect(root.querySelector('[data-testid="import-go"]').disabled).toBe(false);
   });
 
-  it('non-uniform + matching docs: only the pass line renders, no uniform warning', () => {
-    const shape = deriveShape([{ sku: 'A1', price: 10 }, { sku: 'B2', note: 'y' }]); // price/note optional -> non-uniform
-    const root = mount(h(ImportConfirm, { ...base, mode: 'insert', shape, docs: [{ sku: 'C3', price: 5, note: 'w' }] }));
-    expect(root.querySelector('[data-testid="import-shape-ok"]')).toBeTruthy();
-    expect(root.querySelector('[data-testid="import-shape-error"]')).toBe(null);
-    expect(root.textContent).not.toMatch(/uniform/i);
+  it('no longer shows the over-rejection note, because it no longer over-rejects', () => {
+    const shape = deriveShape([{ sku: 'A1', price: 10 }, { sku: 'B2', price: 20, note: 'x' }]);
+    const root = mount(h(ImportConfirm, { ...base, mode: 'insert', shape }));
+    expect(root.textContent).not.toMatch(/over-reject/i);
   });
 
   it('reports a whitespace-only column difference explicitly and visibly', () => {
@@ -234,6 +248,112 @@ describe('ImportConfirm', () => {
     expect(over.querySelector('[data-testid="shape-override"]').checked).toBe(true);
     expect(over.querySelector('[data-testid="import-go"]').disabled).toBe(false);
     expect(over.querySelector('[data-testid="shape-overridden"]')).toBe(null);
+  });
+
+  // Redesign (2026-08-24): direction used to be stated in prose captions
+  // ("in the file, not in the collection" / "in the collection, not in the
+  // file") next to the Missing/Unexpected lists. Those captions are deleted
+  // by design — the ledger table now states direction by COLUMN POSITION
+  // (the "In the collection" / "In the file" headers), so the same fact is
+  // asserted here structurally instead of via the old prose.
+  it('states which side each error came from — positionally, via the ledger columns', () => {
+    const shape = deriveShape([{ sku: 'A1', at: { $date: '2026-01-31T09:00:00.000Z' } }]);
+    const root = mount(h(ImportConfirm, {
+      ...base, shape, shapeCount: 1, docs: [{ sku: 'B2', at: 'text', extra: 1 }],
+    }));
+    const err = root.querySelector('[data-testid="import-shape-error"]');
+    const extraRow = err.querySelector('[data-testid="ledger-row"][data-path="extra"]');
+    expect(extraRow.querySelector('.import-ledger-cell-collection').textContent).toMatch(/\(absent\)/);
+    expect(extraRow.querySelector('.import-ledger-cell-file').textContent).toMatch(/number/);
+    const atRow = err.querySelector('[data-testid="ledger-row"][data-path="at"]');
+    expect(atRow.querySelector('.import-ledger-cell-collection').textContent).toMatch(/date/i);
+    expect(atRow.querySelector('.import-ledger-cell-file').textContent).toMatch(/string/i);
+    expect(err.textContent).not.toMatch(/date → string/);
+    expect(err.textContent).not.toMatch(/in the file, not in the collection/i);
+  });
+
+  it('names the missing side explicitly too — the collection column carries its type, the file column reads "(absent)"', () => {
+    const shape = deriveShape([{ sku: 'A1', region: 'EU' }]);
+    const root = mount(h(ImportConfirm, { ...base, shape, shapeCount: 1, docs: [{ sku: 'B2' }] }));
+    const err = root.querySelector('[data-testid="import-shape-error"]');
+    const row = err.querySelector('[data-testid="ledger-row"][data-path="region"]');
+    expect(row.querySelector('.import-ledger-cell-collection').textContent).toMatch(/string/i);
+    expect(row.querySelector('.import-ledger-cell-file').textContent).toMatch(/\(absent\)/);
+    expect(err.textContent).not.toMatch(/in the collection, not in the file/i);
+  });
+
+  it('renders the ledger table: headers, root grouping (only when >1 row shares a root), row order, and the flat-cause summary', () => {
+    // "key" and "address" each arrived as one flat column instead of their
+    // nested leaves (the motivating case from the bug report); "updated"
+    // is a lone wrong-type finding and must NOT get a group heading.
+    const shape = deriveShape([{
+      key: { code: 'A', system: 'B' },
+      address: { line: ['L1'], city: 'C' },
+      updated: { $date: '2026-01-01T00:00:00.000Z' },
+    }]);
+    const root = mount(h(ImportConfirm, {
+      ...base, shape, shapeCount: 500,
+      docs: [{ key: 'flat-key', address: 'flat-address', updated: 'not-a-date' }],
+    }));
+    const err = root.querySelector('[data-testid="import-shape-error"]');
+
+    const headers = [...err.querySelectorAll('.import-ledger th')].map((th) => th.textContent);
+    expect(headers).toEqual(['Field', 'In the collection', 'In the file']);
+
+    const groupHeadings = [...err.querySelectorAll('.import-ledger-group-row')].map((tr) => tr.textContent);
+    expect(groupHeadings).toEqual(['key', 'address']); // none for the lone "updated" finding
+
+    const rowPaths = [...err.querySelectorAll('[data-testid="ledger-row"]')].map((tr) => tr.getAttribute('data-path'));
+    expect(rowPaths).toEqual(['key.code', 'key.system', 'key', 'address.line', 'address.city', 'address', 'updated']);
+
+    const flat = err.querySelector('[data-testid="import-shape-flat-causes"]').textContent;
+    expect(flat).toMatch(/2 fields arrived flat/);
+    expect(flat).toMatch(/key/);
+    expect(flat).toMatch(/\(2 nested\)/);
+    expect(flat).toMatch(/address/);
+  });
+
+  it('says "1 field arrived flat" (singular) for exactly one flattened cause', () => {
+    const shape = deriveShape([{ key: { code: 'A' }, sku: 'X' }]);
+    const root = mount(h(ImportConfirm, {
+      ...base, shape, shapeCount: 1,
+      docs: [{ key: 'flat', sku: 'X' }],
+    }));
+    const flat = root.querySelector('[data-testid="import-shape-flat-causes"]').textContent;
+    expect(flat).toMatch(/^1 field arrived flat/);
+    expect(flat).not.toMatch(/fields arrived flat/);
+    expect(flat).toMatch(/\(1 nested\)/);
+  });
+
+  it('tags a whitespace row as "spelling" so it is not misread as a type, and renders an absent side as "(absent)", muted and italic', () => {
+    const shape = deriveShape([{ sku: 'A1', price: 10 }]);
+    const root = mount(h(ImportConfirm, {
+      ...base, shape, shapeCount: 1,
+      docs: [{ 'sku ': 'B2', price: 20 }],
+    }));
+    const err = root.querySelector('[data-testid="import-shape-error"]');
+    const wsRow = err.querySelector('[data-testid="ledger-row"][data-kind="whitespace"]');
+    expect(wsRow.querySelector('.import-ledger-tag').textContent).toBe('spelling');
+    // No finding in this fixture produces an absent cell on both sides at
+    // once, but every missing/unexpected row has exactly one — assert it is
+    // rendered via the shared muted+italic AbsentValue vocabulary (the same
+    // "(absent)" the import preview and export preview grids use), not bare
+    // text and not the literal string "null" (which is a real type name and
+    // stays mono/plain — see LedgerCell's own comment).
+    const shape2 = deriveShape([{ sku: 'A1', region: 'EU' }]);
+    const root2 = mount(h(ImportConfirm, { ...base, shape: shape2, shapeCount: 1, docs: [{ sku: 'B2' }] }));
+    const missingRow = root2.querySelector('[data-testid="ledger-row"][data-path="region"]');
+    const absent = missingRow.querySelector('.import-ledger-cell-file .csv-cell-missing');
+    expect(absent).toBeTruthy();
+    expect(absent.textContent).toBe('(absent)');
+  });
+
+  it('renders the restore summary when one is given, and nothing when it is null', () => {
+    const withIt = mount(h(ImportConfirm, { ...base, restoreSummary: 'Restored 9 nested columns to match the collection.' }));
+    expect(withIt.querySelector('[data-testid="import-restore-summary"]').textContent)
+      .toMatch(/Restored 9 nested columns/);
+    const without = mount(h(ImportConfirm, { ...base, restoreSummary: null }));
+    expect(without.querySelector('[data-testid="import-restore-summary"]')).toBe(null);
   });
 
 });

@@ -114,3 +114,39 @@ describe('buildXmlSerializer', () => {
     expect(buildXmlSerializer({ rootName: '2x' }).preamble()).toContain('<_2x>');
   });
 });
+
+describe('valueToXml and EJSON', () => {
+  it('writes an ObjectId as its hex text, not a nested <_oid>', () => {
+    expect(valueToXml('_id', { $oid: '000000000000000000000001' }))
+      .toBe('<_id>000000000000000000000001</_id>');
+  });
+
+  it('writes a date as ISO text', () => {
+    expect(valueToXml('updated', { $date: '2026-01-31T09:00:00.000Z' }))
+      .toBe('<updated>2026-01-31T09:00:00.000Z</updated>');
+  });
+
+  it('still nests an ordinary sub-document', () => {
+    expect(valueToXml('address', { city: 'TOWN' })).toBe('<address><city>TOWN</city></address>');
+  });
+
+  it('escapes EJSON text like any other text', () => {
+    expect(valueToXml('r', { $regex: 'a<b' })).toContain('a&lt;b');
+  });
+
+  // Regression: $binary and $timestamp carry OBJECT payloads. Before this
+  // fix the wrapper was still detected as EJSON (so it did not recurse into
+  // nested elements), but formatEjsonValue's `String(inner)` fallback threw
+  // away the bytes as the literal text "[object Object]".
+  it('writes $binary as its JSON payload text, not "[object Object]"', () => {
+    const xml = valueToXml('f', { $binary: { base64: 'AA==', subType: '00' } });
+    expect(xml).not.toContain('[object Object]');
+    expect(xml).toBe(`<f>${JSON.stringify({ base64: 'AA==', subType: '00' }).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))}</f>`);
+  });
+
+  it('writes $timestamp as its JSON payload text, not "[object Object]"', () => {
+    const xml = valueToXml('t', { $timestamp: { t: 1, i: 2 } });
+    expect(xml).not.toContain('[object Object]');
+    expect(xml).toBe('<t>{"t":1,"i":2}</t>');
+  });
+});

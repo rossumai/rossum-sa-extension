@@ -14,6 +14,7 @@ const DEFAULT_OPTS = {
   encoding: 'utf-8',
   hasHeader: true,
   inferTypes: false,
+  restoreValues: true,
   emptyMode: 'empty',
   skipEmptyLines: true,
   trim: false,
@@ -62,7 +63,13 @@ function ConfigureControls({ opts, setOpt }: ControlsProps) {
         </span>
 
         <span class="csv-tb-item">
-          <span class="csv-tb-k" title="Off → every value is a string (keeps leading zeros / IDs). On → detect numbers and true/false.">Infer types</span>
+          <span class="csv-tb-k" title="Rebuild objects and arrays the export flattened, and match values to the types this collection already uses.">Restore structure {'&'} types</span>
+          <Toggle checked={opts.restoreValues} onChange={(v) => setOpt('restoreValues', v)} testid="csv-restore"
+            title="Rebuild what the export flattened." />
+        </span>
+
+        <span class="csv-tb-item">
+          <span class="csv-tb-k" title="Read numbers and true/false out of text, for columns the collection has no type for.">Detect numbers {'&'} booleans</span>
           <Toggle checked={opts.inferTypes} onChange={(v) => setOpt('inferTypes', v)} testid="csv-infer"
             title="Detect numbers and true/false." />
         </span>

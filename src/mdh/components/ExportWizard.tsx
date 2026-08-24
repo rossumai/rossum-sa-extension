@@ -2,11 +2,12 @@ import { h, Fragment } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { track } from '../../usage/track.js';
 import { closeModal, ModalBody, ModalActions, ModalFieldLabel } from './Modal.jsx';
-import { Segmented } from './ImportControls.jsx';
+import { AbsentValue, EmptyValue, NullValue, ScalarValue, Segmented } from './ImportControls.jsx';
 import PlanSummary from './PlanSummary.jsx';
 import { EXPORT_FORMATS, getExportFormat, exportFilename } from '../exportFormats.jsx';
-import { buildColumnDiscoveryPipeline } from '../csv.js';
+import { discoverLeafPaths } from '../columnDiscovery.js';
 import { orderExportColumns } from '../recordColumns.js';
+import { flattenDoc } from '../flatten.js';
 import { displayValue } from '../displayValue.js';
 import * as api from '../api.js';
 
@@ -107,13 +108,13 @@ export default function ExportWizard({
     let alive = true;
     const controller = new AbortController();
     setCols({ loading: true, value: null });
-    api.aggregate(collection, buildColumnDiscoveryPipeline(stages), { signal: controller.signal })
-      .then(async (r) => {
+    discoverLeafPaths(collection, stages, { aggregate: api.aggregate, signal: controller.signal })
+      .then(async (paths) => {
         // Table-order seed: the loaded page first, then the fetched preview
         // rows (covers a fresh view where no page is loaded yet) — so the
         // header follows first-seen order, not the alphabetical fallback.
         const sampleDocs = await (samplePromiseRef.current || Promise.resolve({ result: [] })).then((s: any) => s.result || []).catch(() => []);
-        if (alive) setCols({ loading: false, value: orderExportColumns([...(recordsSample || []), ...sampleDocs], r.result?.[0]?.keys ?? []) });
+        if (alive) setCols({ loading: false, value: orderExportColumns([...(recordsSample || []), ...sampleDocs], paths) });
       })
       .catch(() => {
         if (!alive) return; // superseded/aborted — don't clobber the new scope's cache marker
@@ -168,9 +169,10 @@ export default function ExportWizard({
               <table class="csv-preview-table">
                 {effOpts.header && columns && <thead><tr>{columns.map((c: any) => <th key={c}>{c}</th>)}</tr></thead>}
                 <tbody>
-                  {preview.sample.map((d, i) => (
-                    <tr key={i}>{(columns || []).map((c) => <td key={c}>{cellPreview(d == null ? undefined : d[c])}</td>)}</tr>
-                  ))}
+                  {preview.sample.map((d, i) => {
+                    const flat = d == null ? {} : flattenDoc(d);
+                    return <tr key={i}>{(columns || []).map((c) => <td key={c}>{cellPreview(flat[c])}</td>)}</tr>;
+                  })}
                 </tbody>
               </table>
             </div>
@@ -231,8 +233,19 @@ function PreviewCaption({ sample, columns }: { sample: any[]; columns?: string[]
   );
 }
 
+// flattenDoc only emits paths that exist on the document (src/mdh/flatten.ts),
+// so `undefined` here genuinely means the field is absent on this row while
+// `null` genuinely means a stored null — the two are distinguishable, unlike
+// the blank cell this used to render for both (plus for an empty string,
+// which collapsed to the same blank a third way). Shares the three-state
+// vocabulary with the import preview (ImportControls.jsx) rather than
+// inventing its own; objects still render via displayValue (truncated/
+// collapsed), not JSON.stringify, per PreviewValue's own comment on why the
+// two value renderers don't merge.
 function cellPreview(v: any) {
-  if (v === null || v === undefined) return '';
-  if (typeof v === 'object') return displayValue(v);
-  return String(v);
+  if (v === undefined) return <AbsentValue />;
+  if (v === null) return <NullValue />;
+  if (v === '') return <EmptyValue />;
+  if (typeof v === 'object') return <span class="csv-cell-string">{displayValue(v)}</span>;
+  return <ScalarValue value={v} />;
 }

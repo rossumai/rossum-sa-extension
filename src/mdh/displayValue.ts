@@ -24,6 +24,9 @@ export function getEjsonType(value: unknown): string | null {
   const keys = Object.keys(value);
   if (keys.length === 1 && keys[0] in EJSON_TYPES) return keys[0];
   if (keys.length === 2 && keys.includes('$date')) return '$date';
+  // Legacy 2-key regex wrapper — the wire form actually seen alongside the
+  // 1-key $regex; formatEjsonValue already reads value.$options for either.
+  if (keys.length === 2 && keys.includes('$regex') && keys.includes('$options')) return '$regex';
   return null;
 }
 
@@ -36,7 +39,9 @@ export function formatEjsonValue(value: any, typeKey: string): string {
     catch { return String(d); }
   }
   if (typeKey === '$regex') return `/${inner}/${value.$options || ''}`;
-  return String(inner);
+  // $binary and $timestamp carry OBJECT payloads (unlike every other EJSON
+  // wrapper above) — String(inner) would flatten them to "[object Object]".
+  return inner !== null && typeof inner === 'object' ? JSON.stringify(inner) : String(inner);
 }
 
 export function displayValue(v: unknown): string {

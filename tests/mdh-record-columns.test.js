@@ -37,3 +37,24 @@ describe('orderExportColumns', () => {
     expect(orderExportColumns([], ['name', '_id', 'amount'])).toEqual(['_id', 'amount', 'name']);
   });
 });
+
+describe('orderExportColumns with leaf paths', () => {
+  it('groups leaves under their parent, in the table column order', () => {
+    const loaded = [{ _id: '1', name: 'a', address: { city: 'X' } }];
+    const discovered = ['address.line', '_id', 'address.city', 'name'];
+    expect(orderExportColumns(loaded, discovered))
+      .toEqual(['_id', 'name', 'address.city', 'address.line']);
+  });
+
+  it('appends leaves whose parent is not in the table, alphabetically', () => {
+    const loaded = [{ _id: '1', name: 'a' }];
+    const discovered = ['zeta.b', '_id', 'name', 'alpha.a'];
+    expect(orderExportColumns(loaded, discovered))
+      .toEqual(['_id', 'name', 'alpha.a', 'zeta.b']);
+  });
+
+  it('groups by the DECODED first segment, so a literal dotted key is its own root', () => {
+    const loaded = [{ 'a.b': 1, a: { c: 2 } }];
+    expect(orderExportColumns(loaded, ['a.c', 'a\\.b'])).toEqual(['a\\.b', 'a.c']);
+  });
+});

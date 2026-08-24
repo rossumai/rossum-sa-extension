@@ -21,7 +21,7 @@ beforeEach(() => {
   api.aggregate.mockImplementation(async (_c, pipeline) => {
     const last = pipeline[pipeline.length - 1] || {};
     if ('$count' in last) return { result: [{ total: 7 }] };
-    if (JSON.stringify(pipeline).includes('$group')) return { result: [{ keys: ['sku', 'price'] }] }; // column discovery
+    if (JSON.stringify(pipeline).includes('$group')) return { result: [{ f0: [{ _id: 'sku', types: ['string'] }, { _id: 'price', types: ['int'] }] }] }; // column discovery
     return { result: [{ sku: 'A', price: 1 }, { sku: 'B', price: 2 }] };
   });
 });
@@ -195,8 +195,40 @@ describe('ExportWizard', () => {
     [...root.querySelectorAll('[data-testid="export-format"] button')].find((b) => b.textContent.trim() === 'CSV').click();
     await waitFor(() => /Building preview/.test(root.querySelector('[data-testid="export-preview"]').textContent));
     expect(root.querySelector('[data-testid="export-preview"]').textContent).not.toMatch(/Preview unavailable/);
-    resolveDiscovery({ result: [{ keys: ['sku', 'price'] }] });
+    resolveDiscovery({ result: [{ f0: [{ _id: 'sku', types: ['string'] }, { _id: 'price', types: ['int'] }] }] });
     await waitFor(() => /sku,price/.test(root.querySelector('[data-testid="export-preview"]').textContent));
+  });
+
+  it('renders a nested value in the grid preview under its dotted leaf column (Excel format)', async () => {
+    // The regression this task exists to prevent, one layer up: the preview
+    // grid must flatten each sample doc the same way csvRow/writeDocs do. If
+    // it ever went back to a flat `d[c]` lookup, `d['meta.role']` would be
+    // undefined on this document (the real value lives at `d.meta.role`) and
+    // the cell would silently render blank under a correctly discovered
+    // dotted column.
+    api.aggregate.mockImplementation(async (_c, pipeline) => {
+      const last = pipeline[pipeline.length - 1] || {};
+      if ('$count' in last) return { result: [{ total: 1 }] };
+      const s = JSON.stringify(pipeline);
+      if (s.includes('$facet')) {
+        // depth 1 (root parent) always types its expression over '$$ROOT';
+        // depth 2 (parent = 'meta') types '$meta' instead.
+        if (s.includes('$$ROOT')) {
+          return { result: [{ f0: [{ _id: '_id', types: ['objectId'] }, { _id: 'meta', types: ['object'] }] }] };
+        }
+        return { result: [{ f0: [{ _id: 'role', types: ['string'] }] }] };
+      }
+      return { result: [{ _id: 'V3', meta: { role: 'admin' } }] };
+    });
+    const root = mount({ ...base, totalCount: 1 });
+    [...root.querySelectorAll('[data-testid="export-format"] button')].find((b) => b.textContent.trim() === 'Excel').click();
+    const table = await waitFor(() => root.querySelector('.csv-preview-table'));
+    await waitFor(() => /meta\.role/.test(table.textContent));
+    const headerCells = [...table.querySelectorAll('thead th')].map((th) => th.textContent);
+    const idx = headerCells.indexOf('meta.role');
+    expect(idx).toBeGreaterThan(-1);
+    const rowCells = table.querySelectorAll('tbody tr')[0].querySelectorAll('td');
+    expect(rowCells[idx].textContent).toBe('admin');
   });
 
   it('aborts in-flight count/sample/discovery aggregations when the wizard unmounts (e.g. modal closed)', async () => {

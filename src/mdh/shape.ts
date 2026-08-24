@@ -2,9 +2,13 @@
 // "Shape" = the set of deep (dotted) field paths in the existing records, plus
 // the type(s) seen at each path. Arrays are a single leaf type ('array'); plain
 // nested objects are walked; the EJSON wrappers {$oid}/{$date} are their own
-// types. Validation is an EXACT field-set match per document (no missing, no
-// extra), with types required to agree — except `null`, which is compatible in
-// both directions (a field may legitimately be null on either side).
+// types. Validation checks for missing and extra fields, with types required to
+// agree — except `null`, which is compatible in both directions (a field may
+// legitimately be null on either side). A field in optionalPaths (present in
+// only some existing records) is never "missing", since requiring it would
+// reject a non-uniform collection against its own export (§2.4).
+
+import { joinPath, splitPath } from './flatten.js';
 
 export function typeOf(value: unknown): string {
   if (value === null || value === undefined) return 'null';
@@ -29,7 +33,7 @@ const IGNORED = new Set(['_id', '__digest_md5']);
 function collectPaths(obj: any, prefix: string, out: Map<string, string>): Map<string, string> {
   for (const key of Object.keys(obj)) {
     if (!prefix && IGNORED.has(key)) continue;
-    const path = prefix ? `${prefix}.${key}` : key;
+    const path = prefix ? `${prefix}.${joinPath([key])}` : joinPath([key]);
     const t = typeOf(obj[key]);
     if (t === 'object') collectPaths(obj[key], path, out);
     else out.set(path, t);
@@ -52,13 +56,7 @@ export function deriveShape(docs: any[]): any {
   }
   const total = list.length;
   const optionalPaths = [...presence.entries()].filter(([, c]) => c < total).map(([p]) => p);
-  // A field that is sometimes null (a nullable column) is still "uniform" for
-  // warning purposes: null is type-compatible in both directions, so it never
-  // causes over-rejection. Only a real clash of >1 NON-null type, or a field
-  // missing from some docs (optional), makes the collection non-uniform.
-  const uniform = optionalPaths.length === 0
-    && [...paths.values()].every((s) => [...s].filter((t) => t !== 'null').length <= 1);
-  return { paths, uniform, optionalPaths };
+  return { paths, optionalPaths };
 }
 
 // null is compatible with any type; a reference set containing 'null' accepts any incoming type.
@@ -73,25 +71,29 @@ function typeCompatible(refTypes: Set<string>, got: string): boolean {
 // them as one explicit finding instead of two opaque ones. trim() also strips
 // NBSP/TAB/FEFF-class edge characters, not just U+0020.
 function normalizePath(path: string): string {
-  return String(path).split('.').map((s) => s.trim()).join('.');
+  return joinPath(splitPath(path).map((s) => s.trim()));
 }
 
 export function validateAgainstShape(docs: any[], shape: any): any {
   const missing = new Set<string>();
   const unknown = new Set<string>();
+  const unknownTypesRaw = new Map<string, string>(); // path -> last-seen file type, before whitespace pairing
   const typeMismatch = new Map(); // path -> {path, expected, got}
   let failedDocCount = 0;
   const refPaths = shape?.paths || new Map();
+  const optional = new Set<string>(shape?.optionalPaths || []);
   const list = Array.isArray(docs) ? docs : [];
 
   for (const doc of list) {
     let bad = false;
     const dp = (doc && typeof doc === 'object') ? collectPaths(doc, '', new Map()) : new Map();
     for (const [path] of refPaths) {
-      if (!dp.has(path)) { missing.add(path); bad = true; }
+      // A field only SOME existing records carry cannot be "missing" from a row —
+      // requiring it made a non-uniform collection reject its own export (§2.4).
+      if (!dp.has(path) && !optional.has(path)) { missing.add(path); bad = true; }
     }
     for (const [path, got] of dp) {
-      if (!refPaths.has(path)) { unknown.add(path); bad = true; continue; }
+      if (!refPaths.has(path)) { unknown.add(path); unknownTypesRaw.set(path, got); bad = true; continue; }
       if (!typeCompatible(refPaths.get(path), got)) {
         if (!typeMismatch.has(path)) typeMismatch.set(path, { path, expected: [...refPaths.get(path)], got });
         bad = true;
@@ -114,6 +116,21 @@ export function validateAgainstShape(docs: any[], shape: any): any {
       missing.delete(m);
     }
   }
+  // Presentation-layer types for the shape ledger (table): the collection's
+  // type(s) for a missing path, the file's type for an unknown path. Computed
+  // AFTER whitespace pairing so they line up 1:1 with the final missing/unknown
+  // arrays. A multi-type reference set is joined with '/', matching how
+  // typeMismatch.expected is already rendered.
+  const missingTypes = new Map<string, string>();
+  for (const m of missing) {
+    const types = refPaths.get(m);
+    missingTypes.set(m, types ? [...types].join('/') : '');
+  }
+  const unknownTypes = new Map<string, string>();
+  for (const u of unknown) {
+    if (unknownTypesRaw.has(u)) unknownTypes.set(u, unknownTypesRaw.get(u) as string);
+  }
+
   return {
     ok: missing.size === 0 && unknown.size === 0 && typeMismatch.size === 0 && whitespace.length === 0,
     missing: [...missing],
@@ -121,5 +138,7 @@ export function validateAgainstShape(docs: any[], shape: any): any {
     typeMismatch: [...typeMismatch.values()],
     whitespace,
     failedDocCount,
+    missingTypes,
+    unknownTypes,
   };
 }

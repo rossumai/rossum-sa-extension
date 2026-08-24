@@ -3,7 +3,9 @@ import { useMemo } from 'preact/hooks';
 import { analyzeDocs } from '../importFile.js';
 import { collectFieldPaths, countRowsMissingKeys } from '../importPlan.js';
 import { validateAgainstShape } from '../shape.js';
-import { Segmented } from './ImportControls.jsx';
+import { buildLedger, findFlattenedCauses } from '../shapeReport.js';
+import type { LedgerRow } from '../shapeReport.js';
+import { AbsentValue, Segmented } from './ImportControls.jsx';
 import { ModalActions, ModalFieldLabel } from './Modal.jsx';
 import MatchKeyPicker from './MatchKeyPicker.jsx';
 import PlanSummary from './PlanSummary.jsx';
@@ -41,12 +43,29 @@ function FieldName({ name }: { name: string }) {
   return <code><SpecialText value={name} quote markEdgeSpaces /></code>;
 }
 
+// A ledger row's "In the collection" / "In the file" cell. `null` here means
+// "this side has no finding" (the field doesn't exist on that side at all)
+// and renders via the shared AbsentValue vocabulary — muted + italic, never
+// to be confused with the STRING "null", which is a real type name a `type`
+// row can legitimately carry on either side and which stays mono/plain via
+// the plain <code> branch below. For every kind but `whitespace` a non-null
+// value is a TYPE name (plain text); for `whitespace` it is a SPELLING, run
+// through the same whitespace-revealing renderer as the Field column so an
+// edge space or an invisible character stays visible on both sides, not
+// just the file's.
+function LedgerCell({ value, kind }: { value: string | null; kind: LedgerRow['kind'] }) {
+  if (value === null) return <AbsentValue />;
+  if (kind === 'whitespace') return <code><SpecialText value={value} quote markEdgeSpaces /></code>;
+  return <code>{value}</code>;
+}
+
 // shapeCount defaults to 0 only for callers that omit it; ImportWizard sets
 // shape and shapeCount atomically in the same effect, so whenever `shape` is
 // truthy the count is the real sampled-record count.
 export default function ImportConfirm({
   docs, mode, setMode, keys, setKeys,
   shapeOverride = false, setShapeOverride, shape, shapeLoading, shapeError = false, shapeCount = 0, shapeCoversAll = false,
+  restoreSummary = null,
   onImport, onCancel, onBack,
 }: {
   docs: any[];
@@ -61,6 +80,7 @@ export default function ImportConfirm({
   shapeError?: boolean;
   shapeCount?: number;
   shapeCoversAll?: boolean;
+  restoreSummary?: string | null;
   onImport: () => unknown;
   onCancel: () => void;
   onBack?: () => void;
@@ -84,10 +104,35 @@ export default function ImportConfirm({
   const shapeCheck = useMemo(() => (shape ? validateAgainstShape(docs, shape) : null), [shape, docs]);
   const shapeOk = !shapeCheck || shapeCheck.ok || shapeOverride;
 
+  // The mismatch ledger: one row per finding, grouped by root (buildLedger),
+  // plus the "N fields arrived flat" coalescing (findFlattenedCauses) — see
+  // src/mdh/shapeReport.ts. A group-heading row is shown for a root only when
+  // more than one row shares it, so a lone finding (e.g. a single wrong-type
+  // field) renders exactly as before: no heading, no indent.
+  const ledger = useMemo<LedgerRow[]>(
+    () => (shapeCheck && !shapeCheck.ok ? buildLedger(shapeCheck) : []),
+    [shapeCheck],
+  );
+  const flatCauses = useMemo(
+    () => (shapeCheck && !shapeCheck.ok ? findFlattenedCauses(shapeCheck) : []),
+    [shapeCheck],
+  );
+  const rootCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const row of ledger) counts.set(row.root, (counts.get(row.root) || 0) + 1);
+    return counts;
+  }, [ledger]);
+
   let canImport;
   if (isUpdate) canImport = keys.length > 0 && shapeOk && missingKeyRows === 0;
   else canImport = insertCount > 0 && shapeOk; // insert & replace both need docs
   if (isReplace) canImport = docs.length > 0 && shapeOk;
+  // The "Checking shape…" line below is a sibling render, not a gate — while
+  // the $sample round trip is in flight, shapeCheck is null (same as "no
+  // reference shape") and restoreDocs already ran with shape===null
+  // (heuristics only). A fast click must not import that partially-restored
+  // state, so shapeLoading gates the button directly.
+  if (shapeLoading) canImport = false;
 
   // "all N" when the sample exhausted the collection ($sample returned fewer
   // rows than requested => there were no more); "a random sample of N" otherwise.
@@ -111,6 +156,9 @@ export default function ImportConfirm({
       )}
 
       {/* Shape validation: silent pass, loud fail, in-card override. */}
+      {restoreSummary && (
+        <div class="import-shape-line" data-testid="import-restore-summary">{restoreSummary}</div>
+      )}
       {shapeLoading && <div class="import-shape-line" data-testid="import-shape-loading">Checking shape{'…'}</div>}
       {!shapeLoading && shapeCheck?.ok && (
         <div class="import-shape-line ok" data-testid="import-shape-ok">{'✓'} Shape matches {'·'} {sampleNoteShort}</div>
@@ -121,27 +169,65 @@ export default function ImportConfirm({
             <span class="import-error-icon" aria-hidden="true">{'⚠'}</span>
             <span><strong>Shape mismatch {'—'} import blocked.</strong> {shapeCheck.failedDocCount.toLocaleString()} row{shapeCheck.failedDocCount === 1 ? '' : 's'} don{'’'}t match the fields of the existing records.</span>
           </div>
-          <ul class="import-error-list">
-            {shapeCheck.whitespace.length > 0 && (
-              <li><span class="import-error-label">Whitespace</span><span class="import-error-fields">
-                {shapeCheck.whitespace.map((w: any) => (
-                  <span key={w.got}><FieldName name={w.got} /> (file) vs <FieldName name={w.expected} /> (existing)</span>
+          <div class="import-ledger-panel">
+            <div class="import-ledger-scroll">
+              <table class="import-ledger">
+                <thead>
+                  <tr>
+                    <th>Field</th>
+                    <th>In the collection</th>
+                    <th>In the file</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const seenRoots = new Set<string>();
+                    return ledger.map((row) => {
+                      const grouped = (rootCounts.get(row.root) || 0) > 1;
+                      const isFirstOfRoot = !seenRoots.has(row.root);
+                      seenRoots.add(row.root);
+                      // Colour marks a genuine disagreement only — a `type` row,
+                      // where both sides carry a value. Missing/unexpected rows
+                      // have a dash on one side (nothing to contrast); whitespace
+                      // rows hold spellings, not types, so they stay neutral too.
+                      const collectionClass = row.kind === 'type' && row.file !== null
+                        ? 'import-ledger-cell-collection import-ledger-type-collection' : 'import-ledger-cell-collection';
+                      const fileClass = row.kind === 'type' && row.collection !== null
+                        ? 'import-ledger-cell-file import-ledger-type-file' : 'import-ledger-cell-file';
+                      return (
+                        <Fragment key={`${row.kind}:${row.path}`}>
+                          {grouped && isFirstOfRoot && (
+                            <tr class="import-ledger-group-row">
+                              <td class="import-ledger-group-cell" colSpan={3}><SpecialText value={row.root} /></td>
+                            </tr>
+                          )}
+                          <tr class="import-ledger-row" data-testid="ledger-row" data-path={row.path} data-kind={row.kind}>
+                            <td class={grouped ? 'import-ledger-cell-field import-ledger-cell-field-indent' : 'import-ledger-cell-field'}>
+                              <FieldName name={row.path} />
+                              {row.kind === 'whitespace' && <span class="import-ledger-tag">spelling</span>}
+                            </td>
+                            <td class={collectionClass}><LedgerCell value={row.collection} kind={row.kind} /></td>
+                            <td class={fileClass}><LedgerCell value={row.file} kind={row.kind} /></td>
+                          </tr>
+                        </Fragment>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
+            </div>
+            {flatCauses.length > 0 && (
+              <div class="import-ledger-flat" data-testid="import-shape-flat-causes">
+                {flatCauses.length} field{flatCauses.length === 1 ? '' : 's'} arrived flat{': '}
+                {flatCauses.map((c, i) => (
+                  <Fragment key={c.root}>
+                    {i > 0 && ', '}
+                    <code>{c.root}</code> ({c.leaves.length} nested)
+                  </Fragment>
                 ))}
-              </span></li>
+              </div>
             )}
-            {shapeCheck.missing.length > 0 && (
-              <li><span class="import-error-label">Missing</span><span class="import-error-fields">{shapeCheck.missing.map((p: any) => <FieldName key={p} name={p} />)}</span></li>
-            )}
-            {shapeCheck.unknown.length > 0 && (
-              <li><span class="import-error-label">Unexpected</span><span class="import-error-fields">{shapeCheck.unknown.map((p: any) => <FieldName key={p} name={p} />)}</span></li>
-            )}
-            {shapeCheck.typeMismatch.length > 0 && (
-              <li><span class="import-error-label">Wrong type</span><span class="import-error-fields">{shapeCheck.typeMismatch.map((t: any) => <code key={t.path}><SpecialText value={t.path} quote markEdgeSpaces />{`: ${t.expected.join('/')} → ${t.got}`}</code>)}</span></li>
-            )}
-          </ul>
-          {shape && !shape.uniform && (
-            <div class="import-shape-note">Existing records aren{'’'}t uniform (varying fields: <code>{shape.optionalPaths.slice(0, 6).join(', ') || 'mixed types'}</code>) {'—'} exact-shape validation may over-reject.</div>
-          )}
+          </div>
           {shapeCheck.whitespace.length > 0 && (
             <div class="import-error-hint">Columns marked {'·'} differ only by leading/trailing whitespace.</div>
           )}

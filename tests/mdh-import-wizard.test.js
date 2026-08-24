@@ -113,9 +113,10 @@ describe('ImportWizard routing', () => {
     const root = mount(h(ImportWizard, { onSuccess: vi.fn() }));
     await toDecideViaFile(root, docs);
 
-    // Mode should default to insert; click go
-    const goBtn = root.querySelector('[data-testid="import-go"]');
-    expect(goBtn).toBeTruthy();
+    // Mode should default to insert; the button stays disabled until the
+    // shape sample resolves (Fix 3: shapeLoading gates every mode, not just
+    // Update/Replace), then click go.
+    const goBtn = await waitFor(() => { const b = root.querySelector('[data-testid="import-go"]'); return b && !b.disabled ? b : null; });
     goBtn.click();
 
     await waitFor(() => runChunkedInsert.mock.calls.length > 0);
@@ -337,5 +338,43 @@ describe('ImportWizard — Decide screen', () => {
     const preview = await waitFor(() => root.querySelector('[data-testid="json-preview"]'));
     expect(preview.textContent).toContain('{"a":1}');
     expect(root.querySelector('[data-testid="csv-preview"]')).toBe(null);
+  });
+});
+
+describe('ImportWizard — restore', () => {
+  it('restores a dotted CSV header into nested documents before import', async () => {
+    // A collection whose shape says address.city is a string and n is a number.
+    api.aggregate.mockResolvedValueOnce({ result: [{ _id: { $oid: '000000000000000000000001' }, address: { city: 'X' }, n: 1 }] });
+    const root = mount(h(ImportWizard, { onSuccess: vi.fn() }));
+    pick(root, file('address.city,n\r\nTOWN,42\r\n', 'rows.csv'));
+    const preview = await waitFor(() => root.querySelector('[data-testid="csv-preview"]'));
+    expect(preview.textContent).toContain('TOWN');
+    const summary = await waitFor(() => root.querySelector('[data-testid="import-restore-summary"]'));
+    expect(summary.textContent).toMatch(/Restored 1 nested column/);
+  });
+
+  // Reviewer-measured defect: while the $sample fetch is still pending, `shape`
+  // is null — indistinguishable from "the collection is empty" — so the
+  // restore summary asserted an emptiness that was not yet known. Gate on
+  // shapeLoading rather than on shape.
+  it('does not claim the collection is empty while the shape sample is still loading', async () => {
+    let resolveAgg;
+    api.aggregate.mockImplementationOnce(() => new Promise((resolve) => { resolveAgg = resolve; }));
+    const root = mount(h(ImportWizard, { onSuccess: vi.fn() }));
+    pick(root, file('address.city,n\r\nTOWN,42\r\n', 'rows.csv'));
+    // shapeLoading starts true (before this fix's DEFAULT-true change it also
+    // started false for one tick), so wait for the actual aggregate() call —
+    // the point at which `resolveAgg` is guaranteed assigned — rather than for
+    // the loading indicator alone.
+    await waitFor(() => root.querySelector('[data-testid="csv-preview"]'));
+    await waitFor(() => api.aggregate.mock.calls.length > 0);
+    expect(root.querySelector('[data-testid="import-shape-loading"]')).toBeTruthy();
+    expect(root.querySelector('[data-testid="import-go"]').disabled).toBe(true);
+    const summaryWhileLoading = root.querySelector('[data-testid="import-restore-summary"]');
+    expect(summaryWhileLoading?.textContent || '').not.toMatch(/collection is empty/);
+
+    resolveAgg({ result: [{ _id: { $oid: '000000000000000000000001' }, address: { city: 'X' }, n: 1 }] });
+    const summary = await waitFor(() => root.querySelector('[data-testid="import-restore-summary"]'));
+    expect(summary.textContent).toMatch(/Restored 1 nested column/);
   });
 });

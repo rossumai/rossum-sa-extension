@@ -1,5 +1,6 @@
 import * as api from './api.js';
-import { csvHeader, csvRow, orderColumns, buildColumnDiscoveryPipeline } from './csv.js';
+import { csvHeader, csvRow, orderColumns } from './csv.js';
+import { discoverLeafPaths } from './columnDiscovery.js';
 import { docToXml, toXmlName } from './xml.js';
 
 // Streamed binary serializer for .xlsx — re-exported so callers (DataPanel) get
@@ -43,8 +44,9 @@ export function buildJsonSerializer() {
   };
 }
 
-// CSV serializer. Columns are the exact union of top-level keys, discovered in
-// init() (after the picker). Objects/arrays are JSON-encoded per csvCell.
+// CSV serializer. Columns are the exact union of deep leaf paths (address.city,
+// not a JSON blob under address), discovered in init() (after the picker).
+// Objects/arrays past the depth cap are JSON-encoded per csvCell.
 export function buildCsvSerializer(
   { dialect = {}, header = true, bom = true, columns = null }:
   { dialect?: any; header?: boolean; bom?: boolean; columns?: string[] | null } = {},
@@ -56,8 +58,7 @@ export function buildCsvSerializer(
     pickerTypes: [{ description: 'CSV file', accept: { 'text/csv': ['.csv'] } }],
     async init({ collectionName, pipelineStages }: { collectionName: string; pipelineStages: any[] }) {
       if (cols != null) return;
-      const res = await api.aggregate(collectionName, buildColumnDiscoveryPipeline(pipelineStages));
-      cols = orderColumns(res?.result?.[0]?.keys ?? []);
+      cols = orderColumns(await discoverLeafPaths(collectionName, pipelineStages, { aggregate: api.aggregate }));
     },
     preamble: () => (bom ? '﻿' : '') + (header ? csvHeader(cols!, dialect) + '\r\n' : ''),
     item: (doc: unknown) => csvRow(doc, cols!, dialect),
