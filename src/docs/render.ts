@@ -165,10 +165,15 @@ export function createMarkdownRenderer(
       const token = tokens[idx];
       const hrefIdx = token.attrIndex('href');
       if (hrefIdx >= 0) {
-        let href = token.attrs![hrefIdx][1];
-        // linkify auto-converts bare "foo.md" prose into "http://foo.md" anchors
-        // (treating .md as a TLD). Detect and rewrite to a same-dir HTML
-        // sibling so the bundle's in-doc references resolve.
+        // markdown-it 15 widened attr values to `string | number`; an href is always a
+        // string, and every branch below is string work.
+        let href = token.attrs![hrefIdx][1] as string;
+        // linkify USED TO auto-convert bare "foo.md" prose into "http://foo.md" anchors
+        // (treating .md as a TLD), and this rewrote them to a same-dir HTML sibling so a
+        // bundle's in-doc references resolved. DORMANT since markdown-it 15 / linkify-it 6,
+        // which no longer links a bare .md at all — measured both ways when the pin moved.
+        // Kept because the fixtures are regenerated against upstream localpages, and this
+        // branch is what would absorb the difference if a future linkify restores it.
         const bogus = href.match(/^https?:\/\/([^\/?#]+\.md)(#[^?]*)?$/i);
         if (bogus) href = bogus[1].replace(/\.md$/i, '.html') + (bogus[2] || '');
         const isScheme = /^[a-z][a-z0-9+.-]*:/i.test(href);
