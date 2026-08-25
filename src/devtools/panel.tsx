@@ -3,7 +3,13 @@ import { useEffect } from 'preact/hooks';
 import { track } from '../usage/track.js';
 import * as store from './store.js';
 import { openSearchPanel } from '@codemirror/search';
-import { requestDiff, saveResource, loadResource, openResourceTab, openRequestPath } from './actions.js';
+import {
+  requestDiff,
+  saveResource,
+  loadResource,
+  openResourceTab,
+  openRequestPath,
+} from './actions.js';
 import { detectResource } from './detect.js';
 import { resourceFromApiUrl } from './resourceFromApiUrl.js';
 import * as api from './api.js';
@@ -23,10 +29,17 @@ const deps = {
   getCached: (p: any) => resourceCache.getFresh(p),
   putCached: (p: any, o: any) => resourceCache.put(p, o),
   patch: api.patch,
-  reload: () => { try { chrome.devtools.inspectedWindow.reload(); } catch { /* ignore */ } },
+  reload: () => {
+    try {
+      chrome.devtools.inspectedWindow.reload();
+    } catch {
+      /* ignore */
+    }
+  },
 };
 
-const HINT = 'Open a Rossum queue, hook, user, schema (Fields), engine, rule, or document (annotation) page — or Cmd/Ctrl+click a link in an object — to inspect it.';
+const HINT =
+  'Open a Rossum queue, hook, user, schema (Fields), engine, rule, or document (annotation) page — or Cmd/Ctrl+click a link in an object — to inspect it.';
 
 // Label for the floating Save pill: count changed/added/removed top-level keys
 // when the buffer parses, else a generic message (buffer may be mid-edit).
@@ -35,7 +48,9 @@ function savePillLabel(tab: any) {
   try {
     const { body, removed } = buildPatchBody(tab.original, JSON.parse(tab.buffer));
     n = Object.keys(body).length + removed.length;
-  } catch { n = null; }
+  } catch {
+    n = null;
+  }
   return n && n > 0 ? `${n} unsaved change${n === 1 ? '' : 's'}` : 'Unsaved changes';
 }
 
@@ -44,13 +59,22 @@ export function Panel() {
     document.documentElement.dataset.theme = isDark() ? 'dark' : 'light';
 
     const handleMouseDown = (e: any) => {
-      if (store.linkMenu.value && !(e.target && e.target.closest && e.target.closest('.rawjson-linkmenu'))) {
+      if (
+        store.linkMenu.value &&
+        !(e.target && e.target.closest && e.target.closest('.rawjson-linkmenu'))
+      ) {
         store.linkMenu.value = null;
       }
-      if (store.tabMenu.value && !(e.target && e.target.closest && e.target.closest('.rawjson-tabmenu'))) {
+      if (
+        store.tabMenu.value &&
+        !(e.target && e.target.closest && e.target.closest('.rawjson-tabmenu'))
+      ) {
         store.tabMenu.value = null;
       }
-      if (store.curlMenu.value && !(e.target && e.target.closest && e.target.closest('.rawjson-curl-split'))) {
+      if (
+        store.curlMenu.value &&
+        !(e.target && e.target.closest && e.target.closest('.rawjson-curl-split'))
+      ) {
         store.curlMenu.value = false;
       }
     };
@@ -70,7 +94,11 @@ export function Panel() {
           e.preventDefault();
           e.stopImmediatePropagation();
           v.focus();
-          try { openSearchPanel(v); } catch { /* ignore if view is not ready */ }
+          try {
+            openSearchPanel(v);
+          } catch {
+            /* ignore if view is not ready */
+          }
         }
       }
       if ((e.metaKey || e.ctrlKey) && (e.key === 'l' || e.key === 'L')) {
@@ -116,23 +144,51 @@ export function Panel() {
       Promise.resolve(navigator.clipboard.writeText(text))
         .then(() => store.showToast(live ? 'Live token copied — treat as a secret' : 'curl copied'))
         .catch(() => store.showToast('Copy failed'));
-    } catch { store.showToast('Copy failed'); }
+    } catch {
+      store.showToast('Copy failed');
+    }
   };
 
-  const menuTab = store.tabMenu.value ? tabsList.find((t) => t.id === store.tabMenu.value.id) : null;
+  const menuTab = store.tabMenu.value
+    ? tabsList.find((t) => t.id === store.tabMenu.value.id)
+    : null;
   const menus = [
     store.linkMenu.value ? (
-      <div key="linkmenu" class="rawjson-linkmenu" style={`left:${store.linkMenu.value.x}px;top:${store.linkMenu.value.y}px`}>
-        <button onClick={() => { openResourceTab(resourceFromApiUrl(store.linkMenu.value.url), deps); store.linkMenu.value = null; }}>Open in new tab</button>
+      <div
+        key="linkmenu"
+        class="rawjson-linkmenu"
+        style={`left:${store.linkMenu.value.x}px;top:${store.linkMenu.value.y}px`}
+      >
+        <button
+          onClick={() => {
+            openResourceTab(resourceFromApiUrl(store.linkMenu.value.url), deps);
+            store.linkMenu.value = null;
+          }}
+        >
+          Open in new tab
+        </button>
       </div>
     ) : null,
     store.tabMenu.value && menuTab ? (
-      <div key="tabmenu" class="rawjson-tabmenu" style={`left:${store.tabMenu.value.x}px;top:${store.tabMenu.value.y}px`}>
+      <div
+        key="tabmenu"
+        class="rawjson-tabmenu"
+        style={`left:${store.tabMenu.value.x}px;top:${store.tabMenu.value.y}px`}
+      >
         {menuTab.source !== 'page' ? (
-          <button onClick={() => { store.closeTab(store.tabMenu.value.id); store.tabMenu.value = null; }}>Close</button>
+          <button
+            onClick={() => {
+              store.closeTab(store.tabMenu.value.id);
+              store.tabMenu.value = null;
+            }}
+          >
+            Close
+          </button>
         ) : null}
         {tabsList.length > 1 ? (
-          <button onClick={() => store.closeOtherTabs(store.tabMenu.value.id)}>Close Other Tabs</button>
+          <button onClick={() => store.closeOtherTabs(store.tabMenu.value.id)}>
+            Close Other Tabs
+          </button>
         ) : null}
       </div>
     ) : null,
@@ -154,40 +210,84 @@ export function Panel() {
       <TabBar tabs={tabsList} activeId={active.id} />
       {active.error ? <div class="rawjson-error">{active.error}</div> : null}
       <div class="rawjson-body">
-        {!active.resource
-          ? <div class="rawjson-empty-hint">{HINT}</div>
-          : active.loading
-            ? <div class="rawjson-empty-hint">{'Loading…'}</div>
-            : active.preview
-              ? <PreviewPane key={active.id} preview={active.preview} />
-              : <JsonCodeEditor key={active.id} tabId={active.id} onFollowLink={onFollow} onContextLink={onContextLink} />}
+        {!active.resource ? (
+          <div class="rawjson-empty-hint">{HINT}</div>
+        ) : active.loading ? (
+          <div class="rawjson-empty-hint">{'Loading…'}</div>
+        ) : active.preview ? (
+          <PreviewPane key={active.id} preview={active.preview} />
+        ) : (
+          <JsonCodeEditor
+            key={active.id}
+            tabId={active.id}
+            onFollowLink={onFollow}
+            onContextLink={onContextLink}
+          />
+        )}
         {active.resource && !active.preview && !active.readOnly && active.dirty ? (
           <div class="rawjson-savepill">
             <span class="rawjson-savepill-dot" aria-hidden="true"></span>
             <span class="rawjson-savepill-lbl">{savePillLabel(active)}</span>
-            <button class="rawjson-save" disabled={active.saving} onClick={() => requestDiff(active.id)}>{'Save…'}</button>
+            <button
+              class="rawjson-save"
+              disabled={active.saving}
+              onClick={() => requestDiff(active.id)}
+            >
+              {'Save…'}
+            </button>
           </div>
         ) : null}
       </div>
       <div class="rawjson-bottombar">
-        <RequestBar onSubmit={(raw) => {
-          track('sa_devtools_request_bar');
-          const r = openRequestPath(raw, api.getContext().domain, deps);
-          if (r && r.error) store.showToast(r.error);
-          return r;
-        }} />
+        <RequestBar
+          onSubmit={(raw) => {
+            track('sa_devtools_request_bar');
+            const r = openRequestPath(raw, api.getContext().domain, deps);
+            if (r && r.error) store.showToast(r.error);
+            return r;
+          }}
+        />
         {active.resource && active.resource.apiPath ? (
           <span class="rawjson-curl-split">
             <span class="rawjson-curl-btns">
-              <button class="rawjson-curl" title="Copy as curl (token redacted)" onClick={() => copyCurl(active.resource!.apiPath, false)}>
-                <svg class="rawjson-curl-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5V3.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg>
+              <button
+                class="rawjson-curl"
+                title="Copy as curl (token redacted)"
+                onClick={() => copyCurl(active.resource!.apiPath, false)}
+              >
+                <svg
+                  class="rawjson-curl-ico"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                  aria-hidden="true"
+                >
+                  <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
+                  <path d="M10.5 5.5V3.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2" />
+                </svg>
                 curl
               </button>
-              <button class="rawjson-curl-caret" title="More copy options" onClick={() => { store.curlMenu.value = !store.curlMenu.value; }}>{'▾'}</button>
+              <button
+                class="rawjson-curl-caret"
+                title="More copy options"
+                onClick={() => {
+                  store.curlMenu.value = !store.curlMenu.value;
+                }}
+              >
+                {'▾'}
+              </button>
             </span>
             {store.curlMenu.value ? (
               <div class="rawjson-curlmenu">
-                <button onClick={() => { copyCurl(active.resource!.apiPath, true); store.curlMenu.value = false; }}>Copy with live token {'⚠'}</button>
+                <button
+                  onClick={() => {
+                    copyCurl(active.resource!.apiPath, true);
+                    store.curlMenu.value = false;
+                  }}
+                >
+                  Copy with live token {'⚠'}
+                </button>
               </div>
             ) : null}
           </span>
@@ -219,9 +319,16 @@ function TabBar({ tabs, activeId }: { tabs: any[]; activeId?: string | null }) {
           key={t.id}
           class={`rawjson-tab${t.id === activeId ? ' active' : ''}${t.source === 'page' ? ' rawjson-tab--page' : ''}`}
           draggable={t.source === 'link'}
-          onDragStart={() => { draggedId = t.id; }}
-          onDragOver={(e) => { e.preventDefault(); }}
-          onDrop={() => { store.moveTab(draggedId as string, t.id); draggedId = null; }}
+          onDragStart={() => {
+            draggedId = t.id;
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+          }}
+          onDrop={() => {
+            store.moveTab(draggedId as string, t.id);
+            draggedId = null;
+          }}
           onClick={() => store.setActive(t.id)}
           onContextMenu={(e) => {
             e.preventDefault();
@@ -231,8 +338,20 @@ function TabBar({ tabs, activeId }: { tabs: any[]; activeId?: string | null }) {
             store.tabMenu.value = { id: t.id, x: e.clientX, y: e.clientY };
           }}
         >
-          <span class="rawjson-tab-label">{t.resource ? `${t.resource.label}${t.resource.id ? ' ' + t.resource.id : ''}` : 'Page'}</span>
-          {t.source === 'link' ? <button class="rawjson-tab-close" onClick={(e) => { e.stopPropagation(); store.closeTab(t.id); }}>{'×'}</button> : null}
+          <span class="rawjson-tab-label">
+            {t.resource ? `${t.resource.label}${t.resource.id ? ' ' + t.resource.id : ''}` : 'Page'}
+          </span>
+          {t.source === 'link' ? (
+            <button
+              class="rawjson-tab-close"
+              onClick={(e) => {
+                e.stopPropagation();
+                store.closeTab(t.id);
+              }}
+            >
+              {'×'}
+            </button>
+          ) : null}
         </span>
       ))}
     </div>

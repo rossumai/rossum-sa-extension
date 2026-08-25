@@ -11,7 +11,8 @@ export async function initAcademy() {
     // Fail closed: a '' origin would silently read and write a shared,
     // un-scoped progress entry instead of one keyed to a real org.
     store.connected.value = false;
-    store.error.value = 'Open the Rossum Console from this extension\'s popup on a Rossum tab to access the Academy.';
+    store.error.value =
+      "Open the Rossum Console from this extension's popup on a Rossum tab to access the Academy.";
     return;
   }
   store.setOrigin(domain);

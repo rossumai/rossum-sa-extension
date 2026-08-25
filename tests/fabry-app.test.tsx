@@ -6,12 +6,19 @@ import { h, render } from 'preact';
 // means Preact never flushes useEffect under jsdom. App's refresh-on-mount
 // behavior LIVES in an effect, so this file needs a real (immediate) rAF —
 // the ui-fabry-mermaid.test.js precedent.
-globalThis.requestAnimationFrame = (cb) => { cb(0); return 0; };
+globalThis.requestAnimationFrame = (cb) => {
+  cb(0);
+  return 0;
+};
 globalThis.cancelAnimationFrame = () => {};
 
 vi.mock('../src/fabry/chat.js', () => ({
-  loadChats: vi.fn(), openChat: vi.fn(), startNewChat: vi.fn(), sendMessage: vi.fn(),
-  stopStreaming: vi.fn(), downloadFile: vi.fn(),
+  loadChats: vi.fn(),
+  openChat: vi.fn(),
+  startNewChat: vi.fn(),
+  sendMessage: vi.fn(),
+  stopStreaming: vi.fn(),
+  downloadFile: vi.fn(),
 }));
 
 import * as chat from '../src/fabry/chat.js';
@@ -42,8 +49,11 @@ describe('Fabry App — chat-list refresh on activation', () => {
 
 describe('Fabry App states', () => {
   beforeEach(() => {
-    store.agentAvailable.value = true; store.error.value = null;
-    store.activeChatId.value = null; store.thread.value = []; store.liveTurn.value = null;
+    store.agentAvailable.value = true;
+    store.error.value = null;
+    store.activeChatId.value = null;
+    store.thread.value = [];
+    store.liveTurn.value = null;
     store.fabryMode.value = 'chat';
   });
   it('not connected message', () => {
@@ -60,12 +70,25 @@ describe('Fabry App states', () => {
   });
   it('app-level error shows the banner', () => {
     store.error.value = 'Session expired. Reconnect.';
-    expect(mount({ connected: true }).querySelector('.fabry-error')!.textContent).toContain('Session expired');
+    expect(mount({ connected: true }).querySelector('.fabry-error')!.textContent).toContain(
+      'Session expired',
+    );
   });
   it('empty new chat renders the centered welcome; a non-empty chat renders the thread', () => {
     expect(mount({ connected: true }).querySelector('.fabry-welcome')).toBeTruthy();
     store.activeChatId.value = 'chat_1';
-    store.thread.value = [{ role: 'user', command: false, text: 'hi', images: [], chip: false, feedback: null, reasoning: '', tools: [] }];
+    store.thread.value = [
+      {
+        role: 'user',
+        command: false,
+        text: 'hi',
+        images: [],
+        chip: false,
+        feedback: null,
+        reasoning: '',
+        tools: [],
+      },
+    ];
     const root = mount({ connected: true });
     expect(root.querySelector('.fabry-welcome')).toBeNull();
     expect(root.querySelector('.fabry-thread')).toBeTruthy();

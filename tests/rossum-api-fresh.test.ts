@@ -5,7 +5,7 @@ import { fetchRossumApiFresh } from '../src/rossum/api.js';
 
 beforeEach(() => {
   window.localStorage.setItem('secureToken', 'tok');
-  globalThis.fetch = (vi.fn(async () => ({ ok: true, json: async () => ({ n: 1 }) })) as any);
+  globalThis.fetch = vi.fn(async () => ({ ok: true, json: async () => ({ n: 1 }) })) as any;
 });
 
 describe('fetchRossumApiFresh', () => {
@@ -17,8 +17,12 @@ describe('fetchRossumApiFresh', () => {
   });
 
   it('allows the one Data Storage prefix and sends it as a Bearer POST', async () => {
-    await fetchRossumApiFresh('/svc/data-storage/api/v1/collections/list',
-      { ttlMs: 0, method: 'POST', body: { nameOnly: true }, auth: 'bearer' });
+    await fetchRossumApiFresh('/svc/data-storage/api/v1/collections/list', {
+      ttlMs: 0,
+      method: 'POST',
+      body: { nameOnly: true },
+      auth: 'bearer',
+    });
     const [url, init] = vi.mocked(globalThis.fetch).mock.calls[0];
     expect(url).toBe(`${window.location.origin}/svc/data-storage/api/v1/collections/list`);
     expect(init!.method).toBe('POST');
@@ -29,15 +33,21 @@ describe('fetchRossumApiFresh', () => {
   it('rejects percent-encoded traversal that would resolve outside the allowlist', async () => {
     // `new URL` decodes %2e%2e into real `..` and normalises it away, so a
     // literal `..` check alone lets this through: it resolves to /admin.
-    await expect(fetchRossumApiFresh('/api/v1/%2e%2e/%2e%2e/admin', { ttlMs: 0 }))
-      .rejects.toThrow(/Invalid API path/);
-    await expect(fetchRossumApiFresh('/svc/data-storage/api/v1/%2e%2e/other', { ttlMs: 0 }))
-      .rejects.toThrow(/Invalid API path/);
+    await expect(fetchRossumApiFresh('/api/v1/%2e%2e/%2e%2e/admin', { ttlMs: 0 })).rejects.toThrow(
+      /Invalid API path/,
+    );
+    await expect(
+      fetchRossumApiFresh('/svc/data-storage/api/v1/%2e%2e/other', { ttlMs: 0 }),
+    ).rejects.toThrow(/Invalid API path/);
   });
 
   it('rejects any other service prefix', async () => {
-    await expect(fetchRossumApiFresh('/svc/other/thing', { ttlMs: 0 })).rejects.toThrow(/Invalid API path/);
-    await expect(fetchRossumApiFresh('https://evil.example/api/v1/x', { ttlMs: 0 })).rejects.toThrow();
+    await expect(fetchRossumApiFresh('/svc/other/thing', { ttlMs: 0 })).rejects.toThrow(
+      /Invalid API path/,
+    );
+    await expect(
+      fetchRossumApiFresh('https://evil.example/api/v1/x', { ttlMs: 0 }),
+    ).rejects.toThrow();
     await expect(fetchRossumApiFresh('/api/v1/../../x', { ttlMs: 0 })).rejects.toThrow();
   });
 
@@ -61,7 +71,12 @@ describe('fetchRossumApiFresh', () => {
     // second call within its 10s ttl, masking a real regression.
     const p = '/api/v1/documents';
     await fetchRossumApiFresh(p, { ttlMs: 10_000 });
-    await fetchRossumApiFresh(p, { ttlMs: 10_000, method: 'POST', body: { nameOnly: true }, auth: 'bearer' });
+    await fetchRossumApiFresh(p, {
+      ttlMs: 10_000,
+      method: 'POST',
+      body: { nameOnly: true },
+      auth: 'bearer',
+    });
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
     const methods = vi.mocked(globalThis.fetch).mock.calls.map(([, init]) => init!.method || 'GET');
     expect(methods).toEqual(['GET', 'POST']);
@@ -76,7 +91,7 @@ describe('fetchRossumApiFresh', () => {
   });
 
   it('does not cache a failure', async () => {
-    globalThis.fetch = (vi.fn(async () => ({ ok: false, status: 500 })) as any);
+    globalThis.fetch = vi.fn(async () => ({ ok: false, status: 500 })) as any;
     await expect(fetchRossumApiFresh('/api/v1/rules', { ttlMs: 1000 })).rejects.toThrow(/API 500/);
     await expect(fetchRossumApiFresh('/api/v1/rules', { ttlMs: 1000 })).rejects.toThrow(/API 500/);
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);

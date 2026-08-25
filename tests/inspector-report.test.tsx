@@ -4,16 +4,45 @@ import { h, render } from 'preact';
 import * as store from '../src/inspector/store.js';
 import Report from '../src/inspector/components/Report.jsx';
 
-function mount() { const el = document.createElement('div'); render(<Report />, el); return el; }
+function mount() {
+  const el = document.createElement('div');
+  render(<Report />, el);
+  return el;
+}
 
 function baseAnnotation() {
-  return { annotation: { id: 9, status: 'to_review', messages: [], labels: [], created_at: '2026-07-01T09:00:00Z' }, blocker: { content: [] }, content: { content: [] }, resolved: { usersById: {}, hooksById: {}, labelsById: {}, labelRules: [], queue: null, schema: null, document: null, _hooksLoaded: true, _workflowLoaded: true, _intakeLoaded: true } };
+  return {
+    annotation: {
+      id: 9,
+      status: 'to_review',
+      messages: [],
+      labels: [],
+      created_at: '2026-07-01T09:00:00Z',
+    },
+    blocker: { content: [] },
+    content: { content: [] },
+    resolved: {
+      usersById: {},
+      hooksById: {},
+      labelsById: {},
+      labelRules: [],
+      queue: null,
+      schema: null,
+      document: null,
+      _hooksLoaded: true,
+      _workflowLoaded: true,
+      _intakeLoaded: true,
+    },
+  };
 }
 
 beforeEach(() => {
   store.attributions.value = {};
   store.enrichment.value = { audit: null, hookLogs: [], ruleLogs: null, workflow: [], notes: [] };
-  store.evidence.value = { items: [], verdict: { state: 'in-review', severity: 'warning', headline: 'In review', reasons: [] } };
+  store.evidence.value = {
+    items: [],
+    verdict: { state: 'in-review', severity: 'warning', headline: 'In review', reasons: [] },
+  };
   store.investigation.value = { stage: 'gathering', sourcesDone: 1, sourcesTotal: 9, activity: '' };
 });
 
@@ -26,7 +55,17 @@ describe('Report', () => {
     expect(el.querySelector('.inspector-inv')).toBeTruthy();
     expect(el.querySelector('.inspector-verdict')).toBeTruthy();
     expect(el.querySelector('.inspector-diag')).toBeTruthy();
-    for (const t of ['Intake & origin', 'Blockers & messages', 'Fields', 'Extension runs', 'Labels', 'Rejection', 'Approval workflow', 'Export', 'Config drift']) {
+    for (const t of [
+      'Intake & origin',
+      'Blockers & messages',
+      'Fields',
+      'Extension runs',
+      'Labels',
+      'Rejection',
+      'Approval workflow',
+      'Export',
+      'Config drift',
+    ]) {
       expect(text).toContain(t);
     }
   });

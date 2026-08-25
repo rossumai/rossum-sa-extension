@@ -9,12 +9,18 @@ const MS_PER_DAY = 86400000;
 export const EPOCH_1900 = 25569; // days from 1899-12-30 to 1970-01-01
 export const EPOCH_1904 = 24107; // days from 1904-01-01 to 1970-01-01
 
-export function serialToDate(serial: number, { date1904 = false }: { date1904?: boolean } = {}): Date {
+export function serialToDate(
+  serial: number,
+  { date1904 = false }: { date1904?: boolean } = {},
+): Date {
   const epoch = date1904 ? EPOCH_1904 : EPOCH_1900;
   return new Date(Math.round((serial - epoch) * MS_PER_DAY));
 }
 
-export function dateToSerial(date: Date, { date1904 = false }: { date1904?: boolean } = {}): number {
+export function dateToSerial(
+  date: Date,
+  { date1904 = false }: { date1904?: boolean } = {},
+): number {
   const epoch = date1904 ? EPOCH_1904 : EPOCH_1900;
   return date.getTime() / MS_PER_DAY + epoch;
 }
@@ -29,8 +35,8 @@ export function isDateFormat(numFmtId?: number | null, formatCode?: string | nul
   if (BUILTIN_DATE_FMT_IDS.has(numFmtId as number)) return true;
   if (!formatCode) return false;
   const stripped = formatCode
-    .replace(/"[^"]*"/g, '')      // quoted literals
-    .replace(/\\./g, '')          // escaped char
-    .replace(/\[[^\]]*\]/g, '');  // [Red], [$-409], [>0] ...
+    .replace(/"[^"]*"/g, '') // quoted literals
+    .replace(/\\./g, '') // escaped char
+    .replace(/\[[^\]]*\]/g, ''); // [Red], [$-409], [>0] ...
   return /[ymdhs]/i.test(stripped);
 }

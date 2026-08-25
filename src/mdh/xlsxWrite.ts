@@ -46,24 +46,42 @@ export function indexToCol(index: number): string {
 
 // --- Excel worksheet-name rules: <=31 chars, no : \ / ? * [ ], non-empty ---
 export function sanitizeSheetName(name: unknown): string {
-  const cleaned = String(name == null ? '' : name).replace(/[:\\/?*[\]]/g, '_').slice(0, 31);
+  const cleaned = String(name == null ? '' : name)
+    .replace(/[:\\/?*[\]]/g, '_')
+    .slice(0, 31);
   return cleaned.length ? cleaned : 'Sheet1';
 }
 
 // --- ZIP records -----------------------------------------------------------
-function u16(dv: DataView, off: number, v: number) { dv.setUint16(off, v & 0xffff, true); }
-function u32(dv: DataView, off: number, v: number) { dv.setUint32(off, v >>> 0, true); }
+function u16(dv: DataView, off: number, v: number) {
+  dv.setUint16(off, v & 0xffff, true);
+}
+function u32(dv: DataView, off: number, v: number) {
+  dv.setUint32(off, v >>> 0, true);
+}
 
-const DOS_TIME = 0;     // 00:00:00
-const DOS_DATE = 0x21;  // 1980-01-01
+const DOS_TIME = 0; // 00:00:00
+const DOS_DATE = 0x21; // 1980-01-01
 
 // One ZIP entry's header fields. Named once: three record builders take overlapping subsets.
 type ZipEntry = {
-  name: string; method: number; flag: number;
-  crc: number; compSize: number; uncompSize: number; offset: number;
+  name: string;
+  method: number;
+  flag: number;
+  crc: number;
+  compSize: number;
+  uncompSize: number;
+  offset: number;
 };
 
-export function localHeader({ name, method, flag, crc, compSize, uncompSize }: Omit<ZipEntry, 'offset'>) {
+export function localHeader({
+  name,
+  method,
+  flag,
+  crc,
+  compSize,
+  uncompSize,
+}: Omit<ZipEntry, 'offset'>) {
   const nameBytes = ENC.encode(name);
   const buf = new Uint8Array(30 + nameBytes.length);
   const dv = new DataView(buf.buffer);
@@ -82,7 +100,11 @@ export function localHeader({ name, method, flag, crc, compSize, uncompSize }: O
   return buf;
 }
 
-export function dataDescriptor({ crc, compSize, uncompSize }: Pick<ZipEntry, 'crc' | 'compSize' | 'uncompSize'>) {
+export function dataDescriptor({
+  crc,
+  compSize,
+  uncompSize,
+}: Pick<ZipEntry, 'crc' | 'compSize' | 'uncompSize'>) {
   const buf = new Uint8Array(16);
   const dv = new DataView(buf.buffer);
   u32(dv, 0, 0x08074b50);
@@ -117,7 +139,15 @@ export function centralHeader({ name, method, flag, crc, compSize, uncompSize, o
   return buf;
 }
 
-export function eocd({ count, cdSize, cdOffset }: { count: number; cdSize: number; cdOffset: number }) {
+export function eocd({
+  count,
+  cdSize,
+  cdOffset,
+}: {
+  count: number;
+  cdSize: number;
+  cdOffset: number;
+}) {
   const buf = new Uint8Array(22);
   const dv = new DataView(buf.buffer);
   u32(dv, 0, 0x06054b50);
@@ -187,7 +217,8 @@ export function rowXml(rowIndex0: number, values: unknown[]) {
 
 const XML_DECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
 
-export const CONTENT_TYPES_XML = XML_DECL +
+export const CONTENT_TYPES_XML =
+  XML_DECL +
   '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
   '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
   '<Default Extension="xml" ContentType="application/xml"/>' +
@@ -196,18 +227,21 @@ export const CONTENT_TYPES_XML = XML_DECL +
   '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
   '</Types>';
 
-export const ROOT_RELS_XML = XML_DECL +
+export const ROOT_RELS_XML =
+  XML_DECL +
   '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
   '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
   '</Relationships>';
 
-export const WB_RELS_XML = XML_DECL +
+export const WB_RELS_XML =
+  XML_DECL +
   '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
   '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
   '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
   '</Relationships>';
 
-export const STYLES_XML = XML_DECL +
+export const STYLES_XML =
+  XML_DECL +
   '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
   '<numFmts count="1"><numFmt numFmtId="164" formatCode="yyyy\\-mm\\-dd hh:mm:ss"/></numFmts>' +
   '<fonts count="1"><font/></fonts><fills count="1"><fill/></fills><borders count="1"><border/></borders>' +
@@ -218,13 +252,16 @@ export const STYLES_XML = XML_DECL +
   '</cellXfs></styleSheet>';
 
 export function workbookXml(sheetName: unknown) {
-  return XML_DECL +
+  return (
+    XML_DECL +
     '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" ' +
     'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
-    `<sheets><sheet name="${escapeXmlText(sanitizeSheetName(sheetName))}" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+    `<sheets><sheet name="${escapeXmlText(sanitizeSheetName(sheetName))}" sheetId="1" r:id="rId1"/></sheets></workbook>`
+  );
 }
 
-export const SHEET_HEAD = XML_DECL +
+export const SHEET_HEAD =
+  XML_DECL +
   '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';
 export const SHEET_TAIL = '</sheetData></worksheet>';
 
@@ -235,22 +272,43 @@ const SHEET_PART = 'xl/worksheets/sheet1.xml';
 function storedEntry(name: string, text: string, offset: number) {
   const data = ENC.encode(text);
   const crc = crc32(data);
-  const header = localHeader({ name, method: 0, flag: 0, crc, compSize: data.length, uncompSize: data.length });
-  const central = centralHeader({ name, method: 0, flag: 0, crc, compSize: data.length, uncompSize: data.length, offset });
+  const header = localHeader({
+    name,
+    method: 0,
+    flag: 0,
+    crc,
+    compSize: data.length,
+    uncompSize: data.length,
+  });
+  const central = centralHeader({
+    name,
+    method: 0,
+    flag: 0,
+    crc,
+    compSize: data.length,
+    uncompSize: data.length,
+    offset,
+  });
   return { bytes: [header, data], central };
 }
 
 // Streaming binary serializer for the downloadCollection engine. The big sheet
 // is deflated and streamed via a ZIP data descriptor; the small parts are stored.
-export function buildXlsxSerializer(
-  { sheetName = 'Sheet1', header = true, columns = null }:
-  { sheetName?: string; header?: boolean; columns?: string[] | null } = {},
-) {
+export function buildXlsxSerializer({
+  sheetName = 'Sheet1',
+  header = true,
+  columns = null,
+}: { sheetName?: string; header?: boolean; columns?: string[] | null } = {}) {
   let cols: string[] | null = columns;
   let offset = 0;
   const centrals: Uint8Array[] = [];
   let sheetEntryOffset = 0;
-  let cs: any, writer: any, pumpDone: Promise<void> | undefined, sheetCrc = 0, sheetUncomp = 0, sheetComp = 0;
+  let cs: any,
+    writer: any,
+    pumpDone: Promise<void> | undefined,
+    sheetCrc = 0,
+    sheetUncomp = 0,
+    sheetComp = 0;
   let rowIndex = 0;
   let writeBytesRef: ((bytes: Uint8Array) => Promise<void>) | null = null;
 
@@ -283,10 +341,21 @@ export function buildXlsxSerializer(
     ) {
       writeBytesRef = writeBytes;
       if (cols == null) {
-        cols = orderColumns(await discoverLeafPaths(collectionName, pipelineStages, { aggregate: api.aggregate }));
+        cols = orderColumns(
+          await discoverLeafPaths(collectionName, pipelineStages, { aggregate: api.aggregate }),
+        );
       }
       sheetEntryOffset = offset;
-      await emit(localHeader({ name: SHEET_PART, method: 8, flag: 0x0008, crc: 0, compSize: 0, uncompSize: 0 }));
+      await emit(
+        localHeader({
+          name: SHEET_PART,
+          method: 8,
+          flag: 0x0008,
+          crc: 0,
+          compSize: 0,
+          uncompSize: 0,
+        }),
+      );
       cs = new CompressionStream('deflate-raw');
       writer = cs.writable.getWriter();
       const reader = cs.readable.getReader();
@@ -299,7 +368,10 @@ export function buildXlsxSerializer(
         }
       })();
       await feed(SHEET_HEAD);
-      if (header) { await feed(rowXml(rowIndex, cols!)); rowIndex++; }
+      if (header) {
+        await feed(rowXml(rowIndex, cols!));
+        rowIndex++;
+      }
     },
 
     async writeDocs(docs: any[]) {
@@ -318,10 +390,17 @@ export function buildXlsxSerializer(
       await writer.close();
       await pumpDone;
       await emit(dataDescriptor({ crc: sheetCrc, compSize: sheetComp, uncompSize: sheetUncomp }));
-      centrals.push(centralHeader({
-        name: SHEET_PART, method: 8, flag: 0x0008,
-        crc: sheetCrc, compSize: sheetComp, uncompSize: sheetUncomp, offset: sheetEntryOffset,
-      }));
+      centrals.push(
+        centralHeader({
+          name: SHEET_PART,
+          method: 8,
+          flag: 0x0008,
+          crc: sheetCrc,
+          compSize: sheetComp,
+          uncompSize: sheetUncomp,
+          offset: sheetEntryOffset,
+        }),
+      );
       const parts: [string, string][] = [
         ['[Content_Types].xml', CONTENT_TYPES_XML],
         ['_rels/.rels', ROOT_RELS_XML],
@@ -336,7 +415,10 @@ export function buildXlsxSerializer(
       }
       const cdOffset = offset;
       let cdSize = 0;
-      for (const c of centrals) { cdSize += c.length; await emit(c); }
+      for (const c of centrals) {
+        cdSize += c.length;
+        await emit(c);
+      }
       await emit(eocd({ count: centrals.length, cdSize, cdOffset }));
     },
   };

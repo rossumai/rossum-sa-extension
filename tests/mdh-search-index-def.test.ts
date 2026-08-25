@@ -2,7 +2,14 @@ import { describe, it, expect } from 'vitest';
 import { toCreateSearchIndexDefinition } from '../src/mdh/searchIndexDef.js';
 
 // The six fields the Create Search Index modal parses / api.createSearchIndex sends.
-const CREATE_FIELDS = ['indexName', 'mappings', 'analyzer', 'analyzers', 'searchAnalyzer', 'synonyms'];
+const CREATE_FIELDS = [
+  'indexName',
+  'mappings',
+  'analyzer',
+  'analyzers',
+  'searchAnalyzer',
+  'synonyms',
+];
 
 describe('toCreateSearchIndexDefinition', () => {
   it('turns the real listed sample into a clean, create-ready definition', () => {

@@ -68,7 +68,10 @@ export function _resetToast() {
 export const curlMenu = signal(false);
 
 let seq = 0;
-export function nextTabId() { seq += 1; return `t${seq}`; }
+export function nextTabId() {
+  seq += 1;
+  return `t${seq}`;
+}
 
 // Every field this reads is optional on a descriptor and each branch guards, so it keys
 // a PARTIAL one too — which is what an unresolved `via` descriptor is.
@@ -81,12 +84,33 @@ export function keyOf(resource: Partial<ResourceDescriptor> | null | undefined):
 }
 
 function blankTab(id: string, source: Tab['source'], resource: ResourceDescriptor | null): Tab {
-  return { id, source, resource: resource || null, original: null, buffer: '', loading: false, saving: false, error: null, readOnly: false, dirty: false, diffPreview: null, preview: null };
+  return {
+    id,
+    source,
+    resource: resource || null,
+    original: null,
+    buffer: '',
+    loading: false,
+    saving: false,
+    error: null,
+    readOnly: false,
+    dirty: false,
+    diffPreview: null,
+    preview: null,
+  };
 }
 
-export function activeTab() { return tabs.value.find((t) => t.id === activeId.value) || null; }
-export function patchTab(id: string, patch: Partial<Tab>) { tabs.value = tabs.value.map((t) => (t.id === id ? { ...t, ...patch } : t)); }
-export function setActive(id: string | null) { linkMenu.value = null; tabMenu.value = null; activeId.value = id; }
+export function activeTab() {
+  return tabs.value.find((t) => t.id === activeId.value) || null;
+}
+export function patchTab(id: string, patch: Partial<Tab>) {
+  tabs.value = tabs.value.map((t) => (t.id === id ? { ...t, ...patch } : t));
+}
+export function setActive(id: string | null) {
+  linkMenu.value = null;
+  tabMenu.value = null;
+  activeId.value = id;
+}
 
 // The default (page) tab is permanent: always present, never closeable. When no
 // resource is detected it stays as a resource-less tab that shows the hint.
@@ -100,7 +124,10 @@ export function ensurePageTab() {
 export function openTab(resource: ResourceDescriptor, source: Tab['source'] = 'link') {
   const k = keyOf(resource);
   const existing = tabs.value.find((t) => keyOf(t.resource) === k);
-  if (existing) { activeId.value = existing.id; return existing; }
+  if (existing) {
+    activeId.value = existing.id;
+    return existing;
+  }
   const tab = blankTab(nextTabId(), source, resource);
   tabs.value = [...tabs.value, tab];
   activeId.value = tab.id;
@@ -123,7 +150,11 @@ export function closeOtherTabs(id: string) {
   tabs.value = tabs.value.filter((t) => t.id === id || t.source === 'page');
   // Point at the clicked tab if it survived; otherwise fall back to a real tab
   // (the page tab always survives, so this never lands on a dangling id).
-  activeId.value = tabs.value.some((t) => t.id === id) ? id : (tabs.value[0] ? tabs.value[0].id : null);
+  activeId.value = tabs.value.some((t) => t.id === id)
+    ? id
+    : tabs.value[0]
+      ? tabs.value[0].id
+      : null;
   linkMenu.value = null;
   tabMenu.value = null;
 }

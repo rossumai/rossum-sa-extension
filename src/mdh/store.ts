@@ -25,7 +25,9 @@ export const showHiddenCollections = signal(false);
 // prefetcher can never disagree about what exists. Mirrors loadCollections' own
 // normalization: sort naturally, then drop a selection that no longer EXISTS.
 export function applyCollectionFilter() {
-  const all = [...(rawCollections.value || [])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const all = [...(rawCollections.value || [])].sort((a, b) =>
+    a.localeCompare(b, undefined, { numeric: true }),
+  );
   const visible = visibleCollections(all, false);
   collections.value = visible;
   hiddenCollections.value = all.filter((n) => !visible.includes(n));

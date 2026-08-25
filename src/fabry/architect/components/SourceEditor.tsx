@@ -26,7 +26,7 @@ const light = HighlightStyle.define([
   { tag: tags.url, color: '#4270db' },
   { tag: tags.monospace, color: '#c41a16' },
   { tag: [tags.list, tags.quote], color: '#7a7a8c' },
-  { tag: tags.processingInstruction, color: '#7a7a8c' },   // markdown punctuation (#, *, -)
+  { tag: tags.processingInstruction, color: '#7a7a8c' }, // markdown punctuation (#, *, -)
 ]);
 const dark = HighlightStyle.define([
   { tag: tags.heading, color: '#e8e8ee', fontWeight: '600' },
@@ -39,7 +39,11 @@ const dark = HighlightStyle.define([
   { tag: tags.processingInstruction, color: '#9a9aac' },
 ]);
 function prefersDark() {
-  try { return !!window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; } catch { return false; }
+  try {
+    return !!window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  } catch {
+    return false;
+  }
 }
 
 // No height and no min-height: the editor is as tall as its text, which is what makes the page scroll
@@ -54,10 +58,15 @@ const surface = EditorView.theme({
   '.cm-line': { padding: '0' },
 });
 
-export default function SourceEditor(
-  { text = '', onChange, viewRef }:
-  { text?: string; onChange?: (next: string) => void; viewRef?: { current: any } },
-) {
+export default function SourceEditor({
+  text = '',
+  onChange,
+  viewRef,
+}: {
+  text?: string;
+  onChange?: (next: string) => void;
+  viewRef?: { current: any };
+}) {
   const host = useRef<HTMLDivElement | null>(null);
   const view = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -78,8 +87,14 @@ export default function SourceEditor(
       parent: host.current!,
       state: EditorState.create({
         doc: text,
-        extensions: [basicSetup, markdown(), EditorView.lineWrapping, surface,
-          syntaxHighlighting(prefersDark() ? dark : light), listener],
+        extensions: [
+          basicSetup,
+          markdown(),
+          EditorView.lineWrapping,
+          surface,
+          syntaxHighlighting(prefersDark() ? dark : light),
+          listener,
+        ],
       }),
     });
     view.current = v;

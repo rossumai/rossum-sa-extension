@@ -72,12 +72,13 @@ export const EVENT_NAMES = [
 ] as const;
 
 /** One of the names above. `track()` takes this, so a typo is a compile error. */
-export type EventName = typeof EVENT_NAMES[number];
+export type EventName = (typeof EVENT_NAMES)[number];
 
 // The GA4 event-name format (/^[a-z][a-z0-9_]{0,39}$/) is asserted over
 // EVENT_NAMES by tests/usage-event.test.js rather than re-checked on every
 // send: the list is a closed literal, so it is checkable once at build time.
-const isStr100 = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 100;
+const isStr100 = (v: unknown): v is string =>
+  typeof v === 'string' && v.length > 0 && v.length <= 100;
 
 // Every event carries exactly these three fields and nothing else — the payload
 // PRIVACY.md promises, pinned to that document by tests/usage-boundary.test.js.
@@ -87,20 +88,33 @@ const isStr100 = (v: unknown): v is string => typeof v === 'string' && v.length 
 // the property counting users.
 export type EventPayload = {
   client_id: string;
-  events: [{ name: string; params: { session_id?: string; engagement_time_msec: number; ext_ver?: string } }];
+  events: [
+    {
+      name: string;
+      params: { session_id?: string; engagement_time_msec: number; ext_ver?: string };
+    },
+  ];
 };
 
 export function buildPayload(
   // `name` is a plain string, not EventName: the runtime check below IS this
   // function's job, and its only caller (collect.js) forwards a worker message.
-  { name, clientId, sessionId, version }:
-    { name: string; clientId?: unknown; sessionId?: string; version?: unknown },
+  {
+    name,
+    clientId,
+    sessionId,
+    version,
+  }: { name: string; clientId?: unknown; sessionId?: string; version?: unknown },
 ): EventPayload {
   // Cast, not a widened local: a local would emit an extra statement.
-  if (!(EVENT_NAMES as readonly string[]).includes(name)) throw new Error(`unknown event name: ${name}`);
+  if (!(EVENT_NAMES as readonly string[]).includes(name))
+    throw new Error(`unknown event name: ${name}`);
   if (!isStr100(clientId)) throw new Error('clientId required');
 
-  const params: EventPayload['events'][0]['params'] = { session_id: sessionId, engagement_time_msec: 1 };
+  const params: EventPayload['events'][0]['params'] = {
+    session_id: sessionId,
+    engagement_time_msec: 1,
+  };
   // Omitted rather than rejected: a bad manifest read must not cost a real
   // feature-use event.
   if (isStr100(version)) params.ext_ver = version;

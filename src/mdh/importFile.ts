@@ -52,8 +52,12 @@ function hasOwn(obj: unknown, key: string): boolean {
 // does not touch the network.
 export function analyzeDocs(docs: any[]) {
   const stats: {
-    total: number; withId: number; withoutId: number;
-    uniqueIdCount: number; inFileDupeCount: number; inFileDupeIdSample: unknown[];
+    total: number;
+    withId: number;
+    withoutId: number;
+    uniqueIdCount: number;
+    inFileDupeCount: number;
+    inFileDupeIdSample: unknown[];
   } = {
     total: docs.length,
     withId: 0,
@@ -116,7 +120,10 @@ export function dedupeById(docs: any[]) {
     const d = normalizeDocId(raw);
     if (hasOwn(d, '_id')) {
       const k = stableKey(d._id);
-      if (seen.has(k)) { dropped++; continue; }
+      if (seen.has(k)) {
+        dropped++;
+        continue;
+      }
       seen.add(k);
     }
     kept.push(d);
@@ -144,7 +151,7 @@ async function findExistingIds(
       projection: { _id: 1 },
       limit: 0,
     });
-    for (const doc of (res.result || [])) {
+    for (const doc of res.result || []) {
       existing.add(stableKey(doc._id));
     }
   }
@@ -162,22 +169,36 @@ async function findExistingIds(
 // probe, not a pre-upload conflict check — it only fires when a batch error
 // has already happened and we want accurate "inserted" numbers.
 type InsertFailure = {
-  startIdx: number; endIdx: number; count: number;
-  message: string; landedFromChunk: number | null;
+  startIdx: number;
+  endIdx: number;
+  count: number;
+  message: string;
+  landedFromChunk: number | null;
 };
 
 export async function runChunkedInsert(
   collection: string,
   docs: any[],
-  { batchSize = BATCH_SIZE, signal, onProgress }: {
+  {
+    batchSize = BATCH_SIZE,
+    signal,
+    onProgress,
+  }: {
     batchSize?: number;
     signal?: AbortSignal;
-    onProgress?: (p: { inserted: number; processed: number; total: number; failedBatches: number }) => void;
+    onProgress?: (p: {
+      inserted: number;
+      processed: number;
+      total: number;
+      failedBatches: number;
+    }) => void;
   } = {},
 ) {
   const result: {
-    attempted: number; inserted: number;
-    failedBatches: InsertFailure[]; cancelled: boolean;
+    attempted: number;
+    inserted: number;
+    failedBatches: InsertFailure[];
+    cancelled: boolean;
   } = {
     attempted: docs.length,
     inserted: 0,
@@ -186,7 +207,10 @@ export async function runChunkedInsert(
   };
   let processed = 0;
   for (let i = 0; i < docs.length; i += batchSize) {
-    if (signal?.aborted) { result.cancelled = true; break; }
+    if (signal?.aborted) {
+      result.cancelled = true;
+      break;
+    }
     const chunk = docs.slice(i, i + batchSize);
     try {
       await api.insertMany(collection, chunk, false);
@@ -200,9 +224,7 @@ export async function runChunkedInsert(
         landedFromChunk: null,
       };
       try {
-        const idsInChunk = chunk
-          .filter((d) => hasOwn(d, '_id'))
-          .map((d) => d._id);
+        const idsInChunk = chunk.filter((d) => hasOwn(d, '_id')).map((d) => d._id);
         if (idsInChunk.length > 0) {
           const existing = await findExistingIds(collection, idsInChunk, { signal });
           failure.landedFromChunk = existing.size;

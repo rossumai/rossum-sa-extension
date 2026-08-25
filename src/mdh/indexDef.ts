@@ -34,8 +34,9 @@ function textCreateKeys(idx: any): Record<string, any> | null {
   const rebuilt: Record<string, any> = {};
   for (const [k, v] of Object.entries(key)) {
     if (k === '_ftsx') continue;
-    if (k === '_fts') { for (const field of Object.keys(idx.weights)) rebuilt[field] = 'text'; }
-    else rebuilt[k] = v;
+    if (k === '_fts') {
+      for (const field of Object.keys(idx.weights)) rebuilt[field] = 'text';
+    } else rebuilt[k] = v;
   }
   return rebuilt;
 }
@@ -56,7 +57,13 @@ export function classifyIndexType(key: any): string | null {
 
 // Option fields whose presence makes an index NOT safely redundant — dropping
 // such an index could silently remove a constraint or change semantics.
-const CONSTRAINTS = ['unique', 'sparse', 'expireAfterSeconds', 'partialFilterExpression', 'collation'];
+const CONSTRAINTS = [
+  'unique',
+  'sparse',
+  'expireAfterSeconds',
+  'partialFilterExpression',
+  'collation',
+];
 
 // Names of indexes that are conservatively redundant: a plain index (no
 // constraint options, never `_id_`) whose key spec — field AND direction — is a
@@ -71,8 +78,8 @@ export function redundantIndexNames(indexes: any[]): Set<string> {
   // partial/sparse index a strict subset of docs; collation restricts which
   // queries it serves; hidden indexes serve none. (A `unique` superset is fine
   // — uniqueness doesn't restrict read coverage.)
-  const coversFully = (b: any) => b.partialFilterExpression === undefined && !b.sparse
-    && b.collation === undefined && !b.hidden;
+  const coversFully = (b: any) =>
+    b.partialFilterExpression === undefined && !b.sparse && b.collation === undefined && !b.hidden;
   const out = new Set<string>();
   for (const a of objs) {
     if (a.name === '_id_' || !plain(a)) continue;

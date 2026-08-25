@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { computeHealthScore, healthComponents, healthLabel, transformStatsResults, updateStatsSummary } from '../src/mdh/statsSummary.js';
+import {
+  computeHealthScore,
+  healthComponents,
+  healthLabel,
+  transformStatsResults,
+  updateStatsSummary,
+} from '../src/mdh/statsSummary.js';
 import { encKey } from '../src/mdh/statsPipelines.js';
 import * as cache from '../src/mdh/cache.js';
 import { statsSummary } from '../src/mdh/store.js';
@@ -18,7 +24,9 @@ describe('computeHealthScore', () => {
 
   it('returns 100 for a perfectly clean collection', () => {
     const strings = fields.map((f) => ({ field: f, count: 10, leading: 0, trailing: 0 }));
-    expect(computeHealthScore(perfectCoverage, [], [], strings, [{ fieldCount: 4 }], fields)).toBe(100);
+    expect(computeHealthScore(perfectCoverage, [], [], strings, [{ fieldCount: 4 }], fields)).toBe(
+      100,
+    );
   });
 
   it('penalizes lowered field coverage', () => {
@@ -43,8 +51,18 @@ describe('computeHealthScore', () => {
   it('penalizes type inconsistency per field', () => {
     // 1 of 4 fields inconsistent → typeScore = 75
     // score = 100 * 0.25 + 75 * 0.20 + 100 * 0.15 + 100 * 0.20 + 100 * 0.20 = 95
-    const types = [{ field: 'a', types: [{ _id: 'string', count: 5 }, { _id: 'int', count: 5 }] }];
-    expect(computeHealthScore(perfectCoverage, [], types, [], [{ fieldCount: 4 }], fields)).toBe(95);
+    const types = [
+      {
+        field: 'a',
+        types: [
+          { _id: 'string', count: 5 },
+          { _id: 'int', count: 5 },
+        ],
+      },
+    ];
+    expect(computeHealthScore(perfectCoverage, [], types, [], [{ fieldCount: 4 }], fields)).toBe(
+      95,
+    );
   });
 
   it('penalizes empties per field', () => {
@@ -52,27 +70,48 @@ describe('computeHealthScore', () => {
     // score = 100 * 0.25 + 100 * 0.20 + 75 * 0.15 + 100 * 0.20 + 100 * 0.20
     //       = 25 + 20 + 11.25 + 20 + 20 = 96.25 → rounds to 96
     const empties = [{ field: 'a', nullCount: 5, missingCount: 0, emptyCount: 0 }];
-    expect(computeHealthScore(perfectCoverage, empties, [], [], [{ fieldCount: 4 }], fields)).toBe(96);
+    expect(computeHealthScore(perfectCoverage, empties, [], [], [{ fieldCount: 4 }], fields)).toBe(
+      96,
+    );
   });
 
   it('penalizes sentinel-string fields like empties', () => {
     // 1 of 4 fields has sentinel strings, none empty → emptinessScore = 75
     // score = 100*0.25 + 100*0.20 + 75*0.15 + 100*0.20 + 100*0.20 = 96.25 → 96
     const sentinels = [{ field: 'a', total: 5, values: [{ value: 'null', count: 5 }] }];
-    expect(computeHealthScore(perfectCoverage, [], [], [], [{ fieldCount: 4 }], fields, sentinels)).toBe(96);
+    expect(
+      computeHealthScore(perfectCoverage, [], [], [], [{ fieldCount: 4 }], fields, sentinels),
+    ).toBe(96);
   });
 
   it('counts a field with both empties and sentinels only once', () => {
     const empties = [{ field: 'a', nullCount: 1, missingCount: 0, emptyCount: 0 }];
     const sentinels = [{ field: 'a', total: 5, values: [{ value: 'null', count: 5 }] }];
     // still only field 'a' affected → emptinessScore = 75 → 96
-    expect(computeHealthScore(perfectCoverage, empties, [], [], [{ fieldCount: 4 }], fields, sentinels)).toBe(96);
+    expect(
+      computeHealthScore(perfectCoverage, empties, [], [], [{ fieldCount: 4 }], fields, sentinels),
+    ).toBe(96);
   });
 
   it('omitting sentinels reproduces the pre-feature score (backward compat)', () => {
     const empties = [{ field: 'a', nullCount: 5, missingCount: 0, emptyCount: 0 }];
-    const withNull = computeHealthScore(perfectCoverage, empties, [], [], [{ fieldCount: 4 }], fields, null);
-    const sixArg = computeHealthScore(perfectCoverage, empties, [], [], [{ fieldCount: 4 }], fields);
+    const withNull = computeHealthScore(
+      perfectCoverage,
+      empties,
+      [],
+      [],
+      [{ fieldCount: 4 }],
+      fields,
+      null,
+    );
+    const sixArg = computeHealthScore(
+      perfectCoverage,
+      empties,
+      [],
+      [],
+      [{ fieldCount: 4 }],
+      fields,
+    );
     expect(withNull).toBe(sixArg);
     expect(sixArg).toBe(96);
   });
@@ -80,18 +119,30 @@ describe('computeHealthScore', () => {
   it('whitespace score is 100 when there are no string fields', () => {
     // strings array is all count=0 → stringFields = 0 → wsScore = 100
     const strings = fields.map((f) => ({ field: f, count: 0, leading: 0, trailing: 0 }));
-    expect(computeHealthScore(perfectCoverage, [], [], strings, [{ fieldCount: 4 }], fields)).toBe(100);
+    expect(computeHealthScore(perfectCoverage, [], [], strings, [{ fieldCount: 4 }], fields)).toBe(
+      100,
+    );
   });
 });
 
 describe('healthComponents', () => {
   const fields = ['a', 'b', 'c', 'd'];
   const coverage = [
-    { field: 'a', pct: 100 }, { field: 'b', pct: 90 },
-    { field: 'c', pct: 80 }, { field: 'd', pct: 100 },
+    { field: 'a', pct: 100 },
+    { field: 'b', pct: 90 },
+    { field: 'c', pct: 80 },
+    { field: 'd', pct: 100 },
   ];
   const empties = [{ field: 'b', nullCount: 0, missingCount: 10, emptyCount: 0 }];
-  const types = [{ field: 'c', types: [{ _id: 'string', count: 5 }, { _id: 'int', count: 3 }] }];
+  const types = [
+    {
+      field: 'c',
+      types: [
+        { _id: 'string', count: 5 },
+        { _id: 'int', count: 3 },
+      ],
+    },
+  ];
   const strings = [
     { field: 'a', count: 100, leading: 0, trailing: 4 },
     { field: 'd', count: 100, leading: 0, trailing: 0 },
@@ -102,9 +153,9 @@ describe('healthComponents', () => {
   it('returns the five 0-100 sub-scores', () => {
     const c = healthComponents(coverage, empties, types, strings, schemaShapes, fields, sentinels);
     expect(c.fieldCoverage).toBeCloseTo((100 + 90 + 80 + 100) / 4); // 92.5
-    expect(c.typeConsistency).toBeCloseTo((4 - 1) / 4 * 100);       // 75
-    expect(c.valueCompleteness).toBeCloseTo((4 - 2) / 4 * 100);     // b(empty)+a(sentinel) → 50
-    expect(c.whitespace).toBeCloseTo((2 - 1) / 2 * 100);            // 50
+    expect(c.typeConsistency).toBeCloseTo(((4 - 1) / 4) * 100); // 75
+    expect(c.valueCompleteness).toBeCloseTo(((4 - 2) / 4) * 100); // b(empty)+a(sentinel) → 50
+    expect(c.whitespace).toBeCloseTo(((2 - 1) / 2) * 100); // 50
     expect(c.schema).toBe(100);
   });
 
@@ -112,13 +163,27 @@ describe('healthComponents', () => {
     const cases = [
       [coverage, empties, types, strings, schemaShapes, fields, sentinels],
       [coverage, [], [], strings, schemaShapes, fields, null],
-      [coverage, empties, types, null, [{ fieldCount: 4, docCount: 50 }, { fieldCount: 3, docCount: 50 }], fields, []],
+      [
+        coverage,
+        empties,
+        types,
+        null,
+        [
+          { fieldCount: 4, docCount: 50 },
+          { fieldCount: 3, docCount: 50 },
+        ],
+        fields,
+        [],
+      ],
     ];
     for (const args of cases) {
       const c = (healthComponents as any)(...args);
       const expected = Math.round(
-        c.fieldCoverage * 0.25 + c.typeConsistency * 0.20 +
-        c.valueCompleteness * 0.15 + c.whitespace * 0.20 + c.schema * 0.20,
+        c.fieldCoverage * 0.25 +
+          c.typeConsistency * 0.2 +
+          c.valueCompleteness * 0.15 +
+          c.whitespace * 0.2 +
+          c.schema * 0.2,
       );
       expect((computeHealthScore as any)(...args)).toBe(expected);
     }
@@ -149,7 +214,9 @@ describe('transformStatsResults', () => {
 
   it('builds coverage array with pct floored', () => {
     const raw = {
-      coverage: { result: [{ _total: 200, [`f_${encKey('name')}`]: 150, [`f_${encKey('age')}`]: 199 }] },
+      coverage: {
+        result: [{ _total: 200, [`f_${encKey('name')}`]: 150, [`f_${encKey('age')}`]: 199 }],
+      },
       empties: { result: [{}] },
       types: { result: [{}] },
       strings: { result: [{}] },
@@ -166,23 +233,23 @@ describe('transformStatsResults', () => {
     const raw = {
       coverage: { result: [{ _total: 10 }] },
       empties: {
-        result: [{
-          [`null_${encKey('name')}`]: 0,
-          [`missing_${encKey('name')}`]: 0,
-          [`empty_${encKey('name')}`]: 0,
-          [`null_${encKey('age')}`]: 2,
-          [`missing_${encKey('age')}`]: 1,
-          [`empty_${encKey('age')}`]: 0,
-        }],
+        result: [
+          {
+            [`null_${encKey('name')}`]: 0,
+            [`missing_${encKey('name')}`]: 0,
+            [`empty_${encKey('name')}`]: 0,
+            [`null_${encKey('age')}`]: 2,
+            [`missing_${encKey('age')}`]: 1,
+            [`empty_${encKey('age')}`]: 0,
+          },
+        ],
       },
       types: { result: [{}] },
       strings: { result: [{}] },
       schema: { result: [] },
     };
     const out = transformStatsResults(raw, fields);
-    expect(out.empties).toEqual([
-      { field: 'age', nullCount: 2, missingCount: 1, emptyCount: 0 },
-    ]);
+    expect(out.empties).toEqual([{ field: 'age', nullCount: 2, missingCount: 1, emptyCount: 0 }]);
   });
 
   it('filters types to only fields with multiple types, excluding missing', () => {
@@ -190,14 +257,16 @@ describe('transformStatsResults', () => {
       coverage: { result: [{ _total: 10 }] },
       empties: { result: [{}] },
       types: {
-        result: [{
-          [encKey('name')]: [{ _id: 'string', count: 10 }],
-          [encKey('age')]: [
-            { _id: 'int', count: 5 },
-            { _id: 'string', count: 3 },
-            { _id: 'missing', count: 2 },
-          ],
-        }],
+        result: [
+          {
+            [encKey('name')]: [{ _id: 'string', count: 10 }],
+            [encKey('age')]: [
+              { _id: 'int', count: 5 },
+              { _id: 'string', count: 3 },
+              { _id: 'missing', count: 2 },
+            ],
+          },
+        ],
       },
       strings: { result: [{}] },
       schema: { result: [] },
@@ -219,12 +288,14 @@ describe('transformStatsResults', () => {
       coverage: { result: [{ _total: 10 }] },
       empties: { result: [{}] },
       types: {
-        result: [{
-          [encKey('amount')]: [
-            { _id: 'int', count: 4 },
-            { _id: 'double', count: 6 },
-          ],
-        }],
+        result: [
+          {
+            [encKey('amount')]: [
+              { _id: 'int', count: 4 },
+              { _id: 'double', count: 6 },
+            ],
+          },
+        ],
       },
       strings: { result: [{}] },
       schema: { result: [] },
@@ -239,10 +310,14 @@ describe('transformStatsResults', () => {
       empties: { result: [{}] },
       types: { result: [{}] },
       strings: {
-        result: [{
-          [encKey('name')]: [{ count: 8, minLen: 3, maxLen: 12, avgLen: 7.6, leading: 1, trailing: 0 }],
-          [encKey('age')]: [],
-        }],
+        result: [
+          {
+            [encKey('name')]: [
+              { count: 8, minLen: 3, maxLen: 12, avgLen: 7.6, leading: 1, trailing: 0 },
+            ],
+            [encKey('age')]: [],
+          },
+        ],
       },
       schema: { result: [] },
     };
@@ -275,23 +350,37 @@ describe('transformStatsResults', () => {
   it('transformSentinels rolls up buckets per field and filters clean fields', () => {
     const raw = {
       sentinels: {
-        result: [{
-          [encKey('vendor')]: [{ _id: 'null', count: 1204 }],
-          [encKey('status')]: [{ _id: 'n/a', count: 89 }, { _id: 'none', count: 12 }],
-          [encKey('clean')]: [],
-        }],
+        result: [
+          {
+            [encKey('vendor')]: [{ _id: 'null', count: 1204 }],
+            [encKey('status')]: [
+              { _id: 'n/a', count: 89 },
+              { _id: 'none', count: 12 },
+            ],
+            [encKey('clean')]: [],
+          },
+        ],
       },
     };
     const out = transformStatsResults(raw, ['vendor', 'status', 'clean']);
     expect(out.sentinels).toEqual([
       { field: 'vendor', total: 1204, values: [{ value: 'null', count: 1204 }] },
-      { field: 'status', total: 101, values: [{ value: 'n/a', count: 89 }, { value: 'none', count: 12 }] },
+      {
+        field: 'status',
+        total: 101,
+        values: [
+          { value: 'n/a', count: 89 },
+          { value: 'none', count: 12 },
+        ],
+      },
     ]);
   });
 
   it('transformStatsResults.sentinels is null when its raw input is missing', () => {
     const raw = {
-      coverage: { result: [{ _total: 10, [`f_${encKey('name')}`]: 10, [`f_${encKey('age')}`]: 10 }] },
+      coverage: {
+        result: [{ _total: 10, [`f_${encKey('name')}`]: 10, [`f_${encKey('age')}`]: 10 }],
+      },
       empties: { result: [{}] },
       types: { result: [{}] },
       strings: { result: [{}] },
@@ -307,7 +396,9 @@ describe('transformStatsResults', () => {
     // but other checks succeeded. Consumers render the resolved pieces
     // and skip the null ones.
     const raw = {
-      coverage: { result: [{ _total: 10, [`f_${encKey('name')}`]: 10, [`f_${encKey('age')}`]: 10 }] },
+      coverage: {
+        result: [{ _total: 10, [`f_${encKey('name')}`]: 10, [`f_${encKey('age')}`]: 10 }],
+      },
       empties: { result: [{}] },
       types: null,
       strings: { result: [{}] },
@@ -336,9 +427,13 @@ describe('updateStatsSummary', () => {
     cache.set(col, 'stats_empties', { result: [{}] });
     cache.set(col, 'stats_types', { result: [{}] });
     cache.set(col, 'stats_strings', {
-      result: [{
-        [encKey('name')]: [{ count: 100, minLen: 3, maxLen: 20, avgLen: 10, leading: 0, trailing: 0 }],
-      }],
+      result: [
+        {
+          [encKey('name')]: [
+            { count: 100, minLen: 3, maxLen: 20, avgLen: 10, leading: 0, trailing: 0 },
+          ],
+        },
+      ],
     });
     cache.set(col, 'stats_schema', {
       result: [{ _id: 2, count: 100, sampleFields: ['_id', 'name', 'age'] }],
@@ -371,11 +466,13 @@ describe('updateStatsSummary', () => {
       result: [{ _total: 100, [`f_${encKey('name')}`]: 100, [`f_${encKey('age')}`]: 50 }],
     });
     cache.set(col, 'stats_empties', {
-      result: [{
-        [`null_${encKey('age')}`]: 50,
-        [`missing_${encKey('age')}`]: 0,
-        [`empty_${encKey('age')}`]: 0,
-      }],
+      result: [
+        {
+          [`null_${encKey('age')}`]: 50,
+          [`missing_${encKey('age')}`]: 0,
+          [`empty_${encKey('age')}`]: 0,
+        },
+      ],
     });
     cache.set(col, 'stats_types', { result: [{}] });
     cache.set(col, 'stats_strings', { result: [{}] });
@@ -401,10 +498,14 @@ describe('updateStatsSummary', () => {
     cache.set(col, 'stats_empties', { result: [{}] });
     cache.set(col, 'stats_types', { result: [{}] });
     cache.set(col, 'stats_strings', { result: [{}] });
-    cache.set(col, 'stats_schema', { result: [{ _id: 2, count: 100, sampleFields: ['name', 'age'] }] });
+    cache.set(col, 'stats_schema', {
+      result: [{ _id: 2, count: 100, sampleFields: ['name', 'age'] }],
+    });
     // "age" is 100 % the literal string "null" → counts as present in coverage,
     // but is flagged as a sentinel field.
-    cache.set(col, 'stats_sentinels', { result: [{ [encKey('age')]: [{ _id: 'null', count: 100 }] }] });
+    cache.set(col, 'stats_sentinels', {
+      result: [{ [encKey('age')]: [{ _id: 'null', count: 100 }] }],
+    });
     updateStatsSummary(col);
     // avgCoverage=100, emptinessScore=(2-1)/2*100=50, typeScore=100, wsScore=100, schemaScore=100
     // score = 100*0.25 + 100*0.20 + 50*0.15 + 100*0.20 + 100*0.20 = 92.5 → 93

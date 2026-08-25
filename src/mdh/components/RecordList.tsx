@@ -1,7 +1,15 @@
 import { h } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { track } from '../../usage/track.js';
-import { skip, selectedCollection, selectionMode, selectedIds, selectionPipelineDirty, resultsView, inspectTarget } from '../store.js';
+import {
+  skip,
+  selectedCollection,
+  selectionMode,
+  selectedIds,
+  selectionPipelineDirty,
+  resultsView,
+  inspectTarget,
+} from '../store.js';
 
 import RecordCard from './RecordCard.jsx';
 import RecordTable from './RecordTable.jsx';
@@ -15,10 +23,33 @@ import { ALT_KEY } from '../platform.js';
 import type { SortFilterControls } from '../hooks/usePipeline.js';
 
 export default function RecordList({
-  records, pipelineText, filterState, sortState, lastQueryMs, totalCount, pagination,
-  onSort, onFilter, onPageChange, onEdit, onDelete, onRefresh, downloadState, onCancelDownload,
-  onEnterSelectionMode, onExitSelectionMode, onBulkDelete, onBulkUpdate, onSelectPage, onClearSelection,
-  onViewSelected, filtered = false, entries, rawStages, variables, onToggleStage,
+  records,
+  pipelineText,
+  filterState,
+  sortState,
+  lastQueryMs,
+  totalCount,
+  pagination,
+  onSort,
+  onFilter,
+  onPageChange,
+  onEdit,
+  onDelete,
+  onRefresh,
+  downloadState,
+  onCancelDownload,
+  onEnterSelectionMode,
+  onExitSelectionMode,
+  onBulkDelete,
+  onBulkUpdate,
+  onSelectPage,
+  onClearSelection,
+  onViewSelected,
+  filtered = false,
+  entries,
+  rawStages,
+  variables,
+  onToggleStage,
 }: SortFilterControls & {
   records: any[];
   pipelineText?: string;
@@ -78,16 +109,25 @@ export default function RecordList({
     });
     ro.observe(el);
     setListWidth(lastReported);
-    return () => { if (raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(raf); ro.disconnect(); };
+    return () => {
+      if (raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
   }, []);
 
   useEffect(() => {
     let cancelled = false;
     async function loadIndexes() {
       const col = selectedCollection.value;
-      if (!col) { setIndexes([]); return; }
+      if (!col) {
+        setIndexes([]);
+        return;
+      }
       const cached = cache.get(col, 'indexes');
-      if (cached !== null) { setIndexes(cached); return; }
+      if (cached !== null) {
+        setIndexes(cached);
+        return;
+      }
       try {
         const res = await api.listIndexes(col, false);
         const result = res.result || [];
@@ -99,12 +139,15 @@ export default function RecordList({
       }
     }
     loadIndexes();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [selectedCollection.value]);
 
   useEffect(() => {
     chrome.storage.local.get(['mdhResultsView'], ({ mdhResultsView }) => {
-      if (mdhResultsView === 'table' || mdhResultsView === 'stages') resultsView.value = mdhResultsView;
+      if (mdhResultsView === 'table' || mdhResultsView === 'stages')
+        resultsView.value = mdhResultsView;
     });
   }, []);
   function changeView(v: any) {
@@ -122,9 +165,10 @@ export default function RecordList({
     chrome.storage.local.set({ mdhResultsView: v });
   }
 
-  const charBudget = listWidth > 0
-    ? Math.max(MIN_CHAR_BUDGET, Math.floor((listWidth - RESERVED_PX) / CHAR_WIDTH_PX))
-    : MIN_CHAR_BUDGET;
+  const charBudget =
+    listWidth > 0
+      ? Math.max(MIN_CHAR_BUDGET, Math.floor((listWidth - RESERVED_PX) / CHAR_WIDTH_PX))
+      : MIN_CHAR_BUDGET;
 
   function toggleExpand(idx: any) {
     const next = new Set(expandedSet);
@@ -148,7 +192,8 @@ export default function RecordList({
 
   let emptyContent = null;
   if (records.length === 0) {
-    let hasNonTrivialPipeline = Object.keys(filterState).length > 0 || Object.keys(sortState).length > 0;
+    let hasNonTrivialPipeline =
+      Object.keys(filterState).length > 0 || Object.keys(sortState).length > 0;
     if (!hasNonTrivialPipeline && pipelineText) {
       try {
         const pipeline = JSON5.parse(pipelineText);
@@ -159,15 +204,31 @@ export default function RecordList({
             return false;
           });
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
 
     if (skip.value > 0) {
-      emptyContent = <div class="record-list-empty"><p>No more records on this page</p><p class="record-list-empty-hint">Try going back to the previous page</p></div>;
+      emptyContent = (
+        <div class="record-list-empty">
+          <p>No more records on this page</p>
+          <p class="record-list-empty-hint">Try going back to the previous page</p>
+        </div>
+      );
     } else if (hasNonTrivialPipeline) {
-      emptyContent = <div class="record-list-empty"><p>0 records match the current query</p><p class="record-list-empty-hint">Try modifying the pipeline or click Reset</p></div>;
+      emptyContent = (
+        <div class="record-list-empty">
+          <p>0 records match the current query</p>
+          <p class="record-list-empty-hint">Try modifying the pipeline or click Reset</p>
+        </div>
+      );
     } else {
-      emptyContent = <div class="record-list-empty"><p>No records</p></div>;
+      emptyContent = (
+        <div class="record-list-empty">
+          <p>No records</p>
+        </div>
+      );
     }
   }
 
@@ -176,7 +237,8 @@ export default function RecordList({
   // and the query timing (plus the >1s slow-query warning) now live in the Aggregate
   // Pipeline Debug, so `totalCount` / `lastQueryMs` are accepted (DataPanel still
   // passes them) but no longer rendered here.
-  const countText = records.length > 0 ? `Showing ${s + 1}\u2013${s + records.length}` : 'No records';
+  const countText =
+    records.length > 0 ? `Showing ${s + 1}\u2013${s + records.length}` : 'No records';
 
   return (
     <div style="display:flex;flex-direction:column;flex:1;overflow:hidden">
@@ -208,8 +270,11 @@ export default function RecordList({
       </div>
       {selectionMode.value && selectedIds.value.size > 0 && selectionPipelineDirty.value && (
         <div class="selection-mismatch-banner">
-          {selectedIds.value.size} selected record{selectedIds.value.size !== 1 ? 's' : ''} may no longer match the current view.
-          <button class="btn-link" onClick={onViewSelected}>View selected only</button>
+          {selectedIds.value.size} selected record{selectedIds.value.size !== 1 ? 's' : ''} may no
+          longer match the current view.
+          <button class="btn-link" onClick={onViewSelected}>
+            View selected only
+          </button>
         </div>
       )}
       {view === 'stages' ? (
@@ -234,34 +299,45 @@ export default function RecordList({
               onFilter={onFilter}
             />
           )}
-          {records.length > 0 && view === 'list' && records.map((record, i) => (
-            <RecordCard
-              key={i}
-              record={record}
-              index={i}
-              expanded={expandAll || expandedSet.has(i)}
-              onToggle={toggleExpand}
-              onCopy={() => {}}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              sortState={sortState}
-              filterState={filterState}
-              onSort={onSort}
-              onFilter={onFilter}
-              charBudget={charBudget}
-              indexes={indexes}
-            />
-          ))}
+          {records.length > 0 &&
+            view === 'list' &&
+            records.map((record, i) => (
+              <RecordCard
+                key={i}
+                record={record}
+                index={i}
+                expanded={expandAll || expandedSet.has(i)}
+                onToggle={toggleExpand}
+                onCopy={() => {}}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                sortState={sortState}
+                filterState={filterState}
+                onSort={onSort}
+                onFilter={onFilter}
+                charBudget={charBudget}
+                indexes={indexes}
+              />
+            ))}
         </div>
       )}
       {view !== 'stages' && (
         <div class="pagination">
           <span class="record-count">{countText}</span>
-          <span class="pagination-hint">Click key to sort {'\u00b7'} Click value to filter {'\u00b7'} {ALT_KEY}+click to copy</span>
+          <span class="pagination-hint">
+            Click key to sort {'\u00b7'} Click value to filter {'\u00b7'} {ALT_KEY}+click to copy
+          </span>
           <div class="pagination-controls">
-            <button disabled={!pagination.hasPrev()} onClick={() => onPageChange('prev')}>{'\u2190'} Prev</button>
+            <button disabled={!pagination.hasPrev()} onClick={() => onPageChange('prev')}>
+              {'\u2190'} Prev
+            </button>
             <span>Page {pagination.page()}</span>
-            <button disabled={!pagination.hasNext(records.length, filtered)} onClick={() => onPageChange('next')}>Next {'\u2192'}</button>
+            <button
+              disabled={!pagination.hasNext(records.length, filtered)}
+              onClick={() => onPageChange('next')}
+            >
+              Next {'\u2192'}
+            </button>
           </div>
         </div>
       )}
@@ -269,16 +345,31 @@ export default function RecordList({
   );
 }
 
-const STAGES_DISABLED_TITLE = 'Unavailable in the Stages view — switch to List or Table to use this.';
+const STAGES_DISABLED_TITLE =
+  'Unavailable in the Stages view — switch to List or Table to use this.';
 
 function DefaultToolbar({
-  allExpanded, toggleExpandAll, downloadState, onRefresh, onCancelDownload,
-  onEnterSelectionMode, onBulkDelete, onBulkUpdate, view, changeView,
+  allExpanded,
+  toggleExpandAll,
+  downloadState,
+  onRefresh,
+  onCancelDownload,
+  onEnterSelectionMode,
+  onBulkDelete,
+  onBulkUpdate,
+  view,
+  changeView,
 }: {
-  allExpanded?: boolean; toggleExpandAll: () => void; downloadState?: any;
-  onRefresh: (action?: any) => void; onCancelDownload: () => void;
-  onEnterSelectionMode: () => void; onBulkDelete: () => void; onBulkUpdate: () => void;
-  view?: string; changeView: (v: string) => void;
+  allExpanded?: boolean;
+  toggleExpandAll: () => void;
+  downloadState?: any;
+  onRefresh: (action?: any) => void;
+  onCancelDownload: () => void;
+  onEnterSelectionMode: () => void;
+  onBulkDelete: () => void;
+  onBulkUpdate: () => void;
+  view?: string;
+  changeView: (v: string) => void;
 }) {
   // In the Stages view the record-list actions don't apply — keep them visible but
   // greyed/inert (so the toolbar doesn't collapse), with a tooltip explaining why,
@@ -290,14 +381,26 @@ function DefaultToolbar({
   return (
     <div style="display:contents">
       <div class="toolbar-group">
-        <span class={'toolbar-group' + (recordsDisabled ? ' toolbar-group-disabled' : '')} title={disabledTitle} aria-disabled={disabledAttr}>
-          <button class="btn btn-sm" onClick={onEnterSelectionMode}>Select</button>
-          <button class="btn btn-sm" onClick={toggleExpandAll}>{allExpanded ? 'Collapse All' : 'Expand All'}</button>
+        <span
+          class={'toolbar-group' + (recordsDisabled ? ' toolbar-group-disabled' : '')}
+          title={disabledTitle}
+          aria-disabled={disabledAttr}
+        >
+          <button class="btn btn-sm" onClick={onEnterSelectionMode}>
+            Select
+          </button>
+          <button class="btn btn-sm" onClick={toggleExpandAll}>
+            {allExpanded ? 'Collapse All' : 'Expand All'}
+          </button>
         </span>
         <ViewSwitch view={view} changeView={changeView} />
       </div>
       <div style="flex:1"></div>
-      <div class={'toolbar-group' + (recordsDisabled ? ' toolbar-group-disabled' : '')} title={disabledTitle} aria-disabled={disabledAttr}>
+      <div
+        class={'toolbar-group' + (recordsDisabled ? ' toolbar-group-disabled' : '')}
+        title={disabledTitle}
+        aria-disabled={disabledAttr}
+      >
         <BulkSplitButton onUpdate={onBulkUpdate} onDelete={onBulkDelete} />
         {downloadState ? (
           <span class="download-progress">
@@ -310,20 +413,39 @@ function DefaultToolbar({
             </span>
             {!downloadState.cancelled && !downloadState.done && (
               <span class="download-bar">
-                {downloadState.total > 0
-                  ? <span class="download-bar-fill" style={`width:${Math.min(100, Math.round((downloadState.count / downloadState.total) * 100))}%`}></span>
-                  : <span class="download-bar-fill download-bar-indeterminate"></span>
-                }
+                {downloadState.total > 0 ? (
+                  <span
+                    class="download-bar-fill"
+                    style={`width:${Math.min(100, Math.round((downloadState.count / downloadState.total) * 100))}%`}
+                  ></span>
+                ) : (
+                  <span class="download-bar-fill download-bar-indeterminate"></span>
+                )}
               </span>
             )}
             {!downloadState.cancelled && !downloadState.done && (
-              <button class="download-cancel-btn" title="Cancel download" onClick={onCancelDownload}>{'\u2715'}</button>
+              <button
+                class="download-cancel-btn"
+                title="Cancel download"
+                onClick={onCancelDownload}
+              >
+                {'\u2715'}
+              </button>
             )}
           </span>
         ) : (
-          <button class="btn btn-sm" data-testid="export-open" title="Export collection" onClick={() => onRefresh('export')}>Export</button>
+          <button
+            class="btn btn-sm"
+            data-testid="export-open"
+            title="Export collection"
+            onClick={() => onRefresh('export')}
+          >
+            Export
+          </button>
         )}
-        <button class="btn btn-sm btn-success" onClick={() => onRefresh('import')}>Import</button>
+        <button class="btn btn-sm btn-success" onClick={() => onRefresh('import')}>
+          Import
+        </button>
       </div>
     </div>
   );
@@ -347,7 +469,9 @@ function ViewSwitch({ view, changeView }: { view?: string; changeView: (v: strin
           class={'view-seg-opt' + (view === o.value ? ' on' : '')}
           aria-pressed={view === o.value}
           onClick={() => changeView(o.value)}
-        >{o.label}</button>
+        >
+          {o.label}
+        </button>
       ))}
     </div>
   );
@@ -369,13 +493,35 @@ function BulkSplitButton({ onUpdate, onDelete }: { onUpdate: () => void; onDelet
 
   return (
     <div ref={rootRef} class="dropdown-btn">
-      <button class="btn btn-sm" onClick={(e) => { e.stopPropagation(); setOpen(!open); }}>
+      <button
+        class="btn btn-sm"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(!open);
+        }}
+      >
         Bulk {'\u25BE'}
       </button>
       {open && (
         <div class="toolbar-more-menu">
-          <button class="toolbar-menu-item" onClick={() => { setOpen(false); onUpdate(); }}>Update by filter</button>
-          <button class="toolbar-menu-item toolbar-menu-danger" onClick={() => { setOpen(false); onDelete(); }}>Delete by filter</button>
+          <button
+            class="toolbar-menu-item"
+            onClick={() => {
+              setOpen(false);
+              onUpdate();
+            }}
+          >
+            Update by filter
+          </button>
+          <button
+            class="toolbar-menu-item toolbar-menu-danger"
+            onClick={() => {
+              setOpen(false);
+              onDelete();
+            }}
+          >
+            Delete by filter
+          </button>
         </div>
       )}
     </div>
@@ -383,10 +529,21 @@ function BulkSplitButton({ onUpdate, onDelete }: { onUpdate: () => void; onDelet
 }
 
 function SelectionToolbar({
-  records, onExit, onBulkDelete, onBulkUpdate, onSelectPage, onClearSelection, onViewSelected,
+  records,
+  onExit,
+  onBulkDelete,
+  onBulkUpdate,
+  onSelectPage,
+  onClearSelection,
+  onViewSelected,
 }: {
-  records: any[]; onExit: () => void; onBulkDelete: () => void; onBulkUpdate: () => void;
-  onSelectPage: (select?: boolean) => void; onClearSelection: () => void; onViewSelected: () => void;
+  records: any[];
+  onExit: () => void;
+  onBulkDelete: () => void;
+  onBulkUpdate: () => void;
+  onSelectPage: (select?: boolean) => void;
+  onClearSelection: () => void;
+  onViewSelected: () => void;
 }) {
   const ids = selectedIds.value;
   const total = ids.size;
@@ -405,7 +562,9 @@ function SelectionToolbar({
   return (
     <div style="display:contents">
       <div class="toolbar-group">
-        <button class="btn btn-sm" onClick={onExit}>Cancel</button>
+        <button class="btn btn-sm" onClick={onExit}>
+          Cancel
+        </button>
         <button
           class="btn btn-sm"
           onClick={() => onSelectPage(headerState !== 'all')}
@@ -418,7 +577,9 @@ function SelectionToolbar({
             class="selection-count"
             onClick={() => setPopoverOpen((v) => !v)}
             title="Click to review selected ids"
-          >{total} selected</span>
+          >
+            {total} selected
+          </span>
           {popoverOpen && total > 0 && (
             <div class="selection-popover">
               {[...ids.keys()].map((id) => (
@@ -428,24 +589,48 @@ function SelectionToolbar({
                     class="selection-popover-remove"
                     title="Remove from selection"
                     onClick={() => removeId(id)}
-                  >{'\u00D7'}</button>
+                  >
+                    {'\u00D7'}
+                  </button>
                 </div>
               ))}
               <div class="selection-popover-actions">
-                <button class="btn-link" onClick={() => { setPopoverOpen(false); onViewSelected(); }}>View selected only</button>
-                <button class="btn-link" onClick={() => { setPopoverOpen(false); onClearSelection(); }}>Clear all</button>
+                <button
+                  class="btn-link"
+                  onClick={() => {
+                    setPopoverOpen(false);
+                    onViewSelected();
+                  }}
+                >
+                  View selected only
+                </button>
+                <button
+                  class="btn-link"
+                  onClick={() => {
+                    setPopoverOpen(false);
+                    onClearSelection();
+                  }}
+                >
+                  Clear all
+                </button>
               </div>
             </div>
           )}
         </div>
         {total > 0 && (
-          <button class="btn-link" onClick={onClearSelection}>Clear</button>
+          <button class="btn-link" onClick={onClearSelection}>
+            Clear
+          </button>
         )}
       </div>
       <div style="flex:1"></div>
       <div class="toolbar-group">
-        <button class="btn btn-sm" disabled={total === 0} onClick={onBulkUpdate}>Edit selected</button>
-        <button class="btn btn-sm btn-danger" disabled={total === 0} onClick={onBulkDelete}>Delete selected</button>
+        <button class="btn btn-sm" disabled={total === 0} onClick={onBulkUpdate}>
+          Edit selected
+        </button>
+        <button class="btn btn-sm btn-danger" disabled={total === 0} onClick={onBulkDelete}>
+          Delete selected
+        </button>
       </div>
     </div>
   );

@@ -6,8 +6,9 @@ import type { JsonEditorHandle } from './JsonEditor.jsx';
 
 /** The slice of the editor handle this overlay drives — every call below is optional-
  *  chained, so the parts are optional here too and a stub need only provide what it uses. */
-type OverlayEditor = Partial<Pick<JsonEditorHandle,
-  'highlightStage' | 'revealStage' | 'stageScreenRect' | 'clipRect'>>;
+type OverlayEditor = Partial<
+  Pick<JsonEditorHandle, 'highlightStage' | 'revealStage' | 'stageScreenRect' | 'clipRect'>
+>;
 
 // SVG connector drawn over the data panel: from the hovered Stages-view section to
 // that stage's code line in the pipeline editor. Reads the `hoveredStage` signal so
@@ -25,13 +26,17 @@ type OverlayEditor = Partial<Pick<JsonEditorHandle,
 // accompanies has never been gated either. It therefore still marks the stage when
 // Auto-scroll is off and the stage sits off-screen — the line hides in that case
 // (stageScreenRect returns null), but the band is waiting when the user scrolls to it.
-export default function StageLinkOverlay(
-  { editorRef, panelRef }: { editorRef: { current: OverlayEditor | null }; panelRef: { current: any } },
-) {
+export default function StageLinkOverlay({
+  editorRef,
+  panelRef,
+}: {
+  editorRef: { current: OverlayEditor | null };
+  panelRef: { current: any };
+}) {
   const [pts, setPts] = useState<any>(null);
-  const hv = hoveredStage.value;      // a Stages-view section is hovered
-  const eh = editorHoverStage.value;  // ...or a stage in the editor is
-  const cs = caretStage.value;        // ...or the caret is resting in one
+  const hv = hoveredStage.value; // a Stages-view section is hovered
+  const eh = editorHoverStage.value; // ...or a stage in the editor is
+  const cs = caretStage.value; // ...or the caret is resting in one
 
   // Either POINTER source beats a resting caret — an active gesture wins — and
   // only ONE connector is ever drawn. The two hovers are mutually exclusive in
@@ -42,13 +47,16 @@ export default function StageLinkOverlay(
   // this on every recompute (rather than caching an element) also survives a
   // StagesView re-render replacing the node. Returns null when the Stages view
   // isn't open — which is exactly when there is nothing to link to.
-  const sectionFor = (s: any) => (
-    s?.el || (s ? panelRef.current?.querySelector(`[data-entry="${s.entryIndex}"]`) : null)
-  );
+  const sectionFor = (s: any) =>
+    s?.el || (s ? panelRef.current?.querySelector(`[data-entry="${s.entryIndex}"]`) : null);
 
   useEffect(() => {
     const sectionEl = sectionFor(src);
-    if (!src || !sectionEl) { setPts(null); editorRef.current?.highlightStage?.(null); return; }
+    if (!src || !sectionEl) {
+      setPts(null);
+      editorRef.current?.highlightStage?.(null);
+      return;
+    }
     // The link is symmetric; the SCROLLING is deliberately not. Pointing at a
     // stage in the editor — by hovering it or by leaving the caret in it — marks
     // its section here (band, connector, [data-linked]) but never scrolls the
@@ -77,7 +85,10 @@ export default function StageLinkOverlay(
       raf = 0;
       const cur = hoveredStage.value || editorHoverStage.value || caretStage.value;
       const el = sectionFor(cur);
-      if (!cur || !el) { setPts(null); return; }
+      if (!cur || !el) {
+        setPts(null);
+        return;
+      }
       const sectionRect = el.getBoundingClientRect?.();
       // The pane rect keeps the far endpoint INSIDE the Stages scroller: a
       // section scrolled out of it would otherwise put the line over the options
@@ -93,19 +104,22 @@ export default function StageLinkOverlay(
       // reports coordinates for a stage scrolled out of its box, so without the
       // clip rect the line started outside the editor and crossed the pipeline
       // header's buttons.
-      setPts(computeStageLink(
-        editorRect,
-        sectionRect,
-        panelRect,
-        pane?.getBoundingClientRect?.(),
-        editorRef.current?.clipRect?.(),
-      ));
+      setPts(
+        computeStageLink(
+          editorRect,
+          sectionRect,
+          panelRect,
+          pane?.getBoundingClientRect?.(),
+          editorRef.current?.clipRect?.(),
+        ),
+      );
     };
     const schedule = () => {
       if (raf) return;
-      raf = (typeof requestAnimationFrame === 'function')
-        ? requestAnimationFrame(recompute)
-        : (recompute(), 0);
+      raf =
+        typeof requestAnimationFrame === 'function'
+          ? requestAnimationFrame(recompute)
+          : (recompute(), 0);
     };
 
     // The section's own :hover marks the target when the pointer is over it; it
@@ -140,12 +154,16 @@ export default function StageLinkOverlay(
   return (
     <svg class="stage-link-overlay" aria-hidden="true">
       <path class="stage-link-line" d={pts.d} />
-      {startArrow
-        ? <path class="stage-link-arrow" d={startArrow} />
-        : <circle class="stage-link-dot" cx={pts.x1} cy={pts.y1} r="3" />}
-      {arrow
-        ? <path class="stage-link-arrow" d={arrow} />
-        : <circle class="stage-link-dot" cx={pts.x2} cy={pts.y2} r="3" />}
+      {startArrow ? (
+        <path class="stage-link-arrow" d={startArrow} />
+      ) : (
+        <circle class="stage-link-dot" cx={pts.x1} cy={pts.y1} r="3" />
+      )}
+      {arrow ? (
+        <path class="stage-link-arrow" d={arrow} />
+      ) : (
+        <circle class="stage-link-dot" cx={pts.x2} cy={pts.y2} r="3" />
+      )}
     </svg>
   );
 }

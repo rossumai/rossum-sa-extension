@@ -20,7 +20,7 @@ export function isMdhWebApp(pathname: unknown): boolean {
   return typeof pathname === 'string' && pathname.includes('/svc/master-data-hub/web/');
 }
 
-export function init(loc = (typeof window !== 'undefined' ? window.location : null)) {
+export function init(loc = typeof window !== 'undefined' ? window.location : null) {
   if (!loc || !isMdhWebApp(loc.pathname)) return;
   injectBanner();
 }
@@ -29,7 +29,11 @@ function injectBanner() {
   if (document.getElementById(BANNER_ID)) return; // already shown this view
   // Respect a session dismissal (the × button). sessionStorage can throw in
   // sandboxed/blocked contexts; if so, fall through and show the card.
-  try { if (window.sessionStorage.getItem(DISMISS_KEY)) return; } catch { /* ignore */ }
+  try {
+    if (window.sessionStorage.getItem(DISMISS_KEY)) return;
+  } catch {
+    /* ignore */
+  }
 
   if (!document.getElementById(STYLE_ID)) {
     const style = document.createElement('style');
@@ -88,7 +92,11 @@ function injectBanner() {
   closeBtn.title = 'Dismiss for this session';
   closeBtn.textContent = '×';
   closeBtn.addEventListener('click', () => {
-    try { window.sessionStorage.setItem(DISMISS_KEY, '1'); } catch { /* ignore */ }
+    try {
+      window.sessionStorage.setItem(DISMISS_KEY, '1');
+    } catch {
+      /* ignore */
+    }
     banner.remove();
   });
 

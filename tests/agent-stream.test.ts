@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
-  createSseParser, toolLabel, newAcc, foldEvents, replyText, extractPipeline, fallbackNotice,
+  createSseParser,
+  toolLabel,
+  newAcc,
+  foldEvents,
+  replyText,
+  extractPipeline,
+  fallbackNotice,
 } from '../src/agent/agentStream.js';
 
 const sse = (obj: any) => `data: ${typeof obj === 'string' ? obj : JSON.stringify(obj)}\n\n`;
@@ -8,7 +14,9 @@ const sse = (obj: any) => `data: ${typeof obj === 'string' ? obj : JSON.stringif
 describe('createSseParser', () => {
   it('parses whole events and yields [DONE] as __done__', () => {
     const p = createSseParser();
-    const evs = p.feed(sse({ type: 'start' }) + sse({ type: 'text-delta', delta: 'hi' }) + sse('[DONE]'));
+    const evs = p.feed(
+      sse({ type: 'start' }) + sse({ type: 'text-delta', delta: 'hi' }) + sse('[DONE]'),
+    );
     expect(evs.map((e) => e.type)).toEqual(['start', 'text-delta', '__done__']);
   });
 
@@ -16,7 +24,7 @@ describe('createSseParser', () => {
     const p = createSseParser();
     const full = sse({ type: 'text-delta', delta: 'hello' });
     const cut = Math.floor(full.length / 2);
-    expect(p.feed(full.slice(0, cut))).toEqual([]);        // incomplete
+    expect(p.feed(full.slice(0, cut))).toEqual([]); // incomplete
     const evs = p.feed(full.slice(cut));
     expect(evs).toEqual([{ type: 'text-delta', delta: 'hello' }]);
   });
@@ -34,7 +42,9 @@ describe('createSseParser', () => {
 
   it('handles CRLF-framed events', () => {
     const p = createSseParser();
-    const evs = p.feed('data: {"type":"start"}\r\n\r\ndata: {"type":"text-delta","delta":"hi"}\r\n\r\n');
+    const evs = p.feed(
+      'data: {"type":"start"}\r\n\r\ndata: {"type":"text-delta","delta":"hi"}\r\n\r\n',
+    );
     expect(evs).toEqual([{ type: 'start' }, { type: 'text-delta', delta: 'hi' }]);
   });
 });
@@ -84,14 +94,18 @@ describe('extractPipeline', () => {
     expect(JSON.parse(out!)).toEqual([{ $match: { a: 1 } }]);
   });
   it('extracts a fenced block surrounded by prose', () => {
-    const out = extractPipeline('Here you go:\n```json\n[{"$sort":{"x":-1}}]\n```\nHope that helps!');
+    const out = extractPipeline(
+      'Here you go:\n```json\n[{"$sort":{"x":-1}}]\n```\nHope that helps!',
+    );
     expect(JSON.parse(out!)).toEqual([{ $sort: { x: -1 } }]);
   });
   it('extracts a bare array', () => {
     expect(JSON.parse(extractPipeline('[{"$limit":5}]')!)).toEqual([{ $limit: 5 }]);
   });
   it('extracts a bare array even when other brackets precede it', () => {
-    expect(JSON.parse(extractPipeline('See [docs](url) and item [1]: [{"$limit":5}]')!)).toEqual([{ $limit: 5 }]);
+    expect(JSON.parse(extractPipeline('See [docs](url) and item [1]: [{"$limit":5}]')!)).toEqual([
+      { $limit: 5 },
+    ]);
   });
   it('returns null for prose with no array', () => {
     expect(extractPipeline('I cannot do that.')).toBeNull();
@@ -101,7 +115,12 @@ describe('extractPipeline', () => {
 describe('foldEvents — interactive elements', () => {
   it('captures data-agent-question into acc.questions', () => {
     const acc = newAcc();
-    foldEvents(acc, [{ type: 'data-agent-question', data: { questions: [{ question: 'Name?', options: [], multi_select: false }] } }]);
+    foldEvents(acc, [
+      {
+        type: 'data-agent-question',
+        data: { questions: [{ question: 'Name?', options: [], multi_select: false }] },
+      },
+    ]);
     expect(acc.questions).toEqual([{ question: 'Name?', options: [], multi_select: false }]);
   });
   it('captures unknown data-* into acc.unhandled (deduped by type), leaves known data-* alone', () => {
@@ -145,8 +164,11 @@ describe('fallbackNotice', () => {
   });
   it('error > unsupported > empty priority', () => {
     expect(fallbackNotice({ text: '', error: 'boom' })).toEqual({ kind: 'error', text: 'boom' });
-    expect(fallbackNotice({ text: '', unhandled: [{ type: 'data-x', data: 1 }] }))
-      .toEqual({ kind: 'unsupported', types: ['data-x'], payloads: [{ type: 'data-x', data: 1 }] });
+    expect(fallbackNotice({ text: '', unhandled: [{ type: 'data-x', data: 1 }] })).toEqual({
+      kind: 'unsupported',
+      types: ['data-x'],
+      payloads: [{ type: 'data-x', data: 1 }],
+    });
     expect(fallbackNotice({ text: '' })).toEqual({ kind: 'empty' });
   });
 });

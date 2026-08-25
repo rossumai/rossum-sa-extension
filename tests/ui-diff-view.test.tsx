@@ -4,7 +4,12 @@ import { h, render } from 'preact';
 import DiffView from '../src/ui/DiffView.jsx';
 import styles from '../src/ui/DiffView.module.css';
 
-function mount(props: any) { const r = document.createElement('div'); document.body.appendChild(r); render(<DiffView {...props} />, r); return r; }
+function mount(props: any) {
+  const r = document.createElement('div');
+  document.body.appendChild(r);
+  render(<DiffView {...props} />, r);
+  return r;
+}
 
 describe('DiffView', () => {
   it('renders added words as <ins> and removed words as <del>', () => {

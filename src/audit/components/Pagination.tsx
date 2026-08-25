@@ -28,9 +28,13 @@ export default function Pagination() {
     <div class="pagination">
       <span>{countText}</span>
       <div class="pagination-controls">
-        <button disabled={!pi.hasPrev || loading.value} onClick={prev}>{'←'} Prev</button>
+        <button disabled={!pi.hasPrev || loading.value} onClick={prev}>
+          {'←'} Prev
+        </button>
         <span>{label}</span>
-        <button disabled={!pi.hasNext || loading.value} onClick={next}>Next {'→'}</button>
+        <button disabled={!pi.hasNext || loading.value} onClick={next}>
+          Next {'→'}
+        </button>
       </div>
     </div>
   );

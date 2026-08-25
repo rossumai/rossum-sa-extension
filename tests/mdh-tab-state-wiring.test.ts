@@ -18,18 +18,27 @@ import { activeApp } from '../src/console/store.js';
 
 function stubStorage(seed = {}): any {
   const data = { ...seed };
-  globalThis.chrome = ({
-    storage: { local: {
-      get: vi.fn((keys) => {
-        if (typeof keys === 'string') return Promise.resolve(keys in data ? { [keys]: (data as any)[keys] } : {});
-        const out = {};
-        for (const k of keys) if (k in data) (out as any)[k] = (data as any)[k];
-        return Promise.resolve(out);
-      }),
-      set: vi.fn((obj) => { Object.assign(data, obj); return Promise.resolve(); }),
-      remove: vi.fn((k) => { [].concat(k).forEach((key) => delete data[key]); return Promise.resolve(); }),
-    } } as any,
-  } as any);
+  globalThis.chrome = {
+    storage: {
+      local: {
+        get: vi.fn((keys) => {
+          if (typeof keys === 'string')
+            return Promise.resolve(keys in data ? { [keys]: (data as any)[keys] } : {});
+          const out = {};
+          for (const k of keys) if (k in data) (out as any)[k] = (data as any)[k];
+          return Promise.resolve(out);
+        }),
+        set: vi.fn((obj) => {
+          Object.assign(data, obj);
+          return Promise.resolve();
+        }),
+        remove: vi.fn((k) => {
+          [].concat(k).forEach((key) => delete data[key]);
+          return Promise.resolve();
+        }),
+      },
+    } as any,
+  } as any;
   return data;
 }
 

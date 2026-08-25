@@ -1,13 +1,32 @@
 import { existsSync, readFileSync } from 'node:fs';
 
-const srcUrl = (base: any) => ['.ts', '.js']
-  .map((ext) => new URL(`../src/${base}${ext}`, import.meta.url))
-  .find((u) => existsSync(u))!;
+const srcUrl = (base: any) =>
+  ['.ts', '.js']
+    .map((ext) => new URL(`../src/${base}${ext}`, import.meta.url))
+    .find((u) => existsSync(u))!;
 import { describe, it, expect, vi } from 'vitest';
-import { PREF_KEYS, DOC_VIEWS, migrateDocView, docView, railOpen, setRailOpen, railWidth, setRailWidth,
-  settledTarget, setSettledTarget, RAIL_SETTLE_MS,
-  clampRailWidth, RAIL_MIN, RAIL_MAX,
-  spyTarget, pinnedTarget, setSpyTarget, setPinnedTarget, reviewTarget, setReviewTarget } from '../src/fabry/architect/store.js';
+import {
+  PREF_KEYS,
+  DOC_VIEWS,
+  migrateDocView,
+  docView,
+  railOpen,
+  setRailOpen,
+  railWidth,
+  setRailWidth,
+  settledTarget,
+  setSettledTarget,
+  RAIL_SETTLE_MS,
+  clampRailWidth,
+  RAIL_MIN,
+  RAIL_MAX,
+  spyTarget,
+  pinnedTarget,
+  setSpyTarget,
+  setPinnedTarget,
+  reviewTarget,
+  setReviewTarget,
+} from '../src/fabry/architect/store.js';
 
 describe('document view modes', () => {
   it('offers exactly edit and preview — the combined mode is gone', () => {
@@ -53,7 +72,7 @@ describe('layout + targeting signals', () => {
   it('tracks the scroll target and an explicit pin separately', () => {
     setSpyTarget('d2');
     expect(spyTarget.value).toBe('d2');
-    setSpyTarget('d2');                    // idempotent: no needless signal write
+    setSpyTarget('d2'); // idempotent: no needless signal write
     expect(spyTarget.value).toBe('d2');
     setPinnedTarget('d1');
     expect(pinnedTarget.value).toBe('d1');
@@ -91,7 +110,7 @@ describe('the inspector follows a SETTLED target', () => {
     for (const id of ['b', 'c', 'd', 'e']) setSettledTarget(id);
     expect(settledTarget.value).toBe('a');
     vi.advanceTimersByTime(RAIL_SETTLE_MS + 1);
-    expect(settledTarget.value).toBe('e');     // only the last one ever renders
+    expect(settledTarget.value).toBe('e'); // only the last one ever renders
     vi.useRealTimers();
   });
 
@@ -118,7 +137,7 @@ describe('persisted preferences', () => {
       ...[...src.matchAll(/local\?\.set\(\{\s*(fabryArch\w+)/g)].map((m) => m[1]),
       ...[...src.matchAll(/persistBool\('(fabryArch\w+)'/g)].map((m) => m[1]),
     ]);
-    expect(written.size).toBeGreaterThan(2);          // the scan actually found the writes
+    expect(written.size).toBeGreaterThan(2); // the scan actually found the writes
     for (const key of written) expect(PREF_KEYS).toContain(key);
   });
 

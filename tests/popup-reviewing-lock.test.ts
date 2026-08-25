@@ -18,18 +18,23 @@ describe('isLockedByOther', () => {
   });
   it('is false (never guess) when modified_by or meUrl is missing', () => {
     expect(isLockedByOther({ status: 'reviewing', modifiedBy: null, meUrl: ME })).toBe(false);
-    expect(isLockedByOther({ status: 'reviewing', modifiedBy: OTHER, meUrl: undefined })).toBe(false);
+    expect(isLockedByOther({ status: 'reviewing', modifiedBy: OTHER, meUrl: undefined })).toBe(
+      false,
+    );
   });
 });
 
 describe('pickHolderName', () => {
   it('prefers the plain full name (no username suffix)', () => {
-    expect(pickHolderName({ first_name: 'Jane', last_name: 'Doe', username: 'jd@x.com' }))
-      .toBe('Jane Doe');
+    expect(pickHolderName({ first_name: 'Jane', last_name: 'Doe', username: 'jd@x.com' })).toBe(
+      'Jane Doe',
+    );
     expect(pickHolderName({ first_name: 'Jane', last_name: 'Doe' })).toBe('Jane Doe');
   });
   it('falls back to the username when there is no name', () => {
-    expect(pickHolderName({ first_name: '', last_name: '', username: 'jd@x.com' })).toBe('jd@x.com');
+    expect(pickHolderName({ first_name: '', last_name: '', username: 'jd@x.com' })).toBe(
+      'jd@x.com',
+    );
   });
   it('falls back to "another user" for null/empty', () => {
     expect(pickHolderName(null)).toBe('another user');

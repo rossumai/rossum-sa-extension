@@ -27,7 +27,9 @@ function ErrorStrip({ inset }: { inset?: boolean } = {}) {
         type="button"
         class={css.errorDismiss}
         aria-label="Dismiss"
-        onClick={() => { store.error.value = null; }}
+        onClick={() => {
+          store.error.value = null;
+        }}
       >
         {'×'}
       </button>
@@ -53,9 +55,7 @@ export default function AcademyApp({ connected }: { connected: boolean | null })
           <div class="empty-state">
             <div class={`empty-state-card ${css.entryCard}`}>
               <div class="empty-state-title">Not connected</div>
-              <p class="empty-state-body">
-                The Academy tracks your progress in your Rossum org.
-              </p>
+              <p class="empty-state-body">The Academy tracks your progress in your Rossum org.</p>
             </div>
           </div>
         </div>
@@ -84,12 +84,14 @@ export default function AcademyApp({ connected }: { connected: boolean | null })
               <div class={css.heroLeft}>
                 <p class={css.eyebrow}>Hands-on onboarding {'·'} 5 missions</p>
                 <h1 class={css.heroTitle}>{TRACK.title}</h1>
-                <p class={css.lede}>Learn Rossum by building in it {'—'} not by reading about it.</p>
+                <p class={css.lede}>
+                  Learn Rossum by building in it {'—'} not by reading about it.
+                </p>
                 <p class={css.heroBody}>
                   Five short missions take you from your first document through to working
-                  automation: schema fields, extensions, business rules and master-data
-                  matching. You do the real work in a real organization, so what you learn
-                  here transfers straight to a customer project.
+                  automation: schema fields, extensions, business rules and master-data matching.
+                  You do the real work in a real organization, so what you learn here transfers
+                  straight to a customer project.
                 </p>
                 <button
                   type="button"
@@ -99,7 +101,9 @@ export default function AcademyApp({ connected }: { connected: boolean | null })
                   Start the track
                 </button>
                 <div class={css.heroFooter}>
-                  <p class={css.heroFooterText}>Work at your own pace {'—'} pick up where you left off any time.</p>
+                  <p class={css.heroFooterText}>
+                    Work at your own pace {'—'} pick up where you left off any time.
+                  </p>
                   <button
                     type="button"
                     class={css.trainerToggle}
@@ -136,7 +140,8 @@ export default function AcademyApp({ connected }: { connected: boolean | null })
     );
   }
 
-  const mission = TRACK.missions.find((m) => m.id === store.activeMissionId.value) || TRACK.missions[0];
+  const mission =
+    TRACK.missions.find((m) => m.id === store.activeMissionId.value) || TRACK.missions[0];
   const xp = xpFor(TRACK, progress);
   // `|| store.mintNote.value`: a failed mint REVOKES the step it failed on, so
   // the track stops being complete in the same breath — unmounting the panel
@@ -154,9 +159,15 @@ export default function AcademyApp({ connected }: { connected: boolean | null })
       <main class={css.main}>
         <ErrorStrip />
         <header class={css.hud}>
-          <b>Level {levelFor(xp)} {'·'} {xp} XP</b>
-          <span>{'★'} {badges(TRACK, progress).length}/{TRACK.missions.length}</span>
-          <button type="button" class={css.ghost} onClick={() => store.restartTrack()}>Restart track</button>
+          <b>
+            Level {levelFor(xp)} {'·'} {xp} XP
+          </b>
+          <span>
+            {'★'} {badges(TRACK, progress).length}/{TRACK.missions.length}
+          </span>
+          <button type="button" class={css.ghost} onClick={() => store.restartTrack()}>
+            Restart track
+          </button>
         </header>
         <MissionDetail mission={mission} progress={progress} onAttest={store.attestStep} />
         {showReceipt && <ReceiptPanel />}

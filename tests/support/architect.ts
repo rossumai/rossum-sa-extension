@@ -10,5 +10,13 @@
 import type { Deliverable } from '../../src/fabry/architect/collectionPlan.js';
 
 export function deliverable(partial: Partial<Deliverable> & { id: string }): Deliverable {
-  return { text: '', order: 0, title: '', titleSource: '', createdAt: null, editedAt: null, ...partial };
+  return {
+    text: '',
+    order: 0,
+    title: '',
+    titleSource: '',
+    createdAt: null,
+    editedAt: null,
+    ...partial,
+  };
 }

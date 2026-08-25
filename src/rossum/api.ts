@@ -60,7 +60,13 @@ export type FreshRequest = {
 
 export function fetchRossumApiFresh(
   path: string,
-  { ttlMs = 10_000, now = () => Date.now(), method = 'GET', body, auth = 'token' }: FreshRequest = {},
+  {
+    ttlMs = 10_000,
+    now = () => Date.now(),
+    method = 'GET',
+    body,
+    auth = 'token',
+  }: FreshRequest = {},
 ): Promise<any> {
   const url = safeApiUrl(path);
   if (!url) return Promise.reject(new Error(`Invalid API path: ${path}`));
@@ -76,7 +82,11 @@ export function fetchRossumApiFresh(
   const scheme = auth === 'bearer' ? 'Bearer' : 'Token';
   const headers: Record<string, string> = token ? { Authorization: `${scheme} ${token}` } : {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
-  const promise = fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) })
+  const promise = fetch(url, {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
     .then((r) => {
       if (!r.ok) throw new Error(`API ${r.status}`);
       return r.json();

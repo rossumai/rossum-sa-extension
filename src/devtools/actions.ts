@@ -45,19 +45,39 @@ export async function loadResource(tabId: string, deps: any) {
       store.patchTab(tabId, { resource });
     }
     const cached = deps.getCached ? deps.getCached(resource.apiPath) : null;
-    const result = cached ? { kind: 'json', data: cached } : await deps.getResource(resource.apiPath);
+    const result = cached
+      ? { kind: 'json', data: cached }
+      : await deps.getResource(resource.apiPath);
     const t2 = tabById(tabId);
     if (!t2 || store.keyOf(t2.resource) !== store.keyOf(resource)) return;
     if (result.kind === 'blob') {
       store.patchTab(tabId, {
-        preview: { kind: 'blob', contentType: result.contentType, size: result.size, filename: result.filename, blob: result.blob },
-        original: null, buffer: '', dirty: false, loading: false, readOnly: true,
+        preview: {
+          kind: 'blob',
+          contentType: result.contentType,
+          size: result.size,
+          filename: result.filename,
+          blob: result.blob,
+        },
+        original: null,
+        buffer: '',
+        dirty: false,
+        loading: false,
+        readOnly: true,
       });
     } else {
-      store.patchTab(tabId, { original: result.data, buffer: PRETTY(result.data), dirty: false, loading: false, readOnly: !!resource.readOnly, preview: null });
+      store.patchTab(tabId, {
+        original: result.data,
+        buffer: PRETTY(result.data),
+        dirty: false,
+        loading: false,
+        readOnly: !!resource.readOnly,
+        preview: null,
+      });
       // Warm the cache only on a genuine fetch — re-putting a cache HIT would reset
       // its freshness clock and let a >60s-old object be served indefinitely.
-      if (result.kind === 'json' && !cached && deps.putCached) deps.putCached(resource.apiPath, result.data);
+      if (result.kind === 'json' && !cached && deps.putCached)
+        deps.putCached(resource.apiPath, result.data);
     }
   } catch (e) {
     const cur = tabById(tabId);
@@ -66,13 +86,18 @@ export async function loadResource(tabId: string, deps: any) {
     // Default read-only from the descriptor: a read-only-by-design resource
     // (e.g. a `/content` sub-resource) must not become an editable editor just
     // because its load failed on a network error / 404 / 500.
-    let error = 'Could not load this resource.', readOnly = !!(cur.resource && cur.resource.readOnly);
+    let error = 'Could not load this resource.',
+      readOnly = !!(cur.resource && cur.resource.readOnly);
     if (e && (e as any).noSchema) error = 'This queue has no schema.';
     else if (e && (e as any).noInbox) error = 'This queue has no inbox.';
     else if (e && (e as any).noOrg) error = 'Could not resolve the organization.';
-    else if (s === 404) error = 'Not found (404) — this resource may belong to another organization, a support-access user, or have been deleted.';
-    else if (s === 403 || s === 405) { readOnly = true; error = 'You can view this resource but not edit it (server declined writes).'; }
-    else if (s === 401) error = 'Session expired — reload the Rossum page.';
+    else if (s === 404)
+      error =
+        'Not found (404) — this resource may belong to another organization, a support-access user, or have been deleted.';
+    else if (s === 403 || s === 405) {
+      readOnly = true;
+      error = 'You can view this resource but not edit it (server declined writes).';
+    } else if (s === 401) error = 'Session expired — reload the Rossum page.';
     store.patchTab(tabId, { error, readOnly, loading: false, preview: null });
   }
 }
@@ -81,8 +106,12 @@ export function requestDiff(tabId: string) {
   const t = tabById(tabId);
   if (!t) return false;
   let edited;
-  try { edited = JSON.parse(t.buffer); }
-  catch (e) { store.patchTab(tabId, { error: `Invalid JSON: ${(e as Error).message}`, diffPreview: null }); return false; }
+  try {
+    edited = JSON.parse(t.buffer);
+  } catch (e) {
+    store.patchTab(tabId, { error: `Invalid JSON: ${(e as Error).message}`, diffPreview: null });
+    return false;
+  }
   store.patchTab(tabId, { error: null, diffPreview: { edited } });
   return true;
 }
@@ -92,7 +121,10 @@ export async function saveResource(tabId: string, deps: any) {
   if (!t || !t.diffPreview) return;
   const startKey = store.keyOf(t.resource);
   const { body } = buildPatchBody(t.original, t.diffPreview.edited);
-  if (Object.keys(body).length === 0) { store.patchTab(tabId, { diffPreview: null }); return; }
+  if (Object.keys(body).length === 0) {
+    store.patchTab(tabId, { diffPreview: null });
+    return;
+  }
   store.patchTab(tabId, { saving: true, error: null });
   try {
     await deps.patch(t.resource!.apiPath, body);
@@ -100,16 +132,24 @@ export async function saveResource(tabId: string, deps: any) {
     const cur = tabById(tabId);
     if (!cur || store.keyOf(cur.resource) !== startKey) return;
     track('sa_devtools_save');
-    store.patchTab(tabId, { original: fresh, buffer: PRETTY(fresh), dirty: false, diffPreview: null, saving: false });
+    store.patchTab(tabId, {
+      original: fresh,
+      buffer: PRETTY(fresh),
+      dirty: false,
+      diffPreview: null,
+      saving: false,
+    });
     if (deps.reload && cur && cur.source === 'page') deps.reload();
   } catch (e) {
     const cur = tabById(tabId);
     if (!cur || store.keyOf(cur.resource) !== startKey) return;
     const s = e && (e as any).status;
     let error = 'Save failed.';
-    if (s === 400) error = `Server rejected the change (400): ${((e as any).body || '').slice(0, 300)}`;
+    if (s === 400)
+      error = `Server rejected the change (400): ${((e as any).body || '').slice(0, 300)}`;
     else if (s === 401) error = 'Session expired — reload the Rossum page.';
-    else if (s === 403 || s === 405) error = 'This resource is not editable (server declined writes).';
+    else if (s === 403 || s === 405)
+      error = 'This resource is not editable (server declined writes).';
     store.patchTab(tabId, { error, saving: false });
   }
 }

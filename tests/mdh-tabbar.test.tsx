@@ -65,7 +65,9 @@ describe('TabBar stats alert icon', () => {
   it('attaches the icon to the Stats tab specifically', () => {
     store.statsSummary.value = { collection: 'col1', health: 60, label: 'Fair' };
     const root = mount();
-    const statsTab = Array.from(root.querySelectorAll('.tab')).find((b) => b.textContent.includes('Stats'));
+    const statsTab = Array.from(root.querySelectorAll('.tab')).find((b) =>
+      b.textContent.includes('Stats'),
+    );
     expect(statsTab).toBeDefined();
     expect(statsTab!.querySelector('.tab-alert')).not.toBeNull();
   });

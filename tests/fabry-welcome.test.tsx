@@ -2,7 +2,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { h, render } from 'preact';
 
-vi.mock('../src/fabry/chat.js', () => ({ sendMessage: vi.fn().mockResolvedValue(true), stopStreaming: vi.fn() }));
+vi.mock('../src/fabry/chat.js', () => ({
+  sendMessage: vi.fn().mockResolvedValue(true),
+  stopStreaming: vi.fn(),
+}));
 
 import * as chat from '../src/fabry/chat.js';
 import * as store from '../src/fabry/store.js';
@@ -36,6 +39,8 @@ describe('Welcome (centered empty state)', () => {
   it('clicking a starter pill sends its full prompt', () => {
     const root = mount();
     root.querySelector<HTMLElement>('.fabry-welcome-pill')!.click();
-    expect(chat.sendMessage).toHaveBeenCalledWith(expect.stringMatching(/overview of this organization/));
+    expect(chat.sendMessage).toHaveBeenCalledWith(
+      expect.stringMatching(/overview of this organization/),
+    );
   });
 });

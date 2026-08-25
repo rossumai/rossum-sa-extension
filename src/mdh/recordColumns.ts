@@ -9,7 +9,10 @@ export function deriveColumns(records: any[]): string[] {
   for (const rec of records || []) {
     if (!rec || typeof rec !== 'object') continue;
     for (const key of Object.keys(rec)) {
-      if (!seen.has(key)) { seen.add(key); cols.push(key); }
+      if (!seen.has(key)) {
+        seen.add(key);
+        cols.push(key);
+      }
     }
   }
   if (seen.has('_id')) {
@@ -36,7 +39,8 @@ export function orderExportColumns(loadedRecords: any[], discoveredPaths: string
   const used = new Set<string>();
   for (const key of deriveColumns(loadedRecords)) {
     for (const p of (byRoot.get(key) || []).slice().sort((a, b) => a.localeCompare(b))) {
-      out.push(p); used.add(p);
+      out.push(p);
+      used.add(p);
     }
   }
   const extra = discovered.filter((p) => !used.has(p)).sort((a, b) => a.localeCompare(b));

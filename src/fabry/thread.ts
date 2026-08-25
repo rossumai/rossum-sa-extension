@@ -41,12 +41,17 @@ export type ServerMessage = { role: string; content: unknown; feedback?: boolean
 function partsToText(content: unknown): string {
   if (typeof content === 'string') return content;
   if (!Array.isArray(content)) return '';
-  return content.filter((p) => p && p.type === 'text').map((p) => p.text as string).join('\n');
+  return content
+    .filter((p) => p && p.type === 'text')
+    .map((p) => p.text as string)
+    .join('\n');
 }
 
 function partsToImages(content: unknown): TurnImage[] {
   if (!Array.isArray(content)) return [];
-  return content.filter((p) => p && p.type === 'image').map((p) => ({ media_type: p.media_type, data: p.data }));
+  return content
+    .filter((p) => p && p.type === 'image')
+    .map((p) => ({ media_type: p.media_type, data: p.data }));
 }
 
 export function normalizeMessages(messages?: ServerMessage[] | null): Turn[] {

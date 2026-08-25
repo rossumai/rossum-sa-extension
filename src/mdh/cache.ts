@@ -17,9 +17,15 @@ function ttlFor(field: string) {
 
 export function get(collection: string, field: string): any {
   const entry = entries.get(collection);
-  if (!entry) { misses++; return null; }
+  if (!entry) {
+    misses++;
+    return null;
+  }
   const f = entry.fields[field];
-  if (!f) { misses++; return null; }
+  if (!f) {
+    misses++;
+    return null;
+  }
   if (Date.now() - f.ts > ttlFor(field)) {
     delete entry.fields[field];
     if (Object.keys(entry.fields).length === 0) entries.delete(collection);

@@ -5,7 +5,10 @@ import { h, render } from 'preact';
 import RequestBar from '../src/devtools/RequestBar.jsx';
 
 async function waitFor(fn: any, tries = 100) {
-  for (let i = 0; i < tries; i++) { if (fn()) return; await new Promise((r) => setTimeout(r, 0)); }
+  for (let i = 0; i < tries; i++) {
+    if (fn()) return;
+    await new Promise((r) => setTimeout(r, 0));
+  }
   throw new Error('waitFor timed out');
 }
 function type(input: any, value: any) {
@@ -21,7 +24,9 @@ describe('RequestBar', () => {
     expect(input).not.toBeNull();
     type(input, 'ann');
     await waitFor(() => root.querySelector('.rawjson-reqbar-suggest'));
-    expect(root.querySelector('.rawjson-reqbar-suggest')!.textContent.toLowerCase()).toContain('annotation');
+    expect(root.querySelector('.rawjson-reqbar-suggest')!.textContent.toLowerCase()).toContain(
+      'annotation',
+    );
   });
   it('submits the typed path on Enter', async () => {
     const onSubmit = vi.fn(() => ({ tab: { id: 't1' } }));

@@ -18,9 +18,29 @@ function mount(Comp: any) {
 
 beforeEach(() => {
   store.activeChatId.value = 'chat_1';
-  store.chats.value = [{ chat_id: 'chat_1', timestamp: 1, message_count: 2, first_message: 'hi', summary: 'Failed exports triage', total_input_tokens: 1200, total_output_tokens: 800 }];
+  store.chats.value = [
+    {
+      chat_id: 'chat_1',
+      timestamp: 1,
+      message_count: 2,
+      first_message: 'hi',
+      summary: 'Failed exports triage',
+      total_input_tokens: 1200,
+      total_output_tokens: 800,
+    },
+  ];
   store.thread.value = [
-    { role: 'user', chip: true, command: false, text: '/persona cautious', images: [], feedback: null, reasoning: '', tools: [], interrupted: false },
+    {
+      role: 'user',
+      chip: true,
+      command: false,
+      text: '/persona cautious',
+      images: [],
+      feedback: null,
+      reasoning: '',
+      tools: [],
+      interrupted: false,
+    },
   ];
   store.files.value = [{ filename: 'out.csv', size: 2048, timestamp: 't' }];
 });

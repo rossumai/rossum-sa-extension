@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import mstyles from '../src/ui/Modal.module.css';
-vi.mock('../src/mdh/store.js', () => ({ selectedCollection: { value: 'vendors' }, modalContent: { value: null } }));
+vi.mock('../src/mdh/store.js', () => ({
+  selectedCollection: { value: 'vendors' },
+  modalContent: { value: null },
+}));
 vi.mock('../src/mdh/api.js', () => ({
   find: vi.fn().mockResolvedValue({ result: [] }),
   aggregate: vi.fn().mockResolvedValue({ result: [] }),
@@ -10,7 +13,10 @@ vi.mock('../src/mdh/api.js', () => ({
   datasetReplace: vi.fn().mockResolvedValue({ operationId: 'op2' }),
   waitForDatasetOperation: vi.fn().mockResolvedValue({ status: 'finished' }),
 }));
-vi.mock('../src/mdh/importFile.js', async (orig) => ({ ...(await orig()), runChunkedInsert: vi.fn().mockResolvedValue({ inserted: 2, failedBatches: [], cancelled: false }) }));
+vi.mock('../src/mdh/importFile.js', async (orig) => ({
+  ...(await orig()),
+  runChunkedInsert: vi.fn().mockResolvedValue({ inserted: 2, failedBatches: [], cancelled: false }),
+}));
 // Seed-only textarea stand-in for the CodeMirror editor: the real editable
 // JsonEditor treats `value` as a mount-time seed and is read back via
 // editorRef.getValue() — this stub mirrors exactly that contract so the
@@ -19,15 +25,20 @@ vi.mock('../src/mdh/importFile.js', async (orig) => ({ ...(await orig()), runChu
 vi.mock('../src/mdh/components/JsonEditor.jsx', async () => {
   const { h } = await import('preact');
   return {
-    default: ({ value = '', editorRef, jsonLines }: any) => <textarea
-      data-testid="clipboard-editor"
-      data-jsonlines={jsonLines ? '1' : '0'}
-      ref={(el: (HTMLTextAreaElement & { _seeded?: boolean }) | null) => {
-        if (!el) return;
-        if (!el._seeded) { el.value = value; el._seeded = true; }
-        if (editorRef) editorRef.current = { getValue: () => el.value };
-      }}
-    />,
+    default: ({ value = '', editorRef, jsonLines }: any) => (
+      <textarea
+        data-testid="clipboard-editor"
+        data-jsonlines={jsonLines ? '1' : '0'}
+        ref={(el: (HTMLTextAreaElement & { _seeded?: boolean }) | null) => {
+          if (!el) return;
+          if (!el._seeded) {
+            el.value = value;
+            el._seeded = true;
+          }
+          if (editorRef) editorRef.current = { getValue: () => el.value };
+        }}
+      />
+    ),
   };
 });
 
@@ -37,9 +48,29 @@ import ImportWizard from '../src/mdh/components/ImportWizard.jsx';
 import * as api from '../src/mdh/api.js';
 import { runChunkedInsert } from '../src/mdh/importFile.js';
 
-function mount(vnode: any) { const el = document.createElement('div'); document.body.appendChild(el); render(vnode, el); return el; }
-async function waitFor(fn: any, ms = 2000) { const t0 = Date.now(); for (;;) { try { const v = fn(); if (v) return v; } catch {} if (Date.now() - t0 > ms) throw new Error('timeout'); await new Promise((r) => setTimeout(r, 5)); } }
-function file(str: any, name: any) { const f = new File([str], name); f.text = async () => str; f.arrayBuffer = async () => new TextEncoder().encode(str).buffer; return f; }
+function mount(vnode: any) {
+  const el = document.createElement('div');
+  document.body.appendChild(el);
+  render(vnode, el);
+  return el;
+}
+async function waitFor(fn: any, ms = 2000) {
+  const t0 = Date.now();
+  for (;;) {
+    try {
+      const v = fn();
+      if (v) return v;
+    } catch {}
+    if (Date.now() - t0 > ms) throw new Error('timeout');
+    await new Promise((r) => setTimeout(r, 5));
+  }
+}
+function file(str: any, name: any) {
+  const f = new File([str], name);
+  f.text = async () => str;
+  f.arrayBuffer = async () => new TextEncoder().encode(str).buffer;
+  return f;
+}
 function pick(root: any, f: any) {
   const input = root.querySelector('input[type="file"]');
   Object.defineProperty(input, 'files', { value: [f], configurable: true });
@@ -53,7 +84,10 @@ async function toDecideViaFile(root: any, json: any) {
   return root;
 }
 
-beforeEach(() => { vi.clearAllMocks(); selectedCollection.value = 'vendors'; });
+beforeEach(() => {
+  vi.clearAllMocks();
+  selectedCollection.value = 'vendors';
+});
 
 describe('ImportWizard — source toggle + detection', () => {
   it('defaults to the File source and shows the source toggle', () => {
@@ -86,7 +120,9 @@ describe('ImportWizard — source toggle + detection', () => {
 
   it('switches to Clipboard, shows the JSON editor + Next, and blocks empty input', async () => {
     const root = mount(<ImportWizard onSuccess={() => {}} />);
-    const clip = [...root.querySelectorAll('.csv-seg-opt')].find((b) => b.textContent.trim() === 'Clipboard');
+    const clip = [...root.querySelectorAll('.csv-seg-opt')].find(
+      (b) => b.textContent.trim() === 'Clipboard',
+    );
     (clip as HTMLElement).click();
     const next = await waitFor(() => root.querySelector('[data-testid="clipboard-next"]'));
     next.click();
@@ -109,31 +145,47 @@ describe('ImportWizard — source toggle + detection', () => {
 describe('ImportWizard routing', () => {
   it('Insert routes to runChunkedInsert', async () => {
     selectedCollection.value = 'products';
-    const docs = [{ _id: '1', name: 'Foo' }, { _id: '2', name: 'Bar' }];
+    const docs = [
+      { _id: '1', name: 'Foo' },
+      { _id: '2', name: 'Bar' },
+    ];
     const root = mount(<ImportWizard onSuccess={vi.fn()} />);
     await toDecideViaFile(root, docs);
 
     // Mode should default to insert; the button stays disabled until the
     // shape sample resolves (Fix 3: shapeLoading gates every mode, not just
     // Update/Replace), then click go.
-    const goBtn = await waitFor(() => { const b = root.querySelector<HTMLButtonElement>('[data-testid="import-go"]'); return b && !b.disabled ? b : null; });
+    const goBtn = await waitFor(() => {
+      const b = root.querySelector<HTMLButtonElement>('[data-testid="import-go"]');
+      return b && !b.disabled ? b : null;
+    });
     goBtn.click();
 
     await waitFor(() => vi.mocked(runChunkedInsert).mock.calls.length > 0);
-    expect(runChunkedInsert).toHaveBeenCalledWith('products', expect.any(Array), expect.objectContaining({ signal: expect.anything() }));
+    expect(runChunkedInsert).toHaveBeenCalledWith(
+      'products',
+      expect.any(Array),
+      expect.objectContaining({ signal: expect.anything() }),
+    );
     expect(api.datasetUpdate).not.toHaveBeenCalled();
     expect(api.datasetReplace).not.toHaveBeenCalled();
   });
 
   it('Replace uploads a JSON blob to datasetReplace and polls', async () => {
     selectedCollection.value = 'products';
-    const docs = [{ _id: '1', name: 'Foo' }, { _id: '2', name: 'Bar' }];
+    const docs = [
+      { _id: '1', name: 'Foo' },
+      { _id: '2', name: 'Bar' },
+    ];
     const root = mount(<ImportWizard onSuccess={vi.fn()} />);
     await toDecideViaFile(root, docs);
 
     // Switch to Replace mode
-    const modeReplace = [...root.querySelectorAll('[data-testid="import-mode"] button, [aria-label="Import mode"] button, .csv-seg-opt')]
-      .find((b) => b.textContent.trim() === 'Replace');
+    const modeReplace = [
+      ...root.querySelectorAll(
+        '[data-testid="import-mode"] button, [aria-label="Import mode"] button, .csv-seg-opt',
+      ),
+    ].find((b) => b.textContent.trim() === 'Replace');
     expect(modeReplace).toBeTruthy();
     (modeReplace as HTMLElement).click();
 
@@ -164,11 +216,16 @@ describe('ImportWizard routing', () => {
 
   it('Update requires picking a business key and uploads _id-less rows', async () => {
     selectedCollection.value = 'products';
-    const docs = [{ _id: '1', __digest_md5: '0'.repeat(32), name: 'Foo' }, { _id: '2', name: 'Bar' }];
+    const docs = [
+      { _id: '1', __digest_md5: '0'.repeat(32), name: 'Foo' },
+      { _id: '2', name: 'Bar' },
+    ];
     const root = mount(<ImportWizard onSuccess={vi.fn()} />);
     await toDecideViaFile(root, docs);
 
-    const modeUpdate = [...root.querySelectorAll('.csv-seg-opt')].find((b) => b.textContent.trim() === 'Update');
+    const modeUpdate = [...root.querySelectorAll('.csv-seg-opt')].find(
+      (b) => b.textContent.trim() === 'Update',
+    );
     (modeUpdate as HTMLElement).click();
 
     // No auto-default: the go button stays disabled until a key is chosen,
@@ -183,7 +240,10 @@ describe('ImportWizard routing', () => {
     expect(items.map((b: any) => b.textContent.trim())).not.toContain('_id');
     items.find((b: any) => b.textContent.trim() === 'name').click();
 
-    const goBtn = await waitFor(() => { const b = root.querySelector<HTMLButtonElement>('[data-testid="import-go"]'); return b && !b.disabled ? b : null; });
+    const goBtn = await waitFor(() => {
+      const b = root.querySelector<HTMLButtonElement>('[data-testid="import-go"]');
+      return b && !b.disabled ? b : null;
+    });
     goBtn.click();
 
     await waitFor(() => vi.mocked(api.datasetUpdate).mock.calls.length > 0);
@@ -192,7 +252,10 @@ describe('ImportWizard routing', () => {
     expect(keysArg).toEqual(['name']);
     const body = JSON.parse(await (blobArg as Blob).text());
     expect(body).toHaveLength(docs.length);
-    for (const row of body) { expect(row).not.toHaveProperty('_id'); expect(row).not.toHaveProperty('__digest_md5'); }
+    for (const row of body) {
+      expect(row).not.toHaveProperty('_id');
+      expect(row).not.toHaveProperty('__digest_md5');
+    }
     expect(body[0].name).toBe('Foo'); // rows otherwise intact
 
     await waitFor(() => vi.mocked(api.waitForDatasetOperation).mock.calls.length > 0);
@@ -205,30 +268,41 @@ describe('ImportWizard routing', () => {
   it('cancelling an in-flight Replace shows a cancelled state, not "Import failed"', async () => {
     selectedCollection.value = 'products';
     // The poll rejects when the wizard aborts it (mimics a real user cancel).
-    vi.mocked(api.waitForDatasetOperation).mockImplementationOnce((id, { signal }: any) => new Promise((_, reject) => {
-      if (signal.aborted) reject(new Error('Operation polling aborted'));
-      else signal.addEventListener('abort', () => reject(new Error('Operation polling aborted')));
-    }));
+    vi.mocked(api.waitForDatasetOperation).mockImplementationOnce(
+      (id, { signal }: any) =>
+        new Promise((_, reject) => {
+          if (signal.aborted) reject(new Error('Operation polling aborted'));
+          else
+            signal.addEventListener('abort', () => reject(new Error('Operation polling aborted')));
+        }),
+    );
     const root = mount(<ImportWizard onSuccess={vi.fn()} />);
     await toDecideViaFile(root, [{ _id: '1', name: 'Foo' }]);
 
-    const modeReplace = [...root.querySelectorAll('[data-testid="import-mode"] button, .csv-seg-opt')]
-      .find((b) => b.textContent.trim() === 'Replace');
+    const modeReplace = [
+      ...root.querySelectorAll('[data-testid="import-mode"] button, .csv-seg-opt'),
+    ].find((b) => b.textContent.trim() === 'Replace');
     (modeReplace as HTMLElement).click();
-    const goBtn = await waitFor(() => { const b = root.querySelector<HTMLButtonElement>('[data-testid="import-go"]'); return b && !b.disabled ? b : null; });
+    const goBtn = await waitFor(() => {
+      const b = root.querySelector<HTMLButtonElement>('[data-testid="import-go"]');
+      return b && !b.disabled ? b : null;
+    });
     goBtn.click();
 
     // Once the server-processing (indeterminate) stage shows, click "Stop watching".
     const cancelBtn = await waitFor(() => {
       if (!root.querySelector('.import-progress-fill.indeterminate')) return null;
-      return [...root.querySelectorAll('.' + mstyles.actions + ' button')].find((b) => b.textContent.trim() === 'Stop watching') || null;
+      return (
+        [...root.querySelectorAll('.' + mstyles.actions + ' button')].find(
+          (b) => b.textContent.trim() === 'Stop watching',
+        ) || null
+      );
     });
     cancelBtn.click();
 
     await waitFor(() => (/Cancelled/i.test(root.textContent) ? true : null));
     expect(root.textContent).not.toMatch(/Import failed/i);
   });
-
 });
 
 describe('ImportWizard — shape sampling', () => {
@@ -267,12 +341,15 @@ describe('ImportWizard — back navigation', () => {
     pick(root, file('a,b\n1,2\n', 'rows.csv'));
     await waitFor(() => root.querySelector('[data-testid="import-mode"]'));
 
-    const modeReplace = [...root.querySelectorAll('[data-testid="import-mode"] button')]
-      .find((b) => b.textContent.trim() === 'Replace');
+    const modeReplace = [...root.querySelectorAll('[data-testid="import-mode"] button')].find(
+      (b) => b.textContent.trim() === 'Replace',
+    );
     expect(modeReplace).toBeTruthy();
     (modeReplace as HTMLElement).click();
     await waitFor(() => {
-      const b = [...root.querySelectorAll('[data-testid="import-mode"] button')].find((btn) => btn.textContent.trim() === 'Replace');
+      const b = [...root.querySelectorAll('[data-testid="import-mode"] button')].find(
+        (btn) => btn.textContent.trim() === 'Replace',
+      );
       return b!.classList.contains('on') ? b : null;
     });
 
@@ -283,15 +360,20 @@ describe('ImportWizard — back navigation', () => {
     pick(root, file('a,b\n1,2\n', 'rows.csv'));
     await waitFor(() => root.querySelector('[data-testid="import-mode"]'));
 
-    const restoredReplace = [...root.querySelectorAll('[data-testid="import-mode"] button')]
-      .find((b) => b.textContent.trim() === 'Replace')!;
+    const restoredReplace = [...root.querySelectorAll('[data-testid="import-mode"] button')].find(
+      (b) => b.textContent.trim() === 'Replace',
+    )!;
     expect(restoredReplace.classList.contains('on')).toBe(true);
     expect(restoredReplace.getAttribute('aria-pressed')).toBe('true');
   });
 
   it('clipboard round-trip: submitted text is restored after Back', async () => {
     const root = mount(<ImportWizard onSuccess={vi.fn()} />);
-    ([...root.querySelectorAll('.csv-seg-opt')].find((b) => b.textContent.trim() === 'Clipboard') as HTMLElement).click();
+    (
+      [...root.querySelectorAll('.csv-seg-opt')].find(
+        (b) => b.textContent.trim() === 'Clipboard',
+      ) as HTMLElement
+    ).click();
     const editor = await waitFor(() => root.querySelector('[data-testid="clipboard-editor"]'));
     expect(editor.getAttribute('data-jsonlines')).toBe('1'); // clipboard editor accepts JSON-lines
     editor.value = '{"a":1}\n{"b":1}';
@@ -313,11 +395,18 @@ describe('ImportWizard — Decide screen', () => {
     pick(root, file('sku,name\nA1,Foo\n', 'rows.csv'));
     await waitFor(() => root.querySelector('[data-testid="parse-strip"]'));
 
-    const modeUpdate = [...root.querySelectorAll('.csv-seg-opt')].find((b) => b.textContent.trim() === 'Update');
+    const modeUpdate = [...root.querySelectorAll('.csv-seg-opt')].find(
+      (b) => b.textContent.trim() === 'Update',
+    );
     (modeUpdate as HTMLElement).click();
     const keyInput = await waitFor(() => root.querySelector('[data-testid="match-key-input"]'));
     keyInput.focus();
-    const skuBtn = await waitFor(() => [...root.querySelectorAll('[data-testid="match-key-suggest"] button')].find((b) => b.textContent.trim() === 'sku') || null);
+    const skuBtn = await waitFor(
+      () =>
+        [...root.querySelectorAll('[data-testid="match-key-suggest"] button')].find(
+          (b) => b.textContent.trim() === 'sku',
+        ) || null,
+    );
     skuBtn.click();
     await waitFor(() => root.querySelector('.match-key-chip'));
 
@@ -326,12 +415,20 @@ describe('ImportWizard — Decide screen', () => {
     headerToggle.click();
 
     await waitFor(() => (root.querySelector('.match-key-chip') === null ? true : null));
-    await waitFor(() => (root.querySelector('[data-testid="csv-header"]')!.getAttribute('aria-checked') === 'false' ? true : null));
+    await waitFor(() =>
+      root.querySelector('[data-testid="csv-header"]')!.getAttribute('aria-checked') === 'false'
+        ? true
+        : null,
+    );
   });
 
   it('clipboard JSON renders a compact JsonPreview instead of the CSV table', async () => {
     const root = mount(<ImportWizard onSuccess={vi.fn()} />);
-    ([...root.querySelectorAll('.csv-seg-opt')].find((b) => b.textContent.trim() === 'Clipboard') as HTMLElement).click();
+    (
+      [...root.querySelectorAll('.csv-seg-opt')].find(
+        (b) => b.textContent.trim() === 'Clipboard',
+      ) as HTMLElement
+    ).click();
     const editor = await waitFor(() => root.querySelector('[data-testid="clipboard-editor"]'));
     editor.value = '[{"a":1},{"a":2}]';
     root.querySelector<HTMLElement>('[data-testid="clipboard-next"]')!.click();
@@ -344,12 +441,16 @@ describe('ImportWizard — Decide screen', () => {
 describe('ImportWizard — restore', () => {
   it('restores a dotted CSV header into nested documents before import', async () => {
     // A collection whose shape says address.city is a string and n is a number.
-    vi.mocked(api.aggregate).mockResolvedValueOnce({ result: [{ _id: { $oid: '000000000000000000000001' }, address: { city: 'X' }, n: 1 }] });
+    vi.mocked(api.aggregate).mockResolvedValueOnce({
+      result: [{ _id: { $oid: '000000000000000000000001' }, address: { city: 'X' }, n: 1 }],
+    });
     const root = mount(<ImportWizard onSuccess={vi.fn()} />);
     pick(root, file('address.city,n\r\nTOWN,42\r\n', 'rows.csv'));
     const preview = await waitFor(() => root.querySelector('[data-testid="csv-preview"]'));
     expect(preview.textContent).toContain('TOWN');
-    const summary = await waitFor(() => root.querySelector('[data-testid="import-restore-summary"]'));
+    const summary = await waitFor(() =>
+      root.querySelector('[data-testid="import-restore-summary"]'),
+    );
     expect(summary.textContent).toMatch(/Restored 1 nested column/);
   });
 
@@ -359,7 +460,12 @@ describe('ImportWizard — restore', () => {
   // shapeLoading rather than on shape.
   it('does not claim the collection is empty while the shape sample is still loading', async () => {
     let resolveAgg: any;
-    vi.mocked(api.aggregate).mockImplementationOnce(() => new Promise((resolve) => { resolveAgg = resolve; }));
+    vi.mocked(api.aggregate).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveAgg = resolve;
+        }),
+    );
     const root = mount(<ImportWizard onSuccess={vi.fn()} />);
     pick(root, file('address.city,n\r\nTOWN,42\r\n', 'rows.csv'));
     // shapeLoading starts true (before this fix's DEFAULT-true change it also
@@ -373,8 +479,12 @@ describe('ImportWizard — restore', () => {
     const summaryWhileLoading = root.querySelector('[data-testid="import-restore-summary"]');
     expect(summaryWhileLoading?.textContent || '').not.toMatch(/collection is empty/);
 
-    resolveAgg({ result: [{ _id: { $oid: '000000000000000000000001' }, address: { city: 'X' }, n: 1 }] });
-    const summary = await waitFor(() => root.querySelector('[data-testid="import-restore-summary"]'));
+    resolveAgg({
+      result: [{ _id: { $oid: '000000000000000000000001' }, address: { city: 'X' }, n: 1 }],
+    });
+    const summary = await waitFor(() =>
+      root.querySelector('[data-testid="import-restore-summary"]'),
+    );
     expect(summary.textContent).toMatch(/Restored 1 nested column/);
   });
 });

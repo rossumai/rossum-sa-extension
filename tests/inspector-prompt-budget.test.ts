@@ -10,7 +10,7 @@ describe('budgetedJoin', () => {
     expect(out.startsWith('H\n\n')).toBe(true);
     expect(out.endsWith('\n\nT')).toBe(true);
     expect(out).toContain('a'.repeat(300));
-    expect(out).toContain('more candidate');   // omission note
+    expect(out).toContain('more candidate'); // omission note
     expect(out).not.toContain('c'.repeat(300));
   });
   it('exports the 48k cap', () => {

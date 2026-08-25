@@ -57,7 +57,12 @@ export default function OverviewPanel() {
   // Shared fetch pipeline used by both the initial load (cache-first, populates
   // loadingSet) and the live poll (cache-bypass, leaves loadingSet alone).
   // `publish(name, value)` is called incrementally as each batch resolves.
-  async function streamStats(names: any, signal: any, publish: any, { useCache }: { useCache?: boolean }) {
+  async function streamStats(
+    names: any,
+    signal: any,
+    publish: any,
+    { useCache }: { useCache?: boolean },
+  ) {
     const toFetch = [];
     if (useCache) {
       for (const name of names) {
@@ -98,7 +103,10 @@ export default function OverviewPanel() {
 
     async function fetchBatch(group: any) {
       if (group.length === 0) return;
-      if (group.length === 1) { await fetchOne(group[0]); return; }
+      if (group.length === 1) {
+        await fetchOne(group[0]);
+        return;
+      }
       try {
         const res = await api.aggregate(group[0], buildBatchStoragePipeline(group), { signal });
         if (signal.aborted) return;
@@ -106,7 +114,10 @@ export default function OverviewPanel() {
         for (const row of res.result || []) if (row?._coll) byName.set(row._coll, row);
         for (const name of group) {
           const row = byName.get(name);
-          if (!row) { publish(name, { error: 'Missing from batch response' }); continue; }
+          if (!row) {
+            publish(name, { error: 'Missing from batch response' });
+            continue;
+          }
           cacheAndRecord(name, { result: [row] });
         }
       } catch (err: any) {
@@ -181,7 +192,8 @@ export default function OverviewPanel() {
     let inFlight = false;
     let pollController: AbortController | null = null;
 
-    const delay = () => (document.visibilityState === 'hidden' ? LIVE_POLL_HIDDEN_MS : LIVE_POLL_VISIBLE_MS);
+    const delay = () =>
+      document.visibilityState === 'hidden' ? LIVE_POLL_HIDDEN_MS : LIVE_POLL_VISIBLE_MS;
     const schedule = (ms = delay()) => {
       if (cancelled || timer) return;
       timer = setTimeout(tick, ms);
@@ -190,11 +202,16 @@ export default function OverviewPanel() {
     async function tick() {
       timer = null;
       if (cancelled || inFlight) return;
-      if (activeView.value !== 'overview') { schedule(); return; }
+      if (activeView.value !== 'overview') {
+        schedule();
+        return;
+      }
       inFlight = true;
       pollController = new AbortController();
       try {
-        await streamStats(cols, pollController.signal, makePublisher(pollController, false), { useCache: false });
+        await streamStats(cols, pollController.signal, makePublisher(pollController, false), {
+          useCache: false,
+        });
       } catch {
         // poll errors are non-fatal — try again next tick
       } finally {
@@ -207,7 +224,10 @@ export default function OverviewPanel() {
     function onVisibility() {
       if (cancelled) return;
       if (document.visibilityState === 'visible') {
-        if (timer) { clearTimeout(timer); timer = null; }
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
         tick();
       }
     }
@@ -225,7 +245,10 @@ export default function OverviewPanel() {
 
   function onSort(key: any) {
     if (sortKey === key) setSortDir(sortDir === 'desc' ? 'asc' : 'desc');
-    else { setSortKey(key); setSortDir('desc'); }
+    else {
+      setSortKey(key);
+      setSortDir('desc');
+    }
   }
 
   function sortIndicator(key: any) {
@@ -247,14 +270,17 @@ export default function OverviewPanel() {
     return sortDir === 'desc' ? bn - an : an - bn;
   });
 
-  const totals = rows.reduce((acc, r) => {
-    acc.count += r.count || 0;
-    acc.storageSize += r.storageSize || 0;
-    acc.size += r.size || 0;
-    acc.totalIndexSize += r.totalIndexSize || 0;
-    acc.nindexes += r.nindexes || 0;
-    return acc;
-  }, { count: 0, storageSize: 0, size: 0, totalIndexSize: 0, nindexes: 0 });
+  const totals = rows.reduce(
+    (acc, r) => {
+      acc.count += r.count || 0;
+      acc.storageSize += r.storageSize || 0;
+      acc.size += r.size || 0;
+      acc.totalIndexSize += r.totalIndexSize || 0;
+      acc.nindexes += r.nindexes || 0;
+      return acc;
+    },
+    { count: 0, storageSize: 0, size: 0, totalIndexSize: 0, nindexes: 0 },
+  );
 
   // Size-bar normalization. Bars are proportional to the largest value in
   // each column so the dominant collection fills the bar and smaller ones
@@ -292,7 +318,9 @@ export default function OverviewPanel() {
             {doneCount} / {totalCount}
           </span>
         )}
-        <button class="icon-btn" title="Refresh" onClick={refresh}>{'\u21bb'}</button>
+        <button class="icon-btn" title="Refresh" onClick={refresh}>
+          {'\u21bb'}
+        </button>
       </div>
 
       {totalCount > 0 && (
@@ -301,7 +329,10 @@ export default function OverviewPanel() {
 
       {loadingCount > 0 && totalCount > 0 && (
         <div class="stats-progress-track">
-          <div class="stats-progress-fill" style={{ width: `${Math.round((doneCount / totalCount) * 100)}%` }} />
+          <div
+            class="stats-progress-fill"
+            style={{ width: `${Math.round((doneCount / totalCount) * 100)}%` }}
+          />
         </div>
       )}
 
@@ -321,13 +352,27 @@ export default function OverviewPanel() {
             </colgroup>
             <thead>
               <tr>
-                <th class="stats-sortable" onClick={() => onSort('name')}>Collection{sortIndicator('name')}</th>
-                <th class="stats-sortable stats-num" onClick={() => onSort('count')}>Documents{sortIndicator('count')}</th>
-                <th class="stats-sortable stats-num" onClick={() => onSort('storageSize')}>On disk{sortIndicator('storageSize')}</th>
-                <th class="stats-sortable stats-num" onClick={() => onSort('size')}>Logical{sortIndicator('size')}</th>
-                <th class="stats-sortable stats-num" onClick={() => onSort('avgObjSize')}>Avg doc{sortIndicator('avgObjSize')}</th>
-                <th class="stats-sortable stats-num" onClick={() => onSort('nindexes')}>Indexes{sortIndicator('nindexes')}</th>
-                <th class="stats-sortable stats-num" onClick={() => onSort('totalIndexSize')}>Index size{sortIndicator('totalIndexSize')}</th>
+                <th class="stats-sortable" onClick={() => onSort('name')}>
+                  Collection{sortIndicator('name')}
+                </th>
+                <th class="stats-sortable stats-num" onClick={() => onSort('count')}>
+                  Documents{sortIndicator('count')}
+                </th>
+                <th class="stats-sortable stats-num" onClick={() => onSort('storageSize')}>
+                  On disk{sortIndicator('storageSize')}
+                </th>
+                <th class="stats-sortable stats-num" onClick={() => onSort('size')}>
+                  Logical{sortIndicator('size')}
+                </th>
+                <th class="stats-sortable stats-num" onClick={() => onSort('avgObjSize')}>
+                  Avg doc{sortIndicator('avgObjSize')}
+                </th>
+                <th class="stats-sortable stats-num" onClick={() => onSort('nindexes')}>
+                  Indexes{sortIndicator('nindexes')}
+                </th>
+                <th class="stats-sortable stats-num" onClick={() => onSort('totalIndexSize')}>
+                  Index size{sortIndicator('totalIndexSize')}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -342,32 +387,69 @@ export default function OverviewPanel() {
                   >
                     <td>{r.name}</td>
                     {err ? (
-                      <td colspan={"6" as any} class="stats-row-error">{err}</td>
+                      <td colspan={'6' as any} class="stats-row-error">
+                        {err}
+                      </td>
                     ) : isLoading ? (
                       <Fragment>
-                        <td class="stats-num"><span class="stats-skeleton" style="width:90px" /></td>
-                        <td class="stats-num"><span class="stats-skeleton" style="width:72px" /></td>
-                        <td class="stats-num"><span class="stats-skeleton" style="width:72px" /></td>
-                        <td class="stats-num"><span class="stats-skeleton" style="width:60px" /></td>
-                        <td class="stats-num"><span class="stats-skeleton" style="width:32px" /></td>
-                        <td class="stats-num"><span class="stats-skeleton" style="width:70px" /></td>
+                        <td class="stats-num">
+                          <span class="stats-skeleton" style="width:90px" />
+                        </td>
+                        <td class="stats-num">
+                          <span class="stats-skeleton" style="width:72px" />
+                        </td>
+                        <td class="stats-num">
+                          <span class="stats-skeleton" style="width:72px" />
+                        </td>
+                        <td class="stats-num">
+                          <span class="stats-skeleton" style="width:60px" />
+                        </td>
+                        <td class="stats-num">
+                          <span class="stats-skeleton" style="width:32px" />
+                        </td>
+                        <td class="stats-num">
+                          <span class="stats-skeleton" style="width:70px" />
+                        </td>
                       </Fragment>
                     ) : (
                       <Fragment>
                         <td class="stats-mono stats-num stats-coverage-cell">
-                          <div class="stats-coverage-bar" style={{ width: `${barPct(r.count, maxCount)}%` }} />
-                          <span class="stats-coverage-text"><FlashOnChange value={r.count != null ? r.count.toLocaleString() : '\u2014'} /></span>
+                          <div
+                            class="stats-coverage-bar"
+                            style={{ width: `${barPct(r.count, maxCount)}%` }}
+                          />
+                          <span class="stats-coverage-text">
+                            <FlashOnChange
+                              value={r.count != null ? r.count.toLocaleString() : '\u2014'}
+                            />
+                          </span>
                         </td>
                         <td class="stats-mono stats-num stats-coverage-cell">
-                          <div class="stats-coverage-bar" style={{ width: `${barPct(r.storageSize, maxStorageSize)}%` }} />
-                          <span class="stats-coverage-text"><FlashOnChange value={formatBytes(r.storageSize)} /></span>
+                          <div
+                            class="stats-coverage-bar"
+                            style={{ width: `${barPct(r.storageSize, maxStorageSize)}%` }}
+                          />
+                          <span class="stats-coverage-text">
+                            <FlashOnChange value={formatBytes(r.storageSize)} />
+                          </span>
                         </td>
-                        <td class="stats-mono stats-num"><FlashOnChange value={formatBytes(r.size)} /></td>
-                        <td class="stats-mono stats-num"><FlashOnChange value={formatBytes(r.avgObjSize)} /></td>
-                        <td class="stats-mono stats-num"><FlashOnChange value={r.nindexes ?? '\u2014'} /></td>
+                        <td class="stats-mono stats-num">
+                          <FlashOnChange value={formatBytes(r.size)} />
+                        </td>
+                        <td class="stats-mono stats-num">
+                          <FlashOnChange value={formatBytes(r.avgObjSize)} />
+                        </td>
+                        <td class="stats-mono stats-num">
+                          <FlashOnChange value={r.nindexes ?? '\u2014'} />
+                        </td>
                         <td class="stats-mono stats-num stats-coverage-cell">
-                          <div class="stats-coverage-bar" style={{ width: `${barPct(r.totalIndexSize, maxIndexSize)}%` }} />
-                          <span class="stats-coverage-text"><FlashOnChange value={formatBytes(r.totalIndexSize)} /></span>
+                          <div
+                            class="stats-coverage-bar"
+                            style={{ width: `${barPct(r.totalIndexSize, maxIndexSize)}%` }}
+                          />
+                          <span class="stats-coverage-text">
+                            <FlashOnChange value={formatBytes(r.totalIndexSize)} />
+                          </span>
                         </td>
                       </Fragment>
                     )}
@@ -378,13 +460,35 @@ export default function OverviewPanel() {
             {doneCount > 0 && (
               <tfoot>
                 <tr class="stats-totals-row">
-                  <td><strong>Total ({totalCount})</strong></td>
-                  <td class="stats-mono stats-num"><strong><FlashOnChange value={totals.count.toLocaleString()} /></strong></td>
-                  <td class="stats-mono stats-num"><strong><FlashOnChange value={formatBytes(totals.storageSize)} /></strong></td>
-                  <td class="stats-mono stats-num"><strong><FlashOnChange value={formatBytes(totals.size)} /></strong></td>
+                  <td>
+                    <strong>Total ({totalCount})</strong>
+                  </td>
+                  <td class="stats-mono stats-num">
+                    <strong>
+                      <FlashOnChange value={totals.count.toLocaleString()} />
+                    </strong>
+                  </td>
+                  <td class="stats-mono stats-num">
+                    <strong>
+                      <FlashOnChange value={formatBytes(totals.storageSize)} />
+                    </strong>
+                  </td>
+                  <td class="stats-mono stats-num">
+                    <strong>
+                      <FlashOnChange value={formatBytes(totals.size)} />
+                    </strong>
+                  </td>
                   <td class="stats-mono stats-num">{'\u2014'}</td>
-                  <td class="stats-mono stats-num"><strong><FlashOnChange value={totals.nindexes.toLocaleString()} /></strong></td>
-                  <td class="stats-mono stats-num"><strong><FlashOnChange value={formatBytes(totals.totalIndexSize)} /></strong></td>
+                  <td class="stats-mono stats-num">
+                    <strong>
+                      <FlashOnChange value={totals.nindexes.toLocaleString()} />
+                    </strong>
+                  </td>
+                  <td class="stats-mono stats-num">
+                    <strong>
+                      <FlashOnChange value={formatBytes(totals.totalIndexSize)} />
+                    </strong>
+                  </td>
                 </tr>
               </tfoot>
             )}

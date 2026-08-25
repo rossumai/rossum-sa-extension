@@ -17,10 +17,21 @@ vi.mock('../src/mdh/agent/agentQuery.js', () => ({
 }));
 // Capture transcript-modal opens.
 const openModal = vi.fn();
-vi.mock('../src/mdh/components/Modal.jsx', async (orig) => ({ ...(await orig()), openModal: (...a: any[]) => openModal(...a) }));
+vi.mock('../src/mdh/components/Modal.jsx', async (orig) => ({
+  ...(await orig()),
+  openModal: (...a: any[]) => openModal(...a),
+}));
 // Schema hints are fetched before the run — stub to avoid real API calls.
 vi.mock('../src/mdh/agent/aiContext.js', () => ({
-  getSchemaHints: vi.fn(async () => ({ fieldTypes: {}, numericStringFields: [], arrayPaths: [], knownValues: {}, topValues: {}, ranges: {}, searchIndexes: [] })),
+  getSchemaHints: vi.fn(async () => ({
+    fieldTypes: {},
+    numericStringFields: [],
+    arrayPaths: [],
+    knownValues: {},
+    topValues: {},
+    ranges: {},
+    searchIndexes: [],
+  })),
 }));
 
 import AgentBox, { TranscriptModal, outcomeFor } from '../src/mdh/components/AgentBox.jsx';
@@ -31,16 +42,26 @@ function waitFor(fn: any, { timeout = 1000, step = 10 } = {}) {
     const t0 = Date.now();
     (function poll() {
       let ok = false;
-      try { ok = fn(); } catch { ok = false; }
+      try {
+        ok = fn();
+      } catch {
+        ok = false;
+      }
       if (ok) return resolve();
       if (Date.now() - t0 > timeout) return reject(new Error('waitFor timed out'));
       setTimeout(poll, step);
     })();
   });
 }
-const fireInput = (el: any, v: any) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); };
-const fireEnter = (el: any) => el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-const editorRef = (setValue: any) => ({ current: { setValue, getValue: () => '[{"$match":{"a":1}}]' } });
+const fireInput = (el: any, v: any) => {
+  el.value = v;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+};
+const fireEnter = (el: any) =>
+  el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+const editorRef = (setValue: any) => ({
+  current: { setValue, getValue: () => '[{"$match":{"a":1}}]' },
+});
 
 let root: any;
 beforeEach(() => {
@@ -52,7 +73,10 @@ beforeEach(() => {
   root = document.createElement('div');
   document.body.appendChild(root);
 });
-afterEach(() => { render(null, root); root.remove(); });
+afterEach(() => {
+  render(null, root);
+  root.remove();
+});
 
 describe('AgentBox (drop-in)', () => {
   it('applies the pipeline, forwards the current editor pipeline, and shows the result line + conversation modal', async () => {
@@ -80,9 +104,13 @@ describe('AgentBox (drop-in)', () => {
     expect(setValue.mock.calls[0][0]).toContain('"$match"');
     expect(setValue.mock.calls[0][0]).not.toContain('AI request');
     // iterate-on-existing: current editor pipeline forwarded to the loop
-    expect(runAgentQuery).toHaveBeenCalledWith(expect.objectContaining({
-      request: 'amounts over 10', collection: 'invoices', currentPipeline: '[{"$match":{"a":1}}]',
-    }));
+    expect(runAgentQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: 'amounts over 10',
+        collection: 'invoices',
+        currentPipeline: '[{"$match":{"a":1}}]',
+      }),
+    );
     // done: the footer slot shows the compact result line (request + rows + verified)
     await waitFor(() => root.querySelector('.agent-result'));
     expect(root.querySelector('.agent-result-sum').textContent).toBe('amounts over 10');
@@ -122,7 +150,9 @@ describe('AgentBox (drop-in)', () => {
   });
 
   it('keeps the session-expired message on the global banner on a 401', async () => {
-    runAgentQuery.mockRejectedValue(Object.assign(new Error('Session expired. Reconnect.'), { status: 401 }));
+    runAgentQuery.mockRejectedValue(
+      Object.assign(new Error('Session expired. Reconnect.'), { status: 401 }),
+    );
     const setValue = vi.fn();
     render(<AgentBox editorRef={editorRef(setValue)} />, root);
     const input: any = root.querySelector('input');
@@ -139,14 +169,20 @@ describe('AgentBox (drop-in)', () => {
     let emitPhase: any;
     runAgentQuery.mockImplementation(({ onPhase }) => {
       emitPhase = onPhase;
-      return new Promise((r) => { resolveRun = r; });
+      return new Promise((r) => {
+        resolveRun = r;
+      });
     });
     render(<AgentBox editorRef={editorRef(vi.fn())} />, root);
     const input: any = root.querySelector('input');
     fireInput(input, 'slow query');
     fireEnter(input);
 
-    await waitFor(() => root.querySelector('input.' + aiStyles.loading) && root.querySelector('.' + aiStyles.gerund));
+    await waitFor(
+      () =>
+        root.querySelector('input.' + aiStyles.loading) &&
+        root.querySelector('.' + aiStyles.gerund),
+    );
     // sparkle twinkles during the run
     expect(root.querySelector('.' + aiStyles.spark + '.' + aiStyles.loading)).toBeTruthy();
     // phase tracker starts with the 3 base steps (no Refine until one happens)
@@ -173,11 +209,27 @@ describe('AgentBox (drop-in)', () => {
 
 describe('outcomeFor (result-line mapping)', () => {
   it('maps note kinds to the compact footer line', () => {
-    expect(outcomeFor('q', { kind: 'verified', rowCount: 3 })).toEqual({ ok: true, request: 'q', meta: '3 rows · verified' });
-    expect(outcomeFor('q', { kind: 'refined', rowCount: 1 })).toEqual({ ok: true, request: 'q', meta: '1 row · verified' });
-    expect(outcomeFor('q', { kind: 'empty' })).toEqual({ ok: true, request: 'q', meta: '0 matching rows' });
+    expect(outcomeFor('q', { kind: 'verified', rowCount: 3 })).toEqual({
+      ok: true,
+      request: 'q',
+      meta: '3 rows · verified',
+    });
+    expect(outcomeFor('q', { kind: 'refined', rowCount: 1 })).toEqual({
+      ok: true,
+      request: 'q',
+      meta: '1 row · verified',
+    });
+    expect(outcomeFor('q', { kind: 'empty' })).toEqual({
+      ok: true,
+      request: 'q',
+      meta: '0 matching rows',
+    });
     expect(outcomeFor('q', { kind: 'unrun' })).toEqual({ ok: true, request: 'q', meta: 'applied' });
-    expect(outcomeFor('q', { kind: 'error', error: 'boom' })).toEqual({ ok: true, request: 'q', meta: 'applied · run failed' });
+    expect(outcomeFor('q', { kind: 'error', error: 'boom' })).toEqual({
+      ok: true,
+      request: 'q',
+      meta: 'applied · run failed',
+    });
     expect(outcomeFor('q', { kind: 'blocked' }).ok).toBe(false);
     expect(outcomeFor('q', { kind: 'blocked' }).message).toMatch(/modify data/);
     expect(outcomeFor('q', { kind: 'no-pipeline' }).ok).toBe(false);
@@ -191,16 +243,27 @@ describe('TranscriptModal (continue the chat)', () => {
       pipelineText: '[{"$match":{"amount":{"$gt":100}}}]',
       note: { kind: 'refined', rowCount: 2 },
       chatId: 'c1',
-      transcript: [{ role: 'user', text: 'orig' }, { role: 'user', text: 'over 100' }, { role: 'assistant', text: '[…]' }],
+      transcript: [
+        { role: 'user', text: 'orig' },
+        { role: 'user', text: 'over 100' },
+        { role: 'assistant', text: '[…]' },
+      ],
     });
     const setValue = vi.fn();
     const onUpdate = vi.fn();
-    const session = { chatId: 'c1', transcript: [{ role: 'user', text: 'orig request' }], ctx: { collection: 'invoices', fields: ['amount'], samples: [], hints: {} } };
-    render(<TranscriptModal
-      session={session}
-      editorRef={{ current: { getValue: () => '[{"$match":{}}]', setValue } }}
-      onUpdate={onUpdate}
-    />, root);
+    const session = {
+      chatId: 'c1',
+      transcript: [{ role: 'user', text: 'orig request' }],
+      ctx: { collection: 'invoices', fields: ['amount'], samples: [], hints: {} },
+    };
+    render(
+      <TranscriptModal
+        session={session}
+        editorRef={{ current: { getValue: () => '[{"$match":{}}]', setValue } }}
+        onUpdate={onUpdate}
+      />,
+      root,
+    );
 
     expect(root.textContent).toMatch(/orig request/); // prior turn shown
     const input: any = root.querySelector('input');
@@ -208,7 +271,9 @@ describe('TranscriptModal (continue the chat)', () => {
     fireEnter(input);
 
     await waitFor(() => setValue.mock.calls.length > 0);
-    expect(continueAgentQuery).toHaveBeenCalledWith(expect.objectContaining({ chatId: 'c1', request: 'over 100', collection: 'invoices' }));
+    expect(continueAgentQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ chatId: 'c1', request: 'over 100', collection: 'invoices' }),
+    );
     expect(setValue.mock.calls[0][0]).toContain('"$gt":100');
     expect(onUpdate).toHaveBeenCalled();
   });

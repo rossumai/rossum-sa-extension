@@ -5,15 +5,24 @@ import { stageLineRanges } from './pipelineComments.js';
 
 // Recomputed stage line ranges, shared by the gutter and the greying decoration.
 const stageRangesField = StateField.define({
-  create(state) { return stageLineRanges(state.doc.toString()); },
-  update(value, tr) { return tr.docChanged ? stageLineRanges(tr.newDoc.toString()) : value; },
+  create(state) {
+    return stageLineRanges(state.doc.toString());
+  },
+  update(value, tr) {
+    return tr.docChanged ? stageLineRanges(tr.newDoc.toString()) : value;
+  },
 });
 
 class ToggleMarker extends GutterMarker {
   declare disabled: boolean;
 
-  constructor(disabled: boolean) { super(); this.disabled = disabled; }
-  eq(other: any) { return other.disabled === this.disabled; }
+  constructor(disabled: boolean) {
+    super();
+    this.disabled = disabled;
+  }
+  eq(other: any) {
+    return other.disabled === this.disabled;
+  }
   toDOM() {
     // A real checkbox (checked = stage enabled). It's a visual indicator only —
     // the click is handled by the gutter's line-level mousedown (CSS gives it
@@ -37,8 +46,12 @@ function rangeForLine(view: any, lineFrom: number) {
 const disabledLineDeco = Decoration.line({ class: 'pipeline-stage-disabled-line' });
 
 const disabledDecoField = StateField.define({
-  create(state) { return buildDeco(state); },
-  update(value, tr) { return tr.docChanged ? buildDeco(tr.state) : value; },
+  create(state) {
+    return buildDeco(state);
+  },
+  update(value, tr) {
+    return tr.docChanged ? buildDeco(tr.state) : value;
+  },
   provide: (f) => EditorView.decorations.from(f as any),
 });
 
@@ -71,7 +84,10 @@ export function stageToggleGutter(onToggle: (entryIndex: number) => void) {
       domEventHandlers: {
         mousedown(view, line) {
           const r = rangeForLine(view, line.from);
-          if (r) { onToggle(r.entryIndex); return true; }
+          if (r) {
+            onToggle(r.entryIndex);
+            return true;
+          }
           return false;
         },
       },

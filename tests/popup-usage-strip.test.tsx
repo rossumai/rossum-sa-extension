@@ -7,7 +7,10 @@
 // spent on a single showing.
 import { describe, it, expect, beforeEach } from 'vitest';
 import { h, render } from 'preact';
-import UsageStrip, { UsageFooterButton, stripVisible } from '../src/popup/components/UsageStrip.jsx';
+import UsageStrip, {
+  UsageFooterButton,
+  stripVisible,
+} from '../src/popup/components/UsageStrip.jsx';
 
 let root: any;
 beforeEach(() => {
@@ -16,9 +19,8 @@ beforeEach(() => {
 });
 
 const noop = () => {};
-const show: any = (props = {}) => render(
-  <UsageStrip consent={null} reviewing={false} onAnswer={noop} {...props} />, root,
-);
+const show: any = (props = {}) =>
+  render(<UsageStrip consent={null} reviewing={false} onAnswer={noop} {...props} />, root);
 
 describe('UsageStrip — the first ask', () => {
   it('blocks nothing: no overlay, no scrim, no dialog semantics', () => {
@@ -47,10 +49,12 @@ describe('UsageStrip — the first ask', () => {
   it('offers both answers and reports them', () => {
     const answers: any = [];
     show({ onAnswer: (v: any) => answers.push(v) });
-    expect(root.querySelector('[data-testid="usage-strip-accept"]').textContent.trim())
-      .toBe('Share usage data');
-    expect(root.querySelector('[data-testid="usage-strip-decline"]').textContent.trim())
-      .toBe('No thanks');
+    expect(root.querySelector('[data-testid="usage-strip-accept"]').textContent.trim()).toBe(
+      'Share usage data',
+    );
+    expect(root.querySelector('[data-testid="usage-strip-decline"]').textContent.trim()).toBe(
+      'No thanks',
+    );
 
     root.querySelector('[data-testid="usage-strip-accept"]').click();
     show({ onAnswer: (v: any) => answers.push(v) });
@@ -164,8 +168,10 @@ describe('stripVisible — answered, not merely shown', () => {
   it('does NOT depend on whether the ask has been shown before', () => {
     // The whole point: a strip nobody is forced to look at has to survive repeat
     // opens until answered, or it is missed and the answer never comes.
-    expect(// `asked` is deliberately along for the ride: the assertion is that it does not matter.
-    stripVisible({ consent: null, asked: true } as any)).toBe(true);
+    expect(
+      // `asked` is deliberately along for the ride: the assertion is that it does not matter.
+      stripVisible({ consent: null, asked: true } as any),
+    ).toBe(true);
   });
 
   it('an explicit review reopens it whatever the answer was', () => {
@@ -193,7 +199,16 @@ describe('UsageFooterButton', () => {
     // which is how a reader who changed nothing gets back out now that the strip
     // carries no close button of its own.
     let toggled = 0;
-    render(<UsageFooterButton asked consent onToggle={() => { toggled += 1; }} />, root);
+    render(
+      <UsageFooterButton
+        asked
+        consent
+        onToggle={() => {
+          toggled += 1;
+        }}
+      />,
+      root,
+    );
     root.querySelector('[data-testid="usage-footer-button"]').click();
     root.querySelector('[data-testid="usage-footer-button"]').click();
     expect(toggled).toBe(2);
@@ -218,7 +233,10 @@ describe('vocabulary is unified on "usage data"', () => {
   // Owner instruction 2026-08-03: one name for the feature in the UI.
   // "telemetry", "measure", "track" and "count" in any form are drift —
   // "telemetry" is excluded on purpose (see the note in UsageStrip.jsx).
-  for (const [label, props] of [['ask', {}], ['review', { consent: true, reviewing: true }]]) {
+  for (const [label, props] of [
+    ['ask', {}],
+    ['review', { consent: true, reviewing: true }],
+  ]) {
     it(`uses no measuring/tracking/counting words in ${label} mode`, () => {
       show(props);
       const text: any = root.querySelector('.usage-strip').textContent;

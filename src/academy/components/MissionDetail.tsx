@@ -6,10 +6,15 @@ import css from '../Academy.module.css';
 
 const CHIP: Record<string, string> = { visit: 'url', api: 'api', self: 'self' };
 
-export default function MissionDetail(
-  { mission, progress, onAttest }:
-  { mission: Mission; progress: Progress; onAttest: (missionId: string, stepId: string) => void },
-) {
+export default function MissionDetail({
+  mission,
+  progress,
+  onAttest,
+}: {
+  mission: Mission;
+  progress: Progress;
+  onAttest: (missionId: string, stepId: string) => void;
+}) {
   return (
     <section class={css.detail}>
       <h2 class={css.detailTitle}>{mission.title}</h2>
@@ -28,7 +33,9 @@ export default function MissionDetail(
                 </button>
               )}
             </div>
-            <span class={css.chip} data-kind={s.kind}>{CHIP[s.kind]}</span>
+            <span class={css.chip} data-kind={s.kind}>
+              {CHIP[s.kind]}
+            </span>
           </article>
         );
       })}

@@ -2,10 +2,19 @@
 import { h } from 'preact';
 import { diffObjects } from './diff.js';
 
-export default function DiffConfirm(
-  { original, edited, saving, onConfirm, onCancel }:
-  { original: any; edited: any; saving?: boolean; onConfirm: () => void; onCancel: () => void },
-) {
+export default function DiffConfirm({
+  original,
+  edited,
+  saving,
+  onConfirm,
+  onCancel,
+}: {
+  original: any;
+  edited: any;
+  saving?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
   const d = diffObjects(original, edited);
   const empty = d.leaves.length === 0 && d.removed.length === 0;
   return (
@@ -19,9 +28,13 @@ export default function DiffConfirm(
             {d.leaves.map((l) => (
               <div class={`rawjson-diff-leaf rawjson-diff-${l.kind}`}>
                 <code class="rawjson-diff-path">{l.path}</code>
-                <span class="rawjson-diff-before">{l.kind === 'added' ? '—' : JSON.stringify(l.before)}</span>
+                <span class="rawjson-diff-before">
+                  {l.kind === 'added' ? '—' : JSON.stringify(l.before)}
+                </span>
                 <span class="rawjson-diff-arrow">→</span>
-                <span class="rawjson-diff-after">{l.kind === 'removed' ? '—' : JSON.stringify(l.after)}</span>
+                <span class="rawjson-diff-after">
+                  {l.kind === 'removed' ? '—' : JSON.stringify(l.after)}
+                </span>
               </div>
             ))}
           </div>
@@ -32,7 +45,9 @@ export default function DiffConfirm(
           </div>
         ) : null}
         <div class="rawjson-diff-actions">
-          <button class="rawjson-cancel" onClick={onCancel} disabled={saving}>Cancel</button>
+          <button class="rawjson-cancel" onClick={onCancel} disabled={saving}>
+            Cancel
+          </button>
           <button class="rawjson-confirm" onClick={onConfirm} disabled={saving || empty}>
             {saving ? 'Saving…' : 'Confirm & save'}
           </button>

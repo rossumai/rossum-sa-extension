@@ -17,8 +17,16 @@ beforeEach(() => {
   store.activeSource.value = 'audit';
   store.filtersBySource.value = {
     audit: {
-      object_type: 'user', action: 'app_load', object_id: '7', username: 'a@b.c',
-      timestamp_after: '', timestamp_before: '', page: 3, cursor: null, pageSize: 100, search: '',
+      object_type: 'user',
+      action: 'app_load',
+      object_id: '7',
+      username: 'a@b.c',
+      timestamp_after: '',
+      timestamp_before: '',
+      page: 3,
+      cursor: null,
+      pageSize: 100,
+      search: '',
     },
   };
 });
@@ -44,8 +52,16 @@ describe('FiltersBar — reset', () => {
   it('disables Reset when only the required scope is set', () => {
     store.filtersBySource.value = {
       audit: {
-        object_type: 'annotation', action: '', object_id: '', username: '',
-        timestamp_after: '', timestamp_before: '', page: 1, cursor: null, pageSize: 100, search: '',
+        object_type: 'annotation',
+        action: '',
+        object_id: '',
+        username: '',
+        timestamp_after: '',
+        timestamp_before: '',
+        page: 1,
+        cursor: null,
+        pageSize: 100,
+        search: '',
       },
     };
     expect(resetBtn(mount()).disabled).toBe(true);

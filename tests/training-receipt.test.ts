@@ -1,13 +1,23 @@
 import { describe, it, expect } from 'vitest';
 import {
-  canonicalString, formatCode, renderReceipt, parseReceipt, mintCode, verifyReceipt,
+  canonicalString,
+  formatCode,
+  renderReceipt,
+  parseReceipt,
+  mintCode,
+  verifyReceipt,
 } from '../src/training/receipt.js';
 import { hmacSha256 } from '../src/training/hmac.js';
 
 const FIELDS = {
-  trackId: 'partner-foundations', trackVersion: 1,
-  host: 'partner-sandbox.rossum.app', userId: 42, username: 'j.doe',
-  missionsPassed: ['m1', 'm2', 'm3', 'm4', 'm5'], selfCount: 6, dateUtc: '2026-08-07',
+  trackId: 'partner-foundations',
+  trackVersion: 1,
+  host: 'partner-sandbox.rossum.app',
+  userId: 42,
+  username: 'j.doe',
+  missionsPassed: ['m1', 'm2', 'm3', 'm4', 'm5'],
+  selfCount: 6,
+  dateUtc: '2026-08-07',
 };
 
 // Deterministic stand-in for HMAC so receipt.js stays pure and testable.
@@ -15,14 +25,18 @@ const fakeSign = async (msg: any) => {
   const out = new Uint8Array(32);
   let h = 0x811c9dc5;
   for (let i = 0; i < msg.length; i++) h = Math.imul(h ^ msg.charCodeAt(i), 0x01000193) >>> 0;
-  for (let b = 0; b < 32; b++) { h = Math.imul(h ^ (b + 1), 0x01000193) >>> 0; out[b] = h & 0xff; }
+  for (let b = 0; b < 32; b++) {
+    h = Math.imul(h ^ (b + 1), 0x01000193) >>> 0;
+    out[b] = h & 0xff;
+  }
   return out;
 };
 
 describe('canonicalString', () => {
   it('is stable, ordered and pipe-delimited', () => {
     expect(canonicalString(FIELDS)).toBe(
-      'RSAT1|partner-foundations@1|partner-sandbox.rossum.app|42|j.doe|m1,m2,m3,m4,m5|6|2026-08-07');
+      'RSAT1|partner-foundations@1|partner-sandbox.rossum.app|42|j.doe|m1,m2,m3,m4,m5|6|2026-08-07',
+    );
   });
 
   // This used to assert the OPPOSITE, and that assertion encoded a real defect:
@@ -45,7 +59,9 @@ describe('canonicalString', () => {
 describe('formatCode', () => {
   it('emits RSA1- plus three Crockford base32 groups of four', () => {
     const code = formatCode(new Uint8Array(32).fill(0xff));
-    expect(code).toMatch(/^RSA1-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/);
+    expect(code).toMatch(
+      /^RSA1-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/,
+    );
   });
 
   // The old version of this test filled all 32 bytes with ONE value, so each
@@ -114,13 +130,13 @@ describe('render and parse round-trip', () => {
   it('an empty field value is read as empty, never as the next line', async () => {
     const fields = { ...FIELDS, missionsPassed: [] };
     const text = renderReceipt(fields, await mintCode(fields, fakeSign));
-    expect(text).toMatch(/^missions\s+\|[ \t]*$/m);    // guard: the line really is value-less
+    expect(text).toMatch(/^missions\s+\|[ \t]*$/m); // guard: the line really is value-less
     expect(text).toMatch(/^self-attested\s+\|\s*6$/m); // guard: the next line has content to swallow
 
     const parsed = parseReceipt(text)!;
     expect(parsed).not.toBe(null);
     expect(parsed.fields.missionsPassed).toEqual([]);
-    expect(parsed.fields.selfCount).toBe(6);           // the next line still owns its own value
+    expect(parsed.fields.selfCount).toBe(6); // the next line still owns its own value
     expect(parsed.fields.dateUtc).toBe('2026-08-07');
     // And the whole thing still round-trips, so an empty field cannot quietly
     // change what the signature covers.
@@ -135,8 +151,10 @@ describe('verifyReceipt', () => {
   });
 
   it('rejects a receipt whose org was edited', async () => {
-    const text = renderReceipt(FIELDS, await mintCode(FIELDS, fakeSign))
-      .replace('partner-sandbox.rossum.app', 'someone-else.rossum.app');
+    const text = renderReceipt(FIELDS, await mintCode(FIELDS, fakeSign)).replace(
+      'partner-sandbox.rossum.app',
+      'someone-else.rossum.app',
+    );
     expect((await verifyReceipt(text, fakeSign)).valid).toBe(false);
   });
 
@@ -144,15 +162,18 @@ describe('verifyReceipt', () => {
   // the printed NAME to your own, hand it to a trainer. The id stays theirs,
   // but a trainer reads "Valid — issued to <you>" and has no reason to look up
   // an opaque number. With the username unsigned this passed.
-  it('rejects a receipt whose printed username was swapped for someone else\'s', async () => {
+  it("rejects a receipt whose printed username was swapped for someone else's", async () => {
     const text = renderReceipt(FIELDS, await mintCode(FIELDS, fakeSign)).replace('j.doe', 'e.vil');
-    expect(text).toContain('e.vil');   // guard: a no-op replace would vacuously pass
+    expect(text).toContain('e.vil'); // guard: a no-op replace would vacuously pass
     expect(text).toContain('(id 42)'); // the id is untouched — only the name was forged
     expect((await verifyReceipt(text, fakeSign)).valid).toBe(false);
   });
 
   it('rejects a receipt whose user was edited', async () => {
-    const text = renderReceipt(FIELDS, await mintCode(FIELDS, fakeSign)).replace('(id 42)', '(id 43)');
+    const text = renderReceipt(FIELDS, await mintCode(FIELDS, fakeSign)).replace(
+      '(id 42)',
+      '(id 43)',
+    );
     expect(text).toContain('(id 43)'); // guard: a no-op replace would vacuously pass
     expect((await verifyReceipt(text, fakeSign)).valid).toBe(false);
   });

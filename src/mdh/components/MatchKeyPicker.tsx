@@ -1,17 +1,25 @@
 import { h } from 'preact';
 import { useState, useRef, useLayoutEffect } from 'preact/hooks';
 
-const PAD = 8, GAP = 4, MIN_DROP = 180, MAX_DROP = 260;
+const PAD = 8,
+  GAP = 4,
+  MIN_DROP = 180,
+  MAX_DROP = 260;
 
 // Controlled match-key combobox. The suggestion list is a position:fixed popup
 // anchored to the input's on-screen rect, so it escapes the modal's overflow
 // clipping (no modal ancestor establishes a fixed containing block). It flips
 // above the input when there isn't room below, caps its height to the viewport,
 // and re-anchors on scroll/resize while open.
-export default function MatchKeyPicker(
-  { paths, keys, setKeys }:
-  { paths: string[]; keys: string[]; setKeys: (next: string[]) => void },
-) {
+export default function MatchKeyPicker({
+  paths,
+  keys,
+  setKeys,
+}: {
+  paths: string[];
+  keys: string[];
+  setKeys: (next: string[]) => void;
+}) {
   const [query, setQuery] = useState('');
   const [focused, setFocused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -20,12 +28,18 @@ export default function MatchKeyPicker(
 
   const q = query.trim().toLowerCase();
   const available = paths.filter((p) => !keys.includes(p));
-  const suggestions = (q ? available.filter((p) => p.toLowerCase().includes(q)) : available).slice(0, 50);
+  const suggestions = (q ? available.filter((p) => p.toLowerCase().includes(q)) : available).slice(
+    0,
+    50,
+  );
   const open = focused && suggestions.length > 0;
   const active = Math.min(activeIndex, suggestions.length - 1);
 
   useLayoutEffect(() => {
-    if (!open) { setBox(null); return undefined; }
+    if (!open) {
+      setBox(null);
+      return undefined;
+    }
     const measure = () => {
       const el = inputRef.current;
       if (!el) return;
@@ -55,14 +69,30 @@ export default function MatchKeyPicker(
     setQuery('');
     setActiveIndex(0);
   }
-  function remove(p: any) { setKeys(keys.filter((k) => k !== p)); }
-  function onInput(e: any) { setQuery(e.target.value); setActiveIndex(0); setFocused(true); }
+  function remove(p: any) {
+    setKeys(keys.filter((k) => k !== p));
+  }
+  function onInput(e: any) {
+    setQuery(e.target.value);
+    setActiveIndex(0);
+    setFocused(true);
+  }
   function onKeyDown(e: any) {
-    if (open && e.key === 'ArrowDown') { e.preventDefault(); setActiveIndex(Math.min(active + 1, suggestions.length - 1)); }
-    else if (open && e.key === 'ArrowUp') { e.preventDefault(); setActiveIndex(Math.max(active - 1, 0)); }
-    else if (open && e.key === 'Enter') { e.preventDefault(); add(suggestions[active]); }
-    else if (e.key === 'Escape') { e.preventDefault(); setFocused(false); }
-    else if (e.key === 'Backspace' && query === '' && keys.length > 0) { remove(keys[keys.length - 1]); }
+    if (open && e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex(Math.min(active + 1, suggestions.length - 1));
+    } else if (open && e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex(Math.max(active - 1, 0));
+    } else if (open && e.key === 'Enter') {
+      e.preventDefault();
+      add(suggestions[active]);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setFocused(false);
+    } else if (e.key === 'Backspace' && query === '' && keys.length > 0) {
+      remove(keys[keys.length - 1]);
+    }
   }
 
   const boxStyle = box
@@ -75,7 +105,14 @@ export default function MatchKeyPicker(
         {keys.map((k) => (
           <span class="match-key-chip" key={k}>
             {k}
-            <button type="button" class="match-key-chip-x" aria-label={`Remove ${k}`} onClick={() => remove(k)}>{'✕'}</button>
+            <button
+              type="button"
+              class="match-key-chip-x"
+              aria-label={`Remove ${k}`}
+              onClick={() => remove(k)}
+            >
+              {'✕'}
+            </button>
           </span>
         ))}
         <input
@@ -87,7 +124,10 @@ export default function MatchKeyPicker(
           data-testid="match-key-input"
           onInput={onInput}
           onKeyDown={onKeyDown}
-          onFocus={() => { setFocused(true); setActiveIndex(0); }}
+          onFocus={() => {
+            setFocused(true);
+            setActiveIndex(0);
+          }}
           onBlur={() => setFocused(false)}
         />
       </div>
@@ -100,7 +140,9 @@ export default function MatchKeyPicker(
               key={p}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => add(p)}
-            >{p}</button>
+            >
+              {p}
+            </button>
           ))}
         </div>
       )}

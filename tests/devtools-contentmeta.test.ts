@@ -27,22 +27,44 @@ describe('formatBytes', () => {
 
 describe('filenameFrom', () => {
   it('prefers a quoted Content-Disposition filename', () => {
-    expect(filenameFrom('attachment; filename="invoice 12.pdf"', '/api/v1/documents/5/content', 'application/pdf')).toBe('invoice 12.pdf');
+    expect(
+      filenameFrom(
+        'attachment; filename="invoice 12.pdf"',
+        '/api/v1/documents/5/content',
+        'application/pdf',
+      ),
+    ).toBe('invoice 12.pdf');
   });
   it('supports RFC 5987 filename*', () => {
-    expect(filenameFrom("attachment; filename*=UTF-8''r%C3%A9sum%C3%A9.pdf", '/api/v1/documents/5/content', 'application/pdf')).toBe('résumé.pdf');
+    expect(
+      filenameFrom(
+        "attachment; filename*=UTF-8''r%C3%A9sum%C3%A9.pdf",
+        '/api/v1/documents/5/content',
+        'application/pdf',
+      ),
+    ).toBe('résumé.pdf');
   });
   it('strips a non-UTF-8 RFC 5987 charset prefix generically', () => {
-    expect(filenameFrom("attachment; filename*=ISO-8859-1''caf%C3%A9.pdf", '/api/v1/documents/5/content', 'application/pdf')).toBe('café.pdf');
+    expect(
+      filenameFrom(
+        "attachment; filename*=ISO-8859-1''caf%C3%A9.pdf",
+        '/api/v1/documents/5/content',
+        'application/pdf',
+      ),
+    ).toBe('café.pdf');
   });
   it('falls back to the path segment + extension from content-type', () => {
-    expect(filenameFrom(null, '/api/v1/documents/152918702/content', 'application/pdf')).toBe('content.pdf');
+    expect(filenameFrom(null, '/api/v1/documents/152918702/content', 'application/pdf')).toBe(
+      'content.pdf',
+    );
     expect(filenameFrom('', '/api/v1/pages/9/preview', 'image/png')).toBe('preview.png');
   });
   it('uses a generic base when the last segment is numeric', () => {
     expect(filenameFrom(null, '/api/v1/documents/5/content/9', 'image/jpeg')).toBe('download.jpg');
   });
   it('omits the extension when the content-type is unknown', () => {
-    expect(filenameFrom(null, '/api/v1/documents/5/content', 'application/octet-stream')).toBe('content');
+    expect(filenameFrom(null, '/api/v1/documents/5/content', 'application/octet-stream')).toBe(
+      'content',
+    );
   });
 });

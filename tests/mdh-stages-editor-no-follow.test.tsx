@@ -16,10 +16,22 @@ import { h, render } from 'preact';
 const mock = vi.hoisted(() => ({ text: '', onCursorStage: null as any }));
 const scrollMock = vi.hoisted(() => ({ animateScrollTop: vi.fn() }));
 
-globalThis.chrome = ({
-  storage: { local: { get: (k: any, cb: any) => { if (cb) { cb({}); return; } return Promise.resolve({}); }, set: () => Promise.resolve(), remove: () => Promise.resolve() } },
+globalThis.chrome = {
+  storage: {
+    local: {
+      get: (k: any, cb: any) => {
+        if (cb) {
+          cb({});
+          return;
+        }
+        return Promise.resolve({});
+      },
+      set: () => Promise.resolve(),
+      remove: () => Promise.resolve(),
+    },
+  },
   runtime: { onMessage: { addListener: () => {} } } as any,
-} as any);
+} as any;
 
 // Spying on the tween is what proves "no scroll": jsdom has no layout, so every
 // rect is 0 and a scrollTop assertion would pass whether or not the code ran.
@@ -35,25 +47,38 @@ vi.mock('../src/mdh/components/PipelineEditor.jsx', () => ({
     if (editorRef) {
       editorRef.current = {
         getValue: () => mock.text,
-        setValue: (v: any) => { mock.text = v; },
+        setValue: (v: any) => {
+          mock.text = v;
+        },
         isValid: () => true,
         getParsed: () => [],
-        focus: () => {}, refresh: () => {},
+        focus: () => {},
+        refresh: () => {},
       };
     }
     return <div data-testid="editor" />;
   },
 }));
-vi.mock('../src/mdh/components/RecordList.jsx', () => ({ default: () => <div data-testid="recordlist" /> }));
-vi.mock('../src/mdh/components/PipelineDebug.jsx', () => ({ default: () => <div data-testid="debug" /> }));
+vi.mock('../src/mdh/components/RecordList.jsx', () => ({
+  default: () => <div data-testid="recordlist" />,
+}));
+vi.mock('../src/mdh/components/PipelineDebug.jsx', () => ({
+  default: () => <div data-testid="debug" />,
+}));
 
 import * as api from '../src/mdh/api.js';
 import * as cache from '../src/mdh/cache.js';
 import DataPanel from '../src/mdh/components/DataPanel.jsx';
 import StageLinkOverlay from '../src/mdh/components/StageLinkOverlay.jsx';
 import {
-  selectedCollection, records, resultsView, inspectTarget,
-  caretStage, editorHoverStage, hoveredStage, stagesAutoscroll,
+  selectedCollection,
+  records,
+  resultsView,
+  inspectTarget,
+  caretStage,
+  editorHoverStage,
+  hoveredStage,
+  stagesAutoscroll,
 } from '../src/mdh/store.js';
 import { rect } from './support/dom.js';
 
@@ -61,9 +86,14 @@ async function waitFor(condition: any, description = 'condition', timeoutMs = 30
   const start = Date.now();
   for (;;) {
     let ok = false;
-    try { ok = condition(); } catch { ok = false; }
+    try {
+      ok = condition();
+    } catch {
+      ok = false;
+    }
     if (ok) return;
-    if (Date.now() - start > timeoutMs) throw new Error(`Timeout waiting for ${description} after ${timeoutMs}ms`);
+    if (Date.now() - start > timeoutMs)
+      throw new Error(`Timeout waiting for ${description} after ${timeoutMs}ms`);
     await new Promise((r) => setTimeout(r, 5));
   }
 }
@@ -129,12 +159,18 @@ describe('hovering a stage in the editor', () => {
   it('marks the section but never scrolls the Stages pane', async () => {
     const api2 = fakeEditor();
     const panel = stagesPane();
-    render(<StageLinkOverlay editorRef={{ current: api2 }} panelRef={{ current: panel }} />, mount());
+    render(
+      <StageLinkOverlay editorRef={{ current: api2 }} panelRef={{ current: panel }} />,
+      mount(),
+    );
 
     editorHoverStage.value = { entryIndex: 1 };
 
     // The link still happens — this is a scroll change, not a link change.
-    await waitFor(() => api2.highlightStage.mock.calls.some(([i]) => i === 1), 'the band to light up');
+    await waitFor(
+      () => api2.highlightStage.mock.calls.some(([i]) => i === 1),
+      'the band to light up',
+    );
     expect(panel.querySelector('[data-entry="1"]')!.hasAttribute('data-linked')).toBe(true);
     expect(scrollMock.animateScrollTop).not.toHaveBeenCalled();
   });
@@ -145,13 +181,21 @@ describe('hovering a stage in the editor', () => {
     const pane = panel.querySelector('.pipeline-inspect-scroll');
     // Real geometry: the target sits well below the pane's viewport, i.e. exactly
     // the case the old code scrolled for.
-    pane!.getBoundingClientRect = () => rect({ top: 0, bottom: 300, left: 0, right: 400, width: 400, height: 300 });
-    panel.querySelector('[data-entry="5"]')!.getBoundingClientRect = () => rect({ top: 900, bottom: 1100, left: 0, right: 400, width: 400, height: 200 });
-    render(<StageLinkOverlay editorRef={{ current: api2 }} panelRef={{ current: panel }} />, mount());
+    pane!.getBoundingClientRect = () =>
+      rect({ top: 0, bottom: 300, left: 0, right: 400, width: 400, height: 300 });
+    panel.querySelector('[data-entry="5"]')!.getBoundingClientRect = () =>
+      rect({ top: 900, bottom: 1100, left: 0, right: 400, width: 400, height: 200 });
+    render(
+      <StageLinkOverlay editorRef={{ current: api2 }} panelRef={{ current: panel }} />,
+      mount(),
+    );
 
     editorHoverStage.value = { entryIndex: 5 };
 
-    await waitFor(() => api2.highlightStage.mock.calls.some(([i]) => i === 5), 'the band to light up');
+    await waitFor(
+      () => api2.highlightStage.mock.calls.some(([i]) => i === 5),
+      'the band to light up',
+    );
     expect(scrollMock.animateScrollTop).not.toHaveBeenCalled();
   });
 });

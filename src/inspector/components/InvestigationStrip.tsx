@@ -4,7 +4,8 @@ import * as store from '../store.js';
 function stageState(stage: any, self: any) {
   const order = ['gathering', 'attributing', 'synthesizing', 'complete'];
   const cur = stage === 'agent-offline' ? 'complete' : stage;
-  const a = order.indexOf(self); const b = order.indexOf(cur);
+  const a = order.indexOf(self);
+  const b = order.indexOf(cur);
   if (b > a) return 'done';
   if (b === a) return 'run';
   return 'pend';
@@ -13,7 +14,8 @@ function stageState(stage: any, self: any) {
 function Pill({ state, label, note }: { state?: string; label: string; note?: string | null }) {
   return (
     <span class={`inspector-inv-st ${state}`}>
-      <span class="inspector-inv-ic">{state === 'done' ? '✓' : ''}</span> {label}{note ? <span class="inspector-inv-note"> {note}</span> : null}
+      <span class="inspector-inv-ic">{state === 'done' ? '✓' : ''}</span> {label}
+      {note ? <span class="inspector-inv-note"> {note}</span> : null}
     </span>
   );
 }
@@ -29,24 +31,43 @@ export default function InvestigationStrip() {
   const activity = inv.activity || loadingPhase || '';
 
   if (inv.stage === 'complete' || inv.stage === 'agent-offline') {
-    const unavailable = (store.evidence.value?.items || []).filter((i: any) => i.reliability === 'unavailable').length;
+    const unavailable = (store.evidence.value?.items || []).filter(
+      (i: any) => i.reliability === 'unavailable',
+    ).length;
     return (
       <div class="inspector-inv">
-        <span class="inspector-inv-st done"><span class="inspector-inv-ic">{'✓'}</span> Investigation {inv.stage === 'agent-offline' ? 'finished (AI offline)' : 'complete'}</span>
+        <span class="inspector-inv-st done">
+          <span class="inspector-inv-ic">{'✓'}</span> Investigation{' '}
+          {inv.stage === 'agent-offline' ? 'finished (AI offline)' : 'complete'}
+        </span>
         <span class="inspector-inv-act">
-          {inv.sourcesTotal} sources {'·'} {ai.length} attribution{ai.length === 1 ? '' : 's'}{unavailable ? ` · ${unavailable} unavailable` : ''}
+          {inv.sourcesTotal} sources {'·'} {ai.length} attribution{ai.length === 1 ? '' : 's'}
+          {unavailable ? ` · ${unavailable} unavailable` : ''}
         </span>
       </div>
     );
   }
   return (
     <div class="inspector-inv">
-      <Pill state={stageState(inv.stage, 'gathering')} label="Gather" note={`${inv.sourcesDone}/${inv.sourcesTotal}`} />
+      <Pill
+        state={stageState(inv.stage, 'gathering')}
+        label="Gather"
+        note={`${inv.sourcesDone}/${inv.sourcesTotal}`}
+      />
       <span class="inspector-inv-sep">{'›'}</span>
-      <Pill state={stageState(inv.stage, 'attributing')} label="Attribute" note={ai.length ? `${aiDone} of ${ai.length}` : ''} />
+      <Pill
+        state={stageState(inv.stage, 'attributing')}
+        label="Attribute"
+        note={ai.length ? `${aiDone} of ${ai.length}` : ''}
+      />
       <span class="inspector-inv-sep">{'›'}</span>
       <Pill state={stageState(inv.stage, 'synthesizing')} label="Synthesize" />
-      {activity ? <span class="inspector-inv-act">{activity}{'…'}</span> : null}
+      {activity ? (
+        <span class="inspector-inv-act">
+          {activity}
+          {'…'}
+        </span>
+      ) : null}
     </div>
   );
 }

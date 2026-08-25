@@ -4,7 +4,12 @@ import { collectFieldPaths, countRowsMissingKeys } from '../src/mdh/importPlan.j
 describe('collectFieldPaths', () => {
   it('flattens nested leaf paths, _id first, arrays and EJSON as leaves', () => {
     const docs = [
-      { _id: { $oid: 'a'.repeat(24) }, sku: 'A', address: { zip: '1', geo: { lat: 1 } }, tags: [1, 2] },
+      {
+        _id: { $oid: 'a'.repeat(24) },
+        sku: 'A',
+        address: { zip: '1', geo: { lat: 1 } },
+        tags: [1, 2],
+      },
       { _id: { $oid: 'b'.repeat(24) }, sku: 'B', vendor: { id: 9 } },
     ];
     const paths = collectFieldPaths(docs);
@@ -31,7 +36,9 @@ describe('countRowsMissingKeys', () => {
     expect(countRowsMissingKeys([{ sku: null }], ['sku'])).toBe(0);
   });
   it('requires ALL keys per row', () => {
-    expect(countRowsMissingKeys([{ sku: 'A', region: 'EU' }, { sku: 'B' }], ['sku', 'region'])).toBe(1);
+    expect(
+      countRowsMissingKeys([{ sku: 'A', region: 'EU' }, { sku: 'B' }], ['sku', 'region']),
+    ).toBe(1);
   });
   it('walks dotted paths without traversing arrays', () => {
     expect(countRowsMissingKeys([{ sku: { code: 'X' } }], ['sku.code'])).toBe(0);

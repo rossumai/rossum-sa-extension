@@ -9,15 +9,25 @@ import {
 describe('toCreateIndexDefinition', () => {
   it('turns the real listed sample into a clean create-ready definition', () => {
     // Verbatim from a live /indexes/list response (a customer dev org, PRODUCTS).
-    expect(toCreateIndexDefinition({ v: 2, key: { ALT1: 1 }, name: 'products_alt1_idx' }))
-      .toEqual({ indexName: 'products_alt1_idx', keys: { ALT1: 1 } });
+    expect(toCreateIndexDefinition({ v: 2, key: { ALT1: 1 }, name: 'products_alt1_idx' })).toEqual({
+      indexName: 'products_alt1_idx',
+      keys: { ALT1: 1 },
+    });
   });
 
   it('nests option siblings under options', () => {
-    expect(toCreateIndexDefinition({
-      v: 2, key: { email: 1 }, name: 'email_1', unique: true, sparse: true,
-    })).toEqual({
-      indexName: 'email_1', keys: { email: 1 }, options: { unique: true, sparse: true },
+    expect(
+      toCreateIndexDefinition({
+        v: 2,
+        key: { email: 1 },
+        name: 'email_1',
+        unique: true,
+        sparse: true,
+      }),
+    ).toEqual({
+      indexName: 'email_1',
+      keys: { email: 1 },
+      options: { unique: true, sparse: true },
     });
   });
 
@@ -28,15 +38,26 @@ describe('toCreateIndexDefinition', () => {
   });
 
   it('drops output-only v/ns while keeping real options', () => {
-    const out = toCreateIndexDefinition({ v: 2, key: { a: 1 }, name: 'a_1', ns: 'db.coll', unique: true });
+    const out = toCreateIndexDefinition({
+      v: 2,
+      key: { a: 1 },
+      name: 'a_1',
+      ns: 'db.coll',
+      unique: true,
+    });
     expect(out).toEqual({ indexName: 'a_1', keys: { a: 1 }, options: { unique: true } });
   });
 
   it('rebuilds a text index key from weights so it can be recreated', () => {
     // listIndexes returns the internal { _fts, _ftsx } key; real fields are in weights.
     const out = toCreateIndexDefinition({
-      v: 2, key: { _fts: 'text', _ftsx: 1 }, name: 'desc_text', ns: 'db.coll',
-      textIndexVersion: 3, weights: { desc: 1 }, default_language: 'english',
+      v: 2,
+      key: { _fts: 'text', _ftsx: 1 },
+      name: 'desc_text',
+      ns: 'db.coll',
+      textIndexVersion: 3,
+      weights: { desc: 1 },
+      default_language: 'english',
     })!;
     expect(out.keys).toEqual({ desc: 'text' });
     expect(out.keys).not.toHaveProperty('_fts');
@@ -47,7 +68,10 @@ describe('toCreateIndexDefinition', () => {
 
   it('rebuilds a compound text index, preserving non-text key components and order', () => {
     const out = toCreateIndexDefinition({
-      v: 2, key: { tenant: 1, _fts: 'text', _ftsx: 1 }, name: 'tenant_text', weights: { desc: 1, title: 2 },
+      v: 2,
+      key: { tenant: 1, _fts: 'text', _ftsx: 1 },
+      name: 'tenant_text',
+      weights: { desc: 1, title: 2 },
     });
     expect(out!.keys).toEqual({ tenant: 1, desc: 'text', title: 'text' });
   });
@@ -128,7 +152,9 @@ describe('redundantIndexNames', () => {
         { key: { a: 1 }, name: 'a_1' },
         { key: { a: 1, b: 1 }, name: 'superset', ...opt },
       ]);
-      expect(out.has('a_1'), `superset ${JSON.stringify(opt)} should not make a_1 redundant`).toBe(false);
+      expect(out.has('a_1'), `superset ${JSON.stringify(opt)} should not make a_1 redundant`).toBe(
+        false,
+      );
     }
   });
 

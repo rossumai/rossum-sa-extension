@@ -25,20 +25,20 @@ export type GraphLink = { source: string; target: string; kind: LinkKind };
 
 export const NODE_STYLE: Record<NodeType, { color: string; val: number }> = {
   organization: { color: '#e5484d', val: 11 }, // red — top of the hierarchy
-  workspace:    { color: '#ea7317', val: 7 },  // orange
-  queue:        { color: '#16a34a', val: 4 },  // green
-  hook:         { color: '#2563eb', val: 5 },  // blue
-  engine:       { color: '#9333ea', val: 5 },  // violet — leaf
+  workspace: { color: '#ea7317', val: 7 }, // orange
+  queue: { color: '#16a34a', val: 4 }, // green
+  hook: { color: '#2563eb', val: 5 }, // blue
+  engine: { color: '#9333ea', val: 5 }, // violet — leaf
 };
 export const LINK_STYLE = {
   // Soft neutral cool greys; containment slightly stronger than reference.
   // Two-theme contract: `color` is the light-theme edge colour, `colorDark` the
   // dark-theme one. The scene selects between them based on the active theme.
   containment: { color: 'rgba(120,128,150,0.85)', colorDark: 'rgba(128,138,176,0.85)', width: 1.4 },
-  reference:   { color: 'rgba(150,158,178,0.55)', colorDark: 'rgba(96,108,150,0.6)',   width: 0.6 },
+  reference: { color: 'rgba(150,158,178,0.55)', colorDark: 'rgba(96,108,150,0.6)', width: 0.6 },
   // run_after pipeline edge (predecessor -> successor). The scene renders it
   // directional via a source->target brightness gradient.
-  runAfter:    { color: '#6366f1', colorDark: '#818cf8', width: 1.2 },
+  runAfter: { color: '#6366f1', colorDark: '#818cf8', width: 1.2 },
 };
 
 // Trailing numeric id out of a Rossum hyperlinked URL ('.../queues/123' -> '123').
@@ -59,40 +59,50 @@ function pairs(...rows: [string, unknown][]): DetailRow[] {
     .filter(([, v]) => v !== null && v !== undefined && v !== '')
     .map(([k, v]) => [k, String(v)] as DetailRow);
 }
-function detailFor(type: NodeType, o: any, isDisabledHook?: (id: string | null) => boolean): DetailRow[] {
-  if (type === 'organization') return pairs(
-    ['Workspaces', (o.workspaces || []).length],
-    ['Users', (o.users || []).length],
-    ['Trial', o.is_trial ? 'Yes' : 'No'],
-    ['Sandbox', o.sandbox ? 'Yes' : 'No'],
-  );
-  if (type === 'workspace') return pairs(
-    ['Queues', (o.queues || []).length],
-    ['Autopilot', o.autopilot ? 'On' : 'Off'],
-  );
-  if (type === 'queue') return pairs(
-    ['Status', o.status],
-    ['Automation', o.automation_enabled ? (o.automation_level || 'on') : 'off'],
-    ['Score threshold', o.default_score_threshold],
-    // Count only hooks that are actually shown — disabled hooks are hidden.
-    ['Hooks', (o.hooks || []).filter((u: unknown) => !(isDisabledHook && isDisabledHook(idFromUrl(u)))).length],
-    ['Schema', idFromUrl(o.schema)],
-    ['Inbox', idFromUrl(o.inbox)],
-  );
-  if (type === 'hook') return pairs(
-    ['Type', o.type],
-    ['Active', o.active ? 'Yes' : 'No'],
-    ['Events', (o.events || []).join(', ')],
-    ['Queues', (o.queues || []).length],
-    ['Runs after', (o.run_after || []).length],
-    ['Description', o.description],
-  );
-  if (type === 'engine') return pairs(
-    ['Type', o.type],
-    ['Learning', o.learning_enabled ? 'On' : 'Off'],
-    ['Training queues', (o.training_queues || []).length],
-    ['Description', o.description],
-  );
+function detailFor(
+  type: NodeType,
+  o: any,
+  isDisabledHook?: (id: string | null) => boolean,
+): DetailRow[] {
+  if (type === 'organization')
+    return pairs(
+      ['Workspaces', (o.workspaces || []).length],
+      ['Users', (o.users || []).length],
+      ['Trial', o.is_trial ? 'Yes' : 'No'],
+      ['Sandbox', o.sandbox ? 'Yes' : 'No'],
+    );
+  if (type === 'workspace')
+    return pairs(['Queues', (o.queues || []).length], ['Autopilot', o.autopilot ? 'On' : 'Off']);
+  if (type === 'queue')
+    return pairs(
+      ['Status', o.status],
+      ['Automation', o.automation_enabled ? o.automation_level || 'on' : 'off'],
+      ['Score threshold', o.default_score_threshold],
+      // Count only hooks that are actually shown — disabled hooks are hidden.
+      [
+        'Hooks',
+        (o.hooks || []).filter((u: unknown) => !(isDisabledHook && isDisabledHook(idFromUrl(u))))
+          .length,
+      ],
+      ['Schema', idFromUrl(o.schema)],
+      ['Inbox', idFromUrl(o.inbox)],
+    );
+  if (type === 'hook')
+    return pairs(
+      ['Type', o.type],
+      ['Active', o.active ? 'Yes' : 'No'],
+      ['Events', (o.events || []).join(', ')],
+      ['Queues', (o.queues || []).length],
+      ['Runs after', (o.run_after || []).length],
+      ['Description', o.description],
+    );
+  if (type === 'engine')
+    return pairs(
+      ['Type', o.type],
+      ['Learning', o.learning_enabled ? 'On' : 'Off'],
+      ['Training queues', (o.training_queues || []).length],
+      ['Description', o.description],
+    );
   return [];
 }
 
@@ -101,13 +111,26 @@ export function buildGraph(raw: any): { nodes: GraphNode[]; links: GraphLink[] }
   const links: GraphLink[] = [];
   const present = new Set(); // node ids that exist, so we never link to a missing node
 
-  function addNode(type: NodeType, rawId: unknown, name?: string, detail?: DetailRow[]): string | null {
+  function addNode(
+    type: NodeType,
+    rawId: unknown,
+    name?: string,
+    detail?: DetailRow[],
+  ): string | null {
     if (rawId == null) return null;
     const id = nodeId(type, String(rawId));
     if (present.has(id)) return id;
     present.add(id);
     const style = NODE_STYLE[type] || { color: '#ffffff', val: 5 };
-    nodes.push({ id, type, rawId: String(rawId), name: name || `${type} ${rawId}`, color: style.color, val: style.val, detail: detail || [] });
+    nodes.push({
+      id,
+      type,
+      rawId: String(rawId),
+      name: name || `${type} ${rawId}`,
+      color: style.color,
+      val: style.val,
+      detail: detail || [],
+    });
     return id;
   }
   function addLink(sourceId: string | null, targetId: string | null, kind: LinkKind): void {
@@ -133,7 +156,9 @@ export function buildGraph(raw: any): { nodes: GraphNode[]; links: GraphLink[] }
       if (isDisabledHook(id)) {
         if (visited.has(id)) continue;
         visited.add(id);
-        const dhPreds = (hookById.get(id)!.run_after || []).map(idFromUrl).filter((x: string | null) => x != null);
+        const dhPreds = (hookById.get(id)!.run_after || [])
+          .map(idFromUrl)
+          .filter((x: string | null) => x != null);
         for (const e of effectivePredIds(dhPreds, visited)) out.push(e);
       } else {
         out.push(id);
@@ -143,7 +168,14 @@ export function buildGraph(raw: any): { nodes: GraphNode[]; links: GraphLink[] }
   }
 
   // Organization (single root).
-  const orgId = raw?.organization ? addNode('organization', raw.organization.id ?? idFromUrl(raw.organization.url), raw.organization.name, detailFor('organization', raw.organization)) : null;
+  const orgId = raw?.organization
+    ? addNode(
+        'organization',
+        raw.organization.id ?? idFromUrl(raw.organization.url),
+        raw.organization.name,
+        detailFor('organization', raw.organization),
+      )
+    : null;
 
   // Workspaces.
   for (const ws of raw?.workspaces || []) {
@@ -173,7 +205,8 @@ export function buildGraph(raw: any): { nodes: GraphNode[]; links: GraphLink[] }
   // Containment: org -> workspace.
   for (const ws of raw?.workspaces || []) {
     const wsId = nodeId('workspace', ws.id ?? idFromUrl(ws.url));
-    const parent = orgId || (ws.organization ? nodeId('organization', idFromUrl(ws.organization)) : null);
+    const parent =
+      orgId || (ws.organization ? nodeId('organization', idFromUrl(ws.organization)) : null);
     addLink(parent, wsId, 'containment');
   }
   // Containment: workspace -> queue. Reference: queue -> engine.
@@ -198,7 +231,9 @@ export function buildGraph(raw: any): { nodes: GraphNode[]; links: GraphLink[] }
         if (qRef) addLink(nodeId('queue', qRef), hkId, 'reference');
       }
     };
-    const directPredIds = (hk.run_after || []).map(idFromUrl).filter((x: string | null) => x != null);
+    const directPredIds = (hk.run_after || [])
+      .map(idFromUrl)
+      .filter((x: string | null) => x != null);
     if (directPredIds.length === 0) {
       anchorToQueues(); // pipeline root
       continue;
@@ -208,7 +243,10 @@ export function buildGraph(raw: any): { nodes: GraphNode[]; links: GraphLink[] }
     let drewEdge = false;
     for (const predId of effectivePredIds(directPredIds, new Set())) {
       const predNode = nodeId('hook', predId);
-      if (present.has(predNode)) { addLink(predNode, hkId, 'runAfter'); drewEdge = true; } // predecessor -> this hook
+      if (present.has(predNode)) {
+        addLink(predNode, hkId, 'runAfter');
+        drewEdge = true;
+      } // predecessor -> this hook
     }
     // If bridging removed every predecessor, this hook is effectively a root —
     // anchor it to its queue(s) so it does not float. Scoped to the bridge case,

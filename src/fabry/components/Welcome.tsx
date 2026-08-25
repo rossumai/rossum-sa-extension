@@ -13,12 +13,22 @@ export default function Welcome() {
   return (
     <div class="fabry-welcome">
       <div class="fabry-welcome-inner">
-        <div class="fabry-welcome-mark"><FabryMark size={40} /></div>
+        <div class="fabry-welcome-mark">
+          <FabryMark size={40} />
+        </div>
         <div class="fabry-welcome-title">What would you like to explore?</div>
         <Composer />
         <div class="fabry-welcome-pills">
           {STARTERS.map((s) => (
-            <button type="button" key={s.label} class="fabry-welcome-pill" title={s.prompt} onClick={() => sendMessage(s.prompt)}>{s.label}</button>
+            <button
+              type="button"
+              key={s.label}
+              class="fabry-welcome-pill"
+              title={s.prompt}
+              onClick={() => sendMessage(s.prompt)}
+            >
+              {s.label}
+            </button>
           ))}
         </div>
       </div>

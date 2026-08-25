@@ -7,7 +7,7 @@ const DOM = 'https://elis.rossum.app';
 describe('buildCurl', () => {
   it('redacts the token by default and adds an export hint', () => {
     const out = buildCurl({ domain: DOM, apiPath: '/api/v1/queues/123' });
-    expect(out).toContain("Authorization: Token $ROSSUM_TOKEN");
+    expect(out).toContain('Authorization: Token $ROSSUM_TOKEN');
     expect(out).toContain("'https://elis.rossum.app/api/v1/queues/123'");
     expect(out).toContain('# export ROSSUM_TOKEN=');
   });

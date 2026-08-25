@@ -27,7 +27,16 @@ import ConfigBlock from './ConfigBlock.jsx';
 
 function RefreshIcon() {
   return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
       <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
       <path d="M21 3v5h-5" />
       <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
@@ -43,7 +52,15 @@ function RefreshIcon() {
 // than naming the gesture — it is the same shape Chrome uses for the panel.
 function SidePanelIcon() {
   return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linejoin="round"
+    >
       <rect x="3" y="4.5" width="18" height="15" rx="2.5" />
       <rect x="13.5" y="4.5" width="7.5" height="15" rx="2.5" fill="currentColor" stroke="none" />
     </svg>
@@ -52,7 +69,16 @@ function SidePanelIcon() {
 
 function DocLookupIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
       <path d="M14 2.75H7A2.25 2.25 0 0 0 4.75 5v14A2.25 2.25 0 0 0 7 21.25h10A2.25 2.25 0 0 0 19.25 19V8z" />
       <path d="M14 2.75V8h5.25" />
       <path d="M8.5 9.5h3" />
@@ -64,9 +90,7 @@ function DocLookupIcon() {
 
 // `onPin` is optional and rendered only when supplied: the popup passes a handler
 // that hands this same card to the side panel, the side panel itself passes none.
-export default function MdhProvenancePanel(
-  { tab, onPin }: { tab?: any; onPin?: () => void },
-) {
+export default function MdhProvenancePanel({ tab, onPin }: { tab?: any; onPin?: () => void }) {
   const [refreshNonce, setRefreshNonce] = useState(0);
   // A `kind`-discriminated state machine whose arms carry different payloads (ctx, hookEntries,
   // headerValues, ...), so it is read as `any` rather than restated as a nine-arm union.
@@ -134,7 +158,11 @@ export default function MdhProvenancePanel(
         }
         if (cancelled) return;
         if (!queueId) {
-          setState({ kind: 'message', message: 'Could not resolve queue from URL.', isError: true });
+          setState({
+            kind: 'message',
+            message: 'Could not resolve queue from URL.',
+            isError: true,
+          });
           return;
         }
 
@@ -162,7 +190,7 @@ export default function MdhProvenancePanel(
         for (const { cfgs } of hookEntries) {
           for (const cfg of cfgs) {
             for (const q of cfg.queries) for (const p of q.placeholders) placeholders.add(p);
-            for (const p of (cfg.actionConditionPlaceholders || [])) placeholders.add(p);
+            for (const p of cfg.actionConditionPlaceholders || []) placeholders.add(p);
             if (cfg.dataset) collectPlaceholders(cfg.dataset, placeholders);
           }
         }
@@ -174,7 +202,9 @@ export default function MdhProvenancePanel(
         let types = {};
         let annValuesFromCache = false;
         if (annCache) {
-          const cachedPlaceholders = new Set((annCache.placeholders || '').split(',').filter(Boolean));
+          const cachedPlaceholders = new Set(
+            (annCache.placeholders || '').split(',').filter(Boolean),
+          );
           const allCovered = [...placeholders].every((p) => cachedPlaceholders.has(p));
           if (allCovered) {
             headerValues = annCache.headerValues || {};
@@ -187,7 +217,12 @@ export default function MdhProvenancePanel(
         }
         if (!annValuesFromCache && ctx.annotationId && placeholders.size > 0) {
           try {
-            const flat = await loadAnnotationValues(ctx.domain, ctx.token, ctx.annotationId, placeholders);
+            const flat = await loadAnnotationValues(
+              ctx.domain,
+              ctx.token,
+              ctx.annotationId,
+              placeholders,
+            );
             if (cancelled) return;
             headerValues = flat.headerValues;
             rowValues = flat.rowValues;
@@ -280,7 +315,9 @@ export default function MdhProvenancePanel(
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [refreshNonce]);
 
   const onRefresh = () => {
@@ -288,15 +325,16 @@ export default function MdhProvenancePanel(
     setRefreshNonce((n) => n + 1);
   };
 
-  const visibleEntries = state.kind === 'loaded'
-    ? filterHookEntries(state.hookEntries, filter)
-    : [];
+  const visibleEntries =
+    state.kind === 'loaded' ? filterHookEntries(state.hookEntries, filter) : [];
   const trimmedFilter = filter.trim();
 
   return (
     <section class="card mdh-card" data-context="rossum">
       <h3 class="section-title">
-        <span>MDH on this screen <span class="beta-badge">beta</span></span>
+        <span>
+          MDH on this screen <span class="beta-badge">beta</span>
+        </span>
         <span class="mdh-head-actions">
           {onPin ? (
             <button
@@ -332,18 +370,24 @@ export default function MdhProvenancePanel(
           <p class="mdh-empty">Loading…</p>
         ) : state.kind === 'empty' ? (
           <div class="mdh-empty-state">
-            <span class="mdh-empty-icon"><DocLookupIcon /></span>
+            <span class="mdh-empty-icon">
+              <DocLookupIcon />
+            </span>
             <p class="mdh-empty-title">Open a document</p>
             <p class="mdh-empty-text">
-              This panel reveals the Master Data Hub lookups behind it — each hook's
-              match queries, with the document's own field values filled in, so you can
-              see exactly what matched, and why.
+              This panel reveals the Master Data Hub lookups behind it — each hook's match queries,
+              with the document's own field values filled in, so you can see exactly what matched,
+              and why.
             </p>
           </div>
         ) : state.kind === 'message' ? (
           <p class={`mdh-empty${state.isError ? ' mdh-error' : ''}`}>{state.message}</p>
         ) : visibleEntries.length === 0 ? (
-          <p class="mdh-empty">No configurations match {'“'}{trimmedFilter}{'”'}.</p>
+          <p class="mdh-empty">
+            No configurations match {'“'}
+            {trimmedFilter}
+            {'”'}.
+          </p>
         ) : (
           visibleEntries.map(({ hook, cfgs }) => (
             <div class="mdh-hook" key={hook.id}>
@@ -372,14 +416,18 @@ export default function MdhProvenancePanel(
                   }
                   forceRefreshNonce={refreshNonce}
                   onOpenInDm={(dataset, pipelineText, variables, variableTypes) =>
-                    openConsoleTab(tab, {
-                      token: state.ctx.token,
-                      domain: state.ctx.domain,
-                      pendingCollection: dataset,
-                      pendingPipeline: pipelineText,
-                      pendingVariables: variables,
-                      pendingVariableTypes: variableTypes,
-                    }, 'mdh')
+                    openConsoleTab(
+                      tab,
+                      {
+                        token: state.ctx.token,
+                        domain: state.ctx.domain,
+                        pendingCollection: dataset,
+                        pendingPipeline: pipelineText,
+                        pendingVariables: variables,
+                        pendingVariableTypes: variableTypes,
+                      },
+                      'mdh',
+                    )
                   }
                 />
               ))}

@@ -31,16 +31,25 @@ export type Node =
   | { type: 'or'; left: Node; right: Node }
   | { type: 'cmp'; op: string; left: Node; right: Node };
 
-function isDigit(c: string) { return c >= '0' && c <= '9'; }
-function isIdentStart(c: string) { return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c === '_'; }
-function isIdentCont(c: string) { return isIdentStart(c) || isDigit(c); }
+function isDigit(c: string) {
+  return c >= '0' && c <= '9';
+}
+function isIdentStart(c: string) {
+  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c === '_';
+}
+function isIdentCont(c: string) {
+  return isIdentStart(c) || isDigit(c);
+}
 
 function tokenize(input: string): Token[] {
   const tokens: Token[] = [];
   let i = 0;
   while (i < input.length) {
     const c = input[i];
-    if (c === ' ' || c === '\t' || c === '\n' || c === '\r') { i++; continue; }
+    if (c === ' ' || c === '\t' || c === '\n' || c === '\r') {
+      i++;
+      continue;
+    }
 
     if (c === "'" || c === '"') {
       const quote = c;
@@ -85,18 +94,66 @@ function tokenize(input: string): Token[] {
       continue;
     }
 
-    if (c === '=' && input[i + 1] === '=') { tokens.push({ type: 'OP', value: '==' }); i += 2; continue; }
-    if (c === '!' && input[i + 1] === '=') { tokens.push({ type: 'OP', value: '!=' }); i += 2; continue; }
-    if (c === '<' && input[i + 1] === '=') { tokens.push({ type: 'OP', value: '<=' }); i += 2; continue; }
-    if (c === '>' && input[i + 1] === '=') { tokens.push({ type: 'OP', value: '>=' }); i += 2; continue; }
-    if (c === '<') { tokens.push({ type: 'OP', value: '<' }); i++; continue; }
-    if (c === '>') { tokens.push({ type: 'OP', value: '>' }); i++; continue; }
-    if (c === '-') { tokens.push({ type: 'OP', value: '-' }); i++; continue; }
-    if (c === '(') { tokens.push({ type: 'LPAREN' }); i++; continue; }
-    if (c === ')') { tokens.push({ type: 'RPAREN' }); i++; continue; }
-    if (c === '[') { tokens.push({ type: 'LBRACKET' }); i++; continue; }
-    if (c === ']') { tokens.push({ type: 'RBRACKET' }); i++; continue; }
-    if (c === ',') { tokens.push({ type: 'COMMA' }); i++; continue; }
+    if (c === '=' && input[i + 1] === '=') {
+      tokens.push({ type: 'OP', value: '==' });
+      i += 2;
+      continue;
+    }
+    if (c === '!' && input[i + 1] === '=') {
+      tokens.push({ type: 'OP', value: '!=' });
+      i += 2;
+      continue;
+    }
+    if (c === '<' && input[i + 1] === '=') {
+      tokens.push({ type: 'OP', value: '<=' });
+      i += 2;
+      continue;
+    }
+    if (c === '>' && input[i + 1] === '=') {
+      tokens.push({ type: 'OP', value: '>=' });
+      i += 2;
+      continue;
+    }
+    if (c === '<') {
+      tokens.push({ type: 'OP', value: '<' });
+      i++;
+      continue;
+    }
+    if (c === '>') {
+      tokens.push({ type: 'OP', value: '>' });
+      i++;
+      continue;
+    }
+    if (c === '-') {
+      tokens.push({ type: 'OP', value: '-' });
+      i++;
+      continue;
+    }
+    if (c === '(') {
+      tokens.push({ type: 'LPAREN' });
+      i++;
+      continue;
+    }
+    if (c === ')') {
+      tokens.push({ type: 'RPAREN' });
+      i++;
+      continue;
+    }
+    if (c === '[') {
+      tokens.push({ type: 'LBRACKET' });
+      i++;
+      continue;
+    }
+    if (c === ']') {
+      tokens.push({ type: 'RBRACKET' });
+      i++;
+      continue;
+    }
+    if (c === ',') {
+      tokens.push({ type: 'COMMA' });
+      i++;
+      continue;
+    }
 
     throw new Error(`unexpected character ${JSON.stringify(c)} at column ${i + 1}`);
   }
@@ -113,8 +170,12 @@ class Parser {
     this.tokens = tokens;
     this.pos = 0;
   }
-  peek(offset = 0): Token | undefined { return this.tokens[this.pos + offset]; }
-  next(): Token | undefined { return this.tokens[this.pos++]; }
+  peek(offset = 0): Token | undefined {
+    return this.tokens[this.pos + offset];
+  }
+  next(): Token | undefined {
+    return this.tokens[this.pos++];
+  }
   expect(type: string): Token {
     const t = this.next();
     if (!t || t.type !== type) {
@@ -152,7 +213,11 @@ class Parser {
   parseNot(): Node {
     const t = this.peek();
     // `not` followed by `in` belongs to the comparison level, not the unary level.
-    if (t?.type === 'IDENT' && t.value === 'not' && !(this.peek(1)?.type === 'IDENT' && this.peek(1)!.value === 'in')) {
+    if (
+      t?.type === 'IDENT' &&
+      t.value === 'not' &&
+      !(this.peek(1)?.type === 'IDENT' && this.peek(1)!.value === 'in')
+    ) {
       this.next();
       return { type: 'not', child: this.parseNot() };
     }
@@ -171,7 +236,12 @@ class Parser {
       } else if (t.type === 'IDENT' && t.value === 'in') {
         op = 'in';
         this.next();
-      } else if (t.type === 'IDENT' && t.value === 'not' && this.peek(1)?.type === 'IDENT' && this.peek(1)!.value === 'in') {
+      } else if (
+        t.type === 'IDENT' &&
+        t.value === 'not' &&
+        this.peek(1)?.type === 'IDENT' &&
+        this.peek(1)!.value === 'in'
+      ) {
         op = 'not in';
         this.next();
         this.next();
@@ -248,14 +318,17 @@ function pyLt(a: any, b: any): boolean {
 
 function evalNode(node: Node): any {
   switch (node.type) {
-    case 'literal': return node.value;
-    case 'list': return node.items.map(evalNode);
+    case 'literal':
+      return node.value;
+    case 'list':
+      return node.items.map(evalNode);
     case 'neg': {
       const v = evalNode(node.child);
       if (typeof v !== 'number') throw new Error(`unary - requires a number, got ${typeof v}`);
       return -v;
     }
-    case 'not': return !truthy(evalNode(node.child));
+    case 'not':
+      return !truthy(evalNode(node.child));
     case 'and': {
       const l = evalNode(node.left);
       return truthy(l) ? evalNode(node.right) : l;
@@ -268,12 +341,18 @@ function evalNode(node: Node): any {
       const l = evalNode(node.left);
       const r = evalNode(node.right);
       switch (node.op) {
-        case '==': return pyEq(l, r);
-        case '!=': return !pyEq(l, r);
-        case '<': return pyLt(l, r);
-        case '<=': return pyLt(l, r) || pyEq(l, r);
-        case '>': return pyLt(r, l);
-        case '>=': return pyLt(r, l) || pyEq(l, r);
+        case '==':
+          return pyEq(l, r);
+        case '!=':
+          return !pyEq(l, r);
+        case '<':
+          return pyLt(l, r);
+        case '<=':
+          return pyLt(l, r) || pyEq(l, r);
+        case '>':
+          return pyLt(r, l);
+        case '>=':
+          return pyLt(r, l) || pyEq(l, r);
         case 'in': {
           if (typeof r === 'string') return r.includes(String(l));
           if (Array.isArray(r)) return r.some((x) => pyEq(x, l));
@@ -284,10 +363,12 @@ function evalNode(node: Node): any {
           if (Array.isArray(r)) return !r.some((x) => pyEq(x, l));
           throw new Error(`'not in' requires a string or list on the right`);
         }
-        default: throw new Error(`unknown operator '${node.op}'`);
+        default:
+          throw new Error(`unknown operator '${node.op}'`);
       }
     }
-    default: throw new Error(`unknown node type '${(node as Node).type}'`);
+    default:
+      throw new Error(`unknown node type '${(node as Node).type}'`);
   }
 }
 
@@ -315,4 +396,8 @@ export function evalCondition(expr: unknown): { result: boolean | null; error: s
 }
 
 // Exported for tests only.
-export const __testing = { tokenize, parse: (s: string) => new Parser(tokenize(s)).parse(), evalNode };
+export const __testing = {
+  tokenize,
+  parse: (s: string) => new Parser(tokenize(s)).parse(),
+  evalNode,
+};

@@ -19,28 +19,45 @@ function scanLayout(text: string) {
   while (i < n) {
     const c = text[i];
     if (inString) {
-      if (c === '\\') { i += 2; continue; }
+      if (c === '\\') {
+        i += 2;
+        continue;
+      }
       if (c === '"') inString = false;
-      i += 1; continue;
+      i += 1;
+      continue;
     }
-    if (c === '"') { inString = true; i += 1; continue; }
+    if (c === '"') {
+      inString = true;
+      i += 1;
+      continue;
+    }
     if (c === '/' && text[i + 1] === '/') {
       const nl = text.indexOf('\n', i + 2);
-      i = nl === -1 ? n : nl + 1; continue;
+      i = nl === -1 ? n : nl + 1;
+      continue;
     }
     if (c === '/' && text[i + 1] === '*') {
       const close = text.indexOf('*/', i + 2);
       const end = close === -1 ? n : close + 2;
       const body = text.slice(i + 2, close === -1 ? n : close);
       if (depth === 1 && body.trimStart().startsWith(SENTINEL)) {
-        items.push({ kind: 'disabled', start: i, end, inner: body.trimStart().slice(SENTINEL.length) });
+        items.push({
+          kind: 'disabled',
+          start: i,
+          end,
+          inner: body.trimStart().slice(SENTINEL.length),
+        });
       }
-      i = end; continue;
+      i = end;
+      continue;
     }
     if (c === '[' || c === '{') {
       if (depth === 0 && c === '[' && arrayStart === -1) arrayStart = i;
       if (depth === 1 && c === '{') activeStart = i;
-      depth += 1; i += 1; continue;
+      depth += 1;
+      i += 1;
+      continue;
     }
     if (c === ']' || c === '}') {
       depth -= 1;
@@ -49,7 +66,8 @@ function scanLayout(text: string) {
         activeStart = -1;
       }
       if (depth === 0 && c === ']' && arrayEnd === -1) arrayEnd = i;
-      i += 1; continue;
+      i += 1;
+      continue;
     }
     i += 1;
   }
@@ -61,15 +79,22 @@ function scanLayout(text: string) {
 // text via the spans — the text is the source of truth.
 export function parsePipelineDoc(text: string) {
   let top;
-  try { top = JSON5.parse(text); } catch { return { ok: false, segments: [], arrayStart: -1, arrayEnd: -1 }; }
+  try {
+    top = JSON5.parse(text);
+  } catch {
+    return { ok: false, segments: [], arrayStart: -1, arrayEnd: -1 };
+  }
   if (!Array.isArray(top)) return { ok: false, segments: [], arrayStart: -1, arrayEnd: -1 };
   const { items, arrayStart, arrayEnd } = scanLayout(text);
   const segments = [];
   for (const item of items) {
     if (item.kind === 'active') {
       let stage;
-      try { stage = JSON5.parse(text.slice(item.start, item.end)); }
-      catch { return { ok: false, segments: [], arrayStart: -1, arrayEnd: -1 }; }
+      try {
+        stage = JSON5.parse(text.slice(item.start, item.end));
+      } catch {
+        return { ok: false, segments: [], arrayStart: -1, arrayEnd: -1 };
+      }
       segments.push({ kind: 'active', start: item.start, end: item.end, stage });
     } else {
       // The disabled block's content keeps the stage's trailing comma (so the
@@ -77,7 +102,11 @@ export function parsePipelineDoc(text: string) {
       // before parsing the stage object; `raw` keeps the verbatim content.
       const raw = item.inner!.trim();
       let stage = null;
-      try { stage = JSON5.parse(raw.replace(/\*\\\//g, '*/').replace(/,\s*$/, '')); } catch { /* forgiving: keep raw */ }
+      try {
+        stage = JSON5.parse(raw.replace(/\*\\\//g, '*/').replace(/,\s*$/, ''));
+      } catch {
+        /* forgiving: keep raw */
+      }
       segments.push({ kind: 'disabled', start: item.start, end: item.end, stage, raw });
     }
   }
@@ -93,9 +122,11 @@ export function parseEntries(text: string): { ok: boolean; entries: any[] } {
   if (!ok) return { entries: [], ok: false };
   return {
     ok: true,
-    entries: segments.map((s) => (s.kind === 'disabled'
-      ? { disabled: true, stage: s.stage, raw: s.raw }
-      : { disabled: false, stage: s.stage })),
+    entries: segments.map((s) =>
+      s.kind === 'disabled'
+        ? { disabled: true, stage: s.stage, raw: s.raw }
+        : { disabled: false, stage: s.stage },
+    ),
   };
 }
 
@@ -125,9 +156,20 @@ function findSeparatorComma(text: string, from: number, to: number): number {
   let i = from;
   while (i < to) {
     const c = text[i];
-    if (c === ' ' || c === '\t' || c === '\n' || c === '\r') { i += 1; continue; }
-    if (c === '/' && text[i + 1] === '/') { const nl = text.indexOf('\n', i + 2); i = nl === -1 ? to : nl + 1; continue; }
-    if (c === '/' && text[i + 1] === '*') { const close = text.indexOf('*/', i + 2); i = close === -1 ? to : close + 2; continue; }
+    if (c === ' ' || c === '\t' || c === '\n' || c === '\r') {
+      i += 1;
+      continue;
+    }
+    if (c === '/' && text[i + 1] === '/') {
+      const nl = text.indexOf('\n', i + 2);
+      i = nl === -1 ? to : nl + 1;
+      continue;
+    }
+    if (c === '/' && text[i + 1] === '*') {
+      const close = text.indexOf('*/', i + 2);
+      i = close === -1 ? to : close + 2;
+      continue;
+    }
     if (c === ',') return i;
     return -1;
   }
@@ -158,7 +200,9 @@ export function setStageDisabled(text: string, entryIndex: number, disabled: boo
     const commaPos = findSeparatorComma(text, seg.end, scanTo);
     const wrapEnd = commaPos !== -1 ? commaPos + 1 : seg.end;
     const body = text.slice(seg.start, wrapEnd).replace(/\*\//g, '*\\/');
-    return applyEdits(text, [{ start: seg.start, end: wrapEnd, replacement: `/* ${SENTINEL}\n${indent}${body} */` }]);
+    return applyEdits(text, [
+      { start: seg.start, end: wrapEnd, replacement: `/* ${SENTINEL}\n${indent}${body} */` },
+    ]);
   }
 
   // enable: restore the inner verbatim. If the content already carries its
@@ -171,12 +215,22 @@ export function setStageDisabled(text: string, entryIndex: number, disabled: boo
   }
   let prevActiveEnd = -1;
   for (let j = entryIndex - 1; j >= 0; j--) {
-    if (segments[j].kind === 'active') { prevActiveEnd = segments[j].end; break; }
+    if (segments[j].kind === 'active') {
+      prevActiveEnd = segments[j].end;
+      break;
+    }
   }
   const hasActiveAfter = segments.slice(entryIndex + 1).some((s) => s.kind === 'active');
-  const needLead = prevActiveEnd !== -1 && findSeparatorComma(text, prevActiveEnd, seg.start) === -1;
+  const needLead =
+    prevActiveEnd !== -1 && findSeparatorComma(text, prevActiveEnd, seg.start) === -1;
   const needTrail = hasActiveAfter && findSeparatorComma(text, seg.end, scanTo) === -1;
-  return applyEdits(text, [{ start: seg.start, end: seg.end, replacement: (needLead ? ',' : '') + inner + (needTrail ? ',' : '') }]);
+  return applyEdits(text, [
+    {
+      start: seg.start,
+      end: seg.end,
+      replacement: (needLead ? ',' : '') + inner + (needTrail ? ',' : ''),
+    },
+  ]);
 }
 
 const PLACEHOLDER = '__disabledStagePlaceholder__';
@@ -185,9 +239,16 @@ const PLACEHOLDER = '__disabledStagePlaceholder__';
 // segment is ACTIVE the separator comma (and this stage's leading comment, Limit B)
 // lives in the leading gap; when k===0 or the predecessor is a DISABLED block (no
 // comma in the leading gap) the separator comma is the trailing one.
-function removeEdit(text: string, segments: any[], k: number, arrayStart: number, arrayEnd: number) {
+function removeEdit(
+  text: string,
+  segments: any[],
+  k: number,
+  arrayStart: number,
+  arrayEnd: number,
+) {
   const scanTo = arrayEnd >= 0 ? arrayEnd : text.length;
-  if (segments.length === 1) return { start: arrayStart + 1, end: segments[0].end, replacement: '' };
+  if (segments.length === 1)
+    return { start: arrayStart + 1, end: segments[0].end, replacement: '' };
   if (k > 0 && segments[k - 1].kind === 'active') {
     return { start: segments[k - 1].end, end: segments[k].end, replacement: '' };
   }
@@ -208,7 +269,10 @@ function insertEdit(segments: any[], k: number, stage: any, arrayStart: number) 
   // separated the anchor from the next visible element (or a now-trailing comma).
   let prevActiveEnd = -1;
   for (let j = k - 1; j >= 0; j--) {
-    if (segments[j].kind === 'active') { prevActiveEnd = segments[j].end; break; }
+    if (segments[j].kind === 'active') {
+      prevActiveEnd = segments[j].end;
+      break;
+    }
   }
   if (prevActiveEnd !== -1) {
     return { start: prevActiveEnd, end: prevActiveEnd, replacement: `,\n  ${body}` };
@@ -251,12 +315,22 @@ export function applyMutationToText(text: string, mutator: (stages: any[]) => vo
   while (oi < segments.length || wi < work.length) {
     const o = oi < segments.length ? origWork[oi] : undefined;
     const w = wi < work.length ? work[wi] : undefined;
-    if (o !== undefined && o === w) { oi += 1; wi += 1; continue; } // kept
+    if (o !== undefined && o === w) {
+      oi += 1;
+      wi += 1;
+      continue;
+    } // kept
     const oRemoved = o !== undefined && !workSet.has(o);
     const wNew = w !== undefined && !origSet.has(w);
-    if (oRemoved && wNew) { // replace in place — splice only this span
-      edits.push({ start: segments[oi].start, end: segments[oi].end, replacement: reindentStage(w) });
-      oi += 1; wi += 1;
+    if (oRemoved && wNew) {
+      // replace in place — splice only this span
+      edits.push({
+        start: segments[oi].start,
+        end: segments[oi].end,
+        replacement: reindentStage(w),
+      });
+      oi += 1;
+      wi += 1;
     } else if (oRemoved) {
       edits.push(removeEdit(text, segments, oi, arrayStart, arrayEnd));
       oi += 1;
@@ -276,7 +350,9 @@ export function normalizeEffectivePipelineText(substitutedText: string): string 
   try {
     const parsed = JSON5.parse(substitutedText);
     if (Array.isArray(parsed) && parsed.length === 0) return JSON.stringify([{ $match: {} }]);
-  } catch { /* fall through — let the caller handle invalid text */ }
+  } catch {
+    /* fall through — let the caller handle invalid text */
+  }
   return substitutedText;
 }
 
@@ -291,7 +367,11 @@ export function beautifyText(text: string): string | null {
       return { start: seg.start, end: seg.end, replacement: reindentStage(seg.stage) };
     }
     const inner: string = seg.stage != null ? reindentStage(seg.stage) : seg.raw!;
-    return { start: seg.start, end: seg.end, replacement: `/* ${SENTINEL}\n${inner.replace(/\*\//g, '*\\/')} */` };
+    return {
+      start: seg.start,
+      end: seg.end,
+      replacement: `/* ${SENTINEL}\n${inner.replace(/\*\//g, '*\\/')} */`,
+    };
   });
   return applyEdits(text, edits);
 }
@@ -309,7 +389,7 @@ export function stageLineRanges(text: string): any[] {
     entryIndex: idx,
     disabled: s.kind === 'disabled',
     start: s.start, // char offset of the stage's '{' (active) — may sit mid-line, e.g. "},{"
-    end: s.end,     // char offset just past the stage's closing '}'
+    end: s.end, // char offset just past the stage's closing '}'
     lineStart: lineAt(s.start),
     lineEnd: lineAt(s.end - 1),
   }));

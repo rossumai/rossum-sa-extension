@@ -1,21 +1,28 @@
 import { describe, it, expect } from 'vitest';
-import {
-  classifySpecial,
-  cpLabel,
-  hasSpecial,
-  tokenizeSpecial,
-} from '../src/mdh/specialChars.js';
+import { classifySpecial, cpLabel, hasSpecial, tokenizeSpecial } from '../src/mdh/specialChars.js';
 
 describe('classifySpecial', () => {
   it('classifies a representative member of each category', () => {
-    expect(classifySpecial(0x00a0)).toEqual({ category: 'space', name: 'NO-BREAK SPACE', abbr: 'NBSP' });
-    expect(classifySpecial(0x200b)).toEqual({ category: 'zero-width', name: 'ZERO WIDTH SPACE', abbr: 'ZWSP' });
+    expect(classifySpecial(0x00a0)).toEqual({
+      category: 'space',
+      name: 'NO-BREAK SPACE',
+      abbr: 'NBSP',
+    });
+    expect(classifySpecial(0x200b)).toEqual({
+      category: 'zero-width',
+      name: 'ZERO WIDTH SPACE',
+      abbr: 'ZWSP',
+    });
     expect(classifySpecial(0x0009)).toEqual({ category: 'control', name: 'TAB', abbr: 'TAB' });
-    expect(classifySpecial(0x200e)).toEqual({ category: 'bidi', name: 'LEFT-TO-RIGHT MARK', abbr: 'LRM' });
+    expect(classifySpecial(0x200e)).toEqual({
+      category: 'bidi',
+      name: 'LEFT-TO-RIGHT MARK',
+      abbr: 'LRM',
+    });
   });
 
   it('does NOT classify ordinary space, letters, digits, or astral emoji', () => {
-    expect(classifySpecial(0x20)).toBeNull();          // ordinary space
+    expect(classifySpecial(0x20)).toBeNull(); // ordinary space
     expect(classifySpecial('A'.codePointAt(0)!)).toBeNull();
     expect(classifySpecial('7'.codePointAt(0)!)).toBeNull();
     expect(classifySpecial('\u{1F600}'.codePointAt(0)!)).toBeNull(); // U+1F600
@@ -29,10 +36,26 @@ describe('classifySpecial', () => {
   });
 
   it('labels the C0 information separators (e.g. U+001F) instead of the raw codepoint', () => {
-    expect(classifySpecial(0x001f)).toEqual({ category: 'control', name: 'UNIT SEPARATOR', abbr: 'US' });
-    expect(classifySpecial(0x001e)).toEqual({ category: 'control', name: 'RECORD SEPARATOR', abbr: 'RS' });
-    expect(classifySpecial(0x001d)).toEqual({ category: 'control', name: 'GROUP SEPARATOR', abbr: 'GS' });
-    expect(classifySpecial(0x001c)).toEqual({ category: 'control', name: 'FILE SEPARATOR', abbr: 'FS' });
+    expect(classifySpecial(0x001f)).toEqual({
+      category: 'control',
+      name: 'UNIT SEPARATOR',
+      abbr: 'US',
+    });
+    expect(classifySpecial(0x001e)).toEqual({
+      category: 'control',
+      name: 'RECORD SEPARATOR',
+      abbr: 'RS',
+    });
+    expect(classifySpecial(0x001d)).toEqual({
+      category: 'control',
+      name: 'GROUP SEPARATOR',
+      abbr: 'GS',
+    });
+    expect(classifySpecial(0x001c)).toEqual({
+      category: 'control',
+      name: 'FILE SEPARATOR',
+      abbr: 'FS',
+    });
   });
 });
 
@@ -63,7 +86,14 @@ describe('tokenizeSpecial', () => {
     expect(truncated).toBe(false);
     expect(tokens).toEqual([
       { type: 'text', value: 'ab' },
-      { type: 'special', cp: 0x00a0, char: '\u00a0', category: 'space', name: 'NO-BREAK SPACE', abbr: 'NBSP' },
+      {
+        type: 'special',
+        cp: 0x00a0,
+        char: '\u00a0',
+        category: 'space',
+        name: 'NO-BREAK SPACE',
+        abbr: 'NBSP',
+      },
       { type: 'text', value: 'cd' },
     ]);
   });

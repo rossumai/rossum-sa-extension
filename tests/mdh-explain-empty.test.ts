@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { firstEmptyStage, explainSignature, buildEmptyStagePrompt, cachedExplanation, cacheExplanation, _resetExplanationCache } from '../src/mdh/agent/explainEmpty.js';
+import {
+  firstEmptyStage,
+  explainSignature,
+  buildEmptyStagePrompt,
+  cachedExplanation,
+  cacheExplanation,
+  _resetExplanationCache,
+} from '../src/mdh/agent/explainEmpty.js';
 
 describe('firstEmptyStage', () => {
   it('returns the first ACTIVE stage whose preview came back empty', () => {
@@ -102,7 +109,15 @@ describe('buildEmptyStagePrompt', () => {
   it('sends derived schema hints, never whole documents', () => {
     const p = buildEmptyStagePrompt({
       ...base,
-      hints: { knownValues: { country: ['DEU', 'FRA'] }, topValues: {}, ranges: {}, numericStringFields: [], searchIndexes: [], fieldTypes: {}, arrayPaths: [] },
+      hints: {
+        knownValues: { country: ['DEU', 'FRA'] },
+        topValues: {},
+        ranges: {},
+        numericStringFields: [],
+        searchIndexes: [],
+        fieldTypes: {},
+        arrayPaths: [],
+      },
     });
     expect(p).toContain('DEU');
     expect(p).toContain('Data summary for this collection');
@@ -146,16 +161,16 @@ describe('explanation cache', () => {
 
   it('evicts the least recently stored entry past the cap', () => {
     for (let i = 0; i < 21; i++) cacheExplanation(`s${i}`, `answer ${i}`);
-    expect(cachedExplanation('s0')).toBeNull();   // evicted
+    expect(cachedExplanation('s0')).toBeNull(); // evicted
     expect(cachedExplanation('s20')).toBe('answer 20');
   });
 
   it('re-storing an entry refreshes its recency rather than duplicating it', () => {
     for (let i = 0; i < 20; i++) cacheExplanation(`s${i}`, `answer ${i}`);
-    cacheExplanation('s0', 'answer 0');           // touch the oldest
-    cacheExplanation('new', 'answer new');        // forces one eviction
+    cacheExplanation('s0', 'answer 0'); // touch the oldest
+    cacheExplanation('new', 'answer new'); // forces one eviction
     expect(cachedExplanation('s0')).toBe('answer 0'); // survived
-    expect(cachedExplanation('s1')).toBeNull();       // evicted instead
+    expect(cachedExplanation('s1')).toBeNull(); // evicted instead
   });
 });
 

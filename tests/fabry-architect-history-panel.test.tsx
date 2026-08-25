@@ -20,7 +20,9 @@ const D = deliverable({ id: 'd1', text: 'current text here', editedAt: Date.now(
 function mount(deliverable = D) {
   const root = document.createElement('div');
   document.body.appendChild(root);
-  act(() => { render(<HistoryPanel deliverable={deliverable} />, root); });
+  act(() => {
+    render(<HistoryPanel deliverable={deliverable} />, root);
+  });
   return root;
 }
 const rows = (root: any) => [...root.querySelectorAll('.fabry-arch-hist-btn')];
@@ -58,10 +60,15 @@ describe('HistoryPanel', () => {
 
   it('lists a row per version with its kind of change, newest first, plus the live text as a landmark', () => {
     const now = Date.now();
-    store.revisions.value = { d1: { loading: false, items: [
-      { id: 'r2', at: now - 120_000, source: 'refine' },
-      { id: 'r1', at: now - 7_200_000, source: 'edit' },
-    ] } };
+    store.revisions.value = {
+      d1: {
+        loading: false,
+        items: [
+          { id: 'r2', at: now - 120_000, source: 'refine' },
+          { id: 'r1', at: now - 7_200_000, source: 'edit' },
+        ],
+      },
+    };
     const root = mount();
     const labels = rows(root).map((b) => b.textContent);
     expect(labels[0]).toMatch(/Refine accepted/);
@@ -75,62 +82,110 @@ describe('HistoryPanel', () => {
   });
 
   it('opens the newest version on its own, so the panel shows a diff rather than a prompt', () => {
-    store.revisions.value = { d1: { loading: false, items: [{ id: 'r2', at: 2, source: 'edit' }, { id: 'r1', at: 1, source: 'edit' }] } };
+    store.revisions.value = {
+      d1: {
+        loading: false,
+        items: [
+          { id: 'r2', at: 2, source: 'edit' },
+          { id: 'r1', at: 1, source: 'edit' },
+        ],
+      },
+    };
     mount();
     expect(actions.openRevision).toHaveBeenCalledWith('d1', 'r2');
   });
 
   it('selecting a row asks for that version', () => {
-    store.revisions.value = { d1: { loading: false, items: [{ id: 'r2', at: 2, source: 'edit' }, { id: 'r1', at: 1, source: 'edit' }] } };
+    store.revisions.value = {
+      d1: {
+        loading: false,
+        items: [
+          { id: 'r2', at: 2, source: 'edit' },
+          { id: 'r1', at: 1, source: 'edit' },
+        ],
+      },
+    };
     store.selectedRevision.value = 'r2';
     const root = mount();
-    act(() => { rows(root)[1].click(); });
+    act(() => {
+      rows(root)[1].click();
+    });
     expect(actions.openRevision).toHaveBeenCalledWith('d1', 'r1');
   });
 
   it('diffs the selected version against the live text once its text is in hand', () => {
-    store.revisions.value = { d1: { loading: false, items: [{ id: 'r1', at: 1, source: 'edit' }] } };
+    store.revisions.value = {
+      d1: { loading: false, items: [{ id: 'r1', at: 1, source: 'edit' }] },
+    };
     const root = mount();
     // Selection is set AFTER mount: the panel is keyed per deliverable and clears the
     // selection when it mounts, which is how switching deliverable is handled.
-    act(() => { store.revisionTexts.value = { r1: 'current text gone' }; store.selectedRevision.value = 'r1'; });
+    act(() => {
+      store.revisionTexts.value = { r1: 'current text gone' };
+      store.selectedRevision.value = 'r1';
+    });
     const diff = root.querySelector('.fabry-arch-hist-diff')!;
     expect(diff).toBeTruthy();
-    expect(diff.querySelector('del')).toBeTruthy();   // 'gone' removed
-    expect(diff.querySelector('ins')).toBeTruthy();   // 'here' added
+    expect(diff.querySelector('del')).toBeTruthy(); // 'gone' removed
+    expect(diff.querySelector('ins')).toBeTruthy(); // 'here' added
   });
 
   it('waits for the text rather than diffing against nothing', () => {
-    store.revisions.value = { d1: { loading: false, items: [{ id: 'r1', at: 1, source: 'edit' }] } };
+    store.revisions.value = {
+      d1: { loading: false, items: [{ id: 'r1', at: 1, source: 'edit' }] },
+    };
     const root = mount();
-    act(() => { store.selectedRevision.value = 'r1'; });
+    act(() => {
+      store.selectedRevision.value = 'r1';
+    });
     expect(root.querySelector('.fabry-arch-hist-diff')).toBe(null);
     expect(root.textContent).toMatch(/Loading version/i);
   });
 
   it('compares against the next version when asked, fetching that side without moving the selection', () => {
-    store.revisions.value = { d1: { loading: false, items: [
-      { id: 'r2', at: 2, source: 'edit' }, { id: 'r1', at: 1, source: 'edit' },
-    ] } };
+    store.revisions.value = {
+      d1: {
+        loading: false,
+        items: [
+          { id: 'r2', at: 2, source: 'edit' },
+          { id: 'r1', at: 1, source: 'edit' },
+        ],
+      },
+    };
     const root = mount();
-    act(() => { store.revisionTexts.value = { r1: 'one' }; store.selectedRevision.value = 'r1'; });
-    const vsNext = [...root.querySelectorAll('.fabry-arch-hist-cmp button')].find((b) => /vs next/i.test(b.textContent));
-    act(() => { (vsNext as HTMLElement).click(); });
+    act(() => {
+      store.revisionTexts.value = { r1: 'one' };
+      store.selectedRevision.value = 'r1';
+    });
+    const vsNext = [...root.querySelectorAll('.fabry-arch-hist-cmp button')].find((b) =>
+      /vs next/i.test(b.textContent),
+    );
+    act(() => {
+      (vsNext as HTMLElement).click();
+    });
     expect(actions.ensureRevisionText).toHaveBeenCalledWith('d1', 'r2');
     // and the selection is untouched
     expect(store.selectedRevision.value).toBe('r1');
   });
 
   it('restores the selected version, and cannot restore before its text is loaded', () => {
-    store.revisions.value = { d1: { loading: false, items: [{ id: 'r1', at: 1, source: 'edit' }] } };
+    store.revisions.value = {
+      d1: { loading: false, items: [{ id: 'r1', at: 1, source: 'edit' }] },
+    };
     const root = mount();
-    act(() => { store.selectedRevision.value = 'r1'; });
+    act(() => {
+      store.selectedRevision.value = 'r1';
+    });
     expect(root.querySelector<HTMLButtonElement>('.fabry-arch-hist-restore')!.disabled).toBe(true);
 
-    act(() => { store.revisionTexts.value = { r1: 'old' }; });
+    act(() => {
+      store.revisionTexts.value = { r1: 'old' };
+    });
     const btn = root.querySelector<HTMLButtonElement>('.fabry-arch-hist-restore')!;
     expect(btn.disabled).toBe(false);
-    act(() => { btn.click(); });
+    act(() => {
+      btn.click();
+    });
     expect(actions.restoreRevision).toHaveBeenCalledWith('d1', 'r1');
   });
 

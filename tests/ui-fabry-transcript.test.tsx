@@ -6,8 +6,18 @@ import FabryTranscript from '../src/ui/fabry/FabryTranscript.jsx';
 import styles from '../src/ui/fabry/FabryTranscript.module.css';
 
 let root: any;
-afterEach(() => { if (root) { render(null, root); root.remove(); } });
-function mount(props: any) { root = document.createElement('div'); document.body.appendChild(root); render(<FabryTranscript {...props} />, root); return root; }
+afterEach(() => {
+  if (root) {
+    render(null, root);
+    root.remove();
+  }
+});
+function mount(props: any) {
+  root = document.createElement('div');
+  document.body.appendChild(root);
+  render(<FabryTranscript {...props} />, root);
+  return root;
+}
 const q = (el: any, cls: any) => el.querySelector('.' + cls);
 
 describe('FabryTranscript', () => {

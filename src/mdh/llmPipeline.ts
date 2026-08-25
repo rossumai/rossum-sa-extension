@@ -3,7 +3,10 @@
 
 export function stripFences(text: unknown): string {
   if (typeof text !== 'string') return '';
-  return text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/, '').trim();
+  return text
+    .replace(/^```(?:json)?\s*\n?/i, '')
+    .replace(/\n?```\s*$/, '')
+    .trim();
 }
 
 // Parse text to a pipeline array, or null if it isn't a JSON array.

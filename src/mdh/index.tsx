@@ -24,7 +24,9 @@ function currentPollDelay() {
 async function pollTick() {
   if (!shouldPoll()) return;
   pollInFlight = true;
-  try { await pollOperations(); } catch {}
+  try {
+    await pollOperations();
+  } catch {}
   pollInFlight = false;
   schedulePoll();
 }
@@ -41,7 +43,10 @@ function schedulePoll() {
 function onVisibilityChange() {
   if (!shouldPoll()) return;
   if (document.visibilityState === 'visible') {
-    if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+    if (pollTimer) {
+      clearTimeout(pollTimer);
+      pollTimer = null;
+    }
     if (!pollInFlight) pollTick();
   } else {
     schedulePoll();
@@ -98,10 +103,14 @@ async function pollOperations() {
 export async function resolveAiAvailability(orgKey: any) {
   const key = `mdhAiAvailable_${orgKey}`;
   let cached = null;
-  try { cached = sessionStorage.getItem(key); } catch {}
+  try {
+    cached = sessionStorage.getItem(key);
+  } catch {}
   if (cached === 'true' || cached === 'false') return cached === 'true';
   const available = await probeAgent();
-  try { sessionStorage.setItem(key, String(available)); } catch {}
+  try {
+    sessionStorage.setItem(key, String(available));
+  } catch {}
   return available;
 }
 
@@ -109,14 +118,17 @@ export async function resolveAiAvailability(orgKey: any) {
 // auth, set store.domain/token, and called api.init. This restores persisted
 // view state, applies any pipeline prefill, probes the connection, and registers
 // the app's effects. Runs once (the shell memoizes per app).
-export async function initMdh(
-  { pendingCollection, pendingPipeline, pendingVariables, pendingVariableTypes }: {
-    pendingCollection?: string | null;
-    pendingPipeline?: string | null;
-    pendingVariables?: Record<string, any> | null;
-    pendingVariableTypes?: Record<string, string> | null;
-  } = {},
-) {
+export async function initMdh({
+  pendingCollection,
+  pendingPipeline,
+  pendingVariables,
+  pendingVariableTypes,
+}: {
+  pendingCollection?: string | null;
+  pendingPipeline?: string | null;
+  pendingVariables?: Record<string, any> | null;
+  pendingVariableTypes?: Record<string, string> | null;
+} = {}) {
   // Resolve the org id first so per-org keys (last pipeline here, and saved/recent
   // in QueryHistory) are correct before any scoped read. Failure -> null -> the
   // domain-scoped fallback in scopeSuffix.
@@ -125,12 +137,20 @@ export async function initMdh(
   // AI pipeline input: probe the Agent API's health endpoint without blocking
   // boot. A hang or error simply leaves aiAvailable false (the input stays hidden).
   resolveAiAvailability(store.orgId.value || store.domain.value)
-    .then((available) => { store.aiAvailable.value = available; })
+    .then((available) => {
+      store.aiAvailable.value = available;
+    })
     .catch(() => {});
 
   const stored = await chrome.storage.local.get([
-    'mdhActiveView', 'mdhSelectedCollection', 'mdhActivePanel', 'mdhOpsSearch',
-    'mdhStagesAutoscroll', 'mdhStagesSampleSize', 'mdhStagesShowDef', 'mdhStagesSourceOpen',
+    'mdhActiveView',
+    'mdhSelectedCollection',
+    'mdhActivePanel',
+    'mdhOpsSearch',
+    'mdhStagesAutoscroll',
+    'mdhStagesSampleSize',
+    'mdhStagesShowDef',
+    'mdhStagesSourceOpen',
     'mdhShowHiddenCollections',
   ]);
 

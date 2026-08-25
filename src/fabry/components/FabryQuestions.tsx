@@ -10,23 +10,39 @@ const optDesc = (o: any) => (o && typeof o === 'object' ? o.description : '');
 // → input; options → toggle buttons (single- or multi-select). On submit it
 // emits [{question, answer}] and renders the chosen answers read-only. State is
 // local + per-turn (the turn is never persisted — spec §1).
-export default function FabryQuestions(
-  { questions, onSubmit }:
-  { questions: any[]; onSubmit: (answers: { question: string; answer: string }[]) => unknown },
-) {
-  const [answers, setAnswers] = useState<any[]>(() => questions.map(() => ({ text: '', selected: [] })));
+export default function FabryQuestions({
+  questions,
+  onSubmit,
+}: {
+  questions: any[];
+  onSubmit: (answers: { question: string; answer: string }[]) => unknown;
+}) {
+  const [answers, setAnswers] = useState<any[]>(() =>
+    questions.map(() => ({ text: '', selected: [] })),
+  );
   const [submitted, setSubmitted] = useState(false);
 
-  const setText = (i: any, v: any) => setAnswers((a) => a.map((x, j) => (j === i ? { ...x, text: v } : x)));
-  const toggle = (i: any, opt: any, multi: any) => setAnswers((a) => a.map((x, j) => {
-    if (j !== i) return x;
-    if (!multi) return { ...x, selected: [opt] };
-    return { ...x, selected: x.selected.includes(opt) ? x.selected.filter((o: any) => o !== opt) : [...x.selected, opt] };
-  }));
+  const setText = (i: any, v: any) =>
+    setAnswers((a) => a.map((x, j) => (j === i ? { ...x, text: v } : x)));
+  const toggle = (i: any, opt: any, multi: any) =>
+    setAnswers((a) =>
+      a.map((x, j) => {
+        if (j !== i) return x;
+        if (!multi) return { ...x, selected: [opt] };
+        return {
+          ...x,
+          selected: x.selected.includes(opt)
+            ? x.selected.filter((o: any) => o !== opt)
+            : [...x.selected, opt],
+        };
+      }),
+    );
 
-  const answerFor = (q: any, a: any) => (q.options && q.options.length ? a.selected.join(', ') : a.text.trim());
+  const answerFor = (q: any, a: any) =>
+    q.options && q.options.length ? a.selected.join(', ') : a.text.trim();
   const complete = questions.every((q, i) => answerFor(q, answers[i]).length > 0);
-  const collect = () => questions.map((q, i) => ({ question: q.question, answer: answerFor(q, answers[i]) }));
+  const collect = () =>
+    questions.map((q, i) => ({ question: q.question, answer: answerFor(q, answers[i]) }));
 
   if (submitted) {
     return (
@@ -48,15 +64,38 @@ export default function FabryQuestions(
           {q.options && q.options.length ? (
             <div class="fabry-q-opts">
               {q.options.map((opt: any, k: any) => (
-                <button type="button" key={k} class={'fabry-q-opt' + (answers[i].selected.includes(optLabel(opt)) ? ' on' : '')} title={optDesc(opt)} onClick={() => toggle(i, optLabel(opt), q.multi_select)}>{optLabel(opt)}</button>
+                <button
+                  type="button"
+                  key={k}
+                  class={'fabry-q-opt' + (answers[i].selected.includes(optLabel(opt)) ? ' on' : '')}
+                  title={optDesc(opt)}
+                  onClick={() => toggle(i, optLabel(opt), q.multi_select)}
+                >
+                  {optLabel(opt)}
+                </button>
               ))}
             </div>
           ) : (
-            <input class="fabry-q-input" type="text" value={answers[i].text} placeholder="Your answer" onInput={(e: any) => setText(i, e.target.value)} />
+            <input
+              class="fabry-q-input"
+              type="text"
+              value={answers[i].text}
+              placeholder="Your answer"
+              onInput={(e: any) => setText(i, e.target.value)}
+            />
           )}
         </div>
       ))}
-      <button type="button" class="fabry-q-submit" disabled={!complete} onClick={async () => { setSubmitted(true); const ok = await onSubmit(collect()); if (ok === false) setSubmitted(false); }}>
+      <button
+        type="button"
+        class="fabry-q-submit"
+        disabled={!complete}
+        onClick={async () => {
+          setSubmitted(true);
+          const ok = await onSubmit(collect());
+          if (ok === false) setSubmitted(false);
+        }}
+      >
         {questions.length === 1 ? 'Send answer' : 'Send answers'}
       </button>
     </div>

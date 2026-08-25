@@ -11,13 +11,13 @@ const flushPromises = () => new Promise((r) => setTimeout(r, 0));
 describe('NetSuite content script', () => {
   beforeAll(async () => {
     // Mock chrome.storage.local
-    globalThis.chrome = ({
+    globalThis.chrome = {
       storage: {
         local: {
           get: () => Promise.resolve({ netsuiteFieldNamesEnabled: true }),
         },
       } as any,
-    } as any);
+    } as any;
 
     // Set up realistic NetSuite form DOM:
     // <span id="custbody_field_lbl"><a onclick="nlFieldHelp('TRANSACTION','custbody_my_field')">My Field</a></span>

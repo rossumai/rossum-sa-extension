@@ -8,8 +8,8 @@ beforeEach(() => cache.clear());
 describe('nameResolve.nameFor', () => {
   it('returns null for non-nameable URLs (no id, sub-resource, non-API)', () => {
     const r = makeNameResolver(vi.fn());
-    expect(r.nameFor('https://x/dash/queues/1')).toBeNull();      // not /api/v1
-    expect(r.nameFor(U('/api/v1/queues'))).toBeNull();            // no id
+    expect(r.nameFor('https://x/dash/queues/1')).toBeNull(); // not /api/v1
+    expect(r.nameFor(U('/api/v1/queues'))).toBeNull(); // no id
     expect(r.nameFor(U('/api/v1/annotations/1/content'))).toBeNull(); // read-only sub-resource
   });
   it('reflects cache state for a nameable URL', () => {
@@ -32,9 +32,16 @@ describe('nameResolve.ensure', () => {
     expect(cache.nameFor('/api/v1/queues/1')).toEqual({ status: 'done', name: 'Invoices' });
   });
   it('dedupes concurrent ensure() for the same URL (one fetch, all subscribers notified)', async () => {
-    let resolve: any; const getJson = vi.fn(() => new Promise((res) => { resolve = res; }));
+    let resolve: any;
+    const getJson = vi.fn(
+      () =>
+        new Promise((res) => {
+          resolve = res;
+        }),
+    );
     const r = makeNameResolver(getJson);
-    const cb1 = vi.fn(), cb2 = vi.fn();
+    const cb1 = vi.fn(),
+      cb2 = vi.fn();
     r.ensure(U('/api/v1/queues/1'), cb1);
     r.ensure(U('/api/v1/queues/1'), cb2);
     expect(getJson).toHaveBeenCalledTimes(1);
@@ -54,8 +61,9 @@ describe('nameResolve.ensure', () => {
     const getJson = vi.fn(() => new Promise((res) => resolvers.push(res)));
     const r = makeNameResolver(getJson, 3); // cap = 3
     for (let i = 0; i < 6; i++) r.ensure(U(`/api/v1/queues/${i}`));
-    expect(getJson).toHaveBeenCalledTimes(3);       // only cap in flight
-    resolvers[0]({ name: 'a' }); resolvers[1]({ name: 'b' });
+    expect(getJson).toHaveBeenCalledTimes(3); // only cap in flight
+    resolvers[0]({ name: 'a' });
+    resolvers[1]({ name: 'b' });
     await vi.waitFor(() => getJson.mock.calls.length === 5); // two slots freed
   });
   it('does nothing for a non-nameable URL', () => {

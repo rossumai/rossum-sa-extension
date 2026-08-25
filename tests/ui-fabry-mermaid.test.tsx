@@ -23,7 +23,9 @@ describe('MermaidBlock (beautiful-mermaid SVG)', () => {
     const svg = root.querySelector('.' + styles.mermaid + ' .' + styles.mermaidBox + ' svg');
     expect(svg).toBeTruthy();
     expect(svg!.textContent).toContain('Upload');
-    expect(root.querySelector('.' + styles.mermaid + ' .' + styles.lang)!.textContent).toBe('mermaid');
+    expect(root.querySelector('.' + styles.mermaid + ' .' + styles.lang)!.textContent).toBe(
+      'mermaid',
+    );
   });
 
   it('escapes hostile label text (no element injection)', () => {
@@ -35,7 +37,9 @@ describe('MermaidBlock (beautiful-mermaid SVG)', () => {
   it('falls back to a plain code fence for invalid diagrams', () => {
     const root = mount({ code: 'not a diagram at all {{{' });
     expect(root.querySelector('.' + styles.mermaid)).toBeNull();
-    expect(root.querySelector('.' + styles.codewrap + ' .' + styles.lang)!.textContent).toBe('mermaid');
+    expect(root.querySelector('.' + styles.codewrap + ' .' + styles.lang)!.textContent).toBe(
+      'mermaid',
+    );
     expect(root.querySelector('pre code')!.textContent).toContain('not a diagram');
   });
 

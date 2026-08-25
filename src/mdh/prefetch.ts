@@ -1,7 +1,12 @@
 import * as api from './api.js';
 import * as cache from './cache.js';
 import * as store from './store.js';
-import { FIELD_DISCOVERY_SIZE, discoverFieldsWithTotal, STATS_CHECKS, buildAllPipelines } from './statsPipelines.js';
+import {
+  FIELD_DISCOVERY_SIZE,
+  discoverFieldsWithTotal,
+  STATS_CHECKS,
+  buildAllPipelines,
+} from './statsPipelines.js';
 import { updateStatsSummary } from './statsSummary.js';
 
 function isAbort(err: unknown) {
@@ -20,20 +25,26 @@ async function prefetchRecords(collection: string, signal?: AbortSignal) {
     );
     if (signal?.aborted) return;
     cache.set(collection, 'records', res.result || []);
-  } catch (err) { if (!isAbort(err)) { /* silent */ } }
+  } catch (err) {
+    if (!isAbort(err)) {
+      /* silent */
+    }
+  }
 }
 
 async function prefetchTotalCount(collection: string, signal?: AbortSignal) {
   if (cache.get(collection, 'totalCount') !== null) return;
   try {
-    const res = await api.aggregate(
-      collection,
-      [{ $collStats: { count: {} } }, { $limit: 1 }],
-      { signal },
-    );
+    const res = await api.aggregate(collection, [{ $collStats: { count: {} } }, { $limit: 1 }], {
+      signal,
+    });
     if (signal?.aborted) return;
     cache.set(collection, 'totalCount', res.result?.[0]?.count ?? 0);
-  } catch (err) { if (!isAbort(err)) { /* silent */ } }
+  } catch (err) {
+    if (!isAbort(err)) {
+      /* silent */
+    }
+  }
 }
 
 async function prefetchIndexes(collection: string, signal?: AbortSignal) {
@@ -42,7 +53,11 @@ async function prefetchIndexes(collection: string, signal?: AbortSignal) {
     const res = await api.listIndexes(collection, false, { signal });
     if (signal?.aborted) return;
     cache.set(collection, 'indexes', res.result || []);
-  } catch (err) { if (!isAbort(err)) { /* silent */ } }
+  } catch (err) {
+    if (!isAbort(err)) {
+      /* silent */
+    }
+  }
 }
 
 async function prefetchSearchIndexes(collection: string, signal?: AbortSignal) {
@@ -51,7 +66,11 @@ async function prefetchSearchIndexes(collection: string, signal?: AbortSignal) {
     const res = await api.listSearchIndexes(collection, false, { signal });
     if (signal?.aborted) return;
     cache.set(collection, 'searchIndexes', res.result || []);
-  } catch (err) { if (!isAbort(err)) { /* silent */ } }
+  } catch (err) {
+    if (!isAbort(err)) {
+      /* silent */
+    }
+  }
 }
 
 async function prefetchStats(collection: string, signal?: AbortSignal) {
@@ -70,7 +89,10 @@ async function prefetchStats(collection: string, signal?: AbortSignal) {
         cache.set(collection, 'statsFields', fields);
         cache.set(collection, 'statsFieldsTotal', discovered.total);
       }
-    } catch (err) { if (!isAbort(err)) return; return; }
+    } catch (err) {
+      if (!isAbort(err)) return;
+      return;
+    }
   }
   if (!fields || fields.length === 0 || signal?.aborted) return;
   const pipelines: Record<string, any> = buildAllPipelines(fields);
@@ -83,7 +105,11 @@ async function prefetchStats(collection: string, signal?: AbortSignal) {
         const res = await api.aggregate(collection, pipelines[key], { signal });
         if (signal?.aborted) return;
         cache.set(collection, cacheKey, res);
-      } catch (err) { if (!isAbort(err)) { /* silent */ } }
+      } catch (err) {
+        if (!isAbort(err)) {
+          /* silent */
+        }
+      }
     }),
   );
   if (signal?.aborted) return;
@@ -93,10 +119,11 @@ async function prefetchStats(collection: string, signal?: AbortSignal) {
 // ── Tab-to-prefetch mapping ─────────────────────
 
 const PANEL_PREFETCH: Record<string, (col: string, signal?: AbortSignal) => Promise<unknown>> = {
-  'data': (col, signal) => Promise.allSettled([prefetchRecords(col, signal), prefetchTotalCount(col, signal)]),
-  'indexes': (col, signal) => prefetchIndexes(col, signal),
+  data: (col, signal) =>
+    Promise.allSettled([prefetchRecords(col, signal), prefetchTotalCount(col, signal)]),
+  indexes: (col, signal) => prefetchIndexes(col, signal),
   'search-indexes': (col, signal) => prefetchSearchIndexes(col, signal),
-  'stats': (col, signal) => prefetchStats(col, signal),
+  stats: (col, signal) => prefetchStats(col, signal),
 };
 
 // ── Public API ──────────────────────────────────

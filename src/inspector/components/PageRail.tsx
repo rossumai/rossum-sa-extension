@@ -15,16 +15,36 @@ export default function PageRail() {
   const remaining = (pv.total || 0) - pv.pages.length;
   return (
     <aside class="inspector-pagerail">
-      <div class="inspector-pagerail-hd">Document{pv.total ? ` · ${pv.total} page${pv.total === 1 ? '' : 's'}` : ''}</div>
+      <div class="inspector-pagerail-hd">
+        Document{pv.total ? ` · ${pv.total} page${pv.total === 1 ? '' : 's'}` : ''}
+      </div>
       {pv.pages.map((p: any) => (
-        <a class="inspector-page" href={href || undefined} target="_blank" rel="noreferrer" title={`Page ${p.number} — open in Rossum`}>
-          {p.objectUrl
-            ? <img src={p.objectUrl} width={p.width || undefined} height={p.height || undefined} alt={`page ${p.number}`} />
-            : <div class="inspector-page-skel" style={p.width && p.height ? `aspect-ratio:${p.width} / ${p.height}` : 'height:120px'} />}
+        <a
+          class="inspector-page"
+          href={href || undefined}
+          target="_blank"
+          rel="noreferrer"
+          title={`Page ${p.number} — open in Rossum`}
+        >
+          {p.objectUrl ? (
+            <img
+              src={p.objectUrl}
+              width={p.width || undefined}
+              height={p.height || undefined}
+              alt={`page ${p.number}`}
+            />
+          ) : (
+            <div
+              class="inspector-page-skel"
+              style={p.width && p.height ? `aspect-ratio:${p.width} / ${p.height}` : 'height:120px'}
+            />
+          )}
           <span class="inspector-page-num">{p.number}</span>
         </a>
       ))}
-      {pv.status === 'loading' && pv.pages.length === 0 ? <div class="inspector-page-skel" style="height:120px" /> : null}
+      {pv.status === 'loading' && pv.pages.length === 0 ? (
+        <div class="inspector-page-skel" style="height:120px" />
+      ) : null}
       {pv.status === 'done' && remaining > 0 ? (
         <button type="button" class="inspector-pagerail-more" onClick={() => loadAllPagePreviews()}>
           Load {remaining} more page{remaining === 1 ? '' : 's'}

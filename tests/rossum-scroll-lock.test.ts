@@ -13,7 +13,11 @@ function scrollable(el: any) {
   Object.defineProperty(el, 'scrollTop', { value: 0, writable: true, configurable: true });
   return el;
 }
-const flush = () => new Promise((r) => { setTimeout(r, 0); vi.advanceTimersByTime(1); });
+const flush = () =>
+  new Promise((r) => {
+    setTimeout(r, 0);
+    vi.advanceTimersByTime(1);
+  });
 
 describe('initScrollLock', () => {
   beforeEach(() => {
@@ -39,7 +43,9 @@ describe('initScrollLock', () => {
     expect((el as any).__saScrollLockAttached).toBe(true);
     // At least wheel, touchstart, mousedown, keydown, scroll.
     const types = addSpy.mock.calls.map((c) => c[0]);
-    expect(types).toEqual(expect.arrayContaining(['wheel', 'touchstart', 'mousedown', 'keydown', 'scroll']));
+    expect(types).toEqual(
+      expect.arrayContaining(['wheel', 'touchstart', 'mousedown', 'keydown', 'scroll']),
+    );
   });
 
   it('stops its monitor interval once the element is detached from the DOM', () => {

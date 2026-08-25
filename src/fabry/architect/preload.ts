@@ -70,8 +70,11 @@ export function preloadDeliverables({
   const warm = (d: SpecDoc) => {
     const mermaid = getMermaidRenderer();
     if (isRendered({ id: d.id, text: d.text, dark, syncLines, mermaid })) return;
-    try { renderDocument({ id: d.id, text: d.text, mermaid, dark, syncLines }); }
-    catch { /* one bad document must not stop the queue */ }
+    try {
+      renderDocument({ id: d.id, text: d.text, mermaid, dark, syncLines });
+    } catch {
+      /* one bad document must not stop the queue */
+    }
   };
 
   const drain = (list: SpecDoc[], done?: () => void) => {
@@ -87,17 +90,27 @@ export function preloadDeliverables({
 
   const afterPlain = () => {
     if (cancelled || !diagrams.length) return;
-    if (getMermaidRenderer()) { drain(diagrams); return; }
+    if (getMermaidRenderer()) {
+      drain(diagrams);
+      return;
+    }
     // Load once, then warm the diagram documents; a failed load still warms them (as fences),
     // because a visible document beats an empty pane.
     loadMermaidRenderer().then(
-      () => { if (!cancelled) drain(diagrams); },
-      () => { if (!cancelled) drain(diagrams); },
+      () => {
+        if (!cancelled) drain(diagrams);
+      },
+      () => {
+        if (!cancelled) drain(diagrams);
+      },
     );
   };
 
   if (plain.length) drain(plain, afterPlain);
   else afterPlain();
 
-  return () => { cancelled = true; cancelIdle(handle, deps); };
+  return () => {
+    cancelled = true;
+    cancelIdle(handle, deps);
+  };
 }

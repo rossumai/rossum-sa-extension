@@ -23,8 +23,12 @@ import { resolveFieldTypes, deriveResolvedType } from '../fieldTypes.js';
 // span covers the surrounding quotes, for EMBEDDED only the `{...}` itself.
 // One placeholder occurrence found in the editor text.
 type Placeholder = {
-  whole: boolean; name: string; modifier: string | null; arg: string | null;
-  start: number; end: number;
+  whole: boolean;
+  name: string;
+  modifier: string | null;
+  arg: string | null;
+  start: number;
+  end: number;
 };
 
 function scanPlaceholders(text: string): Placeholder[] {
@@ -36,18 +40,35 @@ function scanPlaceholders(text: string): Placeholder[] {
   while (i < n) {
     const c = text[i];
     if (inString) {
-      if (c === '\\') { i += 2; continue; } // skip the escaped char
+      if (c === '\\') {
+        i += 2;
+        continue;
+      } // skip the escaped char
       if (c === '"') {
         const inner = text.slice(strStart + 1, i);
         const exact = VAR_RE.exec(inner);
         if (exact) {
-          out.push({ whole: true, name: exact[1], modifier: exact[2] || null, arg: exact[3] != null ? exact[3] : null, start: strStart, end: i + 1 });
+          out.push({
+            whole: true,
+            name: exact[1],
+            modifier: exact[2] || null,
+            arg: exact[3] != null ? exact[3] : null,
+            start: strStart,
+            end: i + 1,
+          });
         } else {
           // Embedded: each `{...}` within the larger string. m.index is relative
           // to `inner`, so offset by strStart + 1 to map back into `text`.
           for (const m of inner.matchAll(VAR_RE_G)) {
             const off = strStart + 1 + m.index;
-            out.push({ whole: false, name: m[1], modifier: m[2] || null, arg: m[3] != null ? m[3] : null, start: off, end: off + m[0].length });
+            out.push({
+              whole: false,
+              name: m[1],
+              modifier: m[2] || null,
+              arg: m[3] != null ? m[3] : null,
+              start: off,
+              end: off + m[0].length,
+            });
           }
         }
         inString = false;
@@ -55,7 +76,10 @@ function scanPlaceholders(text: string): Placeholder[] {
       i += 1;
       continue;
     }
-    if (c === '"') { inString = true; strStart = i; }
+    if (c === '"') {
+      inString = true;
+      strStart = i;
+    }
     i += 1;
   }
   return out;
@@ -88,13 +112,20 @@ export function isJson5NumberLiteral(val: unknown): boolean {
 function unquoteArg(raw: string | null | undefined): string {
   if (raw == null) return '';
   const t = raw.trim();
-  if (t.length >= 2 && ((t.startsWith("'") && t.endsWith("'")) || (t.startsWith('"') && t.endsWith('"')))) {
+  if (
+    t.length >= 2 &&
+    ((t.startsWith("'") && t.endsWith("'")) || (t.startsWith('"') && t.endsWith('"')))
+  ) {
     return t.slice(1, -1);
   }
   return t;
 }
 
-function applyModifier(val: unknown, modifier: string | null | undefined, arg: string | null | undefined): string | string[] {
+function applyModifier(
+  val: unknown,
+  modifier: string | null | undefined,
+  arg: string | null | undefined,
+): string | string[] {
   if (modifier === 'split') return String(val).split(unquoteArg(arg));
   if (modifier === 're') return reEscape(val);
   return String(val); // no modifier or unknown → raw string
@@ -105,13 +136,22 @@ function applyModifier(val: unknown, modifier: string | null | undefined, arg: s
 // like one, an array for `split`, otherwise a quoted string. (`"amount":
 // "{amount}"` + 5 → `"amount": 5`; `"{x | split(',')}"` + "a,b" → `["a","b"]`.)
 // When `resolvedType` is provided it overrides the value-based detection branch.
-function renderWholeToken(val: any, modifier: string | null | undefined, arg: string | null | undefined, resolvedType?: string) {
+function renderWholeToken(
+  val: any,
+  modifier: string | null | undefined,
+  arg: string | null | undefined,
+  resolvedType?: string,
+) {
   if (!modifier) {
     switch (resolvedType) {
-      case 'string':  return JSON.stringify(String(val));
-      case 'number':  return isJson5NumberLiteral(val) ? val : JSON.stringify(String(val));
-      case 'boolean': return (val === 'true' || val === 'false') ? val : JSON.stringify(String(val));
-      case 'null':    return 'null';
+      case 'string':
+        return JSON.stringify(String(val));
+      case 'number':
+        return isJson5NumberLiteral(val) ? val : JSON.stringify(String(val));
+      case 'boolean':
+        return val === 'true' || val === 'false' ? val : JSON.stringify(String(val));
+      case 'null':
+        return 'null';
       default: // undefined → today's value-based branch order, byte-identical
         if (val === 'true' || val === 'false' || val === 'null') return val;
         if (isJson5NumberLiteral(val)) return val;
@@ -126,7 +166,11 @@ function renderWholeToken(val: any, modifier: string | null | undefined, arg: st
 // quotes of its own. Always a string — `"id-{x}"` + 5 → `"id-5"`, never a number
 // (only a whole `"{name}"` is type-aware). A `split` array is JSON-stringified
 // into the surrounding text, mirroring src/popup/mdh-provenance.js.
-function renderEmbeddedFragment(val: unknown, modifier: string | null | undefined, arg: string | null | undefined) {
+function renderEmbeddedFragment(
+  val: unknown,
+  modifier: string | null | undefined,
+  arg: string | null | undefined,
+) {
   const out = applyModifier(val, modifier, arg);
   const text = typeof out === 'string' ? out : JSON.stringify(out);
   return JSON.stringify(text).slice(1, -1);
@@ -169,7 +213,8 @@ export function usePipeline() {
       fieldTypes: signal({}),
     };
   }
-  const { sortState, filterState, placeholderValues, suppressSync, placeholderTypes, fieldTypes } = stateRef.current!;
+  const { sortState, filterState, placeholderValues, suppressSync, placeholderTypes, fieldTypes } =
+    stateRef.current!;
 
   // Substitute {var} placeholders inside a bare collection-name string (not JSON).
   // Unfilled vars → '' (collection won't resolve → value-based fallback).
@@ -258,7 +303,8 @@ export function usePipeline() {
     for (const m of matches) {
       result += text.slice(last, m.start);
       const val = m.name in placeholderValues.value ? placeholderValues.value[m.name] : '';
-      result += m.whole ? renderWholeToken(val, m.modifier, m.arg, resolvedTypes[m.name])
+      result += m.whole
+        ? renderWholeToken(val, m.modifier, m.arg, resolvedTypes[m.name])
         : renderEmbeddedFragment(val, m.modifier, m.arg);
       last = m.end;
     }
@@ -287,8 +333,14 @@ export function usePipeline() {
     for (const name of extractPlaceholders(text)) {
       const m = fieldMap[name];
       let fieldTypeInfo;
-      if (m && !m.ambiguous) fieldTypeInfo = lookupFieldTypeInfo(resolveCollectionName(m.collection), m.field);
-      const d = deriveResolvedType(name, { override: pt[name], fieldMap, fieldTypeInfo, parsedOk: true });
+      if (m && !m.ambiguous)
+        fieldTypeInfo = lookupFieldTypeInfo(resolveCollectionName(m.collection), m.field);
+      const d = deriveResolvedType(name, {
+        override: pt[name],
+        fieldMap,
+        fieldTypeInfo,
+        parsedOk: true,
+      });
       if (d.type) out[name] = d.type;
     }
     return out;
@@ -354,7 +406,8 @@ export function usePipeline() {
     const override = placeholderTypes.value[name];
     const m = fieldMap[name];
     let fieldTypeInfo;
-    if (m && !m.ambiguous) fieldTypeInfo = lookupFieldTypeInfo(resolveCollectionName(m.collection), m.field);
+    if (m && !m.ambiguous)
+      fieldTypeInfo = lookupFieldTypeInfo(resolveCollectionName(m.collection), m.field);
     const effective = deriveResolvedType(name, { override, fieldMap, fieldTypeInfo, parsedOk });
     const auto = override
       ? deriveResolvedType(name, { override: undefined, fieldMap, fieldTypeInfo, parsedOk })
@@ -373,7 +426,9 @@ export function usePipeline() {
     try {
       const p = JSON5.parse(substituted);
       if (Array.isArray(p)) parsed = p;
-    } catch { /* invalid JSON5 — leave parsed null */ }
+    } catch {
+      /* invalid JSON5 — leave parsed null */
+    }
     const fieldMap = mapPlaceholdersToFields(text);
     return { placeholders, parsed, fieldMap };
   }

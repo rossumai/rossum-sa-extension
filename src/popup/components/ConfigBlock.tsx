@@ -41,7 +41,12 @@ export default function ConfigBlock({
   rowByTable: Record<string, number>;
   onRowChange: (table: string, index: number) => void;
   forceRefreshNonce?: unknown;
-  onOpenInDm: (collection: string, pipeline: string, variables: Record<string, string>, variableTypes: Record<string, string>) => void;
+  onOpenInDm: (
+    collection: string,
+    pipeline: string,
+    variables: Record<string, string>,
+    variableTypes: Record<string, string>,
+  ) => void;
 }) {
   const usesRows = configUsesLineItems(cfg, rowValues);
   // The rows this config can walk belong to ONE table — the one holding its
@@ -54,9 +59,10 @@ export default function ConfigBlock({
   // Clamp rather than trust the stored index: a selection made while another
   // table was in view (or before an edit shortened this one) must not fall off
   // the end and silently substitute empty strings.
-  const rowToUse = usesRows && scope
-    ? Math.min(rowByTable?.[scope.tableSchemaId] ?? 0, Math.max(scope.rowCount - 1, 0))
-    : 0;
+  const rowToUse =
+    usesRows && scope
+      ? Math.min(rowByTable?.[scope.tableSchemaId] ?? 0, Math.max(scope.rowCount - 1, 0))
+      : 0;
 
   const [statuses, setStatuses] = useState(() => cfg.queries.map(() => PENDING));
   const ctrlRef = useRef<AbortController | null>(null);
@@ -86,9 +92,7 @@ export default function ConfigBlock({
           return;
         }
       }
-      const values = usesRows
-        ? valuesForRow(headerValues, rowValues, rowToUse)
-        : headerValues;
+      const values = usesRows ? valuesForRow(headerValues, rowValues, rowToUse) : headerValues;
       const finalStatuses = await replayConfig(
         ctx.domain,
         ctx.token,
@@ -137,9 +141,11 @@ export default function ConfigBlock({
     if (condInfo.error) {
       lines.push('action_condition failed to evaluate');
     } else {
-      lines.push(condInfo.result
-        ? 'action_condition evaluates true — cfg runs'
-        : 'action_condition evaluates false — cfg is skipped');
+      lines.push(
+        condInfo.result
+          ? 'action_condition evaluates true — cfg runs'
+          : 'action_condition evaluates false — cfg is skipped',
+      );
     }
     lines.push(`expression: ${cfg.actionCondition}`);
     if (condInfo.substituted && condInfo.substituted !== cfg.actionCondition) {
@@ -176,14 +182,22 @@ export default function ConfigBlock({
   return (
     <div class="mdh-cfg">
       {cfg.name ? (
-        <div class="mdh-cfg-name" title={cfg.name}>{cfg.name}</div>
+        <div class="mdh-cfg-name" title={cfg.name}>
+          {cfg.name}
+        </div>
       ) : null}
       <div class={`mdh-cfg-head${headGated ? ' mdh-cfg-head--gated' : ''}`}>
-        <span class="mdh-q-target" title={`target_schema_id: ${cfg.target}`}>{cfg.target}</span>
+        <span class="mdh-q-target" title={`target_schema_id: ${cfg.target}`}>
+          {cfg.target}
+        </span>
         <span class="mdh-q-arrow">←</span>
         <span
           class="mdh-q-dataset"
-          title={cfg.datasetKey ? `dataset: ${cfg.dataset} · key: ${cfg.datasetKey}` : `dataset: ${cfg.dataset}`}
+          title={
+            cfg.datasetKey
+              ? `dataset: ${cfg.dataset} · key: ${cfg.datasetKey}`
+              : `dataset: ${cfg.dataset}`
+          }
         >
           {cfg.dataset}
         </span>

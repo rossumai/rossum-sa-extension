@@ -60,8 +60,12 @@ describe('annotationIdFromInput — the pasted-by-a-human question', () => {
   });
 
   it('accepts an API URL, with or without a sub-resource', () => {
-    expect(annotationIdFromInput('https://elis.rossum.com/api/v1/annotations/17213336')).toBe('17213336');
-    expect(annotationIdFromInput('https://elis.rossum.com/api/v1/annotations/17213336/content')).toBe('17213336');
+    expect(annotationIdFromInput('https://elis.rossum.com/api/v1/annotations/17213336')).toBe(
+      '17213336',
+    );
+    expect(
+      annotationIdFromInput('https://elis.rossum.com/api/v1/annotations/17213336/content'),
+    ).toBe('17213336');
   });
 
   it('is null for junk', () => {

@@ -14,11 +14,15 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 describe('FabryQuestions', () => {
   it('free-text: submit disabled until filled, emits {question, answer}', async () => {
     const onSubmit = vi.fn();
-    const root = mount({ questions: [{ question: 'Name?', options: [], multi_select: false }], onSubmit });
+    const root = mount({
+      questions: [{ question: 'Name?', options: [], multi_select: false }],
+      onSubmit,
+    });
     const submit = root.querySelector<HTMLButtonElement>('.fabry-q-submit');
     expect(submit!.disabled).toBe(true);
     const input = root.querySelector<HTMLInputElement>('.fabry-q-input')!;
-    input.value = 'Acme'; input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.value = 'Acme';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
     await flush();
     expect(root.querySelector<HTMLButtonElement>('.fabry-q-submit')!.disabled).toBe(false);
     root.querySelector<HTMLElement>('.fabry-q-submit')!.click();
@@ -31,7 +35,10 @@ describe('FabryQuestions', () => {
       { value: 'dev', label: 'Development', description: 'The dev environment' },
       { value: 'prod', label: 'Production', description: 'The live environment' },
     ];
-    const root = mount({ questions: [{ question: 'Env?', options, multi_select: false }], onSubmit });
+    const root = mount({
+      questions: [{ question: 'Env?', options, multi_select: false }],
+      onSubmit,
+    });
     const opts = root.querySelectorAll<HTMLElement>('.fabry-q-opt');
     expect(opts[0].textContent).toBe('Development');
     expect(opts[1].textContent).toBe('Production');
@@ -49,9 +56,13 @@ describe('FabryQuestions', () => {
       { value: 'b', label: 'Beta', description: 'Second' },
       { value: 'c', label: 'Gamma', description: 'Third' },
     ];
-    const root = mount({ questions: [{ question: 'Which?', options, multi_select: true }], onSubmit });
+    const root = mount({
+      questions: [{ question: 'Which?', options, multi_select: true }],
+      onSubmit,
+    });
     const opts = root.querySelectorAll<HTMLElement>('.fabry-q-opt');
-    opts[0].click(); opts[2].click();
+    opts[0].click();
+    opts[2].click();
     await flush();
     root.querySelector<HTMLElement>('.fabry-q-submit')!.click();
     expect(onSubmit).toHaveBeenCalledWith([{ question: 'Which?', answer: 'Alpha, Gamma' }]);
@@ -59,7 +70,10 @@ describe('FabryQuestions', () => {
 
   it('backward-compat: a plain-string option still works (label == string, no title)', async () => {
     const onSubmit = vi.fn();
-    const root = mount({ questions: [{ question: 'Env?', options: ['dev', 'prod'], multi_select: false }], onSubmit });
+    const root = mount({
+      questions: [{ question: 'Env?', options: ['dev', 'prod'], multi_select: false }],
+      onSubmit,
+    });
     const opts = root.querySelectorAll<HTMLElement>('.fabry-q-opt');
     expect(opts[1].textContent).toBe('prod');
     expect(opts[1].title).toBe('');
@@ -70,9 +84,13 @@ describe('FabryQuestions', () => {
   });
 
   it('after submit, renders chosen answers read-only (no inputs)', async () => {
-    const root = mount({ questions: [{ question: 'Name?', options: [], multi_select: false }], onSubmit: vi.fn() });
+    const root = mount({
+      questions: [{ question: 'Name?', options: [], multi_select: false }],
+      onSubmit: vi.fn(),
+    });
     const input = root.querySelector<HTMLInputElement>('.fabry-q-input')!;
-    input.value = 'Acme'; input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.value = 'Acme';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
     await flush();
     root.querySelector<HTMLElement>('.fabry-q-submit')!.click();
     await flush();
@@ -82,9 +100,13 @@ describe('FabryQuestions', () => {
 
   it('re-enables the form when onSubmit resolves false (failed send)', async () => {
     const onSubmit = vi.fn().mockResolvedValue(false);
-    const root = mount({ questions: [{ question: 'Name?', options: [], multi_select: false }], onSubmit });
+    const root = mount({
+      questions: [{ question: 'Name?', options: [], multi_select: false }],
+      onSubmit,
+    });
     const input = root.querySelector<HTMLInputElement>('.fabry-q-input')!;
-    input.value = 'Acme'; input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.value = 'Acme';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
     await flush();
     root.querySelector<HTMLElement>('.fabry-q-submit')!.click();
     await flush(); // submitted=true renders read-only view synchronously

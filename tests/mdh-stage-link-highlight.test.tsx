@@ -14,7 +14,8 @@ import { rect } from './support/dom.js';
 // condition still resolves the instant CodeMirror finishes.
 const waitForCM = (fn: any) => vi.waitFor(fn, { timeout: 5000, interval: 20 });
 
-const PIPELINE = '[\n  { "$match": { "a": 1 } },\n  { "$group": {\n    "_id": "$x"\n  } },\n  { "$limit": 50 }\n]';
+const PIPELINE =
+  '[\n  { "$match": { "a": 1 } },\n  { "$group": {\n    "_id": "$x"\n  } },\n  { "$limit": 50 }\n]';
 
 let roots: any = [];
 function mount() {
@@ -36,7 +37,10 @@ afterEach(() => {
 // elements in document order is what the user actually sees.
 const bandedLines = (root: any) => {
   const lines = [...root.querySelectorAll('.cm-line')];
-  return lines.reduce((acc, el, i) => (el.classList.contains('cm-linked-stage') ? [...acc, i + 1] : acc), []);
+  return lines.reduce(
+    (acc, el, i) => (el.classList.contains('cm-linked-stage') ? [...acc, i + 1] : acc),
+    [],
+  );
 };
 
 describe('linkedStageDecos (pure — state only, no view)', () => {
@@ -66,7 +70,7 @@ describe('linkedStageDecos (pure — state only, no view)', () => {
 });
 
 describe('JsonEditor.highlightStage', () => {
-  it('bands only the requested stage\'s lines', async () => {
+  it("bands only the requested stage's lines", async () => {
     const root = mount();
     const editorRef: { current: JsonEditorHandle | null } = { current: null };
     render(<JsonEditor mode="aggregate" value={PIPELINE} editorRef={editorRef} />, root);
@@ -141,9 +145,9 @@ describe('JsonEditor.highlightStage', () => {
     editorRef.current!.highlightStage(0);
     await waitForCM(() => expect(bandedLines(root)).toEqual([2]));
 
-    editorRef.current!.setValue('[ { "$match": ');       // unparseable
+    editorRef.current!.setValue('[ { "$match": '); // unparseable
     await waitForCM(() => expect(bandedLines(root)).toEqual([]));
-    editorRef.current!.setValue(PIPELINE);               // parses again
+    editorRef.current!.setValue(PIPELINE); // parses again
     await waitForCM(() => expect(bandedLines(root)).toEqual([2]));
   });
 });
@@ -153,7 +157,10 @@ describe('StageLinkOverlay drives the band', () => {
     const root = mount();
     const panel = document.createElement('div');
     document.body.appendChild(panel);
-    render(<StageLinkOverlay editorRef={{ current: editorApi }} panelRef={{ current: panel }} />, root);
+    render(
+      <StageLinkOverlay editorRef={{ current: editorApi }} panelRef={{ current: panel }} />,
+      root,
+    );
     return root;
   }
   const fakeEditor = () => ({
@@ -212,7 +219,10 @@ describe('the caret drives the same link, from the other end', () => {
       panel.appendChild(sec);
     });
     document.body.appendChild(panel);
-    render(<StageLinkOverlay editorRef={{ current: editorApi }} panelRef={{ current: panel }} />, root);
+    render(
+      <StageLinkOverlay editorRef={{ current: editorApi }} panelRef={{ current: panel }} />,
+      root,
+    );
     return { root, panel };
   }
   const fakeEditor = () => ({
@@ -255,13 +265,16 @@ describe('the caret drives the same link, from the other end', () => {
     const panel = document.createElement('div');
     const pane = document.createElement('div');
     pane.className = 'pipeline-inspect-scroll';
-    pane.getBoundingClientRect = () => rect({ top: 200, bottom: 700, left: 400, right: 900, width: 500, height: 500 });
+    pane.getBoundingClientRect = () =>
+      rect({ top: 200, bottom: 700, left: 400, right: 900, width: 500, height: 500 });
     const sec = document.createElement('div');
     sec.setAttribute('data-entry', '1');
-    sec.getBoundingClientRect = () => rect({ top: -400, bottom: -200, left: 420, right: 880, width: 460, height: 200 });
+    sec.getBoundingClientRect = () =>
+      rect({ top: -400, bottom: -200, left: 420, right: 880, width: 460, height: 200 });
     pane.appendChild(sec);
     panel.appendChild(pane);
-    panel.getBoundingClientRect = () => rect({ top: 0, bottom: 900, left: 0, right: 1200, width: 1200, height: 900 });
+    panel.getBoundingClientRect = () =>
+      rect({ top: 0, bottom: 900, left: 0, right: 1200, width: 1200, height: 900 });
     document.body.appendChild(panel);
     render(<StageLinkOverlay editorRef={{ current: api }} panelRef={{ current: panel }} />, root);
 
@@ -299,7 +312,10 @@ describe('the caret drives the same link, from the other end', () => {
 
     await vi.waitFor(() => expect(root.querySelector('.stage-link-line')).toBeTruthy());
     const d = root.querySelector('.stage-link-line')!.getAttribute('d');
-    const ys = d!.match(/-?\d+(?:\.\d+)?/g)!.map(Number).filter((_, i) => i % 2 === 1);
+    const ys = d!
+      .match(/-?\d+(?:\.\d+)?/g)!
+      .map(Number)
+      .filter((_, i) => i % 2 === 1);
     // Panel-relative, and the panel starts at viewport 0 — so the clip box's top
     // (100) is the floor every point must respect.
     expect(Math.min(...ys)).toBeGreaterThanOrEqual(100);
@@ -344,7 +360,10 @@ describe('linked-stage band paints below the selection layer', () => {
   // The declaration block for a selector, comments already stripped.
   const blockFor = (selector: any) => {
     const body = css.replace(/\/\*[\s\S]*?\*\//g, '');
-    const m = new RegExp(`(^|})\\s*${selector.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\s*\\{([^}]*)\\}`, 'm').exec(body);
+    const m = new RegExp(
+      `(^|})\\s*${selector.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\s*\\{([^}]*)\\}`,
+      'm',
+    ).exec(body);
     return m ? m[2] : null;
   };
 

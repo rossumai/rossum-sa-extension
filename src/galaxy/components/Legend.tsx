@@ -3,8 +3,11 @@ import { NODE_STYLE, type NodeType } from '../graph.js';
 import { visibleTypes, toggleType } from '../store.js';
 
 const LABELS = {
-  organization: 'Organization', workspace: 'Workspace', queue: 'Queue',
-  hook: 'Hook', engine: 'Engine',
+  organization: 'Organization',
+  workspace: 'Workspace',
+  queue: 'Queue',
+  hook: 'Hook',
+  engine: 'Engine',
 };
 
 export default function Legend() {

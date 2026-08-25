@@ -3,16 +3,37 @@ import { h } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { EditorView, basicSetup } from 'codemirror';
 import { EditorState, StateEffect, StateField } from '@codemirror/state';
-import { keymap, highlightSpecialChars, drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightActiveLine, Decoration } from '@codemirror/view';
+import {
+  keymap,
+  highlightSpecialChars,
+  drawSelection,
+  dropCursor,
+  rectangularSelection,
+  crosshairCursor,
+  highlightActiveLine,
+  Decoration,
+} from '@codemirror/view';
 import { indentWithTab, history, defaultKeymap, historyKeymap } from '@codemirror/commands';
 // We use the JavaScript grammar (a strict superset of JSON5) so that line and
 // block comments inside prefilled templates are tokenized as comments instead
 // of falling through as untagged text. JSON5.parse below still owns validation.
 import { javascript } from '@codemirror/lang-javascript';
 import { oneDark } from '@codemirror/theme-one-dark';
-import { syntaxHighlighting, HighlightStyle, defaultHighlightStyle, indentOnInput, bracketMatching, foldKeymap } from '@codemirror/language';
+import {
+  syntaxHighlighting,
+  HighlightStyle,
+  defaultHighlightStyle,
+  indentOnInput,
+  bracketMatching,
+  foldKeymap,
+} from '@codemirror/language';
 import { tags } from '@lezer/highlight';
-import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete';
+import {
+  autocompletion,
+  closeBrackets,
+  closeBracketsKeymap,
+  completionKeymap,
+} from '@codemirror/autocomplete';
 import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
 import { lintKeymap } from '@codemirror/lint';
 import JSON5 from 'json5';
@@ -32,34 +53,51 @@ export { extractFieldNames } from '../pipelineCompletions.js';
 // not contradict it. Every other consumer (default jsonLines=false, incl. the
 // pipeline editor) keeps strict JSON5-only behavior.
 export function isAcceptable(text: string, { jsonLines = false }: { jsonLines?: boolean } = {}) {
-  try { JSON5.parse(text); return true; } catch { /* fall through */ }
+  try {
+    JSON5.parse(text);
+    return true;
+  } catch {
+    /* fall through */
+  }
   if (!jsonLines) return false;
-  const lines = String(text).split(/\r?\n/).filter((l) => l.trim() !== '');
+  const lines = String(text)
+    .split(/\r?\n/)
+    .filter((l) => l.trim() !== '');
   if (!lines.length) return false;
-  try { for (const l of lines) JSON.parse(l); return true; } catch { return false; }
+  try {
+    for (const l of lines) JSON.parse(l);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-const darkQuery = typeof window !== 'undefined' && window.matchMedia
-  ? window.matchMedia('(prefers-color-scheme: dark)')
-  : { matches: false };
+const darkQuery =
+  typeof window !== 'undefined' && window.matchMedia
+    ? window.matchMedia('(prefers-color-scheme: dark)')
+    : { matches: false };
 
-const lightHighlight = syntaxHighlighting(HighlightStyle.define([
-  { tag: tags.string, color: '#22883e' },
-  { tag: tags.number, color: '#b45309' },
-  { tag: tags.bool, color: '#4270db' },
-  { tag: tags.null, color: '#7a7a8c' },
-  { tag: tags.propertyName, color: '#1a1a24' },
-  { tag: [tags.lineComment, tags.blockComment], color: '#7a7a8c', fontStyle: 'italic' },
-]));
+const lightHighlight = syntaxHighlighting(
+  HighlightStyle.define([
+    { tag: tags.string, color: '#22883e' },
+    { tag: tags.number, color: '#b45309' },
+    { tag: tags.bool, color: '#4270db' },
+    { tag: tags.null, color: '#7a7a8c' },
+    { tag: tags.propertyName, color: '#1a1a24' },
+    { tag: [tags.lineComment, tags.blockComment], color: '#7a7a8c', fontStyle: 'italic' },
+  ]),
+);
 
-const darkHighlight = syntaxHighlighting(HighlightStyle.define([
-  { tag: tags.string, color: '#34d058' },
-  { tag: tags.number, color: '#f59e0b' },
-  { tag: tags.bool, color: '#5b8af0' },
-  { tag: tags.null, color: '#8888a0' },
-  { tag: tags.propertyName, color: '#dddde8' },
-  { tag: [tags.lineComment, tags.blockComment], color: '#8888a0', fontStyle: 'italic' },
-]));
+const darkHighlight = syntaxHighlighting(
+  HighlightStyle.define([
+    { tag: tags.string, color: '#34d058' },
+    { tag: tags.number, color: '#f59e0b' },
+    { tag: tags.bool, color: '#5b8af0' },
+    { tag: tags.null, color: '#8888a0' },
+    { tag: tags.propertyName, color: '#dddde8' },
+    { tag: [tags.lineComment, tags.blockComment], color: '#8888a0', fontStyle: 'italic' },
+  ]),
+);
 
 // The element that actually scrolls the editor. Prefers CodeMirror's own
 // scroller when it has range, else the `.json-editor` container — see
@@ -72,7 +110,7 @@ function scrollerFor(view: any, container: any) {
   const sc = view.scrollDOM;
   const scRange = sc ? sc.scrollHeight - sc.clientHeight : 0;
   const boxRange = container ? container.scrollHeight - container.clientHeight : 0;
-  return boxRange > scRange ? container : (sc || container);
+  return boxRange > scRange ? container : sc || container;
 }
 
 // One-entry memo keyed on the CodeMirror Text object. `Text` is immutable, so
@@ -150,13 +188,19 @@ const linkedStageField = StateField.define({
 
 const baseTheme = EditorView.theme({
   '&': { fontSize: '12px', flex: '1' },
-  '.cm-scroller': { fontFamily: "'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace", overflow: 'auto' },
+  '.cm-scroller': {
+    fontFamily: "'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace",
+    overflow: 'auto',
+  },
   '.cm-gutters': { border: 'none' },
 });
 
 const compactTheme = EditorView.theme({
   '&': { fontSize: '12px', flex: '1' },
-  '.cm-scroller': { fontFamily: "'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace", overflow: 'auto' },
+  '.cm-scroller': {
+    fontFamily: "'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace",
+    overflow: 'auto',
+  },
   '.cm-gutters': { display: 'none' },
   '.cm-content': { padding: '4px 0' },
   '&.cm-focused': { outline: 'none' },
@@ -193,7 +237,6 @@ const aggregateSetup = [
   ]),
 ];
 
-
 /** The imperative API JsonEditor publishes on its `editorRef`. This is the boundary between
  *  the editor and its six consumers (the pipeline editor, the two bulk modals, the record
  *  editor, and both index panels); before it was written down, every one of them held the
@@ -215,11 +258,27 @@ export type JsonEditorHandle = {
   highlightStage: (entryIndex: number | null) => void;
   /** Viewport rect of the stage's opening `{`, plus `hEnd` (just past the operator) so a
    *  connector's first horizontal can clear it. null when the line is scrolled out. */
-  stageScreenRect: (entryIndex: number) =>
-    { top: number; bottom: number; left: number; right: number; hEnd: number } | null;
+  stageScreenRect: (
+    entryIndex: number,
+  ) => { top: number; bottom: number; left: number; right: number; hEnd: number } | null;
 };
 
-export default function JsonEditor({ value = '', onChange, onValidChange, onToggleStage, onCursorStage, onHoverStage, mode = 'default', fields, compact = false, readOnly = false, onSubmit, editorRef, minHeight = '200px', jsonLines = false }: {
+export default function JsonEditor({
+  value = '',
+  onChange,
+  onValidChange,
+  onToggleStage,
+  onCursorStage,
+  onHoverStage,
+  mode = 'default',
+  fields,
+  compact = false,
+  readOnly = false,
+  onSubmit,
+  editorRef,
+  minHeight = '200px',
+  jsonLines = false,
+}: {
   value?: string;
   onChange?: (next: string) => void;
   // Fires when the document becomes parseable. It carries NO payload: every call site
@@ -272,8 +331,20 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
     const keymaps = [indentWithTab];
     if (onSubmitRef.current) {
       keymaps.unshift(
-        { key: 'Enter', run: () => { onSubmitRef.current!(); return true; } },
-        { key: 'Shift-Enter', run: (view) => { view.dispatch(view.state.replaceSelection('\n')); return true; } },
+        {
+          key: 'Enter',
+          run: () => {
+            onSubmitRef.current!();
+            return true;
+          },
+        },
+        {
+          key: 'Shift-Enter',
+          run: (view) => {
+            view.dispatch(view.state.replaceSelection('\n'));
+            return true;
+          },
+        },
       );
     }
 
@@ -301,7 +372,9 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
       autocompletion({ override: [makeCompletionSource(mode, fieldsFn)] }),
       ...(mode === 'aggregate'
         ? [
-            stageToggleGutter((idx) => { if (onToggleStageRef.current) onToggleStageRef.current(idx); }),
+            stageToggleGutter((idx) => {
+              if (onToggleStageRef.current) onToggleStageRef.current(idx);
+            }),
             linkedStageField,
             // Which stage the POINTER is over, so hovering the code lights the
             // same link that hovering the records section does. Deduped to
@@ -310,7 +383,8 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
               mousemove(e, view) {
                 if (!onHoverStageRef.current) return;
                 const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
-                const idx = pos == null ? null : entryIndexAtOffset(stageRangesFor(view.state), pos);
+                const idx =
+                  pos == null ? null : entryIndexAtOffset(stageRangesFor(view.state), pos);
                 if (idx === lastHoverStageRef.current) return;
                 lastHoverStageRef.current = idx;
                 onHoverStageRef.current!(idx);
@@ -329,9 +403,15 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
           const text = update.state.doc.toString().trim();
           const errorEl = containerRef.current?.querySelector('.json-editor-error');
           if (!text) {
-            if (errorEl) { errorEl.textContent = ''; containerRef.current!.classList.remove('json-editor-invalid'); }
+            if (errorEl) {
+              errorEl.textContent = '';
+              containerRef.current!.classList.remove('json-editor-invalid');
+            }
           } else if (isAcceptable(text, { jsonLines: jsonLinesRef.current })) {
-            if (errorEl) { errorEl.textContent = ''; containerRef.current!.classList.remove('json-editor-invalid'); }
+            if (errorEl) {
+              errorEl.textContent = '';
+              containerRef.current!.classList.remove('json-editor-invalid');
+            }
             if (onValidChangeRef.current) {
               clearTimeout(validChangeTimer as any);
               validChangeTimer = setTimeout(onValidChangeRef.current, 500);
@@ -339,8 +419,14 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
           } else {
             // Re-run JSON5.parse purely to recover an error message to show —
             // isAcceptable() already decided this text is invalid.
-            try { JSON5.parse(text); }
-            catch (e: any) { if (errorEl) { errorEl.textContent = e.message; containerRef.current!.classList.add('json-editor-invalid'); } }
+            try {
+              JSON5.parse(text);
+            } catch (e: any) {
+              if (errorEl) {
+                errorEl.textContent = e.message;
+                containerRef.current!.classList.add('json-editor-invalid');
+              }
+            }
           }
         }
         // Aggregate mode: report which stage the caret sits in, as an ENTRY index
@@ -350,7 +436,11 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
         // stage's OUTPUT rather than its section and existed only for the scroll
         // jump that the editor no longer performs (see DataPanel's
         // handleCursorStage).
-        if ((update.selectionSet || update.focusChanged) && mode === 'aggregate' && onCursorStageRef.current) {
+        if (
+          (update.selectionSet || update.focusChanged) &&
+          mode === 'aggregate' &&
+          onCursorStageRef.current
+        ) {
           const ranges = stageRangesFor(update.state);
           const offset = update.state.selection.main.head;
           // Losing focus reports null, so the caret's link clears when the user
@@ -391,8 +481,14 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
     const text = value.trim();
     if (text && !isAcceptable(text, { jsonLines: jsonLinesRef.current })) {
       const errorEl = containerRef.current?.querySelector('.json-editor-error');
-      try { JSON5.parse(text); }
-      catch (e: any) { if (errorEl) { errorEl.textContent = e.message; containerRef.current!.classList.add('json-editor-invalid'); } }
+      try {
+        JSON5.parse(text);
+      } catch (e: any) {
+        if (errorEl) {
+          errorEl.textContent = e.message;
+          containerRef.current!.classList.add('json-editor-invalid');
+        }
+      }
     }
 
     return () => {
@@ -432,9 +528,14 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
           const change = computeMinimalChange(view.state.doc.toString(), v);
           if (change) view.dispatch({ changes: change });
         },
-        isValid: () => { const t = viewRef.current!.state.doc.toString().trim(); if (!t) return false; return isAcceptable(t, { jsonLines: jsonLinesRef.current }); },
+        isValid: () => {
+          const t = viewRef.current!.state.doc.toString().trim();
+          if (!t) return false;
+          return isAcceptable(t, { jsonLines: jsonLinesRef.current });
+        },
         getParsed: () => JSON5.parse(viewRef.current!.state.doc.toString()),
-        getError: () => containerRef.current?.querySelector('.json-editor-error')?.textContent || '',
+        getError: () =>
+          containerRef.current?.querySelector('.json-editor-error')?.textContent || '',
         // The box that visually CLIPS this editor, so a caller measuring a stage's
         // position can tell whether that stage is actually on screen. Needed
         // because coordsAtPos (see stageScreenRect) happily reports coordinates

@@ -13,7 +13,11 @@ import { showCreateModal } from './Sidebar.jsx';
 // never asserts "no collections" prematurely or contradicts those bars.
 export default function CollectionEmptyState({ connected }: { connected: boolean | null }) {
   if (collections.value.length > 0) {
-    return <div class="empty-state"><p>Select a collection to get started</p></div>;
+    return (
+      <div class="empty-state">
+        <p>Select a collection to get started</p>
+      </div>
+    );
   }
   if (loading.value || !connected || error.value) return null;
   return (
@@ -21,10 +25,12 @@ export default function CollectionEmptyState({ connected }: { connected: boolean
       <div class="empty-state-card">
         <div class="empty-state-title">No collections yet</div>
         <p class="empty-state-body">
-          Master Data Hub keeps your reference data in collections you can
-          browse and query. This organization doesn't have any yet.
+          Master Data Hub keeps your reference data in collections you can browse and query. This
+          organization doesn't have any yet.
         </p>
-        <button class="btn btn-success" onClick={showCreateModal}>Create collection</button>
+        <button class="btn btn-success" onClick={showCreateModal}>
+          Create collection
+        </button>
       </div>
     </div>
   );

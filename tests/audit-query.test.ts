@@ -20,13 +20,27 @@ beforeEach(() => {
   store.availability.value = 'unknown';
   store.filtersBySource.value = {
     ...store.filtersBySource.value,
-    audit: { object_type: 'user', action: '', object_id: '', username: '', timestamp_after: '', timestamp_before: '', page: 1, cursor: null, pageSize: 50, search: '' },
+    audit: {
+      object_type: 'user',
+      action: '',
+      object_id: '',
+      username: '',
+      timestamp_after: '',
+      timestamp_before: '',
+      page: 1,
+      cursor: null,
+      pageSize: 50,
+      search: '',
+    },
   };
 });
 
 describe('fetchActive', () => {
   it('cursor source: requests include_total + cursor, tags rows with _idx, sets pageInfo', async () => {
-    vi.mocked(api.get).mockResolvedValue({ results: [{ a: 1 }, { a: 2 }], pagination: { total: 238, total_pages: 80, next: 'https://x?cursor=N', previous: null } });
+    vi.mocked(api.get).mockResolvedValue({
+      results: [{ a: 1 }, { a: 2 }],
+      pagination: { total: 238, total_pages: 80, next: 'https://x?cursor=N', previous: null },
+    });
     store.patchFilters('audit', { cursor: 'C1' });
     await fetchActive();
     const url = vi.mocked(api.get).mock.calls[0][0];
@@ -34,14 +48,20 @@ describe('fetchActive', () => {
     expect(url).toContain('object_type=user');
     expect(url).toContain('include_total=true');
     expect(url).toContain('cursor=C1');
-    expect(store.rows.value).toEqual([{ a: 1, _idx: 0 }, { a: 2, _idx: 1 }]);
+    expect(store.rows.value).toEqual([
+      { a: 1, _idx: 0 },
+      { a: 2, _idx: 1 },
+    ]);
     expect(store.pageInfo.value).toMatchObject({ total: 238, nextCursor: 'N', hasNext: true });
     expect(store.availability.value).toBe('available');
   });
 
   it('resets a stale unavailable availability when the new response succeeds', async () => {
     store.availability.value = 'unavailable';
-    vi.mocked(api.get).mockResolvedValue({ results: [{ a: 1 }], pagination: { total: 1, total_pages: 1, next: null, previous: null } });
+    vi.mocked(api.get).mockResolvedValue({
+      results: [{ a: 1 }],
+      pagination: { total: 1, total_pages: 1, next: null, previous: null },
+    });
     await fetchActive();
     expect(store.availability.value).toBe('available');
   });

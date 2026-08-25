@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { computeStageLink, operatorColonOffset, edgeArrowPath, sectionInPane } from '../src/mdh/stageLink.js';
+import {
+  computeStageLink,
+  operatorColonOffset,
+  edgeArrowPath,
+  sectionInPane,
+} from '../src/mdh/stageLink.js';
 
 const rect = (top: any, left: any, bottom: any, right: any) => ({ top, left, bottom, right });
 
@@ -24,8 +29,8 @@ describe('computeStageLink', () => {
     expect(pts.x1).toBeGreaterThan(100 - 50);
     expect(pts.x1).toBeLessThan(100 - 50 + 16);
     expect(pts.y1).toBe((120 + 140) / 2 - 20); // "{" line vertical middle
-    expect(pts.x2).toBe(420 - 50);             // section left edge
-    expect(pts.y2).toBe((200 + 16) - 20);      // near section header
+    expect(pts.x2).toBe(420 - 50); // section left edge
+    expect(pts.y2).toBe(200 + 16 - 20); // near section header
   });
 
   it('builds a beveled connector: first horizontal runs past the operator, then a diagonal', () => {
@@ -35,7 +40,7 @@ describe('computeStageLink', () => {
     const section = rect(300, 600, 460, 980); // stage right x≈600, y≈316
     const pts = computeStageLink(editorLine, section, panel)!;
 
-    expect(pts.x1).toBeGreaterThan(60);  // starts a bit to the right of the "{"
+    expect(pts.x1).toBeGreaterThan(60); // starts a bit to the right of the "{"
     expect(pts.x1).toBeLessThan(60 + 16);
     expect(pts.y1).toBe(108);
     expect(typeof pts.d).toBe('string');
@@ -61,7 +66,7 @@ describe('computeStageLink', () => {
     const c = operatorColonOffset(text, brace, text.length);
     expect(text[c]).toBe(':');
     expect(c).toBe(text.indexOf(':')); // the ':' after "$match"
-    expect(c).toBeGreaterThan(brace);  // after the '{', on a later line
+    expect(c).toBeGreaterThan(brace); // after the '{', on a later line
   });
 
   it('operatorColonOffset finds the operator colon on an inline stage', () => {
@@ -159,7 +164,7 @@ describe('computeStageLink — the approach to a clamped endpoint', () => {
     const [prevX, prevY] = p[p.length - 2];
     expect(lastX).toBeCloseTo(pts.x2, 1);
     expect(prevX).toBeCloseTo(pts.x2, 1); // the final leg is vertical
-    expect(lastY).toBeLessThan(prevY);    // and it travels UP, the way the head points
+    expect(lastY).toBeLessThan(prevY); // and it travels UP, the way the head points
     expect(lastY).toBeCloseTo(pts.y2, 1);
   });
 
@@ -195,17 +200,18 @@ describe('computeStageLink — the approach to a clamped endpoint', () => {
     const pts = computeStageLink(editorLine, section, panel, pane)!;
     expect(pts.edge).toBe('up');
     const p = points(pts.d);
-    expect(p[p.length - 2][0]).toBeCloseTo(pts.x2, 1);              // still a vertical last leg
-    expect(p[p.length - 1][1]).toBeLessThan(p[p.length - 2][1]);    // still travelling up into the head
+    expect(p[p.length - 2][0]).toBeCloseTo(pts.x2, 1); // still a vertical last leg
+    expect(p[p.length - 1][1]).toBeLessThan(p[p.length - 2][1]); // still travelling up into the head
     const ys = p.map(([, y]) => y);
-    expect(Math.max(...ys) - pts.y2).toBeLessThanOrEqual(14.05);    // the dip is at most one shaft
+    expect(Math.max(...ys) - pts.y2).toBeLessThanOrEqual(14.05); // the dip is at most one shaft
   });
 
   // The path is always M · L · Q(ctrl,pt) · L · Q(ctrl,pt) · L — eight points, with
   // the two ELBOWS at the quadratic control points (indices 2 and 5). Every other
   // point is pulled back along its leg by the corner radius, so the elbows are what
   // to assert on.
-  const ELBOW_START = 2, ELBOW_END = 5;
+  const ELBOW_START = 2,
+    ELBOW_END = 5;
 
   // The case the owner reported: BOTH ends clamped upward. The pane's band starts
   // below the editor's (its options strip pushes it down), so the end leg's
@@ -287,8 +293,8 @@ describe('computeStageLink — clamping the editor end', () => {
     expect(pts.startEdge).toBe('up');
     expect(pts.edge).toBe('down');
     const p = points(pts.d);
-    expect(p[1][0]).toBeCloseTo(pts.x1, 1);                   // vertical leaving the start
-    expect(p[p.length - 2][0]).toBeCloseTo(pts.x2, 1);        // vertical entering the end
+    expect(p[1][0]).toBeCloseTo(pts.x1, 1); // vertical leaving the start
+    expect(p[p.length - 2][0]).toBeCloseTo(pts.x2, 1); // vertical entering the end
     const ys = p.map(([, y]) => y);
     for (let i = 1; i < ys.length; i++) expect(ys[i]).toBeGreaterThanOrEqual(ys[i - 1] - 0.05);
   });
@@ -304,8 +310,12 @@ describe('computeStageLink — clamping the editor end', () => {
 
 describe('edgeArrowPath', () => {
   it('points up for edge:up and down for edge:down, centred on the endpoint', () => {
-    const up = edgeArrowPath(100, 50, 'up')!.match(/-?\d+(?:\.\d+)?/g)!.map(Number);
-    const down = edgeArrowPath(100, 50, 'down')!.match(/-?\d+(?:\.\d+)?/g)!.map(Number);
+    const up = edgeArrowPath(100, 50, 'up')!
+      .match(/-?\d+(?:\.\d+)?/g)!
+      .map(Number);
+    const down = edgeArrowPath(100, 50, 'down')!
+      .match(/-?\d+(?:\.\d+)?/g)!
+      .map(Number);
     // Apex first in both, above the base for up and below it for down.
     expect(up[0]).toBe(100);
     expect(up[1]).toBeLessThan(50);

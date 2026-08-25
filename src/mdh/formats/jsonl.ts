@@ -5,4 +5,11 @@ function parse(text: string) {
   return { docs: nd.docs, columns: [], warnings: nd.warnings, error: nd.error };
 }
 
-export default { id: 'jsonl', label: 'JSONL', accept: '.jsonl,.ndjson,application/x-ndjson', read: 'text', defaultOpts: {}, parse };
+export default {
+  id: 'jsonl',
+  label: 'JSONL',
+  accept: '.jsonl,.ndjson,application/x-ndjson',
+  read: 'text',
+  defaultOpts: {},
+  parse,
+};

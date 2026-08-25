@@ -32,9 +32,14 @@ export default function TrainerPanel() {
         class={css.textarea}
         rows={8}
         value={text}
-        onInput={(e) => { setText(e.currentTarget.value); setResult(null); }}
+        onInput={(e) => {
+          setText(e.currentTarget.value);
+          setResult(null);
+        }}
       />
-      <button type="button" class={css.primary} onClick={check}>Check</button>
+      <button type="button" class={css.primary} onClick={check}>
+        Check
+      </button>
       {/* Naming the person is safe only because canonicalString SIGNS the
           username. It did not once, which made the printed name free-form
           text a trainee could swap for their own on a colleague's receipt —

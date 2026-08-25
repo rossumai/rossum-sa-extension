@@ -14,10 +14,15 @@ function clearDismissTimer() {
 
 // Replaces any existing undo toast (mirrors Gmail's "Undo send" — at most one
 // pending undo at a time; the previous opportunity has already passed).
-export function showUndo(
-  { message, action, ttlMs = DEFAULT_TTL_MS }:
-  { message: string; action: () => unknown; ttlMs?: number },
-): number {
+export function showUndo({
+  message,
+  action,
+  ttlMs = DEFAULT_TTL_MS,
+}: {
+  message: string;
+  action: () => unknown;
+  ttlMs?: number;
+}): number {
   clearDismissTimer();
   const id = nextId++;
   undoToast.value = {
@@ -54,7 +59,11 @@ export async function triggerUndo() {
     }
   } catch (err) {
     if (undoToast.value?.id === u.id) {
-      undoToast.value = { ...(undoToast.value as UndoToast), status: 'error', error: (err as any)?.message || String(err) };
+      undoToast.value = {
+        ...(undoToast.value as UndoToast),
+        status: 'error',
+        error: (err as any)?.message || String(err),
+      };
       // Leave the error visible longer so the user can read it.
       setTimeout(() => {
         if (undoToast.value?.id === u.id) undoToast.value = null;

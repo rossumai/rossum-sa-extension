@@ -16,9 +16,18 @@ export default function FilesStrip() {
     <div class="fabry-files">
       {files.map((f) => (
         <span class="fabry-file">
-          <span class="fabry-file-name" title={f.filename}>{f.filename}</span>
+          <span class="fabry-file-name" title={f.filename}>
+            {f.filename}
+          </span>
           <span class="fabry-file-size">{fmtBytes(f.size)}</span>
-          <button type="button" class="fabry-file-dl" title="Download" onClick={() => downloadFile(f.filename)}>{'⤓'}</button>
+          <button
+            type="button"
+            class="fabry-file-dl"
+            title="Download"
+            onClick={() => downloadFile(f.filename)}
+          >
+            {'⤓'}
+          </button>
         </span>
       ))}
     </div>

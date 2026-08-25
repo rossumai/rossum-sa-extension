@@ -1,14 +1,27 @@
 import { describe, it, expect } from 'vitest';
 import {
-  emptyProgress, markStep, startMission, stepState, isMissionComplete,
-  missionStatus, xpFor, levelFor, badges, isTrackComplete, migrate,
+  emptyProgress,
+  markStep,
+  startMission,
+  stepState,
+  isMissionComplete,
+  missionStatus,
+  xpFor,
+  levelFor,
+  badges,
+  isTrackComplete,
+  migrate,
 } from '../src/training/progress.js';
 import { track, mission, step } from './support/training.js';
 
 const TRACK = track({
-  id: 't', version: 1,
+  id: 't',
+  version: 1,
   missions: [
-    mission({ id: 'm1', steps: [step({ id: 'm1.s1', kind: 'visit' }), step({ id: 'm1.s2', kind: 'self' })] }),
+    mission({
+      id: 'm1',
+      steps: [step({ id: 'm1.s1', kind: 'visit' }), step({ id: 'm1.s2', kind: 'self' })],
+    }),
     mission({ id: 'm2', steps: [step({ id: 'm2.s1', kind: 'api' })] }),
   ],
 });

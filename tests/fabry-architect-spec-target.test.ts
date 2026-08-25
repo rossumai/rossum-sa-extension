@@ -1,12 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import { currentSection, railTarget, activeHeadingAt, SPY_OFFSET } from '../src/fabry/architect/specTarget.js';
+import {
+  currentSection,
+  railTarget,
+  activeHeadingAt,
+  SPY_OFFSET,
+} from '../src/fabry/architect/specTarget.js';
 
-const TOPS = [{ id: 'a', top: 0 }, { id: 'b', top: 1200 }, { id: 'c', top: 2400 }];
+const TOPS = [
+  { id: 'a', top: 0 },
+  { id: 'b', top: 1200 },
+  { id: 'c', top: 2400 },
+];
 
 describe('currentSection', () => {
   it('is the last section whose top has passed the threshold', () => {
     expect(currentSection(TOPS, 0)).toBe('a');
-    expect(currentSection(TOPS, 1200 - SPY_OFFSET)).toBe('b');   // exactly at the threshold counts
+    expect(currentSection(TOPS, 1200 - SPY_OFFSET)).toBe('b'); // exactly at the threshold counts
     expect(currentSection(TOPS, 1500)).toBe('b');
     expect(currentSection(TOPS, 5000)).toBe('c');
   });

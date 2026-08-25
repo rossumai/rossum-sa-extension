@@ -32,8 +32,12 @@ export async function apiPatch(url: string, token: string, body: any): Promise<a
 }
 
 async function runAggregate(
-  domain: string, token: string, dataset: string, pipeline: any[],
-  externalSignal?: AbortSignal | null, timeoutMs = 8000,
+  domain: string,
+  token: string,
+  dataset: string,
+  pipeline: any[],
+  externalSignal?: AbortSignal | null,
+  timeoutMs = 8000,
 ): Promise<any> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -54,7 +58,11 @@ async function runAggregate(
         const body = await resp.clone().json();
         detail = body?.message || body?.detail || body?.error || '';
       } catch {
-        try { detail = await resp.text(); } catch { /* ignore */ }
+        try {
+          detail = await resp.text();
+        } catch {
+          /* ignore */
+        }
       }
       detail = (detail || '').toString().trim();
       throw new Error(detail ? `${resp.status}: ${detail}` : `${resp.status}`);
@@ -189,7 +197,10 @@ function isMdhHook(hook: any): boolean {
 function unquoteArg(raw: string): string {
   if (raw == null) return '';
   const t = raw.trim();
-  if (t.length >= 2 && ((t.startsWith("'") && t.endsWith("'")) || (t.startsWith('"') && t.endsWith('"')))) {
+  if (
+    t.length >= 2 &&
+    ((t.startsWith("'") && t.endsWith("'")) || (t.startsWith('"') && t.endsWith('"')))
+  ) {
     return t.slice(1, -1);
   }
   return t;
@@ -227,7 +238,11 @@ export function collectPlaceholders(node: any, set: Set<string>): void {
 // quotes and substitutes the JSON number. The `split` modifier replaces
 // the whole string with a JSON array. Mixed substitutions (placeholders
 // embedded in larger text) always produce strings.
-export function substitutePlaceholders(node: any, values: Record<string, any>, types?: Record<string, string>): any {
+export function substitutePlaceholders(
+  node: any,
+  values: Record<string, any>,
+  types?: Record<string, string>,
+): any {
   if (node == null) return node;
   const v = values || {};
   const t = types || {};
@@ -257,7 +272,11 @@ export function substitutePlaceholders(node: any, values: Record<string, any>, t
     const out: Record<string, any> = {};
     for (const [k, val] of Object.entries(node)) {
       const newK = substitutePlaceholders(k, values, types);
-      out[typeof newK === 'string' ? newK : JSON.stringify(newK)] = substitutePlaceholders(val, values, types);
+      out[typeof newK === 'string' ? newK : JSON.stringify(newK)] = substitutePlaceholders(
+        val,
+        values,
+        types,
+      );
     }
     return out;
   }
@@ -271,14 +290,17 @@ export function substitutePlaceholders(node: any, values: Record<string, any>, t
 export function buildSchemaTypes(content: any): Record<string, string> {
   const out: Record<string, string> = {};
   const walk = (nodes: any[]): void => {
-    if (Array.isArray(nodes)) { for (const n of nodes) walkNode(n); return; }
+    if (Array.isArray(nodes)) {
+      for (const n of nodes) walkNode(n);
+      return;
+    }
     if (nodes && typeof nodes === 'object') walkNode(nodes);
   };
   const walkNode = (node: any): void => {
     if (!node || typeof node !== 'object') return;
     if (node.category === 'datapoint' && node.id) {
-      const isNumber = node.type === 'number'
-        || (node.type === 'enum' && node.enum_value_type === 'number');
+      const isNumber =
+        node.type === 'number' || (node.type === 'enum' && node.enum_value_type === 'number');
       out[node.id] = isNumber ? 'number' : 'string';
     }
     if (node.children != null) walk(node.children);
@@ -289,14 +311,20 @@ export function buildSchemaTypes(content: any): Record<string, string> {
 
 // Schema types are authoritative; the normalized_value heuristic fills any field
 // the schema does not cover (or when the schema fetch failed → schemaTypes {}).
-export function mergeSchemaTypes(heuristicTypes: Record<string, string>, schemaTypes: Record<string, string>): Record<string, string> {
+export function mergeSchemaTypes(
+  heuristicTypes: Record<string, string>,
+  schemaTypes: Record<string, string>,
+): Record<string, string> {
   return { ...(heuristicTypes || {}), ...(schemaTypes || {}) };
 }
 
 // Explicit per-placeholder type map for the editor tab. Explicit 'string' (not
 // omission) so the editor treats it as an authoritative override and reproduces
 // the Provenance replay exactly.
-export function buildVariableTypes(placeholders: Iterable<string>, types: Record<string, string>): Record<string, string> {
+export function buildVariableTypes(
+  placeholders: Iterable<string>,
+  types: Record<string, string>,
+): Record<string, string> {
   const out: Record<string, string> = {};
   const t = types || {};
   for (const name of placeholders) out[name] = t[name] === 'number' ? 'number' : 'string';
@@ -306,7 +334,11 @@ export function buildVariableTypes(placeholders: Iterable<string>, types: Record
 // Fetch a queue's schema and classify its datapoint types. Best-effort: any
 // failure (403/offline/missing schema) yields {} so callers fall back to the
 // heuristic.
-export async function loadSchemaTypesForQueue(domain: string, token: string, queueId: string | number): Promise<Record<string, string>> {
+export async function loadSchemaTypesForQueue(
+  domain: string,
+  token: string,
+  queueId: string | number,
+): Promise<Record<string, string>> {
   try {
     const queue = await fetchJson(`${domain}/api/v1/queues/${queueId}?fields=schema`, token);
     const schemaUrl = queue?.schema;
@@ -358,9 +390,8 @@ export function flattenContent(content: any) {
   // the numeric-id fallback only keeps a nameless table from collapsing into
   // its neighbours.
   const tableFor = (node: any) => {
-    const key = typeof node.schema_id === 'string' && node.schema_id !== ''
-      ? node.schema_id
-      : `#${node.id}`;
+    const key =
+      typeof node.schema_id === 'string' && node.schema_id !== '' ? node.schema_id : `#${node.id}`;
     let rec = tableBySchemaId.get(key);
     if (!rec) {
       rec = { schemaId: key, rowCount: 0, columns: [] };
@@ -406,7 +437,11 @@ export function flattenContent(content: any) {
   return { headerValues, rowValues, rowCount, types, tables };
 }
 
-export function valuesForRow(headerValues: Record<string, any>, rowValues: Record<string, any>, rowIdx: number | null): Record<string, any> {
+export function valuesForRow(
+  headerValues: Record<string, any>,
+  rowValues: Record<string, any>,
+  rowIdx: number | null,
+): Record<string, any> {
   const out = { ...headerValues };
   for (const [sid, arr] of Object.entries(rowValues)) {
     out[sid] = arr[rowIdx as number] != null ? arr[rowIdx as number] : '';
@@ -480,11 +515,12 @@ function missingPlaceholders(placeholders: string[], values: Record<string, any>
 
 // ── Queue → MDH hooks resolver ─────────────────────
 
-export async function loadMdhHooksForQueue(domain: string, token: string, queueId: string | number): Promise<any[]> {
-  const hooksResp = await fetchJson(
-    `${domain}/api/v1/hooks?queue=${queueId}&page_size=100`,
-    token,
-  );
+export async function loadMdhHooksForQueue(
+  domain: string,
+  token: string,
+  queueId: string | number,
+): Promise<any[]> {
+  const hooksResp = await fetchJson(`${domain}/api/v1/hooks?queue=${queueId}&page_size=100`, token);
   return (hooksResp?.results || [])
     .filter((h: any) => h.active !== false && h.type === 'webhook')
     .filter(isMdhHook);
@@ -510,9 +546,18 @@ export function filterHookEntries(entries: any[], query: unknown): any[] {
   const q = (query == null ? '' : String(query)).trim().toLowerCase();
   if (!q) return entries;
   const matches = (cfg: any): boolean => {
-    if (String(cfg?.target || '').toLowerCase().includes(q)) return true;
+    if (
+      String(cfg?.target || '')
+        .toLowerCase()
+        .includes(q)
+    )
+      return true;
     const adds = Array.isArray(cfg?.additionalMappings) ? cfg.additionalMappings : [];
-    return adds.some((m: any) => String(m?.target || '').toLowerCase().includes(q));
+    return adds.some((m: any) =>
+      String(m?.target || '')
+        .toLowerCase()
+        .includes(q),
+    );
   };
   const out = [];
   for (const { hook, cfgs } of entries) {
@@ -529,7 +574,12 @@ export function filterHookEntries(entries: any[], query: unknown): any[] {
 // behind a config's target field without a second request. The parameter is
 // kept because it costs nothing and documents intent, but nothing may DEPEND on
 // it narrowing the payload.
-export async function loadAnnotationValues(domain: string, token: string, annotationId: string | number, placeholders: Set<string>) {
+export async function loadAnnotationValues(
+  domain: string,
+  token: string,
+  annotationId: string | number,
+  placeholders: Set<string>,
+) {
   if (!annotationId || placeholders.size === 0) {
     return { headerValues: {}, rowValues: {}, rowCount: 0, types: {}, tables: [] };
   }
@@ -542,12 +592,25 @@ export async function loadAnnotationValues(domain: string, token: string, annota
 
 // Keyed by the replay status string, which the popup reads from a value it does not
 // control — so the lookup is by string rather than by the literal union.
-export const STATUS_GLYPH: Record<string, { glyph: string; cls: string; title: string; showHint: boolean }> = {
+export const STATUS_GLYPH: Record<
+  string,
+  { glyph: string; cls: string; title: string; showHint: boolean }
+> = {
   pending: { glyph: '…', cls: 'mdh-q-status--pending', title: 'Replaying…', showHint: false },
   winner: { glyph: '✓', cls: 'mdh-q-status--winner', title: 'Winning query', showHint: false },
   empty: { glyph: '—', cls: 'mdh-q-status--empty', title: 'No results', showHint: false },
-  skipped: { glyph: '·', cls: 'mdh-q-status--skipped', title: 'Cascade short-circuited before this query', showHint: true },
-  gated: { glyph: '⊘', cls: 'mdh-q-status--gated', title: 'Skipped — action_condition gates this configuration', showHint: true },
+  skipped: {
+    glyph: '·',
+    cls: 'mdh-q-status--skipped',
+    title: 'Cascade short-circuited before this query',
+    showHint: true,
+  },
+  gated: {
+    glyph: '⊘',
+    cls: 'mdh-q-status--gated',
+    title: 'Skipped — action_condition gates this configuration',
+    showHint: true,
+  },
   error: { glyph: '!', cls: 'mdh-q-status--error', title: 'Replay failed', showHint: true },
 };
 
@@ -558,7 +621,11 @@ export const STATUS_GLYPH: Record<string, { glyph: string; cls: string; title: s
 //   - `substituted` is the post-substitution expression (for UI display)
 // A null result is treated as "don't gate" by replayConfig (the user sees the
 // underlying error in the UI; gating on a broken expression would be worse).
-export function evaluateCfgCondition(cfg: any, values: Record<string, any>, types?: Record<string, string>) {
+export function evaluateCfgCondition(
+  cfg: any,
+  values: Record<string, any>,
+  types?: Record<string, string>,
+) {
   const expr = cfg?.actionCondition;
   if (typeof expr !== 'string' || expr.trim() === '') {
     return { hasCondition: false, result: true, error: null, substituted: null };
@@ -576,8 +643,12 @@ export function evaluateCfgCondition(cfg: any, values: Record<string, any>, type
 // statuses array (suitable for caching). `onStatus(i, {status, hint})` fires
 // as each query resolves, so callers can update UI incrementally.
 export async function replayConfig(
-  domain: string, token: string, cfg: any, values: Record<string, any>,
-  signal?: AbortSignal | null, onStatus?: (i: number, status: string, hint?: string) => void,
+  domain: string,
+  token: string,
+  cfg: any,
+  values: Record<string, any>,
+  signal?: AbortSignal | null,
+  onStatus?: (i: number, status: string, hint?: string) => void,
   types?: Record<string, string>,
 ) {
   const statuses = new Array(cfg.queries.length).fill(null);
@@ -606,7 +677,11 @@ export async function replayConfig(
     const query = cfg.queries[i];
     const missing = missingPlaceholders(query.placeholders, values);
     if (missing.length > 0) {
-      record(i, 'skipped', `missing field${missing.length === 1 ? '' : 's'} in annotation: ${missing.join(', ')}`);
+      record(
+        i,
+        'skipped',
+        `missing field${missing.length === 1 ? '' : 's'} in annotation: ${missing.join(', ')}`,
+      );
       continue;
     }
     const pipeline = queryToPipeline(query.raw, { withLimit: true });

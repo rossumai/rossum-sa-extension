@@ -27,8 +27,9 @@ describe('Rail', () => {
 
   it('renders the Inspector app button and switches to it on click', () => {
     const root = mount();
-    const btn = [...root.querySelectorAll('.app-rail-item')]
-      .find((b) => b.getAttribute('title') === 'Annotation Inspector');
+    const btn = [...root.querySelectorAll('.app-rail-item')].find(
+      (b) => b.getAttribute('title') === 'Annotation Inspector',
+    );
     expect(btn).toBeTruthy();
     (btn as HTMLElement).click();
     expect(activeApp.value).toBe('inspector');
@@ -39,9 +40,9 @@ describe('Rail', () => {
     const items = [...root.querySelectorAll('.app-rail-item')];
     const idx = (title: any) => items.findIndex((b) => b.getAttribute('title') === title);
     const inspector = items[idx('Annotation Inspector')];
-    expect(inspector.classList.contains('muted')).toBe(false);            // no dimming
+    expect(inspector.classList.contains('muted')).toBe(false); // no dimming
     expect(items.some((b) => b.classList.contains('muted'))).toBe(false); // nothing is muted now
-    expect(idx('Annotation Inspector')).toBeLessThan(idx('Org Galaxy'));  // above Galaxy
+    expect(idx('Annotation Inspector')).toBeLessThan(idx('Org Galaxy')); // above Galaxy
   });
 
   it('renders Galaxy as the last rail item, after the now-public Fabry item', () => {
@@ -58,8 +59,9 @@ describe('Rail', () => {
 
   it('renders the Galaxy app button and switches to it on click', () => {
     const root = mount();
-    const btn = [...root.querySelectorAll('.app-rail-item')]
-      .find((b) => b.getAttribute('title') === 'Org Galaxy');
+    const btn = [...root.querySelectorAll('.app-rail-item')].find(
+      (b) => b.getAttribute('title') === 'Org Galaxy',
+    );
     expect(btn).toBeTruthy();
     (btn as HTMLElement).click();
     expect(activeApp.value).toBe('galaxy');
@@ -73,24 +75,27 @@ describe('Rail', () => {
 
   it('renders the Fabry rail icon as a STATIC shared FabryMark (no color cycle)', () => {
     const root = mount();
-    const btn = [...root.querySelectorAll('.app-rail-item')]
-      .find((b) => b.getAttribute('title') === 'Mr. Fabry');
+    const btn = [...root.querySelectorAll('.app-rail-item')].find(
+      (b) => b.getAttribute('title') === 'Mr. Fabry',
+    );
     const svg = btn!.querySelector('svg')!;
-    expect(svg.classList.contains(markStyles.mark)).toBe(true);      // it's the shared mark
+    expect(svg.classList.contains(markStyles.mark)).toBe(true); // it's the shared mark
     expect(svg.classList.contains(markStyles.animated)).toBe(false); // rail is static
   });
 
   it('Galaxy rail item has no beta badge', () => {
     const root = mount();
-    const btn = [...root.querySelectorAll('.app-rail-item')]
-      .find((b) => b.getAttribute('title') === 'Org Galaxy');
+    const btn = [...root.querySelectorAll('.app-rail-item')].find(
+      (b) => b.getAttribute('title') === 'Org Galaxy',
+    );
     expect(btn!.querySelector('.app-rail-beta')).toBeNull();
   });
 
   it('clicking the Audit button sets activeApp to audit', () => {
     const root = mount();
-    const auditBtn = [...root.querySelectorAll('.app-rail-item')]
-      .find((b) => b.getAttribute('title') === 'Audit Log Viewer');
+    const auditBtn = [...root.querySelectorAll('.app-rail-item')].find(
+      (b) => b.getAttribute('title') === 'Audit Log Viewer',
+    );
     (auditBtn as HTMLElement).click();
     expect(activeApp.value).toBe('audit');
   });
@@ -99,7 +104,9 @@ describe('Rail', () => {
     const root = mount();
     activeApp.value = 'audit';
     render(<Rail />, root);
-    expect(root.querySelector('.app-rail-item.active')!.getAttribute('title')).toBe('Audit Log Viewer');
+    expect(root.querySelector('.app-rail-item.active')!.getAttribute('title')).toBe(
+      'Audit Log Viewer',
+    );
   });
 });
 
@@ -107,7 +114,9 @@ describe('Rail — fabry is public', () => {
   it('shows Fabry with its beta badge while the experimental gate is LOCKED', () => {
     experimentalUnlocked.value = false;
     const root = mount();
-    const btn = [...root.querySelectorAll('.app-rail-item')].find((b) => b.getAttribute('title') === 'Mr. Fabry')!;
+    const btn = [...root.querySelectorAll('.app-rail-item')].find(
+      (b) => b.getAttribute('title') === 'Mr. Fabry',
+    )!;
     expect(btn).toBeTruthy();
     expect(btn.querySelector('.app-rail-beta')!.textContent).toBe('beta');
     expect(btn.querySelector('.app-rail-exp')).toBeNull(); // public: beta, never exp
@@ -123,13 +132,19 @@ describe('Rail — academy (experimental) gate', () => {
     experimentalUnlocked.value = false;
     const root = mount();
     expect(root.querySelectorAll('.app-rail-item').length).toBe(5);
-    expect([...root.querySelectorAll('.app-rail-item')].some((b) => b.getAttribute('title') === ACADEMY_TITLE)).toBe(false);
+    expect(
+      [...root.querySelectorAll('.app-rail-item')].some(
+        (b) => b.getAttribute('title') === ACADEMY_TITLE,
+      ),
+    ).toBe(false);
   });
 
   it('shows Academy with an EXP badge when unlocked, and switches on click', () => {
     experimentalUnlocked.value = true;
     const root = mount();
-    const btn = [...root.querySelectorAll('.app-rail-item')].find((b) => b.getAttribute('title') === ACADEMY_TITLE)!;
+    const btn = [...root.querySelectorAll('.app-rail-item')].find(
+      (b) => b.getAttribute('title') === ACADEMY_TITLE,
+    )!;
     expect(btn).toBeTruthy();
     // exp REPLACES beta on a gated app: the badge names the gate it sits behind.
     expect(btn.querySelector('.app-rail-exp')!.textContent).toBe('exp');
@@ -144,7 +159,9 @@ describe('Rail — academy (experimental) gate', () => {
   // the surviving gate quietly re-acquires Fabry — so that is what this pins.
   it('drives the Academy alone; Fabry is present in both gate states', () => {
     experimentalUnlocked.value = false;
-    let titles = [...mount().querySelectorAll('.app-rail-item')].map((b) => b.getAttribute('title'));
+    let titles = [...mount().querySelectorAll('.app-rail-item')].map((b) =>
+      b.getAttribute('title'),
+    );
     expect(titles).toContain('Mr. Fabry');
     expect(titles).not.toContain(ACADEMY_TITLE);
 

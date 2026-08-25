@@ -8,7 +8,7 @@ describe('buildCheckPrompt', () => {
     expect(p).toMatch(/VERDICT: PASS/);
     expect(p).toMatch(/VERDICT: FAIL/);
     expect(p).toMatch(/VERDICT: UNCERTAIN/);
-    expect(p).toMatch(/THOROUGHLY|do not assume something is missing/i);   // false-negative guard (ralph failure mode #1)
+    expect(p).toMatch(/THOROUGHLY|do not assume something is missing/i); // false-negative guard (ralph failure mode #1)
     expect(p).toContain('Every invoice queue must have a duplicate-detection hook.');
   });
 });

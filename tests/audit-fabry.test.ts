@@ -1,12 +1,33 @@
 // tests/audit-fabry.test.js
 import { describe, it, expect, vi } from 'vitest';
-import { DEFAULT_QUESTION, seedRows, buildAuditPrompt, buildFollowupPrompt, buildRefreshPrompt, runAuditQuery, continueAuditQuery, refreshAuditSummary } from '../src/audit/fabry.js';
+import {
+  DEFAULT_QUESTION,
+  seedRows,
+  buildAuditPrompt,
+  buildFollowupPrompt,
+  buildRefreshPrompt,
+  runAuditQuery,
+  continueAuditQuery,
+  refreshAuditSummary,
+} from '../src/audit/fabry.js';
 
-const FILTERS = { object_type: 'annotation', action: 'update-status', username: 'a@b.c', object_id: '', timestamp_after: '', timestamp_before: '' };
+const FILTERS = {
+  object_type: 'annotation',
+  action: 'update-status',
+  username: 'a@b.c',
+  object_id: '',
+  timestamp_after: '',
+  timestamp_before: '',
+};
 
 describe('buildAuditPrompt', () => {
   it('autonomous mode: read-only framing, filter context, tool instruction, format, no citations', () => {
-    const p = buildAuditPrompt({ question: DEFAULT_QUESTION, filters: FILTERS, rows: [], mode: 'autonomous' });
+    const p = buildAuditPrompt({
+      question: DEFAULT_QUESTION,
+      filters: FILTERS,
+      rows: [],
+      mode: 'autonomous',
+    });
     expect(p).toContain('READ-ONLY');
     expect(p).toContain('object type=annotation');
     expect(p).toContain('username=a@b.c');
@@ -19,7 +40,12 @@ describe('buildAuditPrompt', () => {
     expect(p).toContain(DEFAULT_QUESTION);
   });
   it('seeded mode: embeds the loaded rows and forbids claims beyond them', () => {
-    const p = buildAuditPrompt({ question: 'q', filters: FILTERS, rows: [{ _idx: 0, action: 'create', username: 'x@y.z' }], mode: 'seeded' });
+    const p = buildAuditPrompt({
+      question: 'q',
+      filters: FILTERS,
+      rows: [{ _idx: 0, action: 'create', username: 'x@y.z' }],
+      mode: 'seeded',
+    });
     expect(p).toContain('"action":"create"');
     expect(p).not.toContain('_idx');
     expect(p).toMatch(/ONLY on these|do not claim/i);
@@ -56,7 +82,10 @@ describe('buildFollowupPrompt', () => {
 
 describe('buildRefreshPrompt', () => {
   it('embeds the new rows, restricts to them, includes format lines and the default question, no persona', () => {
-    const p = buildRefreshPrompt({ filters: FILTERS, rows: [{ _idx: 0, action: 'delete', username: 'z@z.z' }] });
+    const p = buildRefreshPrompt({
+      filters: FILTERS,
+      rows: [{ _idx: 0, action: 'delete', username: 'z@z.z' }],
+    });
     expect(p).toContain('"action":"delete"');
     expect(p).not.toContain('_idx');
     expect(p).toMatch(/ONLY on these/);
@@ -85,7 +114,14 @@ describe('runAuditQuery / continueAuditQuery', () => {
       }),
     };
     const texts: any = [];
-    const res = await runAuditQuery({ agentApi, question: 'q', filters: FILTERS, rows: [], mode: 'autonomous', onText: (t) => texts.push(t) });
+    const res = await runAuditQuery({
+      agentApi,
+      question: 'q',
+      filters: FILTERS,
+      rows: [],
+      mode: 'autonomous',
+      onText: (t) => texts.push(t),
+    });
     expect(prompts[0]).toBe('/persona cautious');
     expect(res.chatId).toBe('chatA');
     expect(res.text).toContain('Latest: 3 status changes.');

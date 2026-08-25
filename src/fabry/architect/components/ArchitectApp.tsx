@@ -7,7 +7,9 @@ import SpecView from './SpecView.jsx';
 import InspectorRail from './InspectorRail.jsx';
 
 export default function ArchitectApp() {
-  useEffect(() => { loadArchitect(); }, []);
+  useEffect(() => {
+    loadArchitect();
+  }, []);
 
   // Warm every OTHER deliverable's rendered document in idle time, so switching is instant
   // (owner, 2026-08-18). Re-runs when the list or the open document changes; the returned
@@ -16,7 +18,11 @@ export default function ArchitectApp() {
   const ids = store.deliverables.value.map((d) => d.id).join(',');
   useEffect(() => {
     let dark = false;
-    try { dark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch { /* default light */ }
+    try {
+      dark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    } catch {
+      /* default light */
+    }
     return preloadDeliverables({
       deliverables: store.deliverables.value,
       activeId: store.activeId.value,
@@ -46,7 +52,10 @@ export default function ArchitectApp() {
       ) : (
         <div class="fabry-arch-placeholder">
           <p class="fabry-arch-placeholder-title">SOW deliverables</p>
-          <p class="fabry-arch-placeholder-sub">Select a deliverable from the sidebar, or add one, then Run to check it read-only against this organization.</p>
+          <p class="fabry-arch-placeholder-sub">
+            Select a deliverable from the sidebar, or add one, then Run to check it read-only
+            against this organization.
+          </p>
         </div>
       )}
       {store.deliverables.value.length && store.railOpen.value ? <InspectorRail /> : null}

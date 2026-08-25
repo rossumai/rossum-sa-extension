@@ -2,7 +2,11 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
-  showTether, hideTether, resolveAnchor, TETHER_SVG_ID, TETHER_HINT_ID,
+  showTether,
+  hideTether,
+  resolveAnchor,
+  TETHER_SVG_ID,
+  TETHER_HINT_ID,
 } from '../src/rossum/features/training-tether.js';
 
 const CARD_RECT = { left: 916, top: 584, right: 1184, bottom: 784 }; // matches the card's fixed bottom:16/right:16, width 268
@@ -57,7 +61,9 @@ describe('resolveAnchor', () => {
 
   it('finds an anchor by href substring', () => {
     document.body.innerHTML = '<a href="/extensions/my-extensions">Ext</a>';
-    expect(resolveAnchor({ hrefIncludes: '/extensions/my-extensions' }, document)!.tagName).toBe('A');
+    expect(resolveAnchor({ hrefIncludes: '/extensions/my-extensions' }, document)!.tagName).toBe(
+      'A',
+    );
   });
 
   it('prefers cy when both are given', () => {
@@ -195,8 +201,14 @@ describe('showTether', () => {
     const removeSpy = { scroll: 0, resize: 0 };
     const origAdd = window.addEventListener.bind(window);
     const origRemove = window.removeEventListener.bind(window);
-    window.addEventListener = (type: any, ...rest: any[]) => { if (type in addSpy) (addSpy as any)[type]++; return (origAdd as any)(type, ...rest); };
-    window.removeEventListener = (type: any, ...rest: any[]) => { if (type in removeSpy) (removeSpy as any)[type]++; return (origRemove as any)(type, ...rest); };
+    window.addEventListener = (type: any, ...rest: any[]) => {
+      if (type in addSpy) (addSpy as any)[type]++;
+      return (origAdd as any)(type, ...rest);
+    };
+    window.removeEventListener = (type: any, ...rest: any[]) => {
+      if (type in removeSpy) (removeSpy as any)[type]++;
+      return (origRemove as any)(type, ...rest);
+    };
     try {
       showTether({ hrefIncludes: '/queues/' }, { retries: 0, cardEl: card });
       expect(addSpy.scroll).toBe(1);
@@ -253,7 +265,7 @@ describe('the engagement gate', () => {
     showHovered({ hrefIncludes: '/queues/' }, card);
     expect(document.getElementById(TETHER_SVG_ID)).toBeTruthy();
 
-    card!.remove();                                  // what renderCard does every tick
+    card!.remove(); // what renderCard does every tick
     const rebuilt = document.createElement('div');
     rebuilt.id = 'card';
     stubRect(rebuilt, CARD_RECT);
@@ -265,7 +277,8 @@ describe('the engagement gate', () => {
 
   it('counts keyboard focus inside the card as engagement', async () => {
     const mod = await freshModule();
-    document.body.innerHTML = '<div id="card"><button id="dismiss">x</button></div><a href="/queues/1">Q</a>';
+    document.body.innerHTML =
+      '<div id="card"><button id="dismiss">x</button></div><a href="/queues/1">Q</a>';
     const card = document.getElementById('card');
     stubRect(card, CARD_RECT);
     stubRect(document.querySelector('a[href="/queues/1"]'), VISIBLE_TARGET);

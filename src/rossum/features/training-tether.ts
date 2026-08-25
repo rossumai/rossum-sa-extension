@@ -47,7 +47,10 @@ function cssEscape(value: string) {
   return String(value).replace(/["\\]/g, '\\$&');
 }
 
-export function resolveAnchor(anchor: StepAnchor | null | undefined, doc: Document | Element = document) {
+export function resolveAnchor(
+  anchor: StepAnchor | null | undefined,
+  doc: Document | Element = document,
+) {
   if (!anchor) return null;
   if (anchor.cy) {
     const byCy = doc.querySelector(`[data-cy="${cssEscape(anchor.cy)}"]`);
@@ -93,7 +96,8 @@ const SHADOW = 'drop-shadow(0 1px 1px rgba(0,0,0,.16))';
 // reads as not-engaged: no tether until the trainee actually moves onto the card.
 let pointer: { x: number; y: number } | null = null;
 
-const pointInRect = (p: { x: number; y: number } | null, r: DOMRect) => !!p && p.x >= r.left && p.x <= r.right && p.y >= r.top && p.y <= r.bottom;
+const pointInRect = (p: { x: number; y: number } | null, r: DOMRect) =>
+  !!p && p.x >= r.left && p.x <= r.right && p.y >= r.top && p.y <= r.bottom;
 
 // Keyboard users cannot hover, and the card holds a focusable control (its
 // dismiss button), so focus inside the card counts as engagement too. Without
@@ -110,7 +114,11 @@ const focusWithin = (cardEl: Element) => {
 // rather than throwing — so this is a Chrome-only assist and the tests drive the
 // pointer path instead.
 const hoverMatches = (cardEl: Element) => {
-  try { return cardEl.matches(':hover'); } catch { return false; }
+  try {
+    return cardEl.matches(':hover');
+  } catch {
+    return false;
+  }
 };
 
 function clearVisuals() {
@@ -121,7 +129,10 @@ function clearVisuals() {
 export function hideTether() {
   generation++;
   clearVisuals();
-  if (cleanup) { cleanup(); cleanup = null; }
+  if (cleanup) {
+    cleanup();
+    cleanup = null;
+  }
 }
 
 function buildSvg() {
@@ -172,7 +183,8 @@ function buildSvg() {
 function buildHint(direction: 'up' | 'down') {
   const hint = document.createElement('div');
   hint.id = TETHER_HINT_ID;
-  hint.textContent = direction === 'down' ? '\u2193 Your next step is below' : '\u2191 Your next step is above';
+  hint.textContent =
+    direction === 'down' ? '\u2193 Your next step is below' : '\u2191 Your next step is above';
   // NON-INTERACTIVE, like everything else this feature injects: this pill
   // must never intercept a click meant for Rossum's UI. It looks like it
   // could double as a "scroll to it" button — do not turn it into one
@@ -201,8 +213,11 @@ function buildHint(direction: 'up' | 'down') {
 
 export function showTether(
   anchor: StepAnchor | null | undefined,
-  { retries = 6, delayMs = 300, cardEl }:
-  { retries?: number; delayMs?: number; cardEl?: Element | null } = {},
+  {
+    retries = 6,
+    delayMs = 300,
+    cardEl,
+  }: { retries?: number; delayMs?: number; cardEl?: Element | null } = {},
 ) {
   hideTether();
   if (!anchor?.cy && !anchor?.hrefIncludes) return;
@@ -223,7 +238,10 @@ export function showTether(
   function mount(target: Element) {
     const reposition = () => {
       if (myGeneration !== generation) return;
-      if (!target.isConnected) { hideTether(); return; } // the anchor left the DOM — don't strand anything at 0,0
+      if (!target.isConnected) {
+        hideTether();
+        return;
+      } // the anchor left the DOM — don't strand anything at 0,0
 
       const targetRect = target.getBoundingClientRect();
       const viewport = { width: window.innerWidth, height: window.innerHeight };
@@ -232,7 +250,10 @@ export function showTether(
       // The engagement gate, ahead of any geometry: it governs the off-screen
       // hint pill exactly as it governs the line, since both are the same piece
       // of guidance answering "where do I go next" in two situations.
-      if (!cardRect || !(pointInRect(pointer, cardRect) || hoverMatches(cardEl!) || focusWithin(cardEl!))) {
+      if (
+        !cardRect ||
+        !(pointInRect(pointer, cardRect) || hoverMatches(cardEl!) || focusWithin(cardEl!))
+      ) {
         clearVisuals();
         return;
       }

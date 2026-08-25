@@ -24,10 +24,9 @@ describe('fetchRossumApi', () => {
     const data: any = await fetchRossumApi('/api/v1/workspaces');
 
     expect(data).toEqual({ results: [{ id: 1 }] });
-    expect(fetchSpy).toHaveBeenCalledWith(
-      `${window.location.origin}/api/v1/workspaces`,
-      { headers: { Authorization: 'Token secret-abc' } },
-    );
+    expect(fetchSpy).toHaveBeenCalledWith(`${window.location.origin}/api/v1/workspaces`, {
+      headers: { Authorization: 'Token secret-abc' },
+    });
   });
 
   it('omits the Authorization header when no token is set', async () => {
@@ -39,17 +38,18 @@ describe('fetchRossumApi', () => {
 
     await fetchRossumApi('/api/v1/queues');
 
-    expect(fetchSpy).toHaveBeenCalledWith(
-      `${window.location.origin}/api/v1/queues`,
-      { headers: {} },
-    );
+    expect(fetchSpy).toHaveBeenCalledWith(`${window.location.origin}/api/v1/queues`, {
+      headers: {},
+    });
   });
 
   it('rejects paths outside /api/v1/ without calling fetch', async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal('fetch', fetchSpy);
 
-    await expect(fetchRossumApi('https://evil.example/api/v1/x')).rejects.toThrow(/Invalid API path/);
+    await expect(fetchRossumApi('https://evil.example/api/v1/x')).rejects.toThrow(
+      /Invalid API path/,
+    );
     await expect(fetchRossumApi('//evil.example/x')).rejects.toThrow(/Invalid API path/);
     await expect(fetchRossumApi('/api/v1/../../etc/passwd')).rejects.toThrow(/Invalid API path/);
     await expect(fetchRossumApi('/other/path')).rejects.toThrow(/Invalid API path/);
@@ -74,10 +74,11 @@ describe('fetchRossumApi', () => {
     let resolveFetch: any;
     const fetchSpy = vi.fn().mockReturnValue(
       new Promise((resolve) => {
-        resolveFetch = () => resolve({
-          ok: true,
-          json: () => Promise.resolve({ results: [] }),
-        });
+        resolveFetch = () =>
+          resolve({
+            ok: true,
+            json: () => Promise.resolve({ results: [] }),
+          });
       }),
     );
     vi.stubGlobal('fetch', fetchSpy);
@@ -91,7 +92,8 @@ describe('fetchRossumApi', () => {
   });
 
   it('throws on non-OK responses and evicts the failed entry from cache', async () => {
-    const fetchSpy = vi.fn()
+    const fetchSpy = vi
+      .fn()
       .mockResolvedValueOnce({ ok: false, status: 500, json: () => Promise.resolve({}) })
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ results: ['ok'] }) });
     vi.stubGlobal('fetch', fetchSpy);
@@ -104,7 +106,8 @@ describe('fetchRossumApi', () => {
   });
 
   it('evicts the cache entry when fetch itself rejects', async () => {
-    const fetchSpy = vi.fn()
+    const fetchSpy = vi
+      .fn()
       .mockRejectedValueOnce(new Error('network down'))
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ results: [] }) });
     vi.stubGlobal('fetch', fetchSpy);

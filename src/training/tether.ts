@@ -13,7 +13,14 @@ import { bevelPath } from '../ui/connectorPath.js';
 
 const GAP = 8; // small gap between the target's edge and the tether's arrowhead
 
-type Rect = { left: number; top: number; right: number; bottom: number; width?: number; height?: number };
+type Rect = {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  width?: number;
+  height?: number;
+};
 type Viewport = { width: number; height: number };
 
 function intersects(a: Rect, b: Rect): boolean {
@@ -48,7 +55,11 @@ function stubFor(span: number): number {
 // visible, but a dashed line ending underneath the very card it starts from
 // points at nothing a trainee can act on, so it is treated the same as
 // invisible rather than drawn anyway.
-export function tetherGeometry(cardRect: Rect | null, targetRect: Rect | null, viewport: Viewport | null) {
+export function tetherGeometry(
+  cardRect: Rect | null,
+  targetRect: Rect | null,
+  viewport: Viewport | null,
+) {
   if (!cardRect || !targetRect || !viewport) return null;
   if (!isOnScreen(targetRect, viewport)) return null;
 
@@ -97,17 +108,21 @@ export function tetherGeometry(cardRect: Rect | null, targetRect: Rect | null, v
   // drew before. The final leg runs along the arrowhead's own axis, so shaft and
   // head read as ONE arrow — the same rule stageLink.js's `shaftElbow` follows,
   // and for the same reason: a sideways arrival at a head reads as a corner.
-  let A; let D; let B; let C; let dir;
+  let A;
+  let D;
+  let B;
+  let C;
+  let dir;
   if (gapX >= gapY) {
-    A = { x: cardRect.left, y: cardCy };            // card's left edge, vertically centred
-    D = { x: target.right + GAP, y: targetCy };     // just past the target's right edge
-    dir = 'left';                                   // the head points AT the target
+    A = { x: cardRect.left, y: cardCy }; // card's left edge, vertically centred
+    D = { x: target.right + GAP, y: targetCy }; // just past the target's right edge
+    dir = 'left'; // the head points AT the target
     const stub = stubFor(A.x - D.x);
     B = { x: A.x - stub, y: A.y };
     C = { x: D.x + stub, y: D.y };
   } else {
-    A = { x: cardCx, y: cardRect.top };             // card's top edge, horizontally centred
-    D = { x: targetCx, y: target.bottom + GAP };    // just past the target's bottom edge
+    A = { x: cardCx, y: cardRect.top }; // card's top edge, horizontally centred
+    D = { x: targetCx, y: target.bottom + GAP }; // just past the target's bottom edge
     dir = 'up';
     const stub = stubFor(A.y - D.y);
     B = { x: A.x, y: A.y - stub };
@@ -128,7 +143,10 @@ export function tetherGeometry(cardRect: Rect | null, targetRect: Rect | null, v
 // that is off-screen only horizontally (rare — Rossum pages do not scroll
 // sideways in normal use) still gets a defensible up/down answer from this
 // same rule, since the hint only ever speaks in vertical terms.
-export function offscreenHint(targetRect: Rect | null, viewport: Viewport | null): { direction: 'up' | 'down' } | null {
+export function offscreenHint(
+  targetRect: Rect | null,
+  viewport: Viewport | null,
+): { direction: 'up' | 'down' } | null {
   if (!targetRect || !viewport) return null;
   if (isOnScreen(targetRect, viewport)) return null;
   const centerY = (targetRect.top + targetRect.bottom) / 2;

@@ -10,9 +10,18 @@ function makeDeps() {
   const calls: any = [];
   return {
     calls,
-    setLocal: (obj: any) => { calls.push(['set', obj]); return Promise.resolve(); },
-    removeLocal: (keys: any) => { calls.push(['remove', keys]); return Promise.resolve(); },
-    removeSession: (keys: any) => { calls.push(['removeSession', keys]); return Promise.resolve(); },
+    setLocal: (obj: any) => {
+      calls.push(['set', obj]);
+      return Promise.resolve();
+    },
+    removeLocal: (keys: any) => {
+      calls.push(['remove', keys]);
+      return Promise.resolve();
+    },
+    removeSession: (keys: any) => {
+      calls.push(['removeSession', keys]);
+      return Promise.resolve();
+    },
   };
 }
 

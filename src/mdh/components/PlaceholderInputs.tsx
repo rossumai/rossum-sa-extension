@@ -12,11 +12,17 @@ export function isCompatibleWithType(val: unknown, type?: string): boolean {
   return true;
 }
 
-const CAP: Record<string, string> = { string: 'String', number: 'Number', boolean: 'Boolean', null: 'Null' };
+const CAP: Record<string, string> = {
+  string: 'String',
+  number: 'Number',
+  boolean: 'Boolean',
+  null: 'Null',
+};
 
 // Static tooltip describing what the control is — not a repeat of the resolved
 // type, which is already shown in the "Auto (X)" option text.
-const TYPE_SELECT_TITLE = 'Data type for this variable in the query — Auto infers it from the matched field';
+const TYPE_SELECT_TITLE =
+  'Data type for this variable in the query — Auto infers it from the matched field';
 
 // What the value-based (Auto, no dataset type) path coerces a value to — mirrors
 // renderWholeToken's default branch order. Used to label "Auto (X)".
@@ -66,7 +72,15 @@ function extractDatapoints(nodes: any, fields: any) {
   }
 }
 
-export default function PlaceholderInputs({ names, values, types, onSetValue, onSetType, onRunQuery, resolvedTypeFor }: {
+export default function PlaceholderInputs({
+  names,
+  values,
+  types,
+  onSetValue,
+  onSetType,
+  onRunQuery,
+  resolvedTypeFor,
+}: {
   names: string[];
   values: Record<string, any>;
   types: Record<string, string | undefined>;
@@ -82,13 +96,19 @@ export default function PlaceholderInputs({ names, values, types, onSetValue, on
 
   async function loadAnnotation(val: any) {
     const annotId = parseAnnotationId(val);
-    if (!annotId) { setAnnotStatus('Invalid ID'); return; }
+    if (!annotId) {
+      setAnnotStatus('Invalid ID');
+      return;
+    }
     setAnnotStatus('Loading\u2026');
     try {
       const fields = await fetchAnnotationFields(annotId);
       let filled = 0;
       for (const name of names) {
-        if (name in fields) { onSetValue(name, (fields as Record<string, any>)[name]); filled++; }
+        if (name in fields) {
+          onSetValue(name, (fields as Record<string, any>)[name]);
+          filled++;
+        }
       }
       setAnnotStatus(filled > 0 ? `${filled} filled` : 'No matches');
       if (filled > 0) onRunQuery();
@@ -101,22 +121,30 @@ export default function PlaceholderInputs({ names, values, types, onSetValue, on
     <div class="placeholder-container">
       <div class="placeholder-header">
         <div class="placeholder-label">Variables</div>
-        <button class="placeholder-annotation-btn" onClick={() => setAnnotRow(!annotRow)}>Fill from Annotation</button>
+        <button class="placeholder-annotation-btn" onClick={() => setAnnotRow(!annotRow)}>
+          Fill from Annotation
+        </button>
       </div>
       {annotRow && (
         <div class="placeholder-annotation-row">
           <input
             class="input"
-            placeholder={"Annotation ID or URL\u2026"}
+            placeholder={'Annotation ID or URL\u2026'}
             style="flex:1"
-            onKeyDown={(e: any) => { if (e.key === 'Enter') loadAnnotation(e.target.value.trim()); }}
-            onPaste={(e: any) => { setTimeout(() => loadAnnotation(e.target.value.trim()), 0); }}
+            onKeyDown={(e: any) => {
+              if (e.key === 'Enter') loadAnnotation(e.target.value.trim());
+            }}
+            onPaste={(e: any) => {
+              setTimeout(() => loadAnnotation(e.target.value.trim()), 0);
+            }}
           />
           <span class="placeholder-annotation-status">{annotStatus}</span>
         </div>
       )}
       {names.map((name) => {
-        const rt = resolvedTypeFor ? resolvedTypeFor(name) : { type: undefined, autoType: undefined };
+        const rt = resolvedTypeFor
+          ? resolvedTypeFor(name)
+          : { type: undefined, autoType: undefined };
         const value = values[name] || '';
         const override = (types && types[name]) || '';
         const autoLabelType = rt.autoType || valueBasedType(value); // what Auto yields, ignoring override
@@ -129,8 +157,12 @@ export default function PlaceholderInputs({ names, values, types, onSetValue, on
             <input
               class="input placeholder-input"
               value={value}
-              onInput={(e: any) => { onSetValue(name, e.target.value); }}
-              onKeyDown={(e) => { if (e.key === 'Enter') onRunQuery(); }}
+              onInput={(e: any) => {
+                onSetValue(name, e.target.value);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') onRunQuery();
+              }}
             />
             <select
               class="placeholder-type-select"
@@ -139,11 +171,17 @@ export default function PlaceholderInputs({ names, values, types, onSetValue, on
               onChange={(e: any) => onSetType(name, e.target.value)}
             >
               {typeOptionsFor(value, override).map((opt) => (
-                <option value={opt} key={opt}>{opt === 'auto' ? `Auto (${CAP[autoLabelType]}${autoGuessed ? '?' : ''})` : CAP[opt]}</option>
+                <option value={opt} key={opt}>
+                  {opt === 'auto'
+                    ? `Auto (${CAP[autoLabelType]}${autoGuessed ? '?' : ''})`
+                    : CAP[opt]}
+                </option>
               ))}
             </select>
             {incompatible && (
-              <span class="placeholder-warn" title={`This value won't match as ${CAP[effective]}`}>{'⚠'}</span>
+              <span class="placeholder-warn" title={`This value won't match as ${CAP[effective]}`}>
+                {'⚠'}
+              </span>
             )}
           </div>
         );

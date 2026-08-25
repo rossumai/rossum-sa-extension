@@ -40,7 +40,7 @@ describe('deriveShape', () => {
   it('treats a nullable field (type ∪ null) as required (null never over-rejects)', () => {
     const s = deriveShape([
       { code: 'A', tax: 'V1' },
-      { code: 'B', tax: null },   // nullable column — present everywhere, sometimes null
+      { code: 'B', tax: null }, // nullable column — present everywhere, sometimes null
       { code: 'C', tax: 'V2' },
     ]);
     expect(s.paths.get('tax')).toEqual(new Set(['string', 'null']));
@@ -71,7 +71,10 @@ describe('validateAgainstShape', () => {
   });
 
   it('fails on an unknown field', () => {
-    const r = validateAgainstShape([{ sku: 'B2', price: 20, meta: { active: true }, extra: 1 }], shape);
+    const r = validateAgainstShape(
+      [{ sku: 'B2', price: 20, meta: { active: true }, extra: 1 }],
+      shape,
+    );
     expect(r.ok).toBe(false);
     expect(r.unknown).toContain('extra');
   });
@@ -100,7 +103,10 @@ describe('validateAgainstShape — missingTypes / unknownTypes (additive)', () =
   });
 
   it('joins a multi-type reference set with "/"', () => {
-    const shape = deriveShape([{ sku: 'A1', price: 10 }, { sku: 'B2', price: '20' }]);
+    const shape = deriveShape([
+      { sku: 'A1', price: 10 },
+      { sku: 'B2', price: '20' },
+    ]);
     const r = validateAgainstShape([{ sku: 'C3' }], shape); // price omitted entirely
     expect(r.missing).toContain('price');
     expect(r.missingTypes.get('price').split('/').sort()).toEqual(['number', 'string']);
@@ -156,11 +162,19 @@ describe('validateAgainstShape — whitespace pairing', () => {
   });
 
   it('pairs multiple file variants of one existing field', () => {
-    const r = validateAgainstShape([{ 'sku ': 'A1', price: 10 }, { ' sku': 'B2', price: 20 }], ref);
-    expect(r.whitespace).toEqual(expect.arrayContaining([
-      { expected: 'sku', got: 'sku ' },
-      { expected: 'sku', got: ' sku' },
-    ]));
+    const r = validateAgainstShape(
+      [
+        { 'sku ': 'A1', price: 10 },
+        { ' sku': 'B2', price: 20 },
+      ],
+      ref,
+    );
+    expect(r.whitespace).toEqual(
+      expect.arrayContaining([
+        { expected: 'sku', got: 'sku ' },
+        { expected: 'sku', got: ' sku' },
+      ]),
+    );
     expect(r.unknown).toEqual([]);
     expect(r.missing).toEqual([]);
   });
@@ -173,7 +187,13 @@ describe('validateAgainstShape — whitespace pairing', () => {
   });
 
   it('failedDocCount still counts whitespace-failing docs', () => {
-    const r = validateAgainstShape([{ 'sku ': 'A1', price: 10 }, { sku: 'B2', price: 20 }], ref);
+    const r = validateAgainstShape(
+      [
+        { 'sku ': 'A1', price: 10 },
+        { sku: 'B2', price: 20 },
+      ],
+      ref,
+    );
     expect(r.failedDocCount).toBe(1);
   });
 });
@@ -187,7 +207,10 @@ describe('optional paths are not required (spec §2.4)', () => {
   });
 
   it('a field present in EVERY existing record is still required', () => {
-    const shape = deriveShape([{ sku: 'A1', note: 'x' }, { sku: 'B2', note: 'y' }]);
+    const shape = deriveShape([
+      { sku: 'A1', note: 'x' },
+      { sku: 'B2', note: 'y' },
+    ]);
     const r = validateAgainstShape([{ sku: 'C3' }], shape);
     expect(r.ok).toBe(false);
     expect(r.missing).toEqual(['note']);

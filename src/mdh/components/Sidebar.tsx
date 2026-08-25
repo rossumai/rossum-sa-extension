@@ -1,8 +1,25 @@
 import { h } from 'preact';
 import { useEffect, useState, useRef } from 'preact/hooks';
-import { collections, selectedCollection, activeView, loading, error,
-  rawCollections, hiddenCollections, showHiddenCollections, applyCollectionFilter } from '../store.js';
-import { promptModal, closeModal, openModal, ModalBody, ModalActions, ModalMessage, ModalLoading } from './Modal.jsx';
+import {
+  collections,
+  selectedCollection,
+  activeView,
+  loading,
+  error,
+  rawCollections,
+  hiddenCollections,
+  showHiddenCollections,
+  applyCollectionFilter,
+} from '../store.js';
+import {
+  promptModal,
+  closeModal,
+  openModal,
+  ModalBody,
+  ModalActions,
+  ModalMessage,
+  ModalLoading,
+} from './Modal.jsx';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
 import { showUndo } from '../undo.js';
@@ -46,47 +63,55 @@ function showOverview() {
 }
 
 function showCreateModal() {
-  promptModal('New Collection', {
-    placeholder: 'Collection name...',
-    submitLabel: 'Create',
-    submitClass: 'btn-success',
-  }, async (name, hint) => {
-    try {
-      loading.value = true;
-      error.value = null;
-      await api.createCollection(name);
-      cache.invalidateAll();
-      closeModal();
-      await loadCollections();
-      selectCollection(name);
-    } catch (err: any) {
-      loading.value = false;
-      hint.textContent = err.message;
-    }
-  });
+  promptModal(
+    'New Collection',
+    {
+      placeholder: 'Collection name...',
+      submitLabel: 'Create',
+      submitClass: 'btn-success',
+    },
+    async (name, hint) => {
+      try {
+        loading.value = true;
+        error.value = null;
+        await api.createCollection(name);
+        cache.invalidateAll();
+        closeModal();
+        await loadCollections();
+        selectCollection(name);
+      } catch (err: any) {
+        loading.value = false;
+        hint.textContent = err.message;
+      }
+    },
+  );
 }
 
 function showRenameModal(oldName: any) {
-  promptModal('Rename Collection', {
-    placeholder: 'New name...',
-    initialValue: oldName,
-    submitLabel: 'Rename',
-  }, async (newName, hint) => {
-    try {
-      loading.value = true;
-      error.value = null;
-      await api.renameCollection(oldName, newName);
-      cache.invalidateAll();
-      closeModal();
-      if (selectedCollection.value === oldName) {
-        selectedCollection.value = newName;
+  promptModal(
+    'Rename Collection',
+    {
+      placeholder: 'New name...',
+      initialValue: oldName,
+      submitLabel: 'Rename',
+    },
+    async (newName, hint) => {
+      try {
+        loading.value = true;
+        error.value = null;
+        await api.renameCollection(oldName, newName);
+        cache.invalidateAll();
+        closeModal();
+        if (selectedCollection.value === oldName) {
+          selectedCollection.value = newName;
+        }
+        await loadCollections();
+      } catch (err: any) {
+        loading.value = false;
+        hint.textContent = err.message;
       }
-      await loadCollections();
-    } catch (err: any) {
-      loading.value = false;
-      hint.textContent = err.message;
-    }
-  });
+    },
+  );
 }
 
 async function performDrop(name: any, snapshot: any) {
@@ -115,7 +140,9 @@ async function performDrop(name: any, snapshot: any) {
             if (idx.name === '_id_') continue;
             try {
               await api.createIndex(name, idx.name, idx.key, idx.options || {});
-            } catch { /* recreate best-effort; one bad index shouldn't sink the whole undo */ }
+            } catch {
+              /* recreate best-effort; one bad index shouldn't sink the whole undo */
+            }
           }
           if (snapshot.docs.length > 0) {
             await api.insertMany(name, snapshot.docs, false);
@@ -131,9 +158,10 @@ async function performDrop(name: any, snapshot: any) {
     // the background drop may still complete. Surface a softer message rather
     // than asserting the drop failed.
     error.value = {
-      message: (err.timedOut || err.pollUnavailable)
-        ? `Drop of "${name}" is still running in the background — use Refresh to confirm.`
-        : err.message,
+      message:
+        err.timedOut || err.pollUnavailable
+          ? `Drop of "${name}" is still running in the background — use Refresh to confirm.`
+          : err.message,
     };
   } finally {
     loading.value = false;
@@ -154,7 +182,8 @@ function DropConfirmBody({ name }: { name: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    api.aggregate(name, [{ $count: 'n' }])
+    api
+      .aggregate(name, [{ $count: 'n' }])
       .then((res) => {
         if (cancelled) return;
         setCount(res.result?.[0]?.n ?? 0);
@@ -165,10 +194,14 @@ function DropConfirmBody({ name }: { name: string }) {
         if (cancelled) return;
         setCount(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [name]);
 
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   const countKnown = count !== null;
   const canUndo = typeof count === 'number' && count <= UNDO_LIMIT;
@@ -183,13 +216,27 @@ function DropConfirmBody({ name }: { name: string }) {
       </ModalLoading>
     );
   } else if (count === false) {
-    messageEl = <ModalMessage>This will permanently delete "{name}" and all its data.</ModalMessage>;
+    messageEl = (
+      <ModalMessage>This will permanently delete "{name}" and all its data.</ModalMessage>
+    );
   } else if (count === 0) {
-    messageEl = <ModalMessage>This will permanently delete the empty collection "{name}".</ModalMessage>;
+    messageEl = (
+      <ModalMessage>This will permanently delete the empty collection "{name}".</ModalMessage>
+    );
   } else if (canUndo) {
-    messageEl = <ModalMessage>{count.toLocaleString()} document{count !== 1 ? 's' : ''} will be deleted. You'll have a few seconds to undo.</ModalMessage>;
+    messageEl = (
+      <ModalMessage>
+        {count.toLocaleString()} document{count !== 1 ? 's' : ''} will be deleted. You'll have a few
+        seconds to undo.
+      </ModalMessage>
+    );
   } else {
-    messageEl = <ModalMessage>{count.toLocaleString()} documents will be permanently deleted. Undo is unavailable above {UNDO_LIMIT.toLocaleString()} documents.</ModalMessage>;
+    messageEl = (
+      <ModalMessage>
+        {count.toLocaleString()} documents will be permanently deleted. Undo is unavailable above{' '}
+        {UNDO_LIMIT.toLocaleString()} documents.
+      </ModalMessage>
+    );
   }
 
   async function doSubmit() {
@@ -207,7 +254,9 @@ function DropConfirmBody({ name }: { name: string }) {
       try {
         loading.value = true;
         const [docsRes, idxRes] = await Promise.all([
-          numericCount! > 0 ? api.aggregate(name, [{ $match: {} }]) : Promise.resolve({ result: [] }),
+          numericCount! > 0
+            ? api.aggregate(name, [{ $match: {} }])
+            : Promise.resolve({ result: [] }),
           api.listIndexes(name),
         ]);
         snapshot = { docs: docsRes.result || [], indexes: idxRes.result || [] };
@@ -231,13 +280,24 @@ function DropConfirmBody({ name }: { name: string }) {
         style="width:100%"
         placeholder={`Type "${name}" to confirm`}
         value={confirmText}
-        onInput={(e: any) => { setConfirmText(e.target.value); if (hintMessage) setHintMessage(''); }}
-        onKeyDown={(e) => { if (e.key === 'Enter') doSubmit(); }}
+        onInput={(e: any) => {
+          setConfirmText(e.target.value);
+          if (hintMessage) setHintMessage('');
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') doSubmit();
+        }}
       />
-      <div class="input-hint" style={hintMessage ? 'color: var(--danger)' : ''}>{hintMessage}</div>
+      <div class="input-hint" style={hintMessage ? 'color: var(--danger)' : ''}>
+        {hintMessage}
+      </div>
       <ModalActions>
-        <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>
-        <button class="btn btn-danger" onClick={doSubmit} disabled={submitDisabled}>Drop</button>
+        <button class="btn btn-secondary" onClick={closeModal}>
+          Cancel
+        </button>
+        <button class="btn btn-danger" onClick={doSubmit} disabled={submitDisabled}>
+          Drop
+        </button>
       </ModalActions>
     </ModalBody>
   );
@@ -250,7 +310,9 @@ function confirmDrop(name: any) {
 export { loadCollections, performDrop, showCreateModal };
 
 export default function Sidebar() {
-  useEffect(() => { loadCollections(); }, []);
+  useEffect(() => {
+    loadCollections();
+  }, []);
 
   const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState<any>(null);
@@ -265,7 +327,9 @@ export default function Sidebar() {
       if (e.target.closest('.collection-action-menu-btn')) return;
       setMenuOpenFor(null);
     }
-    function onScroll() { setMenuOpenFor(null); }
+    function onScroll() {
+      setMenuOpenFor(null);
+    }
     document.addEventListener('mousedown', onMouseDown);
     window.addEventListener('scroll', onScroll, true);
     return () => {
@@ -297,7 +361,11 @@ export default function Sidebar() {
   function toggleHidden() {
     const next = !showHiddenCollections.value;
     showHiddenCollections.value = next;
-    try { chrome.storage.local.set({ mdhShowHiddenCollections: next }); } catch { /* no storage (tests) */ }
+    try {
+      chrome.storage.local.set({ mdhShowHiddenCollections: next });
+    } catch {
+      /* no storage (tests) */
+    }
   }
 
   // One row, rendered for BOTH lists — the customer's collections and, under the expandable
@@ -305,29 +373,45 @@ export default function Sidebar() {
   // places: a hidden collection is a normal collection that merely starts out of sight.
   function collectionRow(name: any) {
     return (
-          <div
-        class={'collection-item'
-          + (name === selected && activeView.value === 'collection' ? ' active' : '')
-          + (menuOpenFor === name ? ' menu-open' : '')}
+      <div
+        class={
+          'collection-item' +
+          (name === selected && activeView.value === 'collection' ? ' active' : '') +
+          (menuOpenFor === name ? ' menu-open' : '')
+        }
         onClick={(e) => {
-          if (e.metaKey || e.ctrlKey) { e.preventDefault(); openCollectionTab(name); }
-          else selectCollection(name);
+          if (e.metaKey || e.ctrlKey) {
+            e.preventDefault();
+            openCollectionTab(name);
+          } else selectCollection(name);
         }}
-        onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); openCollectionTab(name); } }}
-        onMouseDown={(e) => { if (e.button === 1) e.preventDefault(); }}
+        onAuxClick={(e) => {
+          if (e.button === 1) {
+            e.preventDefault();
+            openCollectionTab(name);
+          }
+        }}
+        onMouseDown={(e) => {
+          if (e.button === 1) e.preventDefault();
+        }}
         onContextMenu={(e) => {
           e.preventDefault();
           setMenuPos({ top: e.clientY, left: e.clientX });
           setMenuOpenFor(name);
         }}
       >
-        <span class="collection-item-name" title={name}>{name}</span>
+        <span class="collection-item-name" title={name}>
+          {name}
+        </span>
         <span class="collection-item-actions">
           <button
             class="collection-action-btn collection-action-menu-btn"
             title="Collection actions"
             onClick={(e) => toggleMenu(name, e)}
-            dangerouslySetInnerHTML={{ __html: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>' }}
+            dangerouslySetInnerHTML={{
+              __html:
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>',
+            }}
           />
         </span>
       </div>
@@ -342,13 +426,22 @@ export default function Sidebar() {
           <span class="sidebar-count">({cols.length})</span>
         </div>
         <div class="sidebar-header-actions">
-          <button class="icon-btn" title="New collection" onClick={showCreateModal}>+</button>
-          <button class="icon-btn" title="Refresh" onClick={() => { cache.invalidateAll(); loadCollections(); }}>{'\u21bb'}</button>
+          <button class="icon-btn" title="New collection" onClick={showCreateModal}>
+            +
+          </button>
+          <button
+            class="icon-btn"
+            title="Refresh"
+            onClick={() => {
+              cache.invalidateAll();
+              loadCollections();
+            }}
+          >
+            {'\u21bb'}
+          </button>
         </div>
       </div>
-      <div class="collection-list">
-        {cols.map((name) => collectionRow(name))}
-      </div>
+      <div class="collection-list">{cols.map((name) => collectionRow(name))}</div>
       {hiddenCols.length > 0 && (
         <div class={'collection-hidden-group' + (showHidden ? ' open' : '')}>
           <button
@@ -362,31 +455,60 @@ export default function Sidebar() {
             <span class="collection-hidden-label">Extension collections</span>
             <span class="sidebar-count">({hiddenCols.length})</span>
           </button>
-          {showHidden && <div class="collection-list">{hiddenCols.map((name) => collectionRow(name))}</div>}
+          {showHidden && (
+            <div class="collection-list">{hiddenCols.map((name) => collectionRow(name))}</div>
+          )}
         </div>
       )}
       {menuOpenFor && menuPos && (
         <div
           ref={menuRef}
           class="collection-action-menu"
-          style={`position:fixed;top:${menuPos.top}px;` + (menuPos.left != null ? `left:${menuPos.left}px` : `right:${menuPos.right}px`)}
+          style={
+            `position:fixed;top:${menuPos.top}px;` +
+            (menuPos.left != null ? `left:${menuPos.left}px` : `right:${menuPos.right}px`)
+          }
         >
           <button
             class="toolbar-menu-item"
-            onClick={() => { const n = menuOpenFor; setMenuOpenFor(null); openCollectionTab(n); }}
-          >Open in new tab {'↗'}</button>
+            onClick={() => {
+              const n = menuOpenFor;
+              setMenuOpenFor(null);
+              openCollectionTab(n);
+            }}
+          >
+            Open in new tab {'↗'}
+          </button>
           <button
             class="toolbar-menu-item"
-            onClick={() => { const n = menuOpenFor; setMenuOpenFor(null); navigator.clipboard.writeText(n); }}
-          >Copy name</button>
+            onClick={() => {
+              const n = menuOpenFor;
+              setMenuOpenFor(null);
+              navigator.clipboard.writeText(n);
+            }}
+          >
+            Copy name
+          </button>
           <button
             class="toolbar-menu-item"
-            onClick={() => { const n = menuOpenFor; setMenuOpenFor(null); showRenameModal(n); }}
-          >Rename</button>
+            onClick={() => {
+              const n = menuOpenFor;
+              setMenuOpenFor(null);
+              showRenameModal(n);
+            }}
+          >
+            Rename
+          </button>
           <button
             class="toolbar-menu-item toolbar-menu-danger"
-            onClick={() => { const n = menuOpenFor; setMenuOpenFor(null); confirmDrop(n); }}
-          >Drop</button>
+            onClick={() => {
+              const n = menuOpenFor;
+              setMenuOpenFor(null);
+              confirmDrop(n);
+            }}
+          >
+            Drop
+          </button>
         </div>
       )}
       <div class="sidebar-footer">
@@ -395,14 +517,43 @@ export default function Sidebar() {
           onClick={showOverview}
           title="High-level overview of all collections"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="3" y="3" width="7" height="7" />
+            <rect x="14" y="3" width="7" height="7" />
+            <rect x="3" y="14" width="7" height="7" />
+            <rect x="14" y="14" width="7" height="7" />
+          </svg>
           <span>Overview</span>
         </div>
         <div
           class={'sidebar-nav-item' + (activeView.value === 'operations' ? ' active' : '')}
           onClick={showOperationLogs}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+            <polyline points="10 9 9 9 8 9" />
+          </svg>
           <span>Operation Logs</span>
         </div>
       </div>

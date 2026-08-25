@@ -3,16 +3,23 @@
 
 export const REL = { VERIFIED: 'verified', BEST_EFFORT: 'best-effort', UNAVAILABLE: 'unavailable' };
 
-function idFromUrl(url: unknown): string | null { const m = String(url || '').match(/\/(\d+)\/?$/); return m ? m[1] : null; }
-function fmtNum(n: unknown): string { return typeof n === 'number' ? (Math.round(n * 100) / 100).toString() : String(n ?? '?'); }
+function idFromUrl(url: unknown): string | null {
+  const m = String(url || '').match(/\/(\d+)\/?$/);
+  return m ? m[1] : null;
+}
+function fmtNum(n: unknown): string {
+  return typeof n === 'number' ? (Math.round(n * 100) / 100).toString() : String(n ?? '?');
+}
 
 // --- messages ---------------------------------------------------------------
 // A stored annotation.messages[] item -> who produced it.
 export function classifyMessage(msg: any) {
   const d = msg?.detail || {};
   let culprit = null;
-  if (d.rule_id != null) culprit = { kind: 'rule', id: d.rule_id, name: d.rule_name || `rule ${d.rule_id}` };
-  else if (d.hook_id != null) culprit = { kind: 'hook', id: d.hook_id, name: d.hook_name || `hook ${d.hook_id}` };
+  if (d.rule_id != null)
+    culprit = { kind: 'rule', id: d.rule_id, name: d.rule_name || `rule ${d.rule_id}` };
+  else if (d.hook_id != null)
+    culprit = { kind: 'hook', id: d.hook_id, name: d.hook_name || `hook ${d.hook_id}` };
   return {
     level: msg?.type || 'info',
     content: msg?.content || '',
@@ -46,16 +53,22 @@ export function explainBlocker(item: any, ctx: any = {}) {
     // default, so the Blockers section and the VerdictCard never show different
     // numbers for the same low_score blocker. ctx.fieldThresholds is the
     // bySchemaId map from fieldThresholds(); absent (older callers) → queue default.
-    const threshold = sample?.details?.threshold ?? ctx.fieldThresholds?.[schemaId] ?? ctx.queue?.default_score_threshold;
+    const threshold =
+      sample?.details?.threshold ??
+      ctx.fieldThresholds?.[schemaId] ??
+      ctx.queue?.default_score_threshold;
     explanation = `Extraction confidence ${fmtNum(score)} is below the threshold ${fmtNum(threshold)}.`;
     culprit = { kind: 'engine', id: null, name: 'extraction engine' };
   } else if (type === 'automation_disabled') {
     explanation = `Queue automation is off (automation_level: "${ctx.queue?.automation_level ?? 'unknown'}").`;
     culprit = { kind: 'queue', id: null, name: 'queue configuration' };
   } else if (type === 'error_message') {
-    explanation = 'One or more error messages are present (see the messages below); any error blocks automation.';
+    explanation =
+      'One or more error messages are present (see the messages below); any error blocks automation.';
   } else if (det && (det.rule_name || det.hook_name)) {
-    culprit = det.rule_name ? { kind: 'rule', id: null, name: det.rule_name } : { kind: 'hook', id: null, name: det.hook_name };
+    culprit = det.rule_name
+      ? { kind: 'rule', id: null, name: det.rule_name }
+      : { kind: 'hook', id: null, name: det.hook_name };
     reliability = REL.BEST_EFFORT;
     explanation = `Blocker of type "${type}"${schemaId ? ` on field ${schemaId}` : ''}.`;
   } else {
@@ -82,44 +95,88 @@ export type RejectionVerdict = {
   reliability: string;
 };
 
-export function classifyRejection(
-  { annotation = {}, workflowActivities = [], notes = [], usersById = {} }:
-    { annotation?: any; workflowActivities?: any[]; notes?: any[]; usersById?: Record<string, any> } = {},
-): RejectionVerdict {
+export function classifyRejection({
+  annotation = {},
+  workflowActivities = [],
+  notes = [],
+  usersById = {},
+}: {
+  annotation?: any;
+  workflowActivities?: any[];
+  notes?: any[];
+  usersById?: Record<string, any>;
+} = {}): RejectionVerdict {
   const current = annotation.status === 'rejected';
   const historical = current || !!annotation.rejected_at;
   const wfReject = (workflowActivities || []).find((a) => a.action === 'rejected');
   const rejNote = (notes || []).find((n) => n.type === 'rejection');
   const reason = rejNote
     ? { text: rejNote.content || null, reliability: REL.VERIFIED }
-    : (wfReject ? { text: wfReject.note || null, reliability: REL.VERIFIED } : { text: null, reliability: REL.UNAVAILABLE });
+    : wfReject
+      ? { text: wfReject.note || null, reliability: REL.VERIFIED }
+      : { text: null, reliability: REL.UNAVAILABLE };
 
   if (!historical) {
-    return { current, historical, type: 'none', culprit: null, reason: { text: null, reliability: REL.UNAVAILABLE }, when: null, automatic: false, reliability: REL.VERIFIED };
+    return {
+      current,
+      historical,
+      type: 'none',
+      culprit: null,
+      reason: { text: null, reliability: REL.UNAVAILABLE },
+      when: null,
+      automatic: false,
+      reliability: REL.VERIFIED,
+    };
   }
 
   // Workflow signature wins: a rejected workflow_activity, regardless of automatically_rejected.
   if (wfReject) {
     return {
-      current, historical, type: 'workflow',
-      culprit: { kind: 'workflow', id: idFromUrl(wfReject.workflow), name: wfReject.workflow ? `Workflow #${idFromUrl(wfReject.workflow)}` : 'approval workflow' },
-      reason, when: annotation.rejected_at || null,
-      automatic: wfReject.created_by == null, reliability: REL.VERIFIED,
+      current,
+      historical,
+      type: 'workflow',
+      culprit: {
+        kind: 'workflow',
+        id: idFromUrl(wfReject.workflow),
+        name: wfReject.workflow ? `Workflow #${idFromUrl(wfReject.workflow)}` : 'approval workflow',
+      },
+      reason,
+      when: annotation.rejected_at || null,
+      automatic: wfReject.created_by == null,
+      reliability: REL.VERIFIED,
     };
   }
   // Hook/API-driven: explicitly flagged automatic; exact extension is best-effort.
   if (annotation.automatically_rejected === true) {
     return {
-      current, historical, type: 'hook',
-      culprit: { kind: 'extension', id: idFromUrl(annotation.rejected_by), name: userName(annotation.rejected_by, usersById) || 'automated identity' },
-      reason, when: annotation.rejected_at || null, automatic: true, reliability: REL.BEST_EFFORT,
+      current,
+      historical,
+      type: 'hook',
+      culprit: {
+        kind: 'extension',
+        id: idFromUrl(annotation.rejected_by),
+        name: userName(annotation.rejected_by, usersById) || 'automated identity',
+      },
+      reason,
+      when: annotation.rejected_at || null,
+      automatic: true,
+      reliability: REL.BEST_EFFORT,
     };
   }
   // Otherwise a person rejected it.
   return {
-    current, historical, type: 'manual',
-    culprit: { kind: 'user', id: idFromUrl(annotation.rejected_by), name: userName(annotation.rejected_by, usersById) || 'a reviewer' },
-    reason, when: annotation.rejected_at || null, automatic: false, reliability: REL.VERIFIED,
+    current,
+    historical,
+    type: 'manual',
+    culprit: {
+      kind: 'user',
+      id: idFromUrl(annotation.rejected_by),
+      name: userName(annotation.rejected_by, usersById) || 'a reviewer',
+    },
+    reason,
+    when: annotation.rejected_at || null,
+    automatic: false,
+    reliability: REL.VERIFIED,
   };
 }
 
@@ -148,7 +205,10 @@ export function fieldProvenance(dp: any) {
 // source is 'data_matching' was populated by one of these.
 export function matchingExtensions(hooks: any[] = []) {
   return (hooks || [])
-    .filter((h) => { const s = h.settings || {}; return s.configurations || s.configs; })
+    .filter((h) => {
+      const s = h.settings || {};
+      return s.configurations || s.configs;
+    })
     .map((h) => ({ hookId: h.id, hookName: h.name || `hook ${h.id}` }));
 }
 
@@ -174,9 +234,13 @@ export function matchConfigsForField(schemaId: string, hooks: any[] = []) {
   const out = [];
   for (const h of hooks || []) {
     const s = h.settings || {};
-    for (const c of (s.configurations || s.configs || [])) {
+    for (const c of s.configurations || s.configs || []) {
       if (configTargets(c).includes(schemaId)) {
-        out.push({ hookId: h.id, hookName: h.name || `hook ${h.id}`, configName: c && c.name ? c.name : null });
+        out.push({
+          hookId: h.id,
+          hookName: h.name || `hook ${h.id}`,
+          configName: c && c.name ? c.name : null,
+        });
       }
     }
   }
@@ -188,7 +252,9 @@ export function contrastText(hex: unknown): string {
   const m = /^#?([0-9a-fA-F]{6})$/.exec(String(hex || ''));
   if (!m) return '#ffffff';
   const n = parseInt(m[1], 16);
-  const r = (n >> 16) & 255; const g = (n >> 8) & 255; const b = n & 255;
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
   const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   return lum > 0.6 ? '#1a1a24' : '#ffffff';
 }
@@ -197,17 +263,30 @@ export function contrastText(hex: unknown): string {
 // extensions are deterministically the hooks subscribed to the export event;
 // the failing one is matched from the hook logs.
 export function exportHookCandidates(hooks: any[] = [], hookLogs: any[] = []) {
-  const exp = (hooks || []).filter((h) => (h.events || []).some((e: unknown) => String(e).startsWith('annotation_content.export')));
+  const exp = (hooks || []).filter((h) =>
+    (h.events || []).some((e: unknown) => String(e).startsWith('annotation_content.export')),
+  );
   let failing = null;
   for (const l of hookLogs || []) {
     // hook log fields: hook_id, action (the export suffix lives here, not in `event`), status/log_level, message.
     const isErr = l.log_level === 'ERROR' || l.status === 'failed';
     if (isErr && String(l.action || '').includes('export')) {
-      const h = exp.find((e) => e.id === l.hook_id) || (hooks || []).find((e) => e.id === l.hook_id);
-      if (h) { failing = { hookId: h.id, hookName: h.name || `hook ${h.id}`, error: l.message || null }; break; }
+      const h =
+        exp.find((e) => e.id === l.hook_id) || (hooks || []).find((e) => e.id === l.hook_id);
+      if (h) {
+        failing = { hookId: h.id, hookName: h.name || `hook ${h.id}`, error: l.message || null };
+        break;
+      }
     }
   }
-  return { failing, candidates: exp.map((h) => ({ hookId: h.id, hookName: h.name || `hook ${h.id}`, active: h.active !== false })) };
+  return {
+    failing,
+    candidates: exp.map((h) => ({
+      hookId: h.id,
+      hookName: h.name || `hook ${h.id}`,
+      active: h.active !== false,
+    })),
+  };
 }
 
 // --- extension run timeline -------------------------------------------------
@@ -234,14 +313,21 @@ function hookInPhase(h: any, phaseEvent: string) {
 // predecessor chain among hooks in the set; ties keep id order. Cycle-safe.
 function rankByRunAfter(hooks: any[]) {
   const byId = new Map<number, any>(hooks.map((h) => [h.id, h]));
-  const idOf = (url: unknown) => { const m = String(url).match(/\/(\d+)\/?$/); return m ? Number(m[1]) : null; };
+  const idOf = (url: unknown) => {
+    const m = String(url).match(/\/(\d+)\/?$/);
+    return m ? Number(m[1]) : null;
+  };
   const memo = new Map();
   const rank = (h: any, seen: Set<any>): number => {
     if (memo.has(h.id)) return memo.get(h.id);
     if (seen.has(h.id)) return 0;
     seen.add(h.id);
-    const preds = (h.run_after || []).map(idOf).filter((id: number | null) => byId.has(id as number));
-    const r = preds.length ? 1 + Math.max(...preds.map((id: number) => rank(byId.get(id), seen))) : 0;
+    const preds = (h.run_after || [])
+      .map(idOf)
+      .filter((id: number | null) => byId.has(id as number));
+    const r = preds.length
+      ? 1 + Math.max(...preds.map((id: number) => rank(byId.get(id), seen)))
+      : 0;
     memo.set(h.id, r);
     return r;
   };
@@ -252,7 +338,9 @@ export function buildPipeline(hooks: any[] = [], hookLogs: any[] = []) {
   const active = (hooks || []).filter((h) => h.active !== false);
   const logsByHook = new Map();
   for (const l of hookLogs || []) {
-    const arr = logsByHook.get(l.hook_id) || []; arr.push(l); logsByHook.set(l.hook_id, arr);
+    const arr = logsByHook.get(l.hook_id) || [];
+    arr.push(l);
+    logsByHook.set(l.hook_id, arr);
   }
   const phases = [];
   for (const [event, label] of PIPELINE_PHASES) {
@@ -263,7 +351,10 @@ export function buildPipeline(hooks: any[] = [], hookLogs: any[] = []) {
       const log = (logsByHook.get(h.id) || []).find((l: any) => l.action === action) || null;
       let run = null;
       if (log) {
-        const dur = (log.start && log.end) ? Math.max(0, (new Date(log.end) as any) - (new Date(log.start) as any)) : null;
+        const dur =
+          log.start && log.end
+            ? Math.max(0, (new Date(log.end) as any) - (new Date(log.start) as any))
+            : null;
         run = {
           failed: log.status === 'failed' || log.log_level === 'ERROR',
           message: log.message || null,
@@ -292,23 +383,36 @@ export function extractLabelRules(rules: any[] = []) {
       if (a?.enabled === false) continue;
       for (const [k, v] of Object.entries(a?.payload || {})) {
         if (!k.toLowerCase().includes('label')) continue;
-        for (const item of (Array.isArray(v) ? v : [v])) {
-          const id = idFromUrl(item) || (typeof item === 'number' ? String(item) : (/^\d+$/.test(String(item)) ? String(item) : null));
+        for (const item of Array.isArray(v) ? v : [v]) {
+          const id =
+            idFromUrl(item) ||
+            (typeof item === 'number'
+              ? String(item)
+              : /^\d+$/.test(String(item))
+                ? String(item)
+                : null);
           if (id) labelIds.add(id);
         }
       }
     }
-    if (labelIds.size) out.push({ ruleId: r.id, ruleName: r.name || `rule ${r.id}`, trigger: r.trigger_condition || null, labelIds: [...labelIds] });
+    if (labelIds.size)
+      out.push({
+        ruleId: r.id,
+        ruleName: r.name || `rule ${r.id}`,
+        trigger: r.trigger_condition || null,
+        labelIds: [...labelIds],
+      });
   }
   return out;
 }
 
 // Attribute the annotation's labels: applied (by which rule, or manual) and
 // rule-governed-but-not-applied (which rule didn't fire). Rule-governed only.
-export function labelAttribution(
-  { annotation = {}, labelsById = {}, labelRules = [] }:
-    { annotation?: any; labelsById?: Record<string, any>; labelRules?: any[] } = {},
-) {
+export function labelAttribution({
+  annotation = {},
+  labelsById = {},
+  labelRules = [],
+}: { annotation?: any; labelsById?: Record<string, any>; labelRules?: any[] } = {}) {
   const def = (id: any) => labelsById[id] || null;
   const ruleFor = (id: any) => labelRules.find((lr) => lr.labelIds.includes(id)) || null;
   const appliedIds = (annotation.labels || []).map((u: unknown) => idFromUrl(u)).filter(Boolean);
@@ -317,7 +421,9 @@ export function labelAttribution(
     const lr = ruleFor(id);
     const d = def(id);
     return {
-      id, name: d?.name || `label ${id}`, color: d?.color || null,
+      id,
+      name: d?.name || `label ${id}`,
+      color: d?.color || null,
       rule: lr ? { name: lr.ruleName, trigger: lr.trigger } : null,
       reliability: lr ? REL.VERIFIED : REL.UNAVAILABLE,
     };
@@ -331,7 +437,13 @@ export function labelAttribution(
       if (appliedSet.has(id) || seen.has(id)) continue;
       seen.add(id);
       const d = def(id);
-      notApplied.push({ id, name: d?.name || `label ${id}`, color: d?.color || null, rule: { name: lr.ruleName, trigger: lr.trigger }, reliability: REL.VERIFIED });
+      notApplied.push({
+        id,
+        name: d?.name || `label ${id}`,
+        color: d?.color || null,
+        rule: { name: lr.ruleName, trigger: lr.trigger },
+        reliability: REL.VERIFIED,
+      });
     }
   }
   return { applied, notApplied };

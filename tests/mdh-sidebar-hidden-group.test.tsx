@@ -3,7 +3,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { h, render } from 'preact';
 
 globalThis.chrome = globalThis.chrome || {
-  storage: { local: { get: () => Promise.resolve({}), set: () => Promise.resolve(), remove: () => Promise.resolve() } },
+  storage: {
+    local: {
+      get: () => Promise.resolve({}),
+      set: () => Promise.resolve(),
+      remove: () => Promise.resolve(),
+    },
+  },
   runtime: { onMessage: { addListener: () => {} } },
 };
 
@@ -37,10 +43,16 @@ async function mount() {
   await tick();
   return root;
 }
-const names = (root: any, sel = '.collection-item-name') => [...root.querySelectorAll(sel)].map((e) => e.textContent);
+const names = (root: any, sel = '.collection-item-name') =>
+  [...root.querySelectorAll(sel)].map((e) => e.textContent);
 const group = (root: any) => root.querySelector('.collection-hidden-group');
 
-afterEach(() => { if (mounted) { render(null, mounted); mounted = null; } });
+afterEach(() => {
+  if (mounted) {
+    render(null, mounted);
+    mounted = null;
+  }
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -70,15 +82,18 @@ describe('Sidebar — this extension own collections live in a group below the l
   });
 
   it('expands to real rows — same renderer, so they behave like any other collection', async () => {
-    vi.mocked(api.listCollections).mockResolvedValue({ result: ['vendors', COLLECTION, LEGACY_COLLECTION] });
+    vi.mocked(api.listCollections).mockResolvedValue({
+      result: ['vendors', COLLECTION, LEGACY_COLLECTION],
+    });
     const root = await mount();
     const toggle = group(root).querySelector('.collection-hidden-toggle');
     toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await tick();
     const rows = [...group(root).querySelectorAll('.collection-item')];
     expect(rows).toHaveLength(2);
-    expect(rows.map((r) => r.querySelector('.collection-item-name').textContent).sort())
-      .toEqual([LEGACY_COLLECTION, COLLECTION].sort());
+    expect(rows.map((r) => r.querySelector('.collection-item-name').textContent).sort()).toEqual(
+      [LEGACY_COLLECTION, COLLECTION].sort(),
+    );
     // the kebab actions menu comes along, since it is the same row markup
     expect(rows[0].querySelector('.collection-action-menu-btn')).toBeTruthy();
     // clicking one selects it like any other collection

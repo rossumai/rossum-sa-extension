@@ -24,7 +24,11 @@ export async function loadGraph() {
   store.loading.value = true;
   store.loadedCount.value = 0;
   try {
-    const raw = await api.fetchOrgResources({ onProgress: (n) => { store.loadedCount.value = n; } });
+    const raw = await api.fetchOrgResources({
+      onProgress: (n) => {
+        store.loadedCount.value = n;
+      },
+    });
     store.graph.value = buildGraph(raw);
   } catch (err: any) {
     store.error.value = err.message || 'Failed to load the organization';

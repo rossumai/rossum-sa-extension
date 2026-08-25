@@ -2,18 +2,32 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { h, render } from 'preact';
 
-const sceneCalls = { created: 0, lastData: null as any, destroyed: 0, hoverCb: null as any, clickCb: null as any };
+const sceneCalls = {
+  created: 0,
+  lastData: null as any,
+  destroyed: 0,
+  hoverCb: null as any,
+  clickCb: null as any,
+};
 vi.mock('../src/galaxy/scene.js', () => ({
   createScene: () => {
     sceneCalls.created++;
     return {
-      setData: (d: any) => { sceneCalls.lastData = d; },
-      onHover: (cb: any) => { sceneCalls.hoverCb = cb; },
-      onClick: (cb: any) => { sceneCalls.clickCb = cb; },
+      setData: (d: any) => {
+        sceneCalls.lastData = d;
+      },
+      onHover: (cb: any) => {
+        sceneCalls.hoverCb = cb;
+      },
+      onClick: (cb: any) => {
+        sceneCalls.clickCb = cb;
+      },
       focus: () => {},
       setIdleSpin: () => {},
       setVisibleTypes: () => {},
-      destroy: () => { sceneCalls.destroyed++; },
+      destroy: () => {
+        sceneCalls.destroyed++;
+      },
     };
   },
 }));
@@ -29,15 +43,24 @@ function mount(connected: any) {
 }
 
 beforeEach(() => {
-  sceneCalls.created = 0; sceneCalls.lastData = null; sceneCalls.destroyed = 0;
-  sceneCalls.hoverCb = null; sceneCalls.clickCb = null;
+  sceneCalls.created = 0;
+  sceneCalls.lastData = null;
+  sceneCalls.destroyed = 0;
+  sceneCalls.hoverCb = null;
+  sceneCalls.clickCb = null;
   store.graph.value = { nodes: [], links: [] };
   store.loading.value = false;
   store.loadedCount.value = 0;
   store.error.value = null;
   store.hoveredNodeId.value = null;
   store.selectedNodeId.value = null;
-  store.visibleTypes.value = { organization: true, workspace: true, queue: true, hook: true, engine: true };
+  store.visibleTypes.value = {
+    organization: true,
+    workspace: true,
+    queue: true,
+    hook: true,
+    engine: true,
+  };
 });
 
 describe('Galaxy App', () => {
@@ -48,7 +71,20 @@ describe('Galaxy App', () => {
     expect(sceneCalls.created).toBe(0);
   });
   it('mounts the scene and pushes graph data when connected', async () => {
-    store.graph.value = { nodes: [{ detail: [], id: 'queue:1', type: 'queue', rawId: '1', name: 'Q', color: '#29d4c5', val: 5 }], links: [] };
+    store.graph.value = {
+      nodes: [
+        {
+          detail: [],
+          id: 'queue:1',
+          type: 'queue',
+          rawId: '1',
+          name: 'Q',
+          color: '#29d4c5',
+          val: 5,
+        },
+      ],
+      links: [],
+    };
     mount(true);
     await Promise.resolve();
     expect(sceneCalls.created).toBe(1);
@@ -95,7 +131,20 @@ describe('Galaxy App', () => {
   });
   it('pushes graph changes into the live scene after mount', async () => {
     mount(true);
-    store.graph.value = { nodes: [{ detail: [], id: 'queue:2', type: 'queue', rawId: '2', name: 'Q2', color: '#29d4c5', val: 5 }], links: [] };
+    store.graph.value = {
+      nodes: [
+        {
+          detail: [],
+          id: 'queue:2',
+          type: 'queue',
+          rawId: '2',
+          name: 'Q2',
+          color: '#29d4c5',
+          val: 5,
+        },
+      ],
+      links: [],
+    };
     await vi.waitFor(() => {
       expect(sceneCalls.lastData.nodes.some((n: any) => n.id === 'queue:2')).toBe(true);
     });

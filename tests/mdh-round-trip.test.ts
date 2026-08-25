@@ -51,16 +51,30 @@ async function leafPaths() {
       const path = expr === '$$ROOT' ? null : expr.slice(1);
       const byKey = new Map();
       for (const rec of RECORDS) {
-        const node = path === null ? rec : path.split('.').reduce((o: any, s: any) => (o == null ? o : o[s]), rec);
+        const node =
+          path === null
+            ? rec
+            : path.split('.').reduce((o: any, s: any) => (o == null ? o : o[s]), rec);
         if (node === null || typeof node !== 'object' || Array.isArray(node)) continue;
         for (const [k, v] of Object.entries(node)) {
           if (!byKey.has(k)) byKey.set(k, new Set());
-          byKey.get(k).add(
-            v === null ? 'null'
-              : Array.isArray(v) ? 'array'
-                : typeof v === 'object' ? (Object.keys(v).length === 1 && Object.keys(v)[0].startsWith('$') ? Object.keys(v)[0].slice(1) : 'object')
-                  : typeof v === 'number' ? 'int' : typeof v === 'boolean' ? 'bool' : 'string',
-          );
+          byKey
+            .get(k)
+            .add(
+              v === null
+                ? 'null'
+                : Array.isArray(v)
+                  ? 'array'
+                  : typeof v === 'object'
+                    ? Object.keys(v).length === 1 && Object.keys(v)[0].startsWith('$')
+                      ? Object.keys(v)[0].slice(1)
+                      : 'object'
+                    : typeof v === 'number'
+                      ? 'int'
+                      : typeof v === 'boolean'
+                        ? 'bool'
+                        : 'string',
+            );
         }
       }
       (out as any)[fk] = [...byKey].map(([k, types]) => ({ _id: k, types: [...types] }));
@@ -94,19 +108,28 @@ describe('export → import round trip (the guarantee)', () => {
     const columns = await leafPaths();
     const ser = buildXlsxSerializer({ sheetName: 'Sheet1', header: true, columns });
     const parts: any = [];
-    await ser.start(async (b) => { parts.push(b.slice()); }, { collectionName: 'c', pipelineStages: [] });
+    await ser.start(
+      async (b) => {
+        parts.push(b.slice());
+      },
+      { collectionName: 'c', pipelineStages: [] },
+    );
     await ser.writeDocs(RECORDS);
     await ser.finish();
     const bytes: any = new Uint8Array(parts.reduce((n: any, p: any) => n + p.length, 0));
     let off = 0;
-    for (const p of parts) { bytes.set(p, off); off += p.length; }
+    for (const p of parts) {
+      bytes.set(p, off);
+      off += p.length;
+    }
     expectRoundTrip(importTail((await parseXlsx(bytes.buffer, {})).docs));
   });
 
   it('XML', () => {
-    const xml = '<?xml version="1.0" encoding="UTF-8"?>\n<records>\n'
-      + RECORDS.map((d) => '  ' + docToXml(d, 'record')).join('\n')
-      + '\n</records>\n';
+    const xml =
+      '<?xml version="1.0" encoding="UTF-8"?>\n<records>\n' +
+      RECORDS.map((d) => '  ' + docToXml(d, 'record')).join('\n') +
+      '\n</records>\n';
     expectRoundTrip(importTail(parseXml(xml, {}).docs));
   });
 });
@@ -115,30 +138,40 @@ describe('backward compatibility (spec §5)', () => {
   it('a CSV exported BEFORE this change still imports correctly', () => {
     // Legacy layout: top-level headers only, each nested value one JSON cell.
     const columns = orderColumns([...new Set(RECORDS.flatMap((d) => Object.keys(d)))]);
-    const legacyRow = (doc: any) => columns
-      .map((c) => {
-        const v = doc[c];
-        if (v === undefined) return '';
-        if (v && typeof v === 'object' && Object.keys(v).length === 1 && Object.keys(v)[0].startsWith('$')) {
-          return Object.values(v)[0];
-        }
-        if (v && typeof v === 'object') return '"' + JSON.stringify(v).split('"').join('""') + '"';
-        return String(v);
-      })
-      .join(',');
+    const legacyRow = (doc: any) =>
+      columns
+        .map((c) => {
+          const v = doc[c];
+          if (v === undefined) return '';
+          if (
+            v &&
+            typeof v === 'object' &&
+            Object.keys(v).length === 1 &&
+            Object.keys(v)[0].startsWith('$')
+          ) {
+            return Object.values(v)[0];
+          }
+          if (v && typeof v === 'object')
+            return '"' + JSON.stringify(v).split('"').join('""') + '"';
+          return String(v);
+        })
+        .join(',');
     const text = [csvHeader(columns), ...RECORDS.map(legacyRow)].join('\r\n');
     expectRoundTrip(importTail(parseCsv(text, {}).docs));
   });
 
   it('restore OFF leaves the parsed docs exactly as the parser produced them', () => {
     const parsed = parseCsv('a.b,c\r\n1,2', {}).docs;
-    expect(parsed).toEqual([{ 'a.b': '1', c: '2' }]);   // no nesting without restore
+    expect(parsed).toEqual([{ 'a.b': '1', c: '2' }]); // no nesting without restore
   });
 });
 
 describe('a mixed object/scalar path round-trips through CSV (reviewer-measured defect)', () => {
   it('exports a header its own importer can re-read, with no false conflict', () => {
-    const docs = [{ sku: 'A', v: { inner: 'X' } }, { sku: 'B', v: 'plain' }];
+    const docs = [
+      { sku: 'A', v: { inner: 'X' } },
+      { sku: 'B', v: 'plain' },
+    ];
     const shape = deriveShape(docs);
     const columns = orderColumns([...new Set(docs.flatMap((d) => Object.keys(flattenDoc(d))))]);
     expect(columns).toEqual(['sku', 'v', 'v.inner']);
@@ -149,7 +182,11 @@ describe('a mixed object/scalar path round-trips through CSV (reviewer-measured 
 
     expect(summary.warnings).toEqual([]);
     expect(restored).toEqual(docs);
-    expect(validateAgainstShape(restored, shape)).toMatchObject({ ok: true, unknown: [], failedDocCount: 0 });
+    expect(validateAgainstShape(restored, shape)).toMatchObject({
+      ok: true,
+      unknown: [],
+      failedDocCount: 0,
+    });
   });
 });
 
@@ -158,7 +195,7 @@ describe('the header the export writes matches the header the flattener produces
     const columns = await leafPaths();
     for (const rec of RECORDS) {
       for (const k of Object.keys(flattenDoc(rec))) {
-        expect(columns).toContain(k);   // nothing a record holds is missing from the header
+        expect(columns).toContain(k); // nothing a record holds is missing from the header
       }
     }
   });

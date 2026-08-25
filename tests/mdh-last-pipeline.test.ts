@@ -4,15 +4,21 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 let store: any;
 beforeEach(() => {
   store = {};
-  globalThis.chrome = ({
+  globalThis.chrome = {
     storage: {
       local: {
-        set: vi.fn((obj) => { Object.assign(store, obj); return Promise.resolve(); }),
+        set: vi.fn((obj) => {
+          Object.assign(store, obj);
+          return Promise.resolve();
+        }),
         get: vi.fn((key) => Promise.resolve(key in store ? { [key]: store[key] } : {})),
-        remove: vi.fn((key) => { delete store[key]; return Promise.resolve(); }),
+        remove: vi.fn((key) => {
+          delete store[key];
+          return Promise.resolve();
+        }),
       },
     } as any,
-  } as any);
+  } as any;
   orgId.value = '7';
   domain.value = 'https://x.rossum.app';
 });
@@ -47,13 +53,19 @@ describe('lastPipeline persistence', () => {
 
   it('tolerates missing variables', () => {
     saveLastPipeline('vendors', '[]');
-    expect(store[lastPipelineKey('vendors')]).toEqual({ pipelineText: '[]', variables: {}, placeholderTypes: {} });
+    expect(store[lastPipelineKey('vendors')]).toEqual({
+      pipelineText: '[]',
+      variables: {},
+      placeholderTypes: {},
+    });
   });
 
   it('falls back to a domain-scoped key when org id is null', () => {
     orgId.value = null;
     saveLastPipeline('vendors', '[]');
-    expect(lastPipelineKey('vendors')).toBe('mdhLastPipeline::domain:https://x.rossum.app::vendors');
+    expect(lastPipelineKey('vendors')).toBe(
+      'mdhLastPipeline::domain:https://x.rossum.app::vendors',
+    );
     expect(store['mdhLastPipeline::domain:https://x.rossum.app::vendors']).toBeTruthy();
   });
 });

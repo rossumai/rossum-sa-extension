@@ -15,10 +15,14 @@ export type ViewedEntry = { id: string; origin: string; at: number };
 export type ViewedInput = Omit<ViewedEntry, 'id'> & { id: string | number };
 
 export function mergeViewed(
-  list: ViewedEntry[] | null | undefined, entry: ViewedInput | null, max = MAX_VIEWED,
+  list: ViewedEntry[] | null | undefined,
+  entry: ViewedInput | null,
+  max = MAX_VIEWED,
 ): ViewedEntry[] {
   if (!entry || entry.id == null) return Array.isArray(list) ? list : [];
   const id = String(entry.id);
-  const rest = (Array.isArray(list) ? list : []).filter((e) => e && !(String(e.id) === id && e.origin === entry.origin));
+  const rest = (Array.isArray(list) ? list : []).filter(
+    (e) => e && !(String(e.id) === id && e.origin === entry.origin),
+  );
   return [{ ...entry, id }, ...rest].slice(0, max);
 }

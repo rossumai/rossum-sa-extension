@@ -19,15 +19,26 @@ export type Format = {
 
 export const FORMATS: Record<string, Format> = { json, jsonl, csv, xlsx, xml };
 export type FormatId = string;
-export function getFormat(id: string): Format { return FORMATS[id]; }
+export function getFormat(id: string): Format {
+  return FORMATS[id];
+}
 
 // Union of every format's `accept` — used by the file drop area so ONE picker
 // accepts any supported type.
-export const ALL_ACCEPT = Object.values(FORMATS).map((f) => f.accept).join(',');
+export const ALL_ACCEPT = Object.values(FORMATS)
+  .map((f) => f.accept)
+  .join(',');
 
 // Map a filename to a format id by its extension (case-insensitive). `.ndjson`
 // and `.jsonl` both map to jsonl. Returns null for an unsupported extension.
-const EXT_TO_FORMAT: Record<string, FormatId> = { json: 'json', jsonl: 'jsonl', ndjson: 'jsonl', csv: 'csv', xlsx: 'xlsx', xml: 'xml' };
+const EXT_TO_FORMAT: Record<string, FormatId> = {
+  json: 'json',
+  jsonl: 'jsonl',
+  ndjson: 'jsonl',
+  csv: 'csv',
+  xlsx: 'xlsx',
+  xml: 'xml',
+};
 export function detectFormat(filename: string | null | undefined): FormatId | null {
   const m = /\.([^.]+)$/.exec(String(filename || '').toLowerCase());
   if (!m) return null;

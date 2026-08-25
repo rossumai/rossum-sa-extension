@@ -12,8 +12,15 @@ import App from '../src/inspector/components/App.jsx';
 import * as store from '../src/inspector/store.js';
 
 let root: any;
-beforeEach(() => { root = document.createElement('div'); document.body.appendChild(root); store.reset(); });
-afterEach(() => { render(null, root); root.remove(); });
+beforeEach(() => {
+  root = document.createElement('div');
+  document.body.appendChild(root);
+  store.reset();
+});
+afterEach(() => {
+  render(null, root);
+  root.remove();
+});
 
 describe('inspector components', () => {
   it('ReliabilityBadge shows only "Not recorded"; hides verified + best-effort', () => {
@@ -32,7 +39,9 @@ describe('inspector components', () => {
     render(<IdInput onSubmit={onSubmit} />, root);
     const input: any = root.querySelector('input');
     input.value = 'https://acme.rossum.app/document/133641827';
-    root.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    root
+      .querySelector('form')
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     expect(onSubmit).toHaveBeenCalledWith('133641827');
   });
 
@@ -57,11 +66,24 @@ describe('inspector components', () => {
     store.setAnnotationId('5');
     store.data.value = {
       annotation: { id: 5, labels: ['https://h/v1/labels/9898'] },
-      blocker: null, content: { content: [] },
+      blocker: null,
+      content: { content: [] },
       resolved: {
-        queue: null, schema: null, document: null, usersById: {}, hooksById: {}, rulesById: {},
+        queue: null,
+        schema: null,
+        document: null,
+        usersById: {},
+        hooksById: {},
+        rulesById: {},
         labelsById: { 9898: { id: '9898', name: 'Priority: High', color: '#ff0000' } },
-        labelRules: [{ ruleId: 7, ruleName: 'Tag high value', trigger: 'field.amount_total > 10000', labelIds: ['9898'] }],
+        labelRules: [
+          {
+            ruleId: 7,
+            ruleName: 'Tag high value',
+            trigger: 'field.amount_total > 10000',
+            labelIds: ['9898'],
+          },
+        ],
       },
     };
     render(<LabelsPanel />, root);
@@ -75,9 +97,15 @@ describe('inspector components', () => {
     store.aiAvailable.value = false; // agent offline in this test — no regex fallback anymore
     store.data.value = {
       annotation: { id: 6, labels: ['https://h/v1/labels/3878'] },
-      blocker: null, content: { content: [] },
+      blocker: null,
+      content: { content: [] },
       resolved: {
-        queue: null, schema: null, document: null, usersById: {}, hooksById: {}, rulesById: {},
+        queue: null,
+        schema: null,
+        document: null,
+        usersById: {},
+        hooksById: {},
+        rulesById: {},
         labelsById: { 3878: { id: '3878', name: 'Needs review', color: '#16a34a' } },
         labelRules: [],
       },
@@ -98,9 +126,14 @@ describe('inspector components', () => {
     expect(root.querySelector('.inspector-code')).toBeTruthy();
     expect(root.querySelector('.inspector-fold-btn')).toBe(null);
     render(null, root);
-    render(<FoldableCode
-      code={'import math\nx = round(field.amount_total_base + field.amount_total_tax, 2)\nif x != field.amount_total: pass'}
-    />, root);
+    render(
+      <FoldableCode
+        code={
+          'import math\nx = round(field.amount_total_base + field.amount_total_tax, 2)\nif x != field.amount_total: pass'
+        }
+      />,
+      root,
+    );
     expect(root.querySelector('.inspector-fold-btn')).toBeTruthy();
     expect(root.querySelector('.inspector-code-block')).toBe(null); // collapsed by default
   });
@@ -109,9 +142,15 @@ describe('inspector components', () => {
     store.setAnnotationId('7');
     store.data.value = {
       annotation: { id: 7, labels: ['https://h/v1/labels/9898'] },
-      blocker: null, content: { content: [] },
+      blocker: null,
+      content: { content: [] },
       resolved: {
-        queue: null, schema: null, document: null, usersById: {}, hooksById: {}, rulesById: {},
+        queue: null,
+        schema: null,
+        document: null,
+        usersById: {},
+        hooksById: {},
+        rulesById: {},
         labelsById: { 9898: { id: '9898', name: 'Priority: High', color: '#dc2626' } },
         labelRules: [],
       },
@@ -126,12 +165,31 @@ describe('inspector components', () => {
   it('BlockedPanel separates blocking errors from non-blocking warnings/info', () => {
     store.setAnnotationId('8');
     store.data.value = {
-      annotation: { id: 8, messages: [
-        { type: 'error', content: 'Hard fail', detail: { hook_id: 1, hook_name: 'Pre: H', is_exception: true } },
-        { type: 'warning', content: 'Soft note', detail: { rule_id: 2, rule_name: 'R', hook_name: 'rules' } },
-      ] },
-      blocker: { content: [] }, content: { content: [] },
-      resolved: { queue: null, schema: null, document: null, usersById: {}, hooksById: {}, rulesById: {} },
+      annotation: {
+        id: 8,
+        messages: [
+          {
+            type: 'error',
+            content: 'Hard fail',
+            detail: { hook_id: 1, hook_name: 'Pre: H', is_exception: true },
+          },
+          {
+            type: 'warning',
+            content: 'Soft note',
+            detail: { rule_id: 2, rule_name: 'R', hook_name: 'rules' },
+          },
+        ],
+      },
+      blocker: { content: [] },
+      content: { content: [] },
+      resolved: {
+        queue: null,
+        schema: null,
+        document: null,
+        usersById: {},
+        hooksById: {},
+        rulesById: {},
+      },
     };
     render(<BlockedPanel />, root);
     const txt: any = root.textContent;
@@ -145,14 +203,48 @@ describe('inspector components', () => {
 
   it('PipelinePanel shows the extension pipeline with run-status overlay', () => {
     store.setAnnotationId('10');
-    store.enrichment.value = { ...store.enrichment.value, hookLogs: [{ hook_id: 4, action: 'export', status: 'failed', log_level: 'ERROR', message: 'boom', start: '2026-01-01T00:00:00.000Z', end: '2026-01-01T00:00:00.010Z' }] };
+    store.enrichment.value = {
+      ...store.enrichment.value,
+      hookLogs: [
+        {
+          hook_id: 4,
+          action: 'export',
+          status: 'failed',
+          log_level: 'ERROR',
+          message: 'boom',
+          start: '2026-01-01T00:00:00.000Z',
+          end: '2026-01-01T00:00:00.010Z',
+        },
+      ],
+    };
     store.data.value = {
-      annotation: { id: 10, queue: 'https://h/v1/queues/3' }, blocker: null, content: { content: [] },
+      annotation: { id: 10, queue: 'https://h/v1/queues/3' },
+      blocker: null,
+      content: { content: [] },
       resolved: {
-        queue: null, schema: null, document: null, usersById: {}, rulesById: {}, _hooksLoaded: true,
+        queue: null,
+        schema: null,
+        document: null,
+        usersById: {},
+        rulesById: {},
+        _hooksLoaded: true,
         hooksById: {
-          1: { id: 1, name: 'Init hook', type: 'function', active: true, events: ['annotation_content.initialize'], run_after: [] },
-          4: { id: 4, name: 'Export push', type: 'webhook', active: true, events: ['annotation_content.export'], run_after: [] },
+          1: {
+            id: 1,
+            name: 'Init hook',
+            type: 'function',
+            active: true,
+            events: ['annotation_content.initialize'],
+            run_after: [],
+          },
+          4: {
+            id: 4,
+            name: 'Export push',
+            type: 'webhook',
+            active: true,
+            events: ['annotation_content.export'],
+            run_after: [],
+          },
         },
       },
     };
@@ -168,8 +260,16 @@ describe('inspector components', () => {
     store.setAnnotationId('9');
     store.data.value = {
       annotation: { id: 9, status: 'to_review', automation_blocker: null, messages: [] },
-      blocker: null, content: { content: [] },
-      resolved: { queue: null, schema: null, document: null, usersById: {}, hooksById: {}, rulesById: {} },
+      blocker: null,
+      content: { content: [] },
+      resolved: {
+        queue: null,
+        schema: null,
+        document: null,
+        usersById: {},
+        hooksById: {},
+        rulesById: {},
+      },
     };
     render(<App connected />, root);
     expect(root.querySelector('.inspector-tab')).toBe(null);
@@ -197,12 +297,26 @@ describe('inspector components', () => {
     store.setAnnotationId('5');
     store.data.value = {
       annotation: {
-        id: 5, status: 'to_review', automation_blocker: null,
-        messages: [{ type: 'error', content: 'HostNotFound', detail: { hook_id: 1791439, hook_name: 'Pre: Duplicate detector', is_exception: true } }],
+        id: 5,
+        status: 'to_review',
+        automation_blocker: null,
+        messages: [
+          {
+            type: 'error',
+            content: 'HostNotFound',
+            detail: { hook_id: 1791439, hook_name: 'Pre: Duplicate detector', is_exception: true },
+          },
+        ],
       },
       blocker: null,
       content: { content: [] },
-      resolved: { queue: { automation_level: 'never' }, schema: null, usersById: {}, hooksById: {}, rulesById: {} },
+      resolved: {
+        queue: { automation_level: 'never' },
+        schema: null,
+        usersById: {},
+        hooksById: {},
+        rulesById: {},
+      },
     };
     render(<App connected />, root);
     expect(root.textContent).toMatch(/Pre: Duplicate detector/);

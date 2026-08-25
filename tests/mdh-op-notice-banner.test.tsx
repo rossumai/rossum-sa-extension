@@ -11,7 +11,9 @@ function mount() {
   return root;
 }
 
-beforeEach(() => { opNotice.value = null; });
+beforeEach(() => {
+  opNotice.value = null;
+});
 
 describe('OpNoticeBanner', () => {
   it('renders nothing when there is no notice', () => {

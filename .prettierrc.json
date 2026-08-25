@@ -1,0 +1,15 @@
+{
+  "printWidth": 100,
+  "singleQuote": true,
+  "semi": true,
+  "tabWidth": 2,
+  "trailingComma": "all",
+  "arrowParens": "always",
+  "overrides": [
+    {
+      "comment": "doc-theme.css and print.css are verbatim ports of upstream localpages' sheets, and build.js COPIES all five hand-written sheets rather than compiling them — so their formatting ships literally. Keeping double quotes leaves upstream's font stacks byte-exact and a future re-port diffable.",
+      "files": "*.css",
+      "options": { "singleQuote": false }
+    }
+  ]
+}

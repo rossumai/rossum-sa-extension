@@ -7,7 +7,8 @@ export function FieldName({ path }: { path: string }) {
   const leaf = parts[parts.length - 1];
   return (
     <span class="stats-field-name">
-      <span class="stats-field-parent">{parent}.</span>{leaf}
+      <span class="stats-field-parent">{parent}.</span>
+      {leaf}
     </span>
   );
 }
@@ -23,7 +24,11 @@ export function formatBytes(n: number) {
 export function formatDate(d: any) {
   if (!d) return '—';
   const s = typeof d === 'string' ? d : d.$date || String(d);
-  try { return new Date(s).toISOString().split('T')[0]; } catch { return String(s); }
+  try {
+    return new Date(s).toISOString().split('T')[0];
+  } catch {
+    return String(s);
+  }
 }
 
 export function formatValue(v: any) {
@@ -42,6 +47,7 @@ export function FormattedValue({ value }: { value: any }) {
   if (value === '') return <em class="stats-dist-special">empty</em>;
   if (value === true) return <span class="stats-dist-special">true</span>;
   if (value === false) return <span class="stats-dist-special">false</span>;
-  if (typeof value === 'object') return <span class="stats-dist-object">{JSON.stringify(value)}</span>;
+  if (typeof value === 'object')
+    return <span class="stats-dist-object">{JSON.stringify(value)}</span>;
   return String(value);
 }

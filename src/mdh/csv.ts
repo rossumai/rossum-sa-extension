@@ -25,8 +25,11 @@ import { flattenDoc } from './flatten.js';
 // Returns { rows: string[][], error: { message, line } | null }.
 // Line terminators \r\n, \n, and lone \r are all auto-detected.
 export type CsvDialect = {
-  delimiter?: string; quoteChar?: string; escapeChar?: string;
-  doubleQuote?: boolean; skipEmptyLines?: boolean;
+  delimiter?: string;
+  quoteChar?: string;
+  escapeChar?: string;
+  doubleQuote?: boolean;
+  skipEmptyLines?: boolean;
 };
 
 export function tokenizeCsv(text: string, dialect: CsvDialect = {}) {
@@ -42,12 +45,15 @@ export function tokenizeCsv(text: string, dialect: CsvDialect = {}) {
   let field = '';
   let row: any[] = [];
   let inQuotes = false;
-  let sawQuote = false;     // any quote opened in the current row
-  let quoteOpenLine = 1;    // line where the currently-open quote started
-  let line = 1;             // 1-based line counter
+  let sawQuote = false; // any quote opened in the current row
+  let quoteOpenLine = 1; // line where the currently-open quote started
+  let line = 1; // 1-based line counter
   let error = null;
 
-  const endField = () => { row.push(field); field = ''; };
+  const endField = () => {
+    row.push(field);
+    field = '';
+  };
   const endRow = () => {
     endField();
     const isBlank = row.length === 1 && row[0] === '' && !sawQuote;
@@ -63,29 +69,74 @@ export function tokenizeCsv(text: string, dialect: CsvDialect = {}) {
 
     if (inQuotes) {
       if (escapeChar && c === escapeChar) {
-        if (p + 1 < n) { field += text[p + 1]; p += 2; } else { field += c; p += 1; }
+        if (p + 1 < n) {
+          field += text[p + 1];
+          p += 2;
+        } else {
+          field += c;
+          p += 1;
+        }
         continue;
       }
       if (c === quoteChar) {
-        if (doubleQuote && text[p + 1] === quoteChar) { field += quoteChar; p += 2; continue; }
-        inQuotes = false; p += 1; continue;
+        if (doubleQuote && text[p + 1] === quoteChar) {
+          field += quoteChar;
+          p += 2;
+          continue;
+        }
+        inQuotes = false;
+        p += 1;
+        continue;
       }
       if (c === '\r') {
         field += c;
-        if (text[p + 1] === '\n') { field += '\n'; p += 2; } else { p += 1; }
+        if (text[p + 1] === '\n') {
+          field += '\n';
+          p += 2;
+        } else {
+          p += 1;
+        }
         line++;
         continue;
       }
-      if (c === '\n') { field += c; line++; p += 1; continue; }
-      field += c; p += 1; continue;
+      if (c === '\n') {
+        field += c;
+        line++;
+        p += 1;
+        continue;
+      }
+      field += c;
+      p += 1;
+      continue;
     }
 
     // outside quotes
-    if (c === quoteChar && field === '') { inQuotes = true; sawQuote = true; quoteOpenLine = line; p += 1; continue; }
-    if (c === delimiter) { endField(); p += 1; continue; }
-    if (c === '\r') { endRow(); p += (text[p + 1] === '\n' ? 2 : 1); line++; continue; }
-    if (c === '\n') { endRow(); p += 1; line++; continue; }
-    field += c; p += 1;
+    if (c === quoteChar && field === '') {
+      inQuotes = true;
+      sawQuote = true;
+      quoteOpenLine = line;
+      p += 1;
+      continue;
+    }
+    if (c === delimiter) {
+      endField();
+      p += 1;
+      continue;
+    }
+    if (c === '\r') {
+      endRow();
+      p += text[p + 1] === '\n' ? 2 : 1;
+      line++;
+      continue;
+    }
+    if (c === '\n') {
+      endRow();
+      p += 1;
+      line++;
+      continue;
+    }
+    field += c;
+    p += 1;
   }
 
   if (inQuotes) error = { message: 'Unterminated quoted field', line: quoteOpenLine };
@@ -106,13 +157,13 @@ export function inferValue(s: string): any {
   if (low === 'true') return true;
   if (low === 'false') return false;
   if (/^-?\d+$/.test(s)) {
-    if (/^-?0\d/.test(s)) return s;          // leading zero -> keep as string
-    if (s === '-0') return s;                // JSON has no negative zero
+    if (/^-?0\d/.test(s)) return s; // leading zero -> keep as string
+    if (s === '-0') return s; // JSON has no negative zero
     const n = Number(s);
-    return Number.isSafeInteger(n) ? n : s;  // too big -> avoid precision loss
+    return Number.isSafeInteger(n) ? n : s; // too big -> avoid precision loss
   }
   if (/^-?(\d+\.\d*|\.\d+)$/.test(s)) {
-    if (/^-?0\d/.test(s)) return s;          // e.g. 01.5 -> keep as string
+    if (/^-?0\d/.test(s)) return s; // e.g. 01.5 -> keep as string
     const n = Number(s);
     return Number.isFinite(n) ? n : s;
   }
@@ -159,10 +210,12 @@ export function rowsToDocs(rows: any[][], opts: Record<string, any> = {}) {
   let dataRows;
   if (hasHeader) {
     const header = rows[0].map((c) => String(c == null ? '' : c).trim());
-    while (header.length < maxLen) header.push('');     // name extra data columns
+    while (header.length < maxLen) header.push(''); // name extra data columns
     columns = dedupeHeaders(header);
     if (rows[0].length < maxLen) {
-      warnings.push(`${maxLen - rows[0].length} column(s) beyond the header were auto-named column_N.`);
+      warnings.push(
+        `${maxLen - rows[0].length} column(s) beyond the header were auto-named column_N.`,
+      );
     }
     dataRows = rows.slice(1);
   } else {
@@ -212,7 +265,10 @@ export function decodeBytes(buffer: ArrayBuffer | Uint8Array, encoding = 'utf-8'
 // block the import.
 // `string` is in the union because the first line branches on it: callers hand this both
 // decoded text and raw bytes.
-export function parseCsv(buffer: ArrayBuffer | Uint8Array | string, options: Record<string, any> = {}) {
+export function parseCsv(
+  buffer: ArrayBuffer | Uint8Array | string,
+  options: Record<string, any> = {},
+) {
   const text = typeof buffer === 'string' ? buffer : decodeBytes(buffer, options.encoding);
   const { rows, error } = tokenizeCsv(text, options);
   const { docs, columns, warnings } = rowsToDocs(rows, options);
@@ -225,13 +281,19 @@ export function parseCsv(buffer: ArrayBuffer | Uint8Array | string, options: Rec
 // the UI — the user can override, and the parse honors the chosen delimiter.
 export function detectDelimiter(text: string): string {
   const CANDIDATES = [',', ';', '\t'];
-  const lines = String(text ?? '').split(/\r?\n/).filter((l) => l.trim() !== '').slice(0, 5);
+  const lines = String(text ?? '')
+    .split(/\r?\n/)
+    .filter((l) => l.trim() !== '')
+    .slice(0, 5);
   let best = ',';
   let bestCount = 0;
   for (const cand of CANDIDATES) {
     let count = 0;
     for (const line of lines) count += line.split(cand).length - 1;
-    if (count > bestCount) { bestCount = count; best = cand; }
+    if (count > bestCount) {
+      bestCount = count;
+      best = cand;
+    }
   }
   return best;
 }
@@ -249,7 +311,10 @@ export function orderColumns(keys: string[]): string[] {
 // null/undefined -> empty; boolean -> true/false; number -> as-is; string -> as-is.
 // Quote (and double internal quotes) when the field contains the delimiter,
 // the quote char, CR, or LF.
-export function csvCell(value: unknown, { delimiter = ',', quoteChar = '"' }: CsvDialect = {}): string {
+export function csvCell(
+  value: unknown,
+  { delimiter = ',', quoteChar = '"' }: CsvDialect = {},
+): string {
   let s;
   if (value === null || value === undefined) s = '';
   else if (typeof value === 'boolean') s = value ? 'true' : 'false';
@@ -257,8 +322,7 @@ export function csvCell(value: unknown, { delimiter = ',', quoteChar = '"' }: Cs
   else if (typeof value === 'object') {
     const ejson = getEjsonType(value);
     s = ejson ? formatEjsonValue(value, ejson) : JSON.stringify(value);
-  }
-  else s = String(value);
+  } else s = String(value);
   if (s === '') return s;
   if (s.includes(delimiter) || s.includes(quoteChar) || s.includes('\n') || s.includes('\r')) {
     return quoteChar + s.split(quoteChar).join(quoteChar + quoteChar) + quoteChar;

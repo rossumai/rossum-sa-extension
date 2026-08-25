@@ -18,7 +18,11 @@ export function encodeSegment(key: string): string {
 export function decodeSegment(seg: string): string {
   let out = '';
   for (let i = 0; i < seg.length; i++) {
-    if (seg[i] === '\\' && i + 1 < seg.length) { out += seg[i + 1]; i += 1; continue; }
+    if (seg[i] === '\\' && i + 1 < seg.length) {
+      out += seg[i + 1];
+      i += 1;
+      continue;
+    }
     out += seg[i];
   }
   return out;
@@ -34,8 +38,16 @@ export function splitPath(path: string): string[] {
   const s = String(path);
   for (let i = 0; i < s.length; i++) {
     const c = s[i];
-    if (c === '\\' && i + 1 < s.length) { cur += c + s[i + 1]; i += 1; continue; }
-    if (c === '.') { out.push(decodeSegment(cur)); cur = ''; continue; }
+    if (c === '\\' && i + 1 < s.length) {
+      cur += c + s[i + 1];
+      i += 1;
+      continue;
+    }
+    if (c === '.') {
+      out.push(decodeSegment(cur));
+      cur = '';
+      continue;
+    }
     cur += c;
   }
   out.push(decodeSegment(cur));
@@ -61,19 +73,24 @@ export function isEjsonWrapper(v: any): boolean {
 const MAX_DEPTH = 5;
 
 function isLeafValue(v: any, depth: number, maxDepth: number): boolean {
-  return v === null
-    || typeof v !== 'object'
-    || Array.isArray(v)
-    || isEjsonWrapper(v)
-    || Object.keys(v).length === 0
-    || depth >= maxDepth;
+  return (
+    v === null ||
+    typeof v !== 'object' ||
+    Array.isArray(v) ||
+    isEjsonWrapper(v) ||
+    Object.keys(v).length === 0 ||
+    depth >= maxDepth
+  );
 }
 
 // Document -> { encodedPath: leafValue }. Anything past the depth cap, plus any
 // value under an opaque key, stays whole and is JSON-encoded by the caller's
 // cell writer; the import's structural layer restores it, so the cap costs
 // columns, never fidelity.
-export function flattenDoc(doc: any, { maxDepth = MAX_DEPTH }: { maxDepth?: number } = {}): Record<string, any> {
+export function flattenDoc(
+  doc: any,
+  { maxDepth = MAX_DEPTH }: { maxDepth?: number } = {},
+): Record<string, any> {
   const out: Record<string, any> = {};
   const walk = (obj: any, prefix: string[], depth: number) => {
     for (const key of Object.keys(obj)) {
@@ -135,8 +152,12 @@ export function unflattenDoc(row: any): { doc: any; conflicts: string[] } {
     let blockReasonIsNestedStructure = false;
     for (let i = 0; i < segs.length - 1; i++) {
       const s = segs[i] as string;
-      if (!own(cur, s)) { cur[s] = {}; }
-      else if (!isPlainObject(cur[s])) { blocked = true; break; }
+      if (!own(cur, s)) {
+        cur[s] = {};
+      } else if (!isPlainObject(cur[s])) {
+        blocked = true;
+        break;
+      }
       cur = cur[s];
     }
     const last = segs[segs.length - 1] as string;
@@ -164,7 +185,10 @@ export function unflattenDoc(row: any): { doc: any; conflicts: string[] } {
     let free = true;
     for (let i = 0; i < segs.length - 1; i++) {
       const s = segs[i] as string;
-      if (!own(cur, s) || !isPlainObject(cur[s])) { free = false; break; }
+      if (!own(cur, s) || !isPlainObject(cur[s])) {
+        free = false;
+        break;
+      }
       cur = cur[s];
     }
     const last = segs[segs.length - 1] as string;

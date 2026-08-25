@@ -37,7 +37,10 @@ async function sessionId(d: any): Promise<string> {
 
 async function post(d: any, name: string, clientId: string) {
   const body = buildPayload({
-    name, clientId, sessionId: await sessionId(d), version: d.version(),
+    name,
+    clientId,
+    sessionId: await sessionId(d),
+    version: d.version(),
   });
   await d.fetch(d.endpoint(), { method: 'POST', body: JSON.stringify(body) });
 }
@@ -56,8 +59,14 @@ async function post(d: any, name: string, clientId: string) {
 let queue = Promise.resolve();
 
 export function collect(msg: any, deps: Partial<typeof defaultDeps> = {}) {
-  const result = queue.then(() => collectOne(msg, deps), () => collectOne(msg, deps));
-  queue = result.then(() => {}, () => {});
+  const result = queue.then(
+    () => collectOne(msg, deps),
+    () => collectOne(msg, deps),
+  );
+  queue = result.then(
+    () => {},
+    () => {},
+  );
   return result;
 }
 

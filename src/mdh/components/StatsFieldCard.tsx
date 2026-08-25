@@ -1,6 +1,12 @@
 import { h } from 'preact';
 import { friendlyType, rangeBar, spanBar, buildValueFilterPipeline } from '../statsView.js';
-import { FieldName, formatDate, formatValue, FormattedValue, isSpecialValue } from './StatsBits.jsx';
+import {
+  FieldName,
+  formatDate,
+  formatValue,
+  FormattedValue,
+  isSpecialValue,
+} from './StatsBits.jsx';
 import { selectedCollection, activePanel, pendingPipelineLoad, limit } from '../store.js';
 import Tip from '../../ui/Tip.jsx';
 
@@ -16,14 +22,20 @@ function humanSpan(ms: any) {
 function filterToRecords(field: any, value: any, isPlaceholder: any) {
   const collection = selectedCollection.value;
   if (!collection) return;
-  pendingPipelineLoad.value = { collection, pipelineText: buildValueFilterPipeline(field, value, isPlaceholder, limit.value) };
+  pendingPipelineLoad.value = {
+    collection,
+    pipelineText: buildValueFilterPipeline(field, value, isPlaceholder, limit.value),
+  };
   activePanel.value = 'data';
 }
 
 function TypeChip({ profile }: { profile: any }) {
   if (profile.isMixed) {
-    const label = profile.types.slice(0, 2).map((t: any) => friendlyType(t.type)).join(' + ')
-      + (profile.types.length > 2 ? ` +${profile.types.length - 2}` : '');
+    const label =
+      profile.types
+        .slice(0, 2)
+        .map((t: any) => friendlyType(t.type))
+        .join(' + ') + (profile.types.length > 2 ? ` +${profile.types.length - 2}` : '');
     return <span class="stats-tchip is-mix">{label}</span>;
   }
   const f = friendlyType(profile.primaryType);
@@ -38,9 +50,14 @@ function NumericRange({ n }: { n: any }) {
     <div class="stats-rangebar">
       <div class="stats-rangebar-track">
         <div class="stats-rangebar-seg" />
-        {rb && rb.avgPct != null && <div class="stats-rangebar-avg" style={{ left: `${rb.avgPct}%` }} />}
+        {rb && rb.avgPct != null && (
+          <div class="stats-rangebar-avg" style={{ left: `${rb.avgPct}%` }} />
+        )}
       </div>
-      <div class="stats-rangebar-ends"><span>min {n.min.toLocaleString()}</span><span>max {n.max.toLocaleString()}</span></div>
+      <div class="stats-rangebar-ends">
+        <span>min {n.min.toLocaleString()}</span>
+        <span>max {n.max.toLocaleString()}</span>
+      </div>
     </div>
   );
 }
@@ -49,8 +66,13 @@ function NumericRange({ n }: { n: any }) {
 function DateRange({ d }: { d: any }) {
   return (
     <div class="stats-rangebar">
-      <div class="stats-rangebar-track"><div class="stats-rangebar-seg" /></div>
-      <div class="stats-rangebar-ends"><span>{formatDate(d.earliest)}</span><span>{formatDate(d.latest)}</span></div>
+      <div class="stats-rangebar-track">
+        <div class="stats-rangebar-seg" />
+      </div>
+      <div class="stats-rangebar-ends">
+        <span>{formatDate(d.earliest)}</span>
+        <span>{formatDate(d.latest)}</span>
+      </div>
     </div>
   );
 }
@@ -64,9 +86,16 @@ function TopValues({ profile, limit }: { profile: any; limit?: number }) {
   const tokens = (profile.sentinel && profile.sentinel.values) || [];
   const tokenSet = new Set(tokens.map((s: any) => s.value));
   const norm = (v: any) => (typeof v === 'string' ? v.trim().toLowerCase() : null);
-  const shownTokens = new Set(base.map((v: any) => norm(v.value)).filter((t: any) => t && tokenSet.has(t)));
-  const pinned = tokens.filter((s: any) => !shownTokens.has(s.value)).map((s: any) => ({ value: s.value, count: s.count, placeholder: true }));
-  const rows = [...base.map((v: any) => ({ ...v, placeholder: tokenSet.has(norm(v.value)) })), ...pinned];
+  const shownTokens = new Set(
+    base.map((v: any) => norm(v.value)).filter((t: any) => t && tokenSet.has(t)),
+  );
+  const pinned = tokens
+    .filter((s: any) => !shownTokens.has(s.value))
+    .map((s: any) => ({ value: s.value, count: s.count, placeholder: true }));
+  const rows = [
+    ...base.map((v: any) => ({ ...v, placeholder: tokenSet.has(norm(v.value)) })),
+    ...pinned,
+  ];
   if (rows.length === 0) return null;
   const max = rows.reduce((m, r) => Math.max(m, r.count), 1);
   return (
@@ -91,14 +120,21 @@ function TopValues({ profile, limit }: { profile: any; limit?: number }) {
   );
 }
 
-export default function StatsFieldCard(
-  { profile, indexedBy, dimmed }: { profile: any; indexedBy?: any; dimmed?: boolean },
-) {
+export default function StatsFieldCard({
+  profile,
+  indexedBy,
+  dimmed,
+}: {
+  profile: any;
+  indexedBy?: any;
+  dimmed?: boolean;
+}) {
   const indexed = Array.isArray(indexedBy) && indexedBy.length > 0;
   const flagged = !!(
-    (profile.sentinel && profile.sentinel.total > 0) || profile.isMixed
-    || (profile.string && (profile.string.leading > 0 || profile.string.trailing > 0))
-    || (profile.nullCount + profile.missingCount + profile.emptyCount) > 0
+    (profile.sentinel && profile.sentinel.total > 0) ||
+    profile.isMixed ||
+    (profile.string && (profile.string.leading > 0 || profile.string.trailing > 0)) ||
+    profile.nullCount + profile.missingCount + profile.emptyCount > 0
   );
   const dateSpan = profile.date ? spanBar(profile.date.earliest, profile.date.latest) : null;
   // Field issues — shown at the bottom of the card as warning/error messages
@@ -108,17 +144,23 @@ export default function StatsFieldCard(
   if (profile.missingCount) gapBits.push(`${profile.missingCount.toLocaleString()} missing`);
   if (profile.emptyCount) gapBits.push(`${profile.emptyCount.toLocaleString()} empty`);
   const wsBits = [];
-  if (profile.string && profile.string.leading > 0) wsBits.push(`leading ×${profile.string.leading.toLocaleString()}`);
-  if (profile.string && profile.string.trailing > 0) wsBits.push(`trailing ×${profile.string.trailing.toLocaleString()}`);
+  if (profile.string && profile.string.leading > 0)
+    wsBits.push(`leading ×${profile.string.leading.toLocaleString()}`);
+  if (profile.string && profile.string.trailing > 0)
+    wsBits.push(`trailing ×${profile.string.trailing.toLocaleString()}`);
   const hasSentinel = !!(profile.sentinel && profile.sentinel.total > 0);
   const hasMsgs = hasSentinel || gapBits.length > 0 || wsBits.length > 0;
   // Height budget: fill the card to a consistent height by showing more top
   // values when there's no mini chart / no messages, fewer when those take room.
   const hasMiniChart = !!profile.numeric || !!profile.date;
-  const messageCount = (hasSentinel ? 1 : 0) + (gapBits.length > 0 ? 1 : 0) + (wsBits.length > 0 ? 1 : 0);
+  const messageCount =
+    (hasSentinel ? 1 : 0) + (gapBits.length > 0 ? 1 : 0) + (wsBits.length > 0 ? 1 : 0);
   const topLimit = Math.max(3, 8 - (hasMiniChart ? 2 : 0) - Math.round(messageCount * 1.5));
   return (
-    <div class={`stats-fcard${flagged ? ' is-flagged' : ''}${dimmed ? ' is-dimmed' : ''}`} id={`stats-field-${profile.field}`}>
+    <div
+      class={`stats-fcard${flagged ? ' is-flagged' : ''}${dimmed ? ' is-dimmed' : ''}`}
+      id={`stats-field-${profile.field}`}
+    >
       <div class="stats-fcard-h">
         <FieldName path={profile.field} />
         {indexed && (
@@ -129,7 +171,10 @@ export default function StatsFieldCard(
         <TypeChip profile={profile} />
       </div>
       {profile.numeric && (
-        <Tip block text={`avg ${profile.numeric.avg.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}>
+        <Tip
+          block
+          text={`avg ${profile.numeric.avg.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+        >
           <NumericRange n={profile.numeric} />
         </Tip>
       )}
@@ -143,12 +188,24 @@ export default function StatsFieldCard(
         <div class="stats-msgs">
           {hasSentinel && (
             <div class="stats-msg is-error">
-              <b>Placeholder</b> {profile.sentinel.values.slice(0, 2).map((s: any) => `"${s.value}" ×${s.count.toLocaleString()}`).join(' · ')}
+              <b>Placeholder</b>{' '}
+              {profile.sentinel.values
+                .slice(0, 2)
+                .map((s: any) => `"${s.value}" ×${s.count.toLocaleString()}`)
+                .join(' · ')}
               {profile.sentinel.values.length > 2 ? ` +${profile.sentinel.values.length - 2}` : ''}
             </div>
           )}
-          {gapBits.length > 0 && <div class="stats-msg is-warn"><b>Incomplete</b> {gapBits.join(' · ')}</div>}
-          {wsBits.length > 0 && <div class="stats-msg is-warn"><b>Whitespace</b> {wsBits.join(' · ')}</div>}
+          {gapBits.length > 0 && (
+            <div class="stats-msg is-warn">
+              <b>Incomplete</b> {gapBits.join(' · ')}
+            </div>
+          )}
+          {wsBits.length > 0 && (
+            <div class="stats-msg is-warn">
+              <b>Whitespace</b> {wsBits.join(' · ')}
+            </div>
+          )}
         </div>
       )}
     </div>

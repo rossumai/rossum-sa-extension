@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import { buildLevelPipeline, discoverLeafPaths, MAX_DISCOVERY_DEPTH } from '../src/mdh/columnDiscovery.js';
+import {
+  buildLevelPipeline,
+  discoverLeafPaths,
+  MAX_DISCOVERY_DEPTH,
+} from '../src/mdh/columnDiscovery.js';
 
 describe('buildLevelPipeline', () => {
   it('facets the root with a $cond guard and positional keys', () => {
@@ -8,7 +12,17 @@ describe('buildLevelPipeline', () => {
       {
         $facet: {
           f0: [
-            { $project: { kv: { $cond: [{ $eq: [{ $type: '$$ROOT' }, 'object'] }, { $objectToArray: '$$ROOT' }, []] } } },
+            {
+              $project: {
+                kv: {
+                  $cond: [
+                    { $eq: [{ $type: '$$ROOT' }, 'object'] },
+                    { $objectToArray: '$$ROOT' },
+                    [],
+                  ],
+                },
+              },
+            },
             { $unwind: '$kv' },
             { $group: { _id: '$kv.k', types: { $addToSet: { $type: '$kv.v' } } } },
           ],
@@ -34,16 +48,25 @@ describe('discoverLeafPaths', () => {
   const level = (byParent: any) => ({ result: [byParent] });
 
   it('walks one level per depth and returns the exact leaf union', async () => {
-    const aggregate = vi.fn()
-      .mockResolvedValueOnce(level({ f0: [
-        { _id: '_id', types: ['objectId'] },
-        { _id: 'name', types: ['string'] },
-        { _id: 'address', types: ['object'] },
-      ] }))
-      .mockResolvedValueOnce(level({ f0: [
-        { _id: 'city', types: ['string'] },
-        { _id: 'line', types: ['array'] },
-      ] }));
+    const aggregate = vi
+      .fn()
+      .mockResolvedValueOnce(
+        level({
+          f0: [
+            { _id: '_id', types: ['objectId'] },
+            { _id: 'name', types: ['string'] },
+            { _id: 'address', types: ['object'] },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        level({
+          f0: [
+            { _id: 'city', types: ['string'] },
+            { _id: 'line', types: ['array'] },
+          ],
+        }),
+      );
 
     const paths = await discoverLeafPaths('c', [{ $match: {} }], { aggregate });
     expect(paths.sort()).toEqual(['_id', 'address.city', 'address.line', 'name']);
@@ -51,7 +74,8 @@ describe('discoverLeafPaths', () => {
   });
 
   it('emits a path that is an object in some records and a scalar in others as BOTH', async () => {
-    const aggregate = vi.fn()
+    const aggregate = vi
+      .fn()
       .mockResolvedValueOnce(level({ f0: [{ _id: 'v', types: ['object', 'string'] }] }))
       .mockResolvedValueOnce(level({ f0: [{ _id: 'inner', types: ['int'] }] }));
 
@@ -60,14 +84,18 @@ describe('discoverLeafPaths', () => {
   });
 
   it('never descends into an opaque key — it becomes a leaf instead', async () => {
-    const aggregate = vi.fn().mockResolvedValueOnce(level({ f0: [
-      { _id: 'a.b', types: ['object'] },
-      { _id: '$weird', types: ['object'] },
-    ] }));
+    const aggregate = vi.fn().mockResolvedValueOnce(
+      level({
+        f0: [
+          { _id: 'a.b', types: ['object'] },
+          { _id: '$weird', types: ['object'] },
+        ],
+      }),
+    );
 
     const paths = await discoverLeafPaths('c', [{ $match: {} }], { aggregate });
     expect(paths.sort()).toEqual(['$weird', 'a\\.b']);
-    expect(aggregate).toHaveBeenCalledTimes(1);   // no second level attempted
+    expect(aggregate).toHaveBeenCalledTimes(1); // no second level attempted
   });
 
   it('stops at the depth cap and emits what is still pending as a leaf', async () => {
@@ -82,7 +110,8 @@ describe('discoverLeafPaths', () => {
   });
 
   it('emits an always-empty-object parent as its own leaf, matching flattenDoc({}) treating {} as a leaf', async () => {
-    const aggregate = vi.fn()
+    const aggregate = vi
+      .fn()
       .mockResolvedValueOnce(level({ f0: [{ _id: 'address', types: ['object'] }] }))
       .mockResolvedValueOnce(level({ f0: [] }));
 

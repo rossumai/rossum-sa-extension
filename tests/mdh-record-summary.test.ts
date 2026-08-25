@@ -28,17 +28,21 @@ describe('rankFields', () => {
   });
 
   it('promotes name-suffix matches (_name, _code, _title)', () => {
-    expect(rankFields({ other: 1, vendor_code: 'V1', company_name: 'Acme' }, {})).toEqual(
-      ['vendor_code', 'company_name', 'other'],
-    );
+    expect(rankFields({ other: 1, vendor_code: 'V1', company_name: 'Acme' }, {})).toEqual([
+      'vendor_code',
+      'company_name',
+      'other',
+    ]);
   });
 
   it('promotes indexed fields above name-pattern fields', () => {
     const indexes = [{ name: 'by_code', key: { code: 1 } }];
     // 'name' would be tier 2; 'code' is tier 1 via index; 'other' tier 3.
-    expect(rankFields({ name: 'Acme', code: 'V1', other: 1 }, { indexes })).toEqual(
-      ['code', 'name', 'other'],
-    );
+    expect(rankFields({ name: 'Acme', code: 'V1', other: 1 }, { indexes })).toEqual([
+      'code',
+      'name',
+      'other',
+    ]);
   });
 
   it('ignores the default _id_ index', () => {
@@ -53,9 +57,10 @@ describe('rankFields', () => {
 
   it('credits nested-path indexes to their first segment', () => {
     const indexes = [{ name: 'addr_city', key: { 'address.city': 1 } }];
-    expect(rankFields({ address: { city: 'NYC' }, other: 1 }, { indexes })).toEqual(
-      ['address', 'other'],
-    );
+    expect(rankFields({ address: { city: 'NYC' }, other: 1 }, { indexes })).toEqual([
+      'address',
+      'other',
+    ]);
   });
 
   it('keeps _id last even when other fields match no tier above 4', () => {

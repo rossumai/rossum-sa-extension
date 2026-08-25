@@ -23,24 +23,97 @@
 
 const ALLOWED = new Set([
   // markdown-it's own output, wrapStandaloneImages included
-  'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'em', 'strong', 's', 'del', 'ins',
-  'code', 'pre', 'blockquote', 'ul', 'ol', 'li', 'hr', 'br', 'img',
-  'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'figure', 'figcaption',
+  'p',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'a',
+  'em',
+  'strong',
+  's',
+  'del',
+  'ins',
+  'code',
+  'pre',
+  'blockquote',
+  'ul',
+  'ol',
+  'li',
+  'hr',
+  'br',
+  'img',
+  'table',
+  'thead',
+  'tbody',
+  'tfoot',
+  'tr',
+  'th',
+  'td',
+  'figure',
+  'figcaption',
   // the raw-HTML constructs localpages documents, plus inert text-level helpers
-  'details', 'summary', 'mark', 'div', 'span', 'kbd', 'sup', 'sub', 'abbr',
-  'dl', 'dt', 'dd', 'caption', 'colgroup', 'col',
+  'details',
+  'summary',
+  'mark',
+  'div',
+  'span',
+  'kbd',
+  'sup',
+  'sub',
+  'abbr',
+  'dl',
+  'dt',
+  'dd',
+  'caption',
+  'colgroup',
+  'col',
 ]);
 
 // Elements whose CHILDREN are not prose — unwrapping these would leak code or
 // attribute soup into the document, so they are removed outright.
 const HARD_DELETE = new Set([
-  'script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'textarea',
-  'select', 'option', 'button', 'link', 'meta', 'base', 'noscript', 'frame', 'frameset',
+  'script',
+  'style',
+  'iframe',
+  'object',
+  'embed',
+  'form',
+  'input',
+  'textarea',
+  'select',
+  'option',
+  'button',
+  'link',
+  'meta',
+  'base',
+  'noscript',
+  'frame',
+  'frameset',
 ]);
 
 const ATTRS = new Set([
-  'class', 'id', 'href', 'src', 'alt', 'title', 'align', 'colspan', 'rowspan',
-  'open', 'start', 'type', 'width', 'height', 'span', 'reversed', 'value', 'lang', 'dir',
+  'class',
+  'id',
+  'href',
+  'src',
+  'alt',
+  'title',
+  'align',
+  'colspan',
+  'rowspan',
+  'open',
+  'start',
+  'type',
+  'width',
+  'height',
+  'span',
+  'reversed',
+  'value',
+  'lang',
+  'dir',
   // markdown-it-anchor puts tabindex="-1" on EVERY heading. Omitting it silently
   // changed every heading in the output — caught by the fixture-idempotence test
   // below, which is why that test compares against upstream's real HTML rather than
@@ -56,19 +129,19 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 function safeHref(value: unknown): boolean {
   const v = String(value || '').trim();
   if (!v) return false;
-  if (v.startsWith('#')) return true;                       // in-document anchor
+  if (v.startsWith('#')) return true; // in-document anchor
   if (/^https?:\/\//i.test(v)) return true;
   if (/^mailto:/i.test(v)) return true;
-  if (/^[a-z][a-z0-9+.-]*:/i.test(v)) return false;         // any other scheme
-  if (v.startsWith('//')) return false;                     // protocol-relative
-  return true;                                              // relative path
+  if (/^[a-z][a-z0-9+.-]*:/i.test(v)) return false; // any other scheme
+  if (v.startsWith('//')) return false; // protocol-relative
+  return true; // relative path
 }
 
 function safeSrc(value: unknown): boolean {
   const v = String(value || '').trim();
   if (!v) return false;
   if (/^https?:\/\//i.test(v)) return true;
-  if (/^data:image\/(png|jpe?g|gif|webp|svg\+xml);/i.test(v)) return true;  // D8 inlining
+  if (/^data:image\/(png|jpe?g|gif|webp|svg\+xml);/i.test(v)) return true; // D8 inlining
   if (/^[a-z][a-z0-9+.-]*:/i.test(v)) return false;
   if (v.startsWith('//')) return false;
   return true;
@@ -78,7 +151,10 @@ function scrubAttrs(el: Element, inSvg: boolean): void {
   for (const attr of [...el.attributes]) {
     const name = attr.name.toLowerCase();
     // Event handlers are rejected everywhere, SVG subtrees included.
-    if (name.startsWith('on')) { el.removeAttribute(attr.name); continue; }
+    if (name.startsWith('on')) {
+      el.removeAttribute(attr.name);
+      continue;
+    }
     if (name === 'href' || name === 'xlink:href') {
       if (!safeHref(attr.value)) el.removeAttribute(attr.name);
       continue;
@@ -90,7 +166,7 @@ function scrubAttrs(el: Element, inSvg: boolean): void {
     // Inside an <svg> everything else is allowed — see the class comment on clean().
     if (inSvg) continue;
     if (name.startsWith('data-') || name.startsWith('aria-') || name === 'role') continue;
-    if (name === 'style') continue;  // inline CSS cannot execute; upstream renders it
+    if (name === 'style') continue; // inline CSS cannot execute; upstream renders it
     if (!ATTRS.has(name)) el.removeAttribute(attr.name);
   }
 }
@@ -106,17 +182,23 @@ function clean(parent: Element, inSvg: boolean): void {
   // Cast the spread, not each use: the nodeType guard on the next line is what makes it
   // true, and one erased cast keeps the emitted loop byte-identical.
   for (const child of [...parent.childNodes] as Element[]) {
-    if (child.nodeType !== 1) continue;   // text and comments ride along, as upstream
+    if (child.nodeType !== 1) continue; // text and comments ride along, as upstream
     const tag = (child.localName || '').toLowerCase();
     const svgHere = inSvg || tag === 'svg' || child.namespaceURI === SVG_NS;
 
     if (svgHere) {
-      if (tag === 'script' || tag === 'foreignobject') { child.remove(); continue; }
+      if (tag === 'script' || tag === 'foreignobject') {
+        child.remove();
+        continue;
+      }
       scrubAttrs(child, true);
       clean(child, true);
       continue;
     }
-    if (HARD_DELETE.has(tag)) { child.remove(); continue; }
+    if (HARD_DELETE.has(tag)) {
+      child.remove();
+      continue;
+    }
     if (!ALLOWED.has(tag)) {
       // Unwrap, don't delete: the children are prose, and silently swallowing prose
       // is the failure mode this port can least afford. An unknown element degrades
@@ -158,7 +240,7 @@ export function sanitizeHtml(html: unknown, opts?: SanitizeOptions): string {
 // left for DocView's click handler to resolve to a sibling deliverable.
 export function markLinksForPane<T extends ParentNode>(body: T): T {
   for (const a of body.querySelectorAll('a[href]')) {
-    const href = a.getAttribute('href') as string;   // the selector guarantees it
+    const href = a.getAttribute('href') as string; // the selector guarantees it
     if (/^https?:\/\//i.test(href) || /^mailto:/i.test(href)) {
       a.setAttribute('target', '_blank');
       a.setAttribute('rel', 'noopener noreferrer');
@@ -166,4 +248,3 @@ export function markLinksForPane<T extends ParentNode>(body: T): T {
   }
   return body;
 }
-

@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { isCompatibleWithType, valueBasedType, typeOptionsFor } from '../src/mdh/components/PlaceholderInputs.jsx';
+import {
+  isCompatibleWithType,
+  valueBasedType,
+  typeOptionsFor,
+} from '../src/mdh/components/PlaceholderInputs.jsx';
 
 describe('isCompatibleWithType', () => {
   it('number accepts numeric literals only', () => {

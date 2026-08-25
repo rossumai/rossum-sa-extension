@@ -14,32 +14,65 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { h, render } from 'preact';
 import JSON5 from 'json5';
 
-const mock = vi.hoisted(() => ({ text: '', onChange: null, onValidChange: null as any, onToggleStage: null }));
+const mock = vi.hoisted(() => ({
+  text: '',
+  onChange: null,
+  onValidChange: null as any,
+  onToggleStage: null,
+}));
 
-globalThis.chrome = ({
-  storage: { local: { get: (k: any, cb: any) => { if (cb) { cb({}); return; } return Promise.resolve({}); }, set: () => Promise.resolve(), remove: () => Promise.resolve() } },
+globalThis.chrome = {
+  storage: {
+    local: {
+      get: (k: any, cb: any) => {
+        if (cb) {
+          cb({});
+          return;
+        }
+        return Promise.resolve({});
+      },
+      set: () => Promise.resolve(),
+      remove: () => Promise.resolve(),
+    },
+  },
   runtime: { onMessage: { addListener: () => {} } } as any,
-} as any);
+} as any;
 
 vi.mock('../src/mdh/api.js');
 
 vi.mock('../src/mdh/components/PipelineEditor.jsx', () => ({
   default: ({ editorRef, onChange, onValidChange, onToggleStage }: any) => {
-    mock.onChange = onChange; mock.onValidChange = onValidChange; mock.onToggleStage = onToggleStage;
+    mock.onChange = onChange;
+    mock.onValidChange = onValidChange;
+    mock.onToggleStage = onToggleStage;
     if (editorRef) {
       editorRef.current = {
         getValue: () => mock.text,
-        setValue: (v: any) => { mock.text = v; },
-        isValid: () => { try { JSON5.parse(mock.text); return true; } catch { return false; } },
+        setValue: (v: any) => {
+          mock.text = v;
+        },
+        isValid: () => {
+          try {
+            JSON5.parse(mock.text);
+            return true;
+          } catch {
+            return false;
+          }
+        },
         getParsed: () => JSON5.parse(mock.text),
-        focus: () => {}, refresh: () => {},
+        focus: () => {},
+        refresh: () => {},
       };
     }
     return <div data-testid="editor" />;
   },
 }));
-vi.mock('../src/mdh/components/RecordList.jsx', () => ({ default: () => <div data-testid="recordlist" /> }));
-vi.mock('../src/mdh/components/PipelineDebug.jsx', () => ({ default: () => <div data-testid="debug" /> }));
+vi.mock('../src/mdh/components/RecordList.jsx', () => ({
+  default: () => <div data-testid="recordlist" />,
+}));
+vi.mock('../src/mdh/components/PipelineDebug.jsx', () => ({
+  default: () => <div data-testid="debug" />,
+}));
 
 import * as api from '../src/mdh/api.js';
 import * as cache from '../src/mdh/cache.js';
@@ -50,9 +83,14 @@ async function waitFor(condition: any, description = 'condition', timeoutMs = 30
   const start = Date.now();
   for (;;) {
     let ok = false;
-    try { ok = condition(); } catch { ok = false; }
+    try {
+      ok = condition();
+    } catch {
+      ok = false;
+    }
     if (ok) return;
-    if (Date.now() - start > timeoutMs) throw new Error(`Timeout waiting for ${description} after ${timeoutMs}ms`);
+    if (Date.now() - start > timeoutMs)
+      throw new Error(`Timeout waiting for ${description} after ${timeoutMs}ms`);
     await new Promise((r) => setTimeout(r, 5));
   }
 }
@@ -67,8 +105,12 @@ async function mountDataPanel() {
 
 // Real query aggregations only (exclude the $count / $collStats probes).
 function queryAggregations() {
-  return vi.mocked(api.aggregate).mock.calls
-    .filter(([, pl]) => Array.isArray(pl) && !pl.some((s) => s && s.$count) && !pl.some((s) => s && s.$collStats))
+  return vi
+    .mocked(api.aggregate)
+    .mock.calls.filter(
+      ([, pl]) =>
+        Array.isArray(pl) && !pl.some((s) => s && s.$count) && !pl.some((s) => s && s.$collStats),
+    )
     .map(([, pl]) => pl);
 }
 
@@ -95,7 +137,9 @@ describe('DataPanel — write-stage suppression', () => {
 
     // Give any async work a chance to settle; aggregate must stay silent.
     await new Promise((r) => setTimeout(r, 200));
-    expect(queryAggregations().length, 'api.aggregate must not be called for a $out pipeline').toBe(0);
+    expect(queryAggregations().length, 'api.aggregate must not be called for a $out pipeline').toBe(
+      0,
+    );
 
     document.body.removeChild(root);
   });

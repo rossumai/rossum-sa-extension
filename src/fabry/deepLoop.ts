@@ -57,13 +57,20 @@ export type MainTurn = { text: string; verifiable?: boolean };
 export type DeepPhase = { phase: 'verify' | 'refine'; round: number };
 
 export type DeepOutcome =
-  | null                                   // a step reported abort/stale
-  | { skipped: true }                      // nothing verifiable came back
+  | null // a step reported abort/stale
+  | { skipped: true } // nothing verifiable came back
   // `skipped?: false` makes this a discriminated union, so a caller can test `result.skipped`
   // on the outcome as a whole (which is how chat.js branches) rather than narrowing first.
   | (Verdict & { criticText: string | null; rounds: number; skipped?: false });
 
-export async function runDeepTurn({ question, images, sendMainTurn, runCriticTurn, onPhase, maxRounds = 2 }: {
+export async function runDeepTurn({
+  question,
+  images,
+  sendMainTurn,
+  runCriticTurn,
+  onPhase,
+  maxRounds = 2,
+}: {
   question: string;
   images?: unknown[];
   sendMainTurn: (question: string, images?: unknown[]) => Promise<MainTurn | null>;

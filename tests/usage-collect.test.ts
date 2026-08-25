@@ -12,14 +12,23 @@ function makeDeps(local = {}, session = {}) {
       for (const k of keys) if (k in local) (out as any)[k] = (local as any)[k];
       return Promise.resolve(out);
     },
-    setLocal: (obj: any) => { Object.assign(local, obj); return Promise.resolve(); },
-    removeLocal: (keys: any) => { for (const k of keys) delete (local as any)[k]; return Promise.resolve(); },
+    setLocal: (obj: any) => {
+      Object.assign(local, obj);
+      return Promise.resolve();
+    },
+    removeLocal: (keys: any) => {
+      for (const k of keys) delete (local as any)[k];
+      return Promise.resolve();
+    },
     getSession: (keys: any) => {
       const out = {};
       for (const k of keys) if (k in session) (out as any)[k] = (session as any)[k];
       return Promise.resolve(out);
     },
-    setSession: (obj: any) => { Object.assign(session, obj); return Promise.resolve(); },
+    setSession: (obj: any) => {
+      Object.assign(session, obj);
+      return Promise.resolve();
+    },
     uuid: () => 'uuid-1',
     version: () => 'abc1234',
     endpoint: () => 'https://ga/collect',
@@ -58,7 +67,6 @@ describe('consent gate', () => {
     expect(await collect({ name: 'sa_evil' }, d)).toBe(0);
     expect(d.sent).toEqual([]);
   });
-
 });
 
 describe('sending', () => {
@@ -77,7 +85,9 @@ describe('sending', () => {
     const d = makeDeps({ usageConsent: true, usageClientId: 'c1' });
     expect(await collect({ name: 'sa_popup_open', params: { org: 'acme' } }, d)).toBe(1);
     expect(d.sent[0].body.events[0].params).toEqual({
-      ext_ver: 'abc1234', session_id: 'uuid-1', engagement_time_msec: 1,
+      ext_ver: 'abc1234',
+      session_id: 'uuid-1',
+      engagement_time_msec: 1,
     });
   });
 

@@ -12,8 +12,14 @@ export default function IdInput({ onSubmit }: { onSubmit: (value: string) => voi
         if (id) onSubmit(id);
       }}
     >
-      <input class="inspector-idinput" placeholder="Annotation id or Rossum URL" spellcheck={false} />
-      <button class="btn btn-primary" type="submit">Inspect</button>
+      <input
+        class="inspector-idinput"
+        placeholder="Annotation id or Rossum URL"
+        spellcheck={false}
+      />
+      <button class="btn btn-primary" type="submit">
+        Inspect
+      </button>
     </form>
   );
 }

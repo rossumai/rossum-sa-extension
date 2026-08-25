@@ -55,13 +55,30 @@ export const activeSource = signal('audit');
 // Per-source filter + paging state. `page` is used by offset sources, `cursor`
 // by cursor sources; both reset on any filter/search/pageSize change.
 export const filtersBySource = signal<FiltersBySource>({
-  audit: { object_type: 'annotation', action: '', object_id: '', username: '',
-           timestamp_after: '', timestamp_before: '', page: 1, cursor: null, pageSize: 100, search: '' },
+  audit: {
+    object_type: 'annotation',
+    action: '',
+    object_id: '',
+    username: '',
+    timestamp_after: '',
+    timestamp_before: '',
+    page: 1,
+    cursor: null,
+    pageSize: 100,
+    search: '',
+  },
 });
 
 // Active-view results for the currently displayed source.
 export const rows = signal<any[]>([]);
-export const pageInfo = signal<PageInfo>({ total: null, totalPages: null, hasNext: false, hasPrev: false, nextCursor: null, prevCursor: null });
+export const pageInfo = signal<PageInfo>({
+  total: null,
+  totalPages: null,
+  hasNext: false,
+  hasPrev: false,
+  nextCursor: null,
+  prevCursor: null,
+});
 export const loading = signal(false);
 export const error = signal<string | null>(null);
 export const selectedRow = signal<number | null>(null); // row._idx of the open detail, or null
@@ -85,7 +102,10 @@ const PAGING_KEYS = new Set(['page', 'cursor']);
 // Signature of the CURRENT search, ignoring paging keys. The body only enumerates the
 // keys of `bySource[source]`, so it works for any filter shape — a FiltersBySource is
 // one, and a test may hand it a two-key stand-in to check ordering.
-export function searchSignature(source: string, bySource?: Record<string, Record<string, unknown>> | null): string {
+export function searchSignature(
+  source: string,
+  bySource?: Record<string, Record<string, unknown>> | null,
+): string {
   const f: Record<string, unknown> = (bySource && bySource[source]) || {};
   const stable: Record<string, unknown> = {};
   for (const k of Object.keys(f).sort()) if (!PAGING_KEYS.has(k)) stable[k] = f[k];
@@ -107,7 +127,21 @@ export const aiAvailable = signal(false);
 // without this marker the effect would immediately re-fire on every render);
 // cleared on the next successful refresh, and ignored by an explicit
 // user-initiated retry (expanding the panel).
-export const fabry = signal<FabryState>({ status: 'idle', chatId: null, turns: [], error: null, forView: null, refreshFailedFor: null });
+export const fabry = signal<FabryState>({
+  status: 'idle',
+  chatId: null,
+  turns: [],
+  error: null,
+  forView: null,
+  refreshFailedFor: null,
+});
 export function resetFabry(): void {
-  fabry.value = { status: 'idle', chatId: null, turns: [], error: null, forView: null, refreshFailedFor: null };
+  fabry.value = {
+    status: 'idle',
+    chatId: null,
+    turns: [],
+    error: null,
+    forView: null,
+    refreshFailedFor: null,
+  };
 }

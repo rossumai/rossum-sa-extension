@@ -60,7 +60,10 @@ export default function BulkConfirm({
   // button's disabled attribute synchronously (no Preact VDOM scheduling),
   // which is required for jsdom test assertions to work after dispatchEvent.
   const submitRef = (el: any) => {
-    if (disposeRef.current) { disposeRef.current(); disposeRef.current = null; }
+    if (disposeRef.current) {
+      disposeRef.current();
+      disposeRef.current = null;
+    }
     if (!el) return;
     disposeRef.current = effect(() => {
       el.disabled = disabled || !isGateOk(mode, typed.value, count, collection);
@@ -105,19 +108,21 @@ export default function BulkConfirm({
         </label>
       )}
       {mode === 'blocked' && (
-        <div class="bulk-confirm-row bulk-confirm-blocked">
-          Waiting for record count{'…'}
-        </div>
+        <div class="bulk-confirm-row bulk-confirm-blocked">Waiting for record count{'…'}</div>
       )}
       <ModalActions>
-        <button class="btn btn-secondary" data-testid="bulk-cancel" onClick={onCancel}>Cancel</button>
+        <button class="btn btn-secondary" data-testid="bulk-cancel" onClick={onCancel}>
+          Cancel
+        </button>
         <button
           ref={submitRef}
           class={`btn ${submitClass}`}
           data-testid="bulk-submit"
           disabled={submitDisabled}
           onClick={onSubmit}
-        >{submitLabel}</button>
+        >
+          {submitLabel}
+        </button>
       </ModalActions>
     </div>
   );

@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import * as store from '../src/fabry/architect/store.js';
 
-beforeEach(() => { store.results.value = {}; store.deliverables.value = []; store.activeId.value = null; });
+beforeEach(() => {
+  store.results.value = {};
+  store.deliverables.value = [];
+  store.activeId.value = null;
+});
 
 describe('architect store', () => {
   it('has sane defaults', () => {
@@ -20,7 +24,9 @@ describe('architect store', () => {
   });
   it('clearResults empties; setActive sets the open id', () => {
     store.setResult('r1', { verdict: 'pass', evidence: '', chatId: 'c', ranAt: 1, stale: false });
-    store.clearResults(); expect(store.results.value).toEqual({});
-    store.setActive('r9'); expect(store.activeId.value).toBe('r9');
+    store.clearResults();
+    expect(store.results.value).toEqual({});
+    store.setActive('r9');
+    expect(store.activeId.value).toBe('r9');
   });
 });

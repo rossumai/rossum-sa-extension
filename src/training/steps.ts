@@ -3,8 +3,13 @@
 // rewrite never touches this file and these rules are testable without it.
 import { detectResource } from '../devtools/detect.js';
 import {
-  hookQueuePairs, fieldCount, ruleIds, thresholds, collectionCount,
-  grew, changed,
+  hookQueuePairs,
+  fieldCount,
+  ruleIds,
+  thresholds,
+  collectionCount,
+  grew,
+  changed,
 } from './baseline.js';
 import type { TrackStep } from './track.js';
 
@@ -13,7 +18,10 @@ import type { TrackStep } from './track.js';
 // descriptor carries an id); `detail: false` requires a list route.
 // Only `target` is read, so that is all this asks for — a full TrackStep satisfies it,
 // and a caller testing route matching does not have to invent an id, kind and hint.
-export function evaluateVisit(step: Pick<TrackStep, 'target'>, location: { pathname: string; search?: string }): boolean {
+export function evaluateVisit(
+  step: Pick<TrackStep, 'target'>,
+  location: { pathname: string; search?: string },
+): boolean {
   const found = detectResource(location);
   if (!found) return false;
   const want: { type?: string; detail?: string | boolean } = step.target || {};
@@ -90,7 +98,8 @@ export const CHECKS: Record<string, Check> = {
     // never recorded — only how many fields exist.
     paths: [SCHEMAS],
     paginate: true,
-    signature: (r: Record<string, any>) => (r[SCHEMAS]?.results || []).reduce((n: number, s: any) => n + fieldCount(s), 0),
+    signature: (r: Record<string, any>) =>
+      (r[SCHEMAS]?.results || []).reduce((n: number, s: any) => n + fieldCount(s), 0),
     pass: grew,
   },
   ruleCreated: {
@@ -125,7 +134,6 @@ export const CHECKS: Record<string, Check> = {
   },
 };
 
-
 // Hard stop on the page walk. 50 pages x 100 = 5000 schemas; a malformed or
 // self-referential `next` must not spin a content script forever.
 const MAX_PAGES = 50;
@@ -137,7 +145,9 @@ function relativePath(next: unknown): string | null {
   try {
     const u = new URL(String(next), 'https://placeholder.invalid');
     return `${u.pathname}${u.search}`;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 // The ONE place a check's paths are fetched — used by the content script's

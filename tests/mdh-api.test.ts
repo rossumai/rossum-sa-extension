@@ -5,7 +5,12 @@ let fetchMock: any;
 
 function ok(data: any, headers = {}) {
   const lower = Object.fromEntries(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v]));
-  return { ok: true, status: 200, headers: { get: (k: any) => lower[k.toLowerCase()] ?? null }, json: () => Promise.resolve(data) };
+  return {
+    ok: true,
+    status: 200,
+    headers: { get: (k: any) => lower[k.toLowerCase()] ?? null },
+    json: () => Promise.resolve(data),
+  };
 }
 
 function err(status: any, data: any = null) {
@@ -97,7 +102,9 @@ describe('MDH API client', () => {
     let caught: any;
     try {
       await api.aggregate('col', [{ $facet: {} }]);
-    } catch (e: any) { caught = e; }
+    } catch (e: any) {
+      caught = e;
+    }
     expect(caught).toBeInstanceOf(Error);
     expect(caught.status).toBe(400);
     expect(caught.message).toBe('$search is not allowed within $facet');
@@ -106,7 +113,9 @@ describe('MDH API client', () => {
     let caught401: any;
     try {
       await api.listCollections();
-    } catch (e: any) { caught401 = e; }
+    } catch (e: any) {
+      caught401 = e;
+    }
     expect(caught401.status).toBe(401);
   });
 
@@ -127,7 +136,10 @@ describe('MDH API client', () => {
       [() => api.createIndex('col', 'idx1', { name: 1 }), '/indexes/create'],
       [() => api.dropIndex('col', 'idx1'), '/indexes/drop'],
       [() => api.listSearchIndexes('col'), '/search_indexes/list'],
-      [() => api.createSearchIndex('col', { indexName: 'si', mappings: {} }), '/search_indexes/create'],
+      [
+        () => api.createSearchIndex('col', { indexName: 'si', mappings: {} }),
+        '/search_indexes/create',
+      ],
       [() => api.dropSearchIndex('col', 'si'), '/search_indexes/drop'],
     ] as Array<[() => Promise<unknown>, string]>;
 
@@ -159,11 +171,12 @@ describe('MDH API client', () => {
     expect(fetchMock.mock.calls[0][0]).toContain('/svc/master-data-hub/api/v2/operation/');
     expect(fetchMock.mock.calls[0][0]).toContain('limit=50');
   });
-
 });
 
 describe('getOrgId', () => {
-  beforeEach(() => { api.init('https://acme.rossum.app', 'tok'); });
+  beforeEach(() => {
+    api.init('https://acme.rossum.app', 'tok');
+  });
 
   it('returns the organization_uuid from /internal/token_info', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
@@ -183,7 +196,9 @@ describe('getOrgId', () => {
   });
 
   it('returns null when organization_uuid is missing', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ user: {} }) });
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: () => Promise.resolve({ user: {} }) });
     expect(await api.getOrgId()).toBeNull();
   });
 
@@ -194,7 +209,6 @@ describe('getOrgId', () => {
 });
 
 describe('async operation helpers', () => {
-
   it('waitForOperation polls until the operation reaches FINISHED', async () => {
     fetchMock
       .mockResolvedValueOnce(ok({ result: { status: 'CREATED' } }))
@@ -209,21 +223,27 @@ describe('async operation helpers', () => {
   });
 
   it('waitForOperation throws the server error_message on FAILED', async () => {
-    fetchMock.mockResolvedValueOnce(ok({ result: { status: 'FAILED', error_message: 'disk is full' } }));
+    fetchMock.mockResolvedValueOnce(
+      ok({ result: { status: 'FAILED', error_message: 'disk is full' } }),
+    );
     await expect(api.waitForOperation('op1', { intervalMs: 1 })).rejects.toThrow('disk is full');
   });
 
   it('waitForOperation throws on timeout when the operation never finishes', async () => {
     fetchMock.mockResolvedValue(ok({ result: { status: 'RUNNING' } }));
-    await expect(api.waitForOperation('op1', { intervalMs: 1, timeoutMs: 5 }))
-      .rejects.toThrow(/did not finish/);
+    await expect(api.waitForOperation('op1', { intervalMs: 1, timeoutMs: 5 })).rejects.toThrow(
+      /did not finish/,
+    );
   });
 
   it('tags the timeout error so callers can distinguish it from a real failure', async () => {
     fetchMock.mockResolvedValue(ok({ result: { status: 'RUNNING' } }));
     let caught: any;
-    try { await api.waitForOperation('op1', { intervalMs: 1, timeoutMs: 5 }); }
-    catch (e: any) { caught = e; }
+    try {
+      await api.waitForOperation('op1', { intervalMs: 1, timeoutMs: 5 });
+    } catch (e: any) {
+      caught = e;
+    }
     expect(caught.timedOut).toBe(true);
   });
 
@@ -239,22 +259,33 @@ describe('async operation helpers', () => {
   it('gives up after repeated poll errors, tagged pollUnavailable (not a hard FAILED)', async () => {
     fetchMock.mockRejectedValue(new Error('Request timed out after 30s'));
     let caught: any;
-    try { await api.waitForOperation('op1', { intervalMs: 1, timeoutMs: 1000 }); }
-    catch (e: any) { caught = e; }
+    try {
+      await api.waitForOperation('op1', { intervalMs: 1, timeoutMs: 1000 });
+    } catch (e: any) {
+      caught = e;
+    }
     expect(caught.pollUnavailable).toBe(true);
     expect(caught.timedOut).toBeUndefined();
   });
 
   it('does not mistake a 24-hex id in a non-accept response message for an operation id', async () => {
-    fetchMock.mockResolvedValue(ok({ code: 'ok', message: 'see aaaaaaaaaaaaaaaaaaaaaaaa', result: [] }));
+    fetchMock.mockResolvedValue(
+      ok({ code: 'ok', message: 'see aaaaaaaaaaaaaaaaaaaaaaaa', result: [] }),
+    );
     const res = await api.aggregate('c', []);
     expect(res.operationId).toBeUndefined();
   });
 
   it('surfaces the operation id from the content-location header (body message is empty)', async () => {
-    fetchMock.mockResolvedValue(ok({ code: 'accept', message: '' }, {
-      'content-location': 'https://x.rossum.app/svc/data-storage/api/v1/operation_status/bb7001c1-89f3-4c61-b29b-a074e5e6f026',
-    }));
+    fetchMock.mockResolvedValue(
+      ok(
+        { code: 'accept', message: '' },
+        {
+          'content-location':
+            'https://x.rossum.app/svc/data-storage/api/v1/operation_status/bb7001c1-89f3-4c61-b29b-a074e5e6f026',
+        },
+      ),
+    );
     const res = await api.createIndex('PRODUCTS', 'i', { a: 1 });
     expect(res.operationId).toBe('bb7001c1-89f3-4c61-b29b-a074e5e6f026');
   });
@@ -296,7 +327,12 @@ describe('write options passthrough', () => {
 
 describe('data-matching dataset API', () => {
   it('datasetReplace PUTs multipart to the data-matching base and returns the op id from Location', async () => {
-    fetchMock.mockResolvedValue(ok({ message: 'queued' }, { location: 'https://example.rossum.app/svc/master-data-hub/api/v1/operation/abc123' }));
+    fetchMock.mockResolvedValue(
+      ok(
+        { message: 'queued' },
+        { location: 'https://example.rossum.app/svc/master-data-hub/api/v1/operation/abc123' },
+      ),
+    );
     const res = await api.datasetReplace('products', '[{"a":1}]');
     expect(res).toEqual({ operationId: 'abc123' });
     const [url, opts] = fetchMock.mock.calls[0];
@@ -324,7 +360,9 @@ describe('data-matching dataset API', () => {
       .mockResolvedValueOnce(ok({ status: 'finished', operation_type: 'replace' }));
     const op = await api.waitForDatasetOperation('op1', { intervalMs: 0 });
     expect(op.status).toBe('finished');
-    expect(fetchMock.mock.calls[0][0]).toBe('https://example.rossum.app/svc/data-matching/api/v1/operation/op1');
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'https://example.rossum.app/svc/data-matching/api/v1/operation/op1',
+    );
   });
 
   it('waitForDatasetOperation throws with the server error on failed', async () => {
@@ -334,15 +372,31 @@ describe('data-matching dataset API', () => {
 
   it('waitForDatasetOperation feeds each poll to onPoll (heartbeat) with the live op', async () => {
     fetchMock
-      .mockResolvedValueOnce(ok({ status: 'processing', operation_type: 'replace', file_metadata: { filename: 'data.json', file_size: 100 } }))
+      .mockResolvedValueOnce(
+        ok({
+          status: 'processing',
+          operation_type: 'replace',
+          file_metadata: { filename: 'data.json', file_size: 100 },
+        }),
+      )
       .mockResolvedValueOnce(ok({ status: 'finished' }));
     const seen: any = [];
-    await api.waitForDatasetOperation('op3', { intervalMs: 0, onPoll: (op) => seen.push(op.status) });
+    await api.waitForDatasetOperation('op3', {
+      intervalMs: 0,
+      onPoll: (op) => seen.push(op.status),
+    });
     expect(seen).toEqual(['processing', 'finished']);
   });
 
   it('waitForDatasetOperation survives an onPoll callback that throws', async () => {
     fetchMock.mockResolvedValue(ok({ status: 'finished' }));
-    await expect(api.waitForDatasetOperation('op4', { intervalMs: 0, onPoll: () => { throw new Error('ui blew up'); } })).resolves.toMatchObject({ status: 'finished' });
+    await expect(
+      api.waitForDatasetOperation('op4', {
+        intervalMs: 0,
+        onPoll: () => {
+          throw new Error('ui blew up');
+        },
+      }),
+    ).resolves.toMatchObject({ status: 'finished' });
   });
 });

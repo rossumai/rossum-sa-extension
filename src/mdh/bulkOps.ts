@@ -36,7 +36,11 @@ function pluralize(n: number, singular = 'record') {
 
 type BulkOpts = { count?: number; undoMessage?: string; onSuccess?: () => unknown };
 
-export async function runBulkDelete(collection: string, filter: any, { count, undoMessage, onSuccess }: BulkOpts = {}) {
+export async function runBulkDelete(
+  collection: string,
+  filter: any,
+  { count, undoMessage, onSuccess }: BulkOpts = {},
+) {
   let snapshot: any[] | null = null;
   // A missing count compares false on both sides, which is the intended "no snapshot".
   if ((count as number) > 0 && (count as number) <= UNDO_LIMIT) {
@@ -58,7 +62,12 @@ export async function runBulkDelete(collection: string, filter: any, { count, un
   }
 }
 
-export async function runBulkUpdate(collection: string, filter: any, updateExpr: any, { count, undoMessage, onSuccess }: BulkOpts = {}) {
+export async function runBulkUpdate(
+  collection: string,
+  filter: any,
+  updateExpr: any,
+  { count, undoMessage, onSuccess }: BulkOpts = {},
+) {
   let snapshot: any[] | null = null;
   // A missing count compares false on both sides, which is the intended "no snapshot".
   if ((count as number) > 0 && (count as number) <= UNDO_LIMIT) {

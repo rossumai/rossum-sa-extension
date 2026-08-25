@@ -14,7 +14,10 @@ import JSON5 from 'json5';
 
 function renderHook(hookFn: any): any {
   let result: any;
-  const Probe = () => { result = hookFn(); return null; };
+  const Probe = () => {
+    result = hookFn();
+    return null;
+  };
   render(<Probe />, document.createElement('div'));
   return result;
 }
@@ -76,10 +79,7 @@ describe('pipeline building (usePipeline)', () => {
   it('clearing all sort keys omits the $sort stage entirely', () => {
     const hook = renderHook(usePipeline);
     hook.toggleSort('_id'); // removes _id from the default sortState
-    expect(hook.buildPipelineFromUI()).toEqual([
-      { $match: {} },
-      { $skip: 0 },
-    ]);
+    expect(hook.buildPipelineFromUI()).toEqual([{ $match: {} }, { $skip: 0 }]);
   });
 
   it('reset restores the default _id:-1 sort', () => {
@@ -159,7 +159,7 @@ describe('pipeline building (usePipeline)', () => {
   it('quotes other malformed-as-JSON5 numeric shapes (commas, spaces, repeated dots)', () => {
     const hook = renderHook(usePipeline);
     hook.setPlaceholder('a', '5,552.14'); // locale-formatted number from a Rossum field
-    hook.setPlaceholder('b', ' 42 ');     // padded
+    hook.setPlaceholder('b', ' 42 '); // padded
     const r = hook.substitutePlaceholders('["{a}", "{b}"]');
     // Both must end up as strings (not bare literals) for the result to parse.
     expect(() => JSON5.parse(r)).not.toThrow();
@@ -203,7 +203,9 @@ describe('query execution (useQuery)', () => {
 
     const res = await hook.runQuery('test_col', '[{"$match": {}}]');
 
-    expect(api.aggregate).toHaveBeenCalledWith('test_col', [{ $match: {} }], { signal: expect.any(AbortSignal) });
+    expect(api.aggregate).toHaveBeenCalledWith('test_col', [{ $match: {} }], {
+      signal: expect.any(AbortSignal),
+    });
     expect(store.records.value).toEqual([{ _id: '1', name: 'Alice' }]);
     expect(res.elapsed).toBeTypeOf('number');
     expect(store.loading.value).toBe(false);
@@ -222,7 +224,12 @@ describe('query execution (useQuery)', () => {
   it('ignores stale query results when a newer query completes first', async () => {
     let resolveFirst: any;
     vi.mocked(api.aggregate)
-      .mockImplementationOnce(() => new Promise((r) => { resolveFirst = r; }))
+      .mockImplementationOnce(
+        () =>
+          new Promise((r) => {
+            resolveFirst = r;
+          }),
+      )
       .mockResolvedValueOnce({ result: [{ name: 'second' }] });
 
     const hook = renderHook(useQuery);
@@ -266,11 +273,9 @@ describe('query execution (useQuery)', () => {
     vi.mocked(api.aggregate).mockResolvedValue({ result: [] });
     const hook = renderHook(useQuery);
     await hook.runQuery('col', '[{"$match": {"status": "{status}"}}]');
-    expect(api.aggregate).toHaveBeenCalledWith(
-      'col',
-      [{ $match: { status: '{status}' } }],
-      { signal: expect.any(AbortSignal) },
-    );
+    expect(api.aggregate).toHaveBeenCalledWith('col', [{ $match: { status: '{status}' } }], {
+      signal: expect.any(AbortSignal),
+    });
   });
 
   it('skips execution when collection is empty', async () => {
@@ -285,7 +290,9 @@ describe('query execution (useQuery)', () => {
 
     await hook.runQuery('col', '[{$match: {},}]');
 
-    expect(api.aggregate).toHaveBeenCalledWith('col', [{ $match: {} }], { signal: expect.any(AbortSignal) });
+    expect(api.aggregate).toHaveBeenCalledWith('col', [{ $match: {} }], {
+      signal: expect.any(AbortSignal),
+    });
   });
 
   it('aborts the prior in-flight aggregate when superseded by a new runQuery', async () => {
@@ -345,7 +352,10 @@ describe('pagination (usePagination)', () => {
 
     expect(count).toBe(150);
     expect(hook.totalCount.value).toBe(150);
-    expect(api.aggregate).toHaveBeenCalledWith('col', [{ $collStats: { count: {} } }, { $limit: 1 }]);
+    expect(api.aggregate).toHaveBeenCalledWith('col', [
+      { $collStats: { count: {} } },
+      { $limit: 1 },
+    ]);
     expect(cache.get('col', 'totalCount')).toBe(150);
   });
 
@@ -407,7 +417,7 @@ describe('pagination (usePagination)', () => {
 
   it('does not over-page into empty pages when the query is filtered', () => {
     const hook = renderHook(usePagination);
-    hook.totalCount.value = 10000;      // unfiltered collection size
+    hook.totalCount.value = 10000; // unfiltered collection size
     store.skip.value = 0;
     store.limit.value = 50;
     // Unfiltered: trust the total → there is a next page.
@@ -420,7 +430,12 @@ describe('pagination (usePagination)', () => {
 
   it('discards stale total count when collection changes during fetch', async () => {
     let resolveCount: any;
-    vi.mocked(api.aggregate).mockImplementation(() => new Promise((r) => { resolveCount = r; }));
+    vi.mocked(api.aggregate).mockImplementation(
+      () =>
+        new Promise((r) => {
+          resolveCount = r;
+        }),
+    );
     const hook = renderHook(usePagination);
 
     // Start fetching total count for 'old_col'

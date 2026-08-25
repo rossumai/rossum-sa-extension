@@ -48,17 +48,20 @@ beforeEach(() => {
   // sends every one of them, including this test's own, down the
   // "dismissed" short-circuit before it ever reaches baseline logic.
   window.sessionStorage.clear();
-  globalThis.chrome = ({ storage: {
-    local: {
-      get: vi.fn(async (keys) => {
-        const out = {};
-        for (const k of (Array.isArray(keys) ? keys : [keys])) if (k in state) (out as any)[k] = state[k];
-        return out;
-      }),
-      set: vi.fn(async (obj) => Object.assign(state, obj)),
-    },
-    onChanged: { addListener: vi.fn((fn) => storageListeners.push(fn)), removeListener: vi.fn() },
-  } as any } as any);
+  globalThis.chrome = {
+    storage: {
+      local: {
+        get: vi.fn(async (keys) => {
+          const out = {};
+          for (const k of Array.isArray(keys) ? keys : [keys])
+            if (k in state) (out as any)[k] = state[k];
+          return out;
+        }),
+        set: vi.fn(async (obj) => Object.assign(state, obj)),
+      },
+      onChanged: { addListener: vi.fn((fn) => storageListeners.push(fn)), removeListener: vi.fn() },
+    } as any,
+  } as any;
 });
 
 const deps = (over = {}) => ({
@@ -134,15 +137,20 @@ describe('production wiring', () => {
     let p = emptyProgress(TRACK, 1);
     for (const m of TRACK.missions) {
       for (const s of m.steps) {
-        if (m.id === 'm1' || (m.id === 'm2' && s.kind !== 'api')) p = markStep(p, m.id, s.id, 'passed', 2);
+        if (m.id === 'm1' || (m.id === 'm2' && s.kind !== 'api'))
+          p = markStep(p, m.id, s.id, 'passed', 2);
       }
     }
     state[PROGRESS_KEY] = { [window.location.origin]: p };
-    await init({ getLocation: () => ({ pathname: '/nowhere', search: '' }), now: () => 1000, intervalMs: 0 });
+    await init({
+      getLocation: () => ({ pathname: '/nowhere', search: '' }),
+      now: () => 1000,
+      intervalMs: 0,
+    });
     await waitFor(() => fetchRossumApiFresh.mock.calls.length > 0);
     const [, opts] = fetchRossumApiFresh.mock.calls[0];
-    expect(opts).toBeDefined();          // the second argument must survive
-    expect(opts.id).toBeTruthy();        // it is the check object
+    expect(opts).toBeDefined(); // the second argument must survive
+    expect(opts.id).toBeTruthy(); // it is the check object
     vi.doUnmock('../src/rossum/api.js');
   });
 });
@@ -163,7 +171,9 @@ describe('gate', () => {
 });
 
 describe('card', () => {
-  beforeEach(() => { state[UNLOCK_KEY] = true; });
+  beforeEach(() => {
+    state[UNLOCK_KEY] = true;
+  });
 
   it('injects the card when unlocked and a track is started', async () => {
     const { init, CARD_ID } = await loadQuest();
@@ -187,7 +197,9 @@ describe('card', () => {
     state[PROGRESS_KEY] = { [window.location.origin]: emptyProgress(TRACK, 1) };
     await init(deps());
     await waitFor(() => state[PROGRESS_KEY][window.location.origin].missions?.m1?.steps?.['m1.s1']);
-    expect(state[PROGRESS_KEY][window.location.origin].missions.m1.steps['m1.s1'].state).toBe('passed');
+    expect(state[PROGRESS_KEY][window.location.origin].missions.m1.steps['m1.s1'].state).toBe(
+      'passed',
+    );
   });
 
   it('does not mark a visit step when the route does not match', async () => {
@@ -196,7 +208,9 @@ describe('card', () => {
     await init(deps({ getLocation: () => ({ pathname: '/nowhere', search: '' }) }));
     // intervalMs:0 means all work is flushed by the time init() resolves —
     // no sleep needed, and a fixed-timeout wait would be a repo-rule violation.
-    expect(state[PROGRESS_KEY][window.location.origin].missions?.m1?.steps?.['m1.s1']).toBeUndefined();
+    expect(
+      state[PROGRESS_KEY][window.location.origin].missions?.m1?.steps?.['m1.s1'],
+    ).toBeUndefined();
   });
 
   // Drives a REAL tick after dismissal, via the focus listener. An earlier
@@ -234,13 +248,17 @@ describe('baseline capture', () => {
     let p = emptyProgress(TRACK, 1);
     for (const m of TRACK.missions) {
       for (const s of m.steps) {
-        if (m.id === 'm1' || (m.id === 'm2' && s.kind !== 'api')) p = markStep(p, m.id, s.id, 'passed', 2);
+        if (m.id === 'm1' || (m.id === 'm2' && s.kind !== 'api'))
+          p = markStep(p, m.id, s.id, 'passed', 2);
       }
     }
     state[PROGRESS_KEY] = { [window.location.origin]: p };
 
     let failing = true;
-    const get = vi.fn(async () => { if (failing) throw new Error('network'); return { results: [] }; });
+    const get = vi.fn(async () => {
+      if (failing) throw new Error('network');
+      return { results: [] };
+    });
     await init(deps({ get }));
 
     // A half-captured baseline is PERMANENT — evaluateApi returns false forever
@@ -256,8 +274,11 @@ describe('baseline capture', () => {
     // A later tick with a working network must capture it (no permanent strand).
     failing = false;
     window.dispatchEvent(new Event('focus')); // drives a real tick via init's listener
-    await waitFor(() => state[PROGRESS_KEY][origin].missions?.m2?.baseline !== undefined
-      && state[PROGRESS_KEY][origin].missions?.m2?.baseline !== null);
+    await waitFor(
+      () =>
+        state[PROGRESS_KEY][origin].missions?.m2?.baseline !== undefined &&
+        state[PROGRESS_KEY][origin].missions?.m2?.baseline !== null,
+    );
   });
 });
 
@@ -273,7 +294,8 @@ describe('nextStep', () => {
   it('returns null when the whole track is done', async () => {
     const { nextStep } = await loadQuest();
     let p = emptyProgress(TRACK, 1);
-    for (const m of TRACK.missions) for (const s of m.steps) p = markStep(p, m.id, s.id, 'passed', 3);
+    for (const m of TRACK.missions)
+      for (const s of m.steps) p = markStep(p, m.id, s.id, 'passed', 3);
     expect(nextStep(TRACK, p)).toBe(null);
   });
 });
@@ -308,7 +330,12 @@ describe('mission complete tracking', () => {
 
   function stubUsage() {
     const sent: any = [];
-    globalThis.chrome.runtime = ({ sendMessage: vi.fn((m) => { sent.push(m); return Promise.resolve(); }) } as any);
+    globalThis.chrome.runtime = {
+      sendMessage: vi.fn((m) => {
+        sent.push(m);
+        return Promise.resolve();
+      }),
+    } as any;
     return sent;
   }
 
@@ -342,7 +369,9 @@ describe('mission complete tracking', () => {
 
     await init(d);
     await waitFor(() => state[PROGRESS_KEY][window.location.origin].missions.m3.steps['m3.s5']);
-    const countAfterFirstTick = sent.filter((m: any) => m.name === 'sa_training_mission_complete').length;
+    const countAfterFirstTick = sent.filter(
+      (m: any) => m.name === 'sa_training_mission_complete',
+    ).length;
     expect(countAfterFirstTick).toBe(1);
 
     // Drive a real second tick via the focus listener init() registered (the
@@ -382,7 +411,9 @@ describe('track started while the page is already open (C1)', () => {
   it('does not stack loops when the record changes repeatedly', async () => {
     const { init } = await loadQuest();
     state[UNLOCK_KEY] = true;
-    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval').mockImplementation((() => 999) as any);
+    const setIntervalSpy = vi
+      .spyOn(globalThis, 'setInterval')
+      .mockImplementation((() => 999) as any);
     await init(deps({ intervalMs: 1500 }));
 
     const fresh = { [window.location.origin]: emptyProgress(TRACK, 1) };
@@ -416,10 +447,12 @@ describe('track started while the page is already open (C1)', () => {
     let turn = 0;
     globalThis.chrome.storage.local.get = vi.fn(async (keys) => {
       // Alternating delays, so the reads also resolve OUT OF ORDER.
-      await new Promise((r) => setTimeout(r, (turn++ % 2) ? 1 : 5));
+      await new Promise((r) => setTimeout(r, turn++ % 2 ? 1 : 5));
       return syncGet(keys);
     });
-    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval').mockImplementation((() => 999) as any);
+    const setIntervalSpy = vi
+      .spyOn(globalThis, 'setInterval')
+      .mockImplementation((() => 999) as any);
 
     // Deliberately NOT awaited in turn: this is two listener callbacks firing
     // back to back, neither of which can await the other.
@@ -505,10 +538,14 @@ describe('progress written by the Academy (C2)', () => {
     let p = emptyProgress(TRACK, 1);
     for (const m of TRACK.missions) {
       for (const s of m.steps) {
-        if (m.id === 'm1' || (m.id === 'm2' && s.kind !== 'api')) p = markStep(p, m.id, s.id, 'passed', 2);
+        if (m.id === 'm1' || (m.id === 'm2' && s.kind !== 'api'))
+          p = markStep(p, m.id, s.id, 'passed', 2);
       }
     }
-    p = { ...p, missions: { ...p.missions, m2: { ...p.missions.m2, baseline: { schemaFieldAdded: 999 } } } };
+    p = {
+      ...p,
+      missions: { ...p.missions, m2: { ...p.missions.m2, baseline: { schemaFieldAdded: 999 } } },
+    };
     state[PROGRESS_KEY] = { [origin]: p };
 
     // The restart lands WHILE this fetch is in flight — the whole point.
@@ -520,7 +557,7 @@ describe('progress written by the Academy (C2)', () => {
     // A real clock, so the api branch clears its 20s throttle on the first tick.
     await init(deps({ get, now: () => Date.now(), intervalMs: 0 }));
 
-    expect(get).toHaveBeenCalled();                      // the tick really did suspend
+    expect(get).toHaveBeenCalled(); // the tick really did suspend
     expect(document.getElementById(CARD_ID)).toBe(null); // and rendered nothing after
   });
 
@@ -535,7 +572,8 @@ describe('progress written by the Academy (C2)', () => {
     let p = emptyProgress(TRACK, 1);
     for (const m of TRACK.missions) {
       for (const s of m.steps) {
-        if (m.id === 'm1' || (m.id === 'm2' && s.kind !== 'api')) p = markStep(p, m.id, s.id, 'passed', 2);
+        if (m.id === 'm1' || (m.id === 'm2' && s.kind !== 'api'))
+          p = markStep(p, m.id, s.id, 'passed', 2);
       }
     }
     state[PROGRESS_KEY] = { [origin]: p };
@@ -550,10 +588,10 @@ describe('progress written by the Academy (C2)', () => {
       // before the restart arrives.
       if (call === 1) throw new Error('network');
       if (call === 2) {
-        state[PROGRESS_KEY] = {};                                 // Restart track…
-        emitProgressChange({});                                   // …stops loop A
+        state[PROGRESS_KEY] = {}; // Restart track…
+        emitProgressChange({}); // …stops loop A
         state[PROGRESS_KEY] = { [origin]: emptyProgress(TRACK, 9) };
-        emitProgressChange(state[PROGRESS_KEY]);                  // …and starts loop B
+        emitProgressChange(state[PROGRESS_KEY]); // …and starts loop B
       }
       return { results: [] };
     });
@@ -569,7 +607,7 @@ describe('progress written by the Academy (C2)', () => {
       .filter((x) => x.delay === INTERVAL);
     expect(ours.length).toBe(2); // A, then B
     const cleared = clearSpy.mock.calls.map((c) => c[0]);
-    expect(cleared).toContain(ours[0].handle);     // A's interval was torn down
+    expect(cleared).toContain(ours[0].handle); // A's interval was torn down
     expect(cleared).not.toContain(ours[1].handle); // B's was NOT
     for (const x of ours) globalThis.clearInterval(x.handle);
     setSpy.mockRestore();
@@ -600,7 +638,7 @@ describe('progress written by the Academy (C2)', () => {
 
     const stored: any = state[PROGRESS_KEY][origin];
     expect(stored.missions.m1.steps['m1.s1'].state).toBe('passed'); // this loop's write landed
-    expect(stored.missions.m1.steps['m1.s4'].state).toBe('self');   // and did not eat the attestation
+    expect(stored.missions.m1.steps['m1.s4'].state).toBe('self'); // and did not eat the attestation
   });
 });
 
@@ -627,7 +665,9 @@ describe('unlock re-entry', () => {
     state[PROGRESS_KEY] = { [window.location.origin]: emptyProgress(TRACK, 1) };
     // Prevent a REAL interval from surviving past this test (intervalMs is
     // non-zero on purpose, per the coordinator's ask) while still recording calls.
-    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval').mockImplementation((() => 999) as any);
+    const setIntervalSpy = vi
+      .spyOn(globalThis, 'setInterval')
+      .mockImplementation((() => 999) as any);
 
     // Simulate chrome.storage.onChanged firing twice in a row for the same
     // flip to true — e.g. a redundant event, or the trainee's popup click

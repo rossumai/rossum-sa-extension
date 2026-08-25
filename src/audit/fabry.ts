@@ -9,8 +9,12 @@ export const DEFAULT_QUESTION =
   "Summarize the latest activity in this organization's audit log: the most recent events, who did what, and anything notable.";
 
 const FILTER_LABELS = [
-  ['object_type', 'object type'], ['action', 'action'], ['object_id', 'object id'],
-  ['username', 'username'], ['timestamp_after', 'after'], ['timestamp_before', 'before'],
+  ['object_type', 'object type'],
+  ['action', 'action'],
+  ['object_id', 'object id'],
+  ['username', 'username'],
+  ['timestamp_after', 'after'],
+  ['timestamp_before', 'before'],
 ];
 
 type AuditFilters = Record<string, unknown> | null | undefined;
@@ -29,8 +33,10 @@ function filterContext(filters: AuditFilters) {
 const SEED_MAX_ROWS = 40;
 const SEED_MAX_CHARS = 12000;
 export function seedRows(rows: unknown[] | null | undefined) {
-  const sample = (Array.isArray(rows) ? rows : []).slice(0, SEED_MAX_ROWS)
-    .map((r) => { const { _idx, ...rest } = (r || {}) as Record<string, unknown>; return rest; });
+  const sample = (Array.isArray(rows) ? rows : []).slice(0, SEED_MAX_ROWS).map((r) => {
+    const { _idx, ...rest } = (r || {}) as Record<string, unknown>;
+    return rest;
+  });
   let json = JSON.stringify(sample);
   if (json.length > SEED_MAX_CHARS) json = json.slice(0, SEED_MAX_CHARS) + '…(truncated)';
   return json;
@@ -48,22 +54,30 @@ const FORMAT_LINES = [
   'Do NOT include any [e:…] citations — this viewer has no citation targets. Never invent activity that is not in the audit log.',
 ];
 
-export function buildAuditPrompt(
-  { question, filters, rows, mode }:
-  { question: string; filters: AuditFilters; rows: unknown[] | null | undefined; mode?: string },
-) {
+export function buildAuditPrompt({
+  question,
+  filters,
+  rows,
+  mode,
+}: {
+  question: string;
+  filters: AuditFilters;
+  rows: unknown[] | null | undefined;
+  mode?: string;
+}) {
   const head = [
     'You are Mr. Fabry answering a question in a READ-ONLY Rossum audit-log viewer. Never modify anything — only read and reason.',
     `The user is currently viewing audit logs filtered by: ${filterContext(filters)}.`,
   ];
-  const body = mode === 'seeded'
-    ? [
-        'Here are the most recent audit-log entries currently loaded (JSON). Base your answer ONLY on these; do not claim anything beyond them, and say so if they are insufficient:',
-        seedRows(rows),
-      ]
-    : [
-        'Use your read-only tools to fetch the recent audit-log entries you need to answer. If you cannot retrieve audit logs, say so plainly rather than guessing.',
-      ];
+  const body =
+    mode === 'seeded'
+      ? [
+          'Here are the most recent audit-log entries currently loaded (JSON). Base your answer ONLY on these; do not claim anything beyond them, and say so if they are insufficient:',
+          seedRows(rows),
+        ]
+      : [
+          'Use your read-only tools to fetch the recent audit-log entries you need to answer. If you cannot retrieve audit logs, say so plainly rather than guessing.',
+        ];
   const tail = [`Question: ${question}`, ...FORMAT_LINES];
   return [...head, ...body, ...tail].join('\n\n');
 }
@@ -72,9 +86,13 @@ export function buildAuditPrompt(
 // (filters/paging) changed since the last summary, and the newly-loaded rows
 // need to be re-seeded so the new summary is grounded in what's on screen now
 // (never the stale rows the previous summary described).
-export function buildRefreshPrompt(
-  { filters, rows }: { filters: AuditFilters; rows: unknown[] | null | undefined },
-) {
+export function buildRefreshPrompt({
+  filters,
+  rows,
+}: {
+  filters: AuditFilters;
+  rows: unknown[] | null | undefined;
+}) {
   return [
     'The user changed the audit-log view. You are still in the same READ-ONLY audit-log viewer — never modify anything.',
     `The view is now filtered by: ${filterContext(filters)}.`,
@@ -115,39 +133,80 @@ async function streamTurn(
     signal,
     onEvent: (ev: unknown) => {
       foldEvents(acc, [ev]);
-      if (acc.status && acc.status !== lastStatus) { lastStatus = acc.status; onPhase(acc.status); }
+      if (acc.status && acc.status !== lastStatus) {
+        lastStatus = acc.status;
+        onPhase(acc.status);
+      }
       const t = replyText(acc);
-      if (t !== lastText) { lastText = t; onText(t); }
+      if (t !== lastText) {
+        lastText = t;
+        onText(t);
+      }
     },
   });
   return { text: replyText(acc), reasoning: acc.reasoning, tools: acc.tools.slice() };
 }
 
-export async function runAuditQuery(
-  { agentApi, question, filters, rows, mode = 'autonomous', onPhase = () => {}, onText = () => {}, signal }:
-  { agentApi: any; question: string; filters: AuditFilters; rows: unknown[] | null | undefined; mode?: string } & StreamCallbacks,
-) {
+export async function runAuditQuery({
+  agentApi,
+  question,
+  filters,
+  rows,
+  mode = 'autonomous',
+  onPhase = () => {},
+  onText = () => {},
+  signal,
+}: {
+  agentApi: any;
+  question: string;
+  filters: AuditFilters;
+  rows: unknown[] | null | undefined;
+  mode?: string;
+} & StreamCallbacks) {
   onPhase('thinking');
   const chatId = await agentApi.createChat();
   await agentApi.streamMessage(chatId, '/persona cautious', { onEvent: () => {}, signal });
-  const res = await streamTurn(agentApi, chatId, buildAuditPrompt({ question, filters, rows, mode }), { onPhase, onText, signal });
+  const res = await streamTurn(
+    agentApi,
+    chatId,
+    buildAuditPrompt({ question, filters, rows, mode }),
+    { onPhase, onText, signal },
+  );
   return { ...res, chatId };
 }
 
-export async function continueAuditQuery(
-  { agentApi, chatId, question, onPhase = () => {}, onText = () => {}, signal }:
-  { agentApi: any; chatId: string; question: string } & StreamCallbacks,
-) {
+export async function continueAuditQuery({
+  agentApi,
+  chatId,
+  question,
+  onPhase = () => {},
+  onText = () => {},
+  signal,
+}: { agentApi: any; chatId: string; question: string } & StreamCallbacks) {
   onPhase('thinking');
   return streamTurn(agentApi, chatId, buildFollowupPrompt(question), { onPhase, onText, signal });
 }
 
 // Re-summarize the current view as a new turn in the existing chat (no
 // createChat, no persona re-prime — same shape as continueAuditQuery).
-export async function refreshAuditSummary(
-  { agentApi, chatId, filters, rows, onPhase = () => {}, onText = () => {}, signal }:
-  { agentApi: any; chatId: string; filters: AuditFilters; rows: unknown[] | null | undefined } & StreamCallbacks,
-) {
+export async function refreshAuditSummary({
+  agentApi,
+  chatId,
+  filters,
+  rows,
+  onPhase = () => {},
+  onText = () => {},
+  signal,
+}: {
+  agentApi: any;
+  chatId: string;
+  filters: AuditFilters;
+  rows: unknown[] | null | undefined;
+} & StreamCallbacks) {
   onPhase('thinking');
-  return streamTurn(agentApi, chatId, buildRefreshPrompt({ filters, rows }), { onPhase, onText, signal });
+  return streamTurn(agentApi, chatId, buildRefreshPrompt({ filters, rows }), {
+    onPhase,
+    onText,
+    signal,
+  });
 }

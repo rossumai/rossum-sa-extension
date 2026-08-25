@@ -1,7 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import {
-  encodeSegment, decodeSegment, joinPath, splitPath, isOpaqueKey, isEjsonWrapper,
-  flattenDoc, unflattenDoc, getByPath, hasByPath,
+  encodeSegment,
+  decodeSegment,
+  joinPath,
+  splitPath,
+  isOpaqueKey,
+  isEjsonWrapper,
+  flattenDoc,
+  unflattenDoc,
+  getByPath,
+  hasByPath,
 } from '../src/mdh/flatten.js';
 import { tokenizeCsv } from '../src/mdh/csv.js';
 
@@ -41,9 +49,9 @@ describe('path grammar', () => {
 describe('isOpaqueKey', () => {
   it('is true for a dotted key and a $-prefixed key, false otherwise', () => {
     expect(isOpaqueKey('a.b')).toBe(true);
-    expect(isOpaqueKey('$foo')).toBe(true);   // a field path would become '$$foo' — a VARIABLE
+    expect(isOpaqueKey('$foo')).toBe(true); // a field path would become '$$foo' — a VARIABLE
     expect(isOpaqueKey('address')).toBe(false);
-    expect(isOpaqueKey('a\\b')).toBe(false);  // backslash is fine in a Mongo field path
+    expect(isOpaqueKey('a\\b')).toBe(false); // backslash is fine in a Mongo field path
   });
 });
 
@@ -51,7 +59,7 @@ describe('isEjsonWrapper', () => {
   it('accepts a single-$-key object, or $date with 2 keys (metadata)', () => {
     expect(isEjsonWrapper({ $oid: 'x' })).toBe(true);
     expect(isEjsonWrapper({ $date: 'x' })).toBe(true);
-    expect(isEjsonWrapper({ $date: 'x', y: 1 })).toBe(true);  // $date allows metadata
+    expect(isEjsonWrapper({ $date: 'x', y: 1 })).toBe(true); // $date allows metadata
     expect(isEjsonWrapper({ a: 1 })).toBe(false);
     expect(isEjsonWrapper([1])).toBe(false);
     expect(isEjsonWrapper(null)).toBe(false);
@@ -68,8 +76,12 @@ describe('flattenDoc', () => {
   });
 
   it('treats arrays, EJSON wrappers and empty objects as leaves', () => {
-    expect(flattenDoc({ tags: ['x'], id: { $oid: 'h' }, at: { $date: 'i' }, empty: {} }))
-      .toEqual({ tags: ['x'], id: { $oid: 'h' }, at: { $date: 'i' }, empty: {} });
+    expect(flattenDoc({ tags: ['x'], id: { $oid: 'h' }, at: { $date: 'i' }, empty: {} })).toEqual({
+      tags: ['x'],
+      id: { $oid: 'h' },
+      at: { $date: 'i' },
+      empty: {},
+    });
   });
 
   it('escapes a literal dotted key instead of expanding it', () => {
@@ -93,7 +105,7 @@ describe('flattenDoc', () => {
     expect(isEjsonWrapper(bin)).toBe(true);
     expect(flattenDoc({ f: bin })).toEqual({ f: bin });
     expect(isEjsonWrapper({ $timestamp: { t: 1, i: 1 } })).toBe(true);
-    expect(isEjsonWrapper({ $foo: { d: 1 } })).toBe(false);   // not an EJSON type
+    expect(isEjsonWrapper({ $foo: { d: 1 } })).toBe(false); // not an EJSON type
   });
 
   it('keeps a legacy 2-key $regex/$options wrapper as a single leaf, not two dotted keys', () => {
@@ -122,7 +134,7 @@ describe('unflattenDoc', () => {
 
     const reversed = unflattenDoc({ 'a.b': 2, a: 1 });
     expect(reversed.conflicts).toEqual(['a']);
-    expect(reversed.doc.a).toEqual({ b: 2 });   // the nested build wins; the scalar cannot overwrite it
+    expect(reversed.doc.a).toEqual({ b: 2 }); // the nested build wins; the scalar cannot overwrite it
   });
 
   // Measured defect: a mixed object/scalar path emits a header the exporter's
@@ -210,7 +222,7 @@ describe('unflattenDoc', () => {
       expect(forward.conflicts).toEqual(['a.b']);
 
       const reverse = unflattenDoc({ 'a.b': 2, a: 1 });
-      expect(reverse.doc.a).toEqual({ b: 2 });   // the nested build wins; the scalar cannot overwrite it
+      expect(reverse.doc.a).toEqual({ b: 2 }); // the nested build wins; the scalar cannot overwrite it
       expect(reverse.conflicts).toEqual(['a']);
     });
   });
@@ -235,6 +247,6 @@ describe('getByPath / hasByPath', () => {
 describe('escaped headers survive the CSV tokenizer', () => {
   it('keeps a backslash intact even with escapeChar set', () => {
     const { rows } = tokenizeCsv('a\\.b,c\r\n1,2', { escapeChar: '\\' });
-    expect(rows[0]).toEqual(['a\\.b', 'c']);   // escapeChar applies INSIDE quotes only
+    expect(rows[0]).toEqual(['a\\.b', 'c']); // escapeChar applies INSIDE quotes only
   });
 });

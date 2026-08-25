@@ -11,7 +11,9 @@ describe('apiPatch', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const out = await apiPatch('https://x.example/api/v1/annotations/7', 'tok123', { status: 'to_review' });
+    const out = await apiPatch('https://x.example/api/v1/annotations/7', 'tok123', {
+      status: 'to_review',
+    });
 
     expect(out).toEqual({ status: 'to_review' });
     expect(fetchMock).toHaveBeenCalledWith('https://x.example/api/v1/annotations/7', {

@@ -53,7 +53,9 @@ export function handleNode(node: HTMLElement): void {
       navigator.clipboard.writeText(id as string).then(() => {
         const original = span.textContent;
         span.textContent = '✓ copied';
-        setTimeout(() => { span.textContent = original; }, 1000);
+        setTimeout(() => {
+          span.textContent = original;
+        }, 1000);
       });
     });
     node.appendChild(span);

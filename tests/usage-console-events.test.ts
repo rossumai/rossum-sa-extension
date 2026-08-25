@@ -42,14 +42,21 @@ describe('instrumented event names', () => {
   });
 
   it('uses only names from the vocabulary', () => {
-    expect([...used].filter((n) => !(EVENT_NAMES as readonly string[]).includes(n as string))).toEqual([]);
+    expect(
+      [...used].filter((n) => !(EVENT_NAMES as readonly string[]).includes(n as string)),
+    ).toEqual([]);
   });
 
   it('covers every Console app and the DevTools panel', () => {
     for (const n of [
-      'sa_console_open', 'sa_console_app_mdh', 'sa_console_app_audit',
-      'sa_console_app_inspector', 'sa_console_app_galaxy', 'sa_console_app_fabry',
+      'sa_console_open',
+      'sa_console_app_mdh',
+      'sa_console_app_audit',
+      'sa_console_app_inspector',
+      'sa_console_app_galaxy',
+      'sa_console_app_fabry',
       'sa_devtools_panel_open',
-    ]) expect(used.has(n)).toBe(true);
+    ])
+      expect(used.has(n)).toBe(true);
   });
 });

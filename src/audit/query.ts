@@ -29,16 +29,30 @@ export async function fetchActive({ signal }: { signal?: AbortSignal | null } = 
   try {
     const res = await api.get(`${desc.path}?${api.buildQuery(params)}`, { signal });
     if (myId !== queryId) return;
-    const items = (Array.isArray(res?.results) ? res.results : []).map((r: any, i: number) => ({ ...r, _idx: i }));
+    const items = (Array.isArray(res?.results) ? res.results : []).map((r: any, i: number) => ({
+      ...r,
+      _idx: i,
+    }));
     store.rows.value = items;
-    store.pageInfo.value = api.normalizePage(res?.pagination, desc.paginationMode as 'cursor' | 'offset', st.page || 1);
+    store.pageInfo.value = api.normalizePage(
+      res?.pagination,
+      desc.paginationMode as 'cursor' | 'offset',
+      st.page || 1,
+    );
     store.availability.value = 'available';
     store.availabilityMessage.value = null;
     store.availabilityStatus.value = null;
   } catch (err) {
     if ((err as any)?.name === 'AbortError' || myId !== queryId) return;
     store.rows.value = [];
-    store.pageInfo.value = { total: null, totalPages: null, hasNext: false, hasPrev: false, nextCursor: null, prevCursor: null };
+    store.pageInfo.value = {
+      total: null,
+      totalPages: null,
+      hasNext: false,
+      hasPrev: false,
+      nextCursor: null,
+      prevCursor: null,
+    };
     if ((err as any)?.featureUnavailable) {
       store.availability.value = 'unavailable';
       store.availabilityMessage.value = (err as any)?.message || null;

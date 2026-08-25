@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { isHiddenCollection, visibleCollections, HIDDEN_PREFIX } from '../src/mdh/hiddenCollections.js';
+import {
+  isHiddenCollection,
+  visibleCollections,
+  HIDDEN_PREFIX,
+} from '../src/mdh/hiddenCollections.js';
 import { COLLECTION, LEGACY_COLLECTION } from '../src/fabry/architect/collectionNames.js';
 
 describe('hiddenCollections', () => {
@@ -10,7 +14,14 @@ describe('hiddenCollections', () => {
   });
 
   it('leaves the customer own collections alone, including near-misses', () => {
-    for (const n of ['suppliers', '_SA_EXTENSION', '_SA_extension__x', 'sa_extension__x', '__mrfabry_other', '_PROD_materials']) {
+    for (const n of [
+      'suppliers',
+      '_SA_EXTENSION',
+      '_SA_extension__x',
+      'sa_extension__x',
+      '__mrfabry_other',
+      '_PROD_materials',
+    ]) {
       expect(isHiddenCollection(n), n).toBe(false);
     }
   });
@@ -24,7 +35,7 @@ describe('hiddenCollections', () => {
     const names = ['alpha', COLLECTION, 'beta', LEGACY_COLLECTION];
     expect(visibleCollections(names)).toEqual(['alpha', 'beta']);
     expect(visibleCollections(names, true)).toEqual(names);
-    expect(visibleCollections(names, true)).not.toBe(names);   // copy, never the caller's array
+    expect(visibleCollections(names, true)).not.toBe(names); // copy, never the caller's array
   });
 
   it('tolerates junk', () => {
@@ -34,7 +45,7 @@ describe('hiddenCollections', () => {
 });
 
 describe('applyCollectionFilter (the one place the split is applied)', () => {
-  it('splits the sorted list: the customer\'s collections, and ours in their own group', async () => {
+  it("splits the sorted list: the customer's collections, and ours in their own group", async () => {
     const store = await import('../src/mdh/store.js');
     store.rawCollections.value = ['zeta', COLLECTION, 'alpha', LEGACY_COLLECTION];
     store.showHiddenCollections.value = false;
@@ -42,7 +53,11 @@ describe('applyCollectionFilter (the one place the split is applied)', () => {
     expect(store.applyCollectionFilter()).toEqual(['alpha', 'zeta']);
     expect(store.collections.value).toEqual(['alpha', 'zeta']);
     // Ours are listed separately rather than merged in on reveal.
-    expect(store.hiddenCollections.value).toEqual([LEGACY_COLLECTION, COLLECTION].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
+    expect(store.hiddenCollections.value).toEqual(
+      [LEGACY_COLLECTION, COLLECTION].sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true }),
+      ),
+    );
   });
 
   it('expanding the group does not change either list', async () => {

@@ -27,7 +27,8 @@ export function buildPlanPrompt(deliverable: string): string {
 }
 
 export function buildTaskPrompt(
-  deliverable: string, task: { text?: string; acceptance?: string },
+  deliverable: string,
+  task: { text?: string; acceptance?: string },
   { journal = [], doneTasks = [] }: { journal?: any[]; doneTasks?: string[] } = {},
 ): string {
   const lines = [
@@ -35,10 +36,14 @@ export function buildTaskPrompt(
     'Do THIS task only — do not do other tasks or change anything unrelated to it.',
     ...SAFETY_RULES,
   ];
-  if (doneTasks.length) lines.push('', 'ALREADY DONE (do not redo):', ...doneTasks.map((t) => `- ${t}`));
+  if (doneTasks.length)
+    lines.push('', 'ALREADY DONE (do not redo):', ...doneTasks.map((t) => `- ${t}`));
   if (journal.length) {
     lines.push('', 'PREVIOUS ATTEMPTS AT THIS TASK (learn — do not repeat what failed):');
-    for (const j of journal) lines.push(`- attempt ${j.attempt}: ${j.summary || '(no summary)'} → ${j.verdict || 'unknown'}. ${j.learnings || ''}`.trim());
+    for (const j of journal)
+      lines.push(
+        `- attempt ${j.attempt}: ${j.summary || '(no summary)'} → ${j.verdict || 'unknown'}. ${j.learnings || ''}`.trim(),
+      );
   }
   lines.push(
     '',
@@ -69,9 +74,11 @@ export function buildTaskCheckPrompt(taskText: string, acceptance?: string): str
 export function parsePlan(text: unknown, cap = MAX_PLAN_TASKS): any[] {
   const arr = extractArray(text);
   const tasks = (arr || [])
-    .map((t) => (t && typeof t === 'object'
-      ? { text: String(t.text || '').trim(), acceptance: String(t.acceptance || '').trim() }
-      : { text: String(t || '').trim(), acceptance: '' }))
+    .map((t) =>
+      t && typeof t === 'object'
+        ? { text: String(t.text || '').trim(), acceptance: String(t.acceptance || '').trim() }
+        : { text: String(t || '').trim(), acceptance: '' },
+    )
     .filter((t) => t.text);
   return tasks.slice(0, cap);
 }
@@ -93,7 +100,12 @@ export function parseDiscovered(text: unknown, cap = MAX_TOTAL_TASKS): any[] {
     const line = bullet[1].trim();
     // Skip the header/verdict echoes and whole-line no-op markers ("none",
     // "none needed/required", "n/a", "no new tasks", "nothing").
-    if (!line || /^(new tasks:|verdict:)/i.test(line) || /^(none|n\/a|no new tasks|nothing)( needed| required)?\.?$/i.test(line)) continue;
+    if (
+      !line ||
+      /^(new tasks:|verdict:)/i.test(line) ||
+      /^(none|n\/a|no new tasks|nothing)( needed| required)?\.?$/i.test(line)
+    )
+      continue;
     const idx = line.indexOf('::');
     const text2 = (idx >= 0 ? line.slice(0, idx) : line).trim();
     const acc = idx >= 0 ? line.slice(idx + 2).trim() : '';
@@ -110,9 +122,17 @@ export function parseDiscovered(text: unknown, cap = MAX_TOTAL_TASKS): any[] {
 function extractArray(text: unknown): any[] | null {
   const s = String(text ?? '').trim();
   const fence = s.match(/```(?:json)?\s*\n?([\s\S]*?)```/i);
-  if (fence) { const a = safeParseArray(fence[1].trim()); if (a) return a; }
-  const whole = safeParseArray(stripFences(s)); if (whole) return whole;
-  const i = s.indexOf('['); const j = s.lastIndexOf(']');
-  if (i >= 0 && j > i) { const a = safeParseArray(s.slice(i, j + 1).trim()); if (a) return a; }
+  if (fence) {
+    const a = safeParseArray(fence[1].trim());
+    if (a) return a;
+  }
+  const whole = safeParseArray(stripFences(s));
+  if (whole) return whole;
+  const i = s.indexOf('[');
+  const j = s.lastIndexOf(']');
+  if (i >= 0 && j > i) {
+    const a = safeParseArray(s.slice(i, j + 1).trim());
+    if (a) return a;
+  }
   return null;
 }

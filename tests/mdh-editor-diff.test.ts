@@ -20,7 +20,10 @@ describe('computeMinimalChange', () => {
       ['abc', 'abXc'],
       ['abc', 'aXc'],
       ['hello world', 'hello brave world'],
-      ['[\n  {"$match":{}},\n  {"$limit":5}\n]', '[\n  {"$match":{}},\n  {"$sort":{"a":1}},\n  {"$limit":5}\n]'],
+      [
+        '[\n  {"$match":{}},\n  {"$limit":5}\n]',
+        '[\n  {"$match":{}},\n  {"$sort":{"a":1}},\n  {"$limit":5}\n]',
+      ],
     ];
     for (const [a, b] of cases) {
       expect(apply(a, computeMinimalChange(a, b))).toBe(b);
@@ -30,7 +33,8 @@ describe('computeMinimalChange', () => {
   it('only rewrites the differing middle (keeps shared prefix and suffix)', () => {
     // Mimics the stage-toggle edit: a single stage span gets wrapped in a comment.
     const a = '[\n  {"$match":{}},\n  {"$sort":{"a":1}},\n  {"$limit":5}\n]';
-    const b = '[\n  {"$match":{}},\n  /* @disabled-stage\n  {"$sort":{"a":1}}, */\n  {"$limit":5}\n]';
+    const b =
+      '[\n  {"$match":{}},\n  /* @disabled-stage\n  {"$sort":{"a":1}}, */\n  {"$limit":5}\n]';
     const change = computeMinimalChange(a, b)!;
     // The change must start after the shared "{"$match":{}}," prefix and end
     // before the shared "{"$limit":5}\n]" suffix — i.e. it touches only the
@@ -53,10 +57,10 @@ describe('computeMinimalChange', () => {
     const grin = '😀'; // 😀
     const beam = '😁'; // 😁  (shares the high surrogate)
     const cases = [
-      [grin, beam],            // differing low surrogate at the prefix side
-      [grin + 'x', grin + 'y'],// pair fully in shared prefix
-      ['x' + grin, 'y' + grin],// pair fully in shared suffix
-      ['A' + grin, grin],      // pair preserved on the suffix side
+      [grin, beam], // differing low surrogate at the prefix side
+      [grin + 'x', grin + 'y'], // pair fully in shared prefix
+      ['x' + grin, 'y' + grin], // pair fully in shared suffix
+      ['A' + grin, grin], // pair preserved on the suffix side
       [grin, 'A' + grin],
     ];
     for (const [a, b] of cases) {
@@ -65,7 +69,8 @@ describe('computeMinimalChange', () => {
       // A boundary must not fall between a high surrogate and its low surrogate.
       const isHigh = (c: any) => c >= 0xd800 && c <= 0xdbff;
       if (change.from > 0) expect(isHigh(a.charCodeAt(change.from - 1))).toBe(false);
-      if (change.to > 0 && change.to < a.length) expect(isHigh(a.charCodeAt(change.to - 1))).toBe(false);
+      if (change.to > 0 && change.to < a.length)
+        expect(isHigh(a.charCodeAt(change.to - 1))).toBe(false);
     }
   });
 });

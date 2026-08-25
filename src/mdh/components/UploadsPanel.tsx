@@ -1,9 +1,15 @@
 import { h, Fragment } from 'preact';
 import { useState, useEffect, useMemo, useRef } from 'preact/hooks';
 import {
-  loading, error,
-  operations, operationsLoaded, pendingOperations, opsSearch,
-  selectedCollection, activeView, activePanel,
+  loading,
+  error,
+  operations,
+  operationsLoaded,
+  pendingOperations,
+  opsSearch,
+  selectedCollection,
+  activeView,
+  activePanel,
 } from '../store.js';
 import * as api from '../api.js';
 import FlashOnChange from './FlashOnChange.jsx';
@@ -36,10 +42,17 @@ const COL_WIDTHS_KEY = 'mdhUploadsColumnWidths';
 // not the source contains explicit newlines (most MDH errors are one long
 // single-line string). The "Show more" button only renders when a ref-based
 // measurement says the clamped element actually overflows.
-function ErrorText(
-  { id, msg, isExpanded, onToggle }:
-  { id: string; msg?: string | null; isExpanded?: boolean; onToggle: () => void },
-) {
+function ErrorText({
+  id,
+  msg,
+  isExpanded,
+  onToggle,
+}: {
+  id: string;
+  msg?: string | null;
+  isExpanded?: boolean;
+  onToggle: () => void;
+}) {
   const ref = useRef<HTMLSpanElement | null>(null);
   const [overflow, setOverflow] = useState(false);
   useEffect(() => {
@@ -52,14 +65,21 @@ function ErrorText(
       <span
         ref={ref}
         class={'uploads-error-text-msg' + (isExpanded ? '' : ' uploads-error-text-msg--clamped')}
-      >{msg}</span>
+      >
+        {msg}
+      </span>
       {(overflow || isExpanded) && (
         <button
           type="button"
           class="uploads-error-toggle"
-          onClick={(e) => { e.stopPropagation(); onToggle(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
           title={isExpanded ? 'Collapse error message' : 'Show full error message'}
-        >{isExpanded ? 'Show less' : 'Show more'}</button>
+        >
+          {isExpanded ? 'Show less' : 'Show more'}
+        </button>
       )}
     </span>
   );
@@ -150,11 +170,13 @@ function matchesFilter(op: any, statusFilter: any, search: any) {
   }
   if (search) {
     const q = search.toLowerCase();
-    return (op.dataset_name || '').toLowerCase().includes(q) ||
+    return (
+      (op.dataset_name || '').toLowerCase().includes(q) ||
       (op.metadata?.file_metadata?.filename || '').toLowerCase().includes(q) ||
       (op.message || '').toLowerCase().includes(q) ||
       (op.error_type || '').toLowerCase().includes(q) ||
-      (op.type || '').toLowerCase().includes(q);
+      (op.type || '').toLowerCase().includes(q)
+    );
   }
   return true;
 }
@@ -179,13 +201,25 @@ function pickActivityRange(ops: any) {
   const now = Date.now();
   const age = now - maxT;
   if (age < DAY_MS) {
-    return { tier: 'hour', bucketMs: HOUR_MS, count: 24, start: now - 24 * HOUR_MS, label: 'last 24h' };
+    return {
+      tier: 'hour',
+      bucketMs: HOUR_MS,
+      count: 24,
+      start: now - 24 * HOUR_MS,
+      label: 'last 24h',
+    };
   }
   if (age < 7 * DAY_MS) {
     return { tier: 'day', bucketMs: DAY_MS, count: 7, start: now - 7 * DAY_MS, label: 'last 7d' };
   }
   if (age < 30 * DAY_MS) {
-    return { tier: 'day', bucketMs: DAY_MS, count: 30, start: now - 30 * DAY_MS, label: 'last 30d' };
+    return {
+      tier: 'day',
+      bucketMs: DAY_MS,
+      count: 30,
+      start: now - 30 * DAY_MS,
+      label: 'last 30d',
+    };
   }
   const span = Math.max(DAY_MS, maxT - minT);
   const raw = Math.ceil(span / SPARK_BUCKET_COUNT);
@@ -202,7 +236,9 @@ function bucketActivity(ops: any) {
   const { bucketMs, count, start } = range;
   const buckets = Array.from({ length: count }, (_, i) => ({
     start: start + i * bucketMs,
-    success: 0, failed: 0, running: 0,
+    success: 0,
+    failed: 0,
+    running: 0,
   }));
   for (const op of ops) {
     const t = op.created ? Date.parse(op.created) : 0;
@@ -228,7 +264,8 @@ function formatBucketTooltip(b: any, range: any) {
     timeLabel = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   } else {
     const end = new Date(b.start + range.bucketMs - 1);
-    const fmt = (x: any) => x.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' });
+    const fmt = (x: any) =>
+      x.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' });
     timeLabel = `${fmt(d)}\u2013${fmt(end)}`;
   }
   const parts = [timeLabel];
@@ -242,12 +279,18 @@ function formatBucketTooltip(b: any, range: any) {
 function ActivitySparkline({ buckets, range }: { buckets: any[]; range?: any }) {
   if (!buckets.length || !range) return null;
   const max = Math.max(1, ...buckets.map((b) => b.success + b.failed + b.running));
-  const W = 192, H = 28, GAP = 1;
+  const W = 192,
+    H = 28,
+    GAP = 1;
   const barW = (W - (buckets.length - 1) * GAP) / buckets.length;
   const [hover, setHover] = useState<any>(null);
 
   return (
-    <div class="uploads-sparkline-host" onMouseLeave={() => setHover(null)} title={`Activity \u00b7 ${range.label}`}>
+    <div
+      class="uploads-sparkline-host"
+      onMouseLeave={() => setHover(null)}
+      title={`Activity \u00b7 ${range.label}`}
+    >
       <svg
         class="uploads-sparkline"
         width={W}
@@ -261,15 +304,30 @@ function ActivitySparkline({ buckets, range }: { buckets: any[]; range?: any }) 
           const x = i * (barW + GAP);
           const bars = [];
           if (total === 0) {
-            bars.push(<rect key="empty" x={x} y={H - 1} width={barW} height={1} fill="var(--border)" />);
+            bars.push(
+              <rect key="empty" x={x} y={H - 1} width={barW} height={1} fill="var(--border)" />,
+            );
           } else {
             const sH = (b.success / max) * H;
             const rH = (b.running / max) * H;
-            const fH = (b.failed  / max) * H;
+            const fH = (b.failed / max) * H;
             let y = H;
-            if (b.success) { y -= sH; bars.push(<rect key="s" x={x} y={y} width={barW} height={sH} fill="var(--success)" />); }
-            if (b.running) { y -= rH; bars.push(<rect key="r" x={x} y={y} width={barW} height={rH} fill="var(--warning)" />); }
-            if (b.failed)  { y -= fH; bars.push(<rect key="f" x={x} y={y} width={barW} height={fH}  fill="var(--danger)"  />); }
+            if (b.success) {
+              y -= sH;
+              bars.push(
+                <rect key="s" x={x} y={y} width={barW} height={sH} fill="var(--success)" />,
+              );
+            }
+            if (b.running) {
+              y -= rH;
+              bars.push(
+                <rect key="r" x={x} y={y} width={barW} height={rH} fill="var(--warning)" />,
+              );
+            }
+            if (b.failed) {
+              y -= fH;
+              bars.push(<rect key="f" x={x} y={y} width={barW} height={fH} fill="var(--danger)" />);
+            }
           }
           return (
             <g key={i} onMouseEnter={() => setHover(i)}>
@@ -280,10 +338,7 @@ function ActivitySparkline({ buckets, range }: { buckets: any[]; range?: any }) 
         })}
       </svg>
       {hover !== null && (
-        <div
-          class="uploads-sparkline-tip"
-          style={`left:${hover * (barW + GAP) + barW / 2}px`}
-        >
+        <div class="uploads-sparkline-tip" style={`left:${hover * (barW + GAP) + barW / 2}px`}>
           {formatBucketTooltip(buckets[hover], range)}
         </div>
       )}
@@ -336,11 +391,16 @@ function computeGroupSummary(ops: any) {
     const fs = op.metadata?.file_metadata?.file_size;
     if (fs != null) totalSize += fs;
     const rc = op.metadata?.operation_summary?.record_count;
-    if (rc != null) { totalRecords += rc; hasRecords = true; }
+    if (rc != null) {
+      totalRecords += rc;
+      hasRecords = true;
+    }
     if (op.started) {
       const startMs = new Date(op.started).getTime();
       const endMs = isTerminal(op.status)
-        ? (op.updated ? new Date(op.updated).getTime() : startMs)
+        ? op.updated
+          ? new Date(op.updated).getTime()
+          : startMs
         : now;
       if (startMs < minStart) minStart = startMs;
       if (endMs > maxEnd) maxEnd = endMs;
@@ -368,7 +428,9 @@ function computeGroupSummary(ops: any) {
 
 export default function UploadsPanel() {
   const search = opsSearch.value;
-  const setSearch = (v: any) => { opsSearch.value = v; };
+  const setSearch = (v: any) => {
+    opsSearch.value = v;
+  };
   const [statusFilter, setStatusFilter] = useState('All');
   const [expandedGroups, setExpandedGroups] = useState(() => new Set());
   const [expandedErrors, setExpandedErrors] = useState(() => new Set());
@@ -477,8 +539,12 @@ export default function UploadsPanel() {
 
   const stats = useMemo(() => {
     const isSearching = !!search;
-    let gFinished = 0, gFailed = 0, gRunning = 0;
-    let finished = 0, failed = 0, running = 0;
+    let gFinished = 0,
+      gFailed = 0,
+      gRunning = 0;
+    let finished = 0,
+      failed = 0,
+      running = 0;
     for (const op of allOperations) {
       const s = (op.status || '').toUpperCase();
       if (s === 'FINISHED') gFinished++;
@@ -492,8 +558,14 @@ export default function UploadsPanel() {
     }
     const total = isSearching ? finished + failed + running : allOperations.length;
     return {
-      total, finished, failed, running,
-      gTotal: allOperations.length, gFinished, gFailed, gRunning,
+      total,
+      finished,
+      failed,
+      running,
+      gTotal: allOperations.length,
+      gFinished,
+      gFailed,
+      gRunning,
       isSearching,
     };
   }, [allOperations, search]);
@@ -503,7 +575,10 @@ export default function UploadsPanel() {
     [allOperations, statusFilter, search],
   );
 
-  const { buckets, range: bucketRange } = useMemo(() => bucketActivity(allOperations), [allOperations]);
+  const { buckets, range: bucketRange } = useMemo(
+    () => bucketActivity(allOperations),
+    [allOperations],
+  );
 
   const pendingVisibleCount = useMemo(() => {
     if (!pending?.changedOps?.length) return 0;
@@ -516,7 +591,9 @@ export default function UploadsPanel() {
 
   const groups = useMemo(() => groupOps(filtered), [filtered]);
 
-  useEffect(() => { setPage(0); }, [statusFilter, search]);
+  useEffect(() => {
+    setPage(0);
+  }, [statusFilter, search]);
 
   const totalPages = Math.max(1, Math.ceil(groups.length / PAGE_SIZE));
   const pageSlice = groups.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -545,12 +622,13 @@ export default function UploadsPanel() {
     const fileMeta = op.metadata?.file_metadata;
     const sum = op.metadata?.operation_summary;
     const failed = (op.status || '').toUpperCase() === 'FAILED';
-    const errMsg = failed && op.message
-      ? (op.error_type ? `${op.error_type}: ${op.message}` : op.message)
-      : null;
-    const rowClass =
-      (isSub ? 'uploads-row-sub ' : '') +
-      (errMsg ? 'uploads-row-has-error' : '');
+    const errMsg =
+      failed && op.message
+        ? op.error_type
+          ? `${op.error_type}: ${op.message}`
+          : op.message
+        : null;
+    const rowClass = (isSub ? 'uploads-row-sub ' : '') + (errMsg ? 'uploads-row-has-error' : '');
     const errRowClass = (isSub ? 'uploads-row-sub ' : '') + 'uploads-row-error';
     return (
       <Fragment key={op._id}>
@@ -567,22 +645,33 @@ export default function UploadsPanel() {
                 href="#"
                 class="uploads-dataset-link"
                 title={`Open ${op.dataset_name}`}
-                onClick={(e) => { e.preventDefault(); jumpToDataset(op.dataset_name); }}
-              >{op.dataset_name}</a>
-            ) : '\u2014'}
+                onClick={(e) => {
+                  e.preventDefault();
+                  jumpToDataset(op.dataset_name);
+                }}
+              >
+                {op.dataset_name}
+              </a>
+            ) : (
+              '\u2014'
+            )}
           </td>
-          <td class="uploads-cell-file" title={fileMeta?.filename}>{fileMeta?.filename || '\u2014'}</td>
-          <td><FlashOnChange value={fileSize(fileMeta?.file_size) || '\u2014'} /></td>
-          <td><FlashOnChange value={sum?.record_count ?? '\u2014'} /></td>
+          <td class="uploads-cell-file" title={fileMeta?.filename}>
+            {fileMeta?.filename || '\u2014'}
+          </td>
+          <td>
+            <FlashOnChange value={fileSize(fileMeta?.file_size) || '\u2014'} />
+          </td>
+          <td>
+            <FlashOnChange value={sum?.record_count ?? '\u2014'} />
+          </td>
           <td title={op.created}>{op.created ? timeAgo(op.created) : '\u2014'}</td>
           <td>{duration(op.started, op.updated, op.status)}</td>
         </tr>
         {errMsg && (
           <tr class={errRowClass}>
-            <td colspan={"8" as any}>
-              <div class="uploads-error-inner">
-                {renderErrorText(op._id, errMsg)}
-              </div>
+            <td colspan={'8' as any}>
+              <div class="uploads-error-inner">{renderErrorText(op._id, errMsg)}</div>
             </td>
           </tr>
         )}
@@ -606,9 +695,12 @@ export default function UploadsPanel() {
     const isExpanded = expandedGroups.has(groupId);
     const summary = computeGroupSummary(ops);
     const failed = (summary.status || '').toUpperCase() === 'FAILED';
-    const errMsg = failed && first.message
-      ? (first.error_type ? `${first.error_type}: ${first.message}` : first.message)
-      : null;
+    const errMsg =
+      failed && first.message
+        ? first.error_type
+          ? `${first.error_type}: ${first.message}`
+          : first.message
+        : null;
     return (
       <tbody key={groupId} class={'uploads-group-tbody' + (failed ? ' uploads-row-failed' : '')}>
         <tr
@@ -620,7 +712,10 @@ export default function UploadsPanel() {
             <span class={`op-status-badge ${statusClass(summary.status)}`}>
               {(summary.status || 'unknown').toLowerCase()}
             </span>
-            <span class="uploads-group-count">{ops.length}{'\u00d7'}</span>
+            <span class="uploads-group-count">
+              {ops.length}
+              {'\u00d7'}
+            </span>
           </td>
           <td>{summary.type || '\u2014'}</td>
           <td class="uploads-cell-dataset">
@@ -629,22 +724,36 @@ export default function UploadsPanel() {
                 href="#"
                 class="uploads-dataset-link"
                 title={`Open ${summary.dataset}`}
-                onClick={(e) => { e.stopPropagation(); e.preventDefault(); jumpToDataset(summary.dataset); }}
-              >{summary.dataset}</a>
-            ) : '\u2014'}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  jumpToDataset(summary.dataset);
+                }}
+              >
+                {summary.dataset}
+              </a>
+            ) : (
+              '\u2014'
+            )}
           </td>
-          <td class="uploads-cell-file" title={summary.filename}>{summary.filename || '\u2014'}</td>
-          <td><FlashOnChange value={summary.totalSize > 0 ? fileSize(summary.totalSize) : '\u2014'} /></td>
-          <td><FlashOnChange value={summary.totalRecords != null ? summary.totalRecords : '\u2014'} /></td>
-          <td title={summary.latestCreated}>{summary.latestCreated ? timeAgo(summary.latestCreated) : '\u2014'}</td>
+          <td class="uploads-cell-file" title={summary.filename}>
+            {summary.filename || '\u2014'}
+          </td>
+          <td>
+            <FlashOnChange value={summary.totalSize > 0 ? fileSize(summary.totalSize) : '\u2014'} />
+          </td>
+          <td>
+            <FlashOnChange value={summary.totalRecords != null ? summary.totalRecords : '\u2014'} />
+          </td>
+          <td title={summary.latestCreated}>
+            {summary.latestCreated ? timeAgo(summary.latestCreated) : '\u2014'}
+          </td>
           <td>{summary.totalMs != null ? formatDuration(summary.totalMs) : '\u2014'}</td>
         </tr>
         {errMsg && (
           <tr class="uploads-row-error">
-            <td colspan={"8" as any}>
-              <div class="uploads-error-inner">
-                {renderErrorText(first._id, errMsg)}
-              </div>
+            <td colspan={'8' as any}>
+              <div class="uploads-error-inner">{renderErrorText(first._id, errMsg)}</div>
             </td>
           </tr>
         )}
@@ -662,22 +771,52 @@ export default function UploadsPanel() {
           class={'uploads-stat-chip' + (statusFilter === 'All' ? ' active' : '')}
           onClick={() => setStatusFilter('All')}
           title={stats.isSearching ? `${stats.total} matching · ${stats.gTotal} total` : undefined}
-        >{stats.isSearching ? 'Matching' : 'Total'} <b><FlashOnChange value={stats.total} />{stats.isSearching && <span class="uploads-stat-of"> / {stats.gTotal}</span>}</b></button>
+        >
+          {stats.isSearching ? 'Matching' : 'Total'}{' '}
+          <b>
+            <FlashOnChange value={stats.total} />
+            {stats.isSearching && <span class="uploads-stat-of"> / {stats.gTotal}</span>}
+          </b>
+        </button>
         <button
           class={'uploads-stat-chip tone-success' + (statusFilter === 'FINISHED' ? ' active' : '')}
           onClick={() => setStatusFilter('FINISHED')}
-          title={stats.isSearching ? `${stats.finished} matching · ${stats.gFinished} total` : undefined}
-        >Finished <b><FlashOnChange value={stats.finished} />{stats.isSearching && <span class="uploads-stat-of"> / {stats.gFinished}</span>}</b></button>
+          title={
+            stats.isSearching ? `${stats.finished} matching · ${stats.gFinished} total` : undefined
+          }
+        >
+          Finished{' '}
+          <b>
+            <FlashOnChange value={stats.finished} />
+            {stats.isSearching && <span class="uploads-stat-of"> / {stats.gFinished}</span>}
+          </b>
+        </button>
         <button
           class={'uploads-stat-chip tone-danger' + (statusFilter === 'FAILED' ? ' active' : '')}
           onClick={() => setStatusFilter('FAILED')}
-          title={stats.isSearching ? `${stats.failed} matching · ${stats.gFailed} total` : undefined}
-        >Failed <b><FlashOnChange value={stats.failed} />{stats.isSearching && <span class="uploads-stat-of"> / {stats.gFailed}</span>}</b></button>
+          title={
+            stats.isSearching ? `${stats.failed} matching · ${stats.gFailed} total` : undefined
+          }
+        >
+          Failed{' '}
+          <b>
+            <FlashOnChange value={stats.failed} />
+            {stats.isSearching && <span class="uploads-stat-of"> / {stats.gFailed}</span>}
+          </b>
+        </button>
         <button
           class={'uploads-stat-chip tone-warning' + (statusFilter === 'RUNNING' ? ' active' : '')}
           onClick={() => setStatusFilter('RUNNING')}
-          title={stats.isSearching ? `${stats.running} matching · ${stats.gRunning} total` : undefined}
-        >Running <b><FlashOnChange value={stats.running} />{stats.isSearching && <span class="uploads-stat-of"> / {stats.gRunning}</span>}</b></button>
+          title={
+            stats.isSearching ? `${stats.running} matching · ${stats.gRunning} total` : undefined
+          }
+        >
+          Running{' '}
+          <b>
+            <FlashOnChange value={stats.running} />
+            {stats.isSearching && <span class="uploads-stat-of"> / {stats.gRunning}</span>}
+          </b>
+        </button>
         {allOperations.length > 0 && bucketRange && (
           <div class="uploads-sparkline-wrap">
             <ActivitySparkline buckets={buckets} range={bucketRange} />
@@ -685,7 +824,18 @@ export default function UploadsPanel() {
         )}
         <span style="flex:1" />
         <div class={'ops-search-wrap' + (search ? ' has-value' : '')}>
-          <svg class="ops-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg
+            class="ops-search-icon"
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
             <circle cx="11" cy="11" r="7" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
@@ -703,26 +853,46 @@ export default function UploadsPanel() {
               title="Clear filter"
               aria-label="Clear filter"
               onClick={() => setSearch('')}
-            >{'×'}</button>
+            >
+              {'×'}
+            </button>
           )}
         </div>
-        <button class="icon-btn" title="Refresh" onClick={() => loadOperations()}>{'\u21bb'}</button>
+        <button class="icon-btn" title="Refresh" onClick={() => loadOperations()}>
+          {'\u21bb'}
+        </button>
       </div>
 
       {pendingVisibleCount > 0 && (
-        <button
-          class="uploads-new-float"
-          onClick={applyPending}
-          title="Click to refresh"
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7l3 3"/><polyline points="21 3 21 9 15 9"/><path d="M21 12a9 9 0 0 1-15 6.7l-3-3"/><polyline points="3 21 3 15 9 15"/></svg>
-          <span>{pendingVisibleCount} new {pendingVisibleCount === 1 ? 'operation' : 'operations'}</span>
+        <button class="uploads-new-float" onClick={applyPending} title="Click to refresh">
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M3 12a9 9 0 0 1 15-6.7l3 3" />
+            <polyline points="21 3 21 9 15 9" />
+            <path d="M21 12a9 9 0 0 1-15 6.7l-3-3" />
+            <polyline points="3 21 3 15 9 15" />
+          </svg>
+          <span>
+            {pendingVisibleCount} new {pendingVisibleCount === 1 ? 'operation' : 'operations'}
+          </span>
         </button>
       )}
       <div class="uploads-table-wrap">
         {pageSlice.length === 0 ? (
           <div style="padding:16px;color:var(--text-secondary);font-size:12px">
-            {loaded ? (allOperations.length === 0 ? 'No operations' : 'No matching operations') : ''}
+            {loaded
+              ? allOperations.length === 0
+                ? 'No operations'
+                : 'No matching operations'
+              : ''}
           </div>
         ) : (
           <table class="uploads-table">
@@ -752,15 +922,21 @@ export default function UploadsPanel() {
       </div>
       <div class="pagination">
         <span class="record-count">
-          {loaded ? (groups.length > 0
-            ? `Showing ${page * PAGE_SIZE + 1}\u2013${Math.min((page + 1) * PAGE_SIZE, groups.length)} (${showCountLabel})`
-            : 'No operations') : ''}
+          {loaded
+            ? groups.length > 0
+              ? `Showing ${page * PAGE_SIZE + 1}\u2013${Math.min((page + 1) * PAGE_SIZE, groups.length)} (${showCountLabel})`
+              : 'No operations'
+            : ''}
         </span>
         <span style="flex:1" />
         <div class="pagination-controls">
-          <button disabled={page === 0} onClick={() => setPage(page - 1)}>{'\u2190'} Prev</button>
+          <button disabled={page === 0} onClick={() => setPage(page - 1)}>
+            {'\u2190'} Prev
+          </button>
           <span>Page {page + 1}</span>
-          <button disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>Next {'\u2192'}</button>
+          <button disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>
+            Next {'\u2192'}
+          </button>
         </div>
       </div>
     </div>

@@ -30,7 +30,9 @@ describe('buildPayload', () => {
     expect(body.events).toHaveLength(1);
     expect(body.events[0].name).toBe('sa_popup_open');
     expect(body.events[0].params).toEqual({
-      ext_ver: 'abc1234', session_id: 's1', engagement_time_msec: 1,
+      ext_ver: 'abc1234',
+      session_id: 's1',
+      engagement_time_msec: 1,
     });
   });
 
@@ -41,15 +43,21 @@ describe('buildPayload', () => {
   it('ignores any params a caller passes — there is no field for them', () => {
     const body = buildPayload({
       // `params` is deliberately supplied: the assertion is that buildPayload drops it.
-    ...(base as any), name: 'sa_popup_open', params: { org: 'acme', page_location: 'https://x' },
+      ...(base as any),
+      name: 'sa_popup_open',
+      params: { org: 'acme', page_location: 'https://x' },
     });
     expect(body.events[0].params).toEqual({
-      ext_ver: 'abc1234', session_id: 's1', engagement_time_msec: 1,
+      ext_ver: 'abc1234',
+      session_id: 's1',
+      engagement_time_msec: 1,
     });
   });
 
   it('rejects a missing client id', () => {
-    expect(() => buildPayload({ ...base, clientId: '', name: 'sa_popup_open' })).toThrow(/clientId/);
+    expect(() => buildPayload({ ...base, clientId: '', name: 'sa_popup_open' })).toThrow(
+      /clientId/,
+    );
   });
 
   it('omits an unusable version rather than dropping the whole event', () => {

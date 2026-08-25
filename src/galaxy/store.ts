@@ -16,10 +16,16 @@ export const loading = signal(false);
 export const loadedCount = signal(0); // objects fetched from the API so far (for the loading screen)
 export const error = signal<string | null>(null);
 export const selectedNodeId = signal<string | null>(null); // node.id of the focused node, or null
-export const hoveredNodeId = signal<string | null>(null);   // node.id under the cursor, or null
+export const hoveredNodeId = signal<string | null>(null); // node.id under the cursor, or null
 
 // Which node types are shown in the scene; clicking a Legend entry toggles one.
-export const visibleTypes = signal<Record<NodeType, boolean>>({ organization: true, workspace: true, queue: true, hook: true, engine: true });
+export const visibleTypes = signal<Record<NodeType, boolean>>({
+  organization: true,
+  workspace: true,
+  queue: true,
+  hook: true,
+  engine: true,
+});
 export function toggleType(type: NodeType): void {
   const cur = visibleTypes.value;
   visibleTypes.value = { ...cur, [type]: cur[type] === false ? true : false };

@@ -1,0 +1,11 @@
+# Build output and dependencies.
+dist/
+node_modules/
+
+# Upstream's own files, and the byte-exact HTML upstream produces from them.
+# tests/docs-render-equivalence.test.ts requires the ported renderer to reproduce that
+# output byte-for-byte, which is what makes "ported verbatim" a checkable claim rather
+# than a promise. Reformatting the inputs would change the expected output and retire
+# the claim. Out of the format scripts' globs already; listed here so widening those
+# globs cannot rewrite them by accident.
+tests/fixtures/

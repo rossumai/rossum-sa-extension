@@ -10,15 +10,35 @@ const SAFE_HREF = /^https?:\/\//i;
 export function parseInline(text: unknown): any[] {
   const spans = [];
   let buf = '';
-  const flush = () => { if (buf) { spans.push({ type: 'text', text: buf }); buf = ''; } };
+  const flush = () => {
+    if (buf) {
+      spans.push({ type: 'text', text: buf });
+      buf = '';
+    }
+  };
   let i = 0;
   const s = String(text ?? '');
   while (i < s.length) {
     const rest = s.slice(i);
     let m;
-    if ((m = rest.match(/^`([^`]+)`/))) { flush(); spans.push({ type: 'code', text: m[1] }); i += m[0].length; continue; }
-    if ((m = rest.match(/^\*\*([^*]+)\*\*/))) { flush(); spans.push({ type: 'strong', text: m[1] }); i += m[0].length; continue; }
-    if ((m = rest.match(/^\*([^*\s][^*]*)\*/))) { flush(); spans.push({ type: 'em', text: m[1] }); i += m[0].length; continue; }
+    if ((m = rest.match(/^`([^`]+)`/))) {
+      flush();
+      spans.push({ type: 'code', text: m[1] });
+      i += m[0].length;
+      continue;
+    }
+    if ((m = rest.match(/^\*\*([^*]+)\*\*/))) {
+      flush();
+      spans.push({ type: 'strong', text: m[1] });
+      i += m[0].length;
+      continue;
+    }
+    if ((m = rest.match(/^\*([^*\s][^*]*)\*/))) {
+      flush();
+      spans.push({ type: 'em', text: m[1] });
+      i += m[0].length;
+      continue;
+    }
     if ((m = rest.match(/^\[([^\]]+)\]\(/))) {
       // Balanced-paren scan for the href: a plain [^\s]+ regex either swallows a
       // trailing prose paren (into the link's `)` closer) or, if tightened to
@@ -33,7 +53,10 @@ export function parseInline(text: unknown): any[] {
         const ch = rest[j];
         if (ch === '(') depth += 1;
         else if (ch === ')') depth -= 1;
-        else if (/\s/.test(ch)) { depth = -1; break; }
+        else if (/\s/.test(ch)) {
+          depth = -1;
+          break;
+        }
         j += 1;
       }
       if (depth === 0) {
@@ -42,10 +65,12 @@ export function parseInline(text: unknown): any[] {
         flush();
         if (SAFE_HREF.test(href)) spans.push({ type: 'link', text: m[1], href });
         else spans.push({ type: 'text', text: whole });
-        i += whole.length; continue;
+        i += whole.length;
+        continue;
       }
     }
-    buf += s[i]; i += 1;
+    buf += s[i];
+    i += 1;
   }
   flush();
   return spans;
@@ -64,21 +89,38 @@ export function parseMarkdown(text: unknown): any[] {
   while (i < lines.length) {
     const line = lines[i];
     let m;
-    if (!line.trim()) { i += 1; continue; }
+    if (!line.trim()) {
+      i += 1;
+      continue;
+    }
     if ((m = line.match(/^```(\w*)\s*$/))) {
       const buf = [];
       i += 1;
-      while (i < lines.length && !/^```\s*$/.test(lines[i])) { buf.push(lines[i]); i += 1; }
+      while (i < lines.length && !/^```\s*$/.test(lines[i])) {
+        buf.push(lines[i]);
+        i += 1;
+      }
       if (i < lines.length) i += 1; // closing fence (absent while streaming)
       blocks.push({ type: 'code', lang: m[1] || '', text: buf.join('\n') });
       continue;
     }
-    if ((m = line.match(/^(#{1,4})\s+(.*)$/))) { blocks.push({ type: 'heading', level: m[1].length, spans: parseInline(m[2]) }); i += 1; continue; }
-    if (/^ {0,3}(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) { blocks.push({ type: 'hr' }); i += 1; continue; }
+    if ((m = line.match(/^(#{1,4})\s+(.*)$/))) {
+      blocks.push({ type: 'heading', level: m[1].length, spans: parseInline(m[2]) });
+      i += 1;
+      continue;
+    }
+    if (/^ {0,3}(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
+      blocks.push({ type: 'hr' });
+      i += 1;
+      continue;
+    }
     if ((m = line.match(/^>\s?(.*)$/))) {
       const buf = [m[1]];
       i += 1;
-      while (i < lines.length && (m = lines[i].match(/^>\s?(.*)$/))) { buf.push(m[1]); i += 1; }
+      while (i < lines.length && (m = lines[i].match(/^>\s?(.*)$/))) {
+        buf.push(m[1]);
+        i += 1;
+      }
       blocks.push({ type: 'blockquote', spans: parseInline(buf.join(' ')) });
       continue;
     }
@@ -86,22 +128,40 @@ export function parseMarkdown(text: unknown): any[] {
       const ordered = LIST_OL.test(line);
       const itemRe = ordered ? LIST_OL : LIST_UL;
       const items = [];
-      while (i < lines.length && (m = lines[i].match(itemRe))) { items.push(parseInline(m[1])); i += 1; }
+      while (i < lines.length && (m = lines[i].match(itemRe))) {
+        items.push(parseInline(m[1]));
+        i += 1;
+      }
       blocks.push({ type: ordered ? 'ol' : 'ul', items });
       continue;
     }
-    if (TABLE_ROW.test(line) && i + 1 < lines.length && /^\s*\|[\s\-:|]+\|\s*$/.test(lines[i + 1])) {
-      const cells = (l: string) => l.trim().replace(/^\||\|$/g, '').split('|').map((c: string) => parseInline(c.trim()));
+    if (
+      TABLE_ROW.test(line) &&
+      i + 1 < lines.length &&
+      /^\s*\|[\s\-:|]+\|\s*$/.test(lines[i + 1])
+    ) {
+      const cells = (l: string) =>
+        l
+          .trim()
+          .replace(/^\||\|$/g, '')
+          .split('|')
+          .map((c: string) => parseInline(c.trim()));
       const header = cells(line);
       i += 2;
       const rows = [];
-      while (i < lines.length && TABLE_ROW.test(lines[i])) { rows.push(cells(lines[i])); i += 1; }
+      while (i < lines.length && TABLE_ROW.test(lines[i])) {
+        rows.push(cells(lines[i]));
+        i += 1;
+      }
       blocks.push({ type: 'table', header, rows });
       continue;
     }
     const buf = [line];
     i += 1;
-    while (i < lines.length && lines[i].trim() && !PARA_BREAK.test(lines[i])) { buf.push(lines[i]); i += 1; }
+    while (i < lines.length && lines[i].trim() && !PARA_BREAK.test(lines[i])) {
+      buf.push(lines[i]);
+      i += 1;
+    }
     blocks.push({ type: 'para', spans: parseInline(buf.join(' ')) });
   }
   return blocks;

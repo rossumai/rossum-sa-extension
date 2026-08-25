@@ -11,14 +11,20 @@ export function pickName(type: string, obj: any): string | null {
     if (obj.username) return full ? `${obj.username} (${full})` : obj.username;
     return obj.email || null;
   }
-  if (type === 'documents' || type === 'document') return obj.original_file_name || obj.name || null;
+  if (type === 'documents' || type === 'document')
+    return obj.original_file_name || obj.name || null;
   return obj.name || null;
 }
 
 function evictIfNeeded() {
   if (store.size <= CAP) return;
-  let oldestKey = null, oldestAt = Infinity;
-  for (const [k, v] of store) if (v.at < oldestAt) { oldestAt = v.at; oldestKey = k; }
+  let oldestKey = null,
+    oldestAt = Infinity;
+  for (const [k, v] of store)
+    if (v.at < oldestAt) {
+      oldestAt = v.at;
+      oldestKey = k;
+    }
   if (oldestKey != null) store.delete(oldestKey);
 }
 
@@ -46,7 +52,9 @@ export function nameFor(apiPath: string): NameInfo | null {
 export function getFresh(apiPath: string, maxAgeMs = 60000): any {
   const e = store.get(apiPath);
   if (!e || e.status !== 'done' || !e.obj) return null;
-  return (Date.now() - e.at) < maxAgeMs ? e.obj : null;
+  return Date.now() - e.at < maxAgeMs ? e.obj : null;
 }
 
-export function clear() { store.clear(); }
+export function clear() {
+  store.clear();
+}

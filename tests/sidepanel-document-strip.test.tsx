@@ -34,18 +34,27 @@ describe('DocumentStrip', () => {
   });
 
   it('paints the id immediately, before any request resolves', () => {
-    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise(() => {})),
+    );
     render(<DocumentStrip ctx={CTX} annotationId="1250417" />, root);
     expect(root.textContent).toContain('#1250417');
     expect(root.querySelector('.sp-live')).not.toBeNull();
   });
 
   it('upgrades to the file name when the sideload resolves', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      json: async () => ({ results: [{}], documents: [{ original_file_name: 'invoice-4471.pdf' }] }),
-    })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          results: [{}],
+          documents: [{ original_file_name: 'invoice-4471.pdf' }],
+        }),
+      })),
+    );
     render(<DocumentStrip ctx={CTX} annotationId="1250417" />, root);
     await waitFor(() => root.textContent.includes('invoice-4471.pdf'));
     expect(root.textContent).toContain('#1250417');

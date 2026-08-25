@@ -5,8 +5,12 @@
 // height from the edges keeps a stub self-consistent, which matters because the geometry
 // under test reads both (stageLink.ts uses hEnd/left/right AND width).
 export function rect(r: {
-  top: number; bottom: number; left: number; right: number;
-  width?: number; height?: number;
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+  width?: number;
+  height?: number;
 }): DOMRect {
   const width = r.width ?? r.right - r.left;
   const height = r.height ?? r.bottom - r.top;

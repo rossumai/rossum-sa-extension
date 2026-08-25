@@ -9,8 +9,15 @@ import AgentBox from './AgentBox.jsx';
 import type { JsonEditorHandle } from './JsonEditor.jsx';
 
 export default function PipelineEditor({
-  editorRef, initialValue, onChange, onValidChange, onLoadPipeline, onReset,
-  onToggleStage, onCursorStage, onHoverStage,
+  editorRef,
+  initialValue,
+  onChange,
+  onValidChange,
+  onLoadPipeline,
+  onReset,
+  onToggleStage,
+  onCursorStage,
+  onHoverStage,
 }: {
   editorRef: { current: JsonEditorHandle | null };
   initialValue?: string;
@@ -48,7 +55,9 @@ export default function PipelineEditor({
       if (e.target.closest('.pipeline-save-btn')) return;
       setShowSaveInput(false);
     }
-    function onScroll() { setShowSaveInput(false); }
+    function onScroll() {
+      setShowSaveInput(false);
+    }
     document.addEventListener('mousedown', onMouseDown);
     window.addEventListener('scroll', onScroll, true);
     return () => {
@@ -69,7 +78,9 @@ export default function PipelineEditor({
     setSavedState(saved);
   }
 
-  useEffect(() => { updateSaveBtn(); }, [selectedCollection.value]);
+  useEffect(() => {
+    updateSaveBtn();
+  }, [selectedCollection.value]);
 
   function beautify() {
     if (!editorRef.current) return;
@@ -123,35 +134,66 @@ export default function PipelineEditor({
               setLibraryOpen(!libraryOpen);
               setOverflowOpen(false);
             }}
-          >Library {'\u25BE'}</button>
+          >
+            Library {'\u25BE'}
+          </button>
           <button
             class="pipeline-action-btn"
             title="Reset sort, filter, and pipeline to the default"
             onClick={onReset}
-          >Reset</button>
+          >
+            Reset
+          </button>
           <div class="pipeline-overflow-wrap">
             <button
               class="pipeline-action-btn pipeline-overflow-btn"
               title="More actions"
-              onClick={(e) => { e.stopPropagation(); setOverflowOpen(!overflowOpen); setLibraryOpen(false); }}
-            >{'\u22EF'}</button>
+              onClick={(e) => {
+                e.stopPropagation();
+                setOverflowOpen(!overflowOpen);
+                setLibraryOpen(false);
+              }}
+            >
+              {'\u22EF'}
+            </button>
             {overflowOpen && (
               <div class="toolbar-more-menu">
-                <button class="toolbar-menu-item" onClick={() => { setOverflowOpen(false); beautify(); }}>Beautify</button>
+                <button
+                  class="toolbar-menu-item"
+                  onClick={() => {
+                    setOverflowOpen(false);
+                    beautify();
+                  }}
+                >
+                  Beautify
+                </button>
               </div>
             )}
           </div>
         </div>
         {showSaveInput && (
           <div class="pipeline-save-inline">
-            <input ref={saveInputRef} class="input" placeholder="Query name…" onKeyDown={(e) => { if (e.key === 'Enter') doSave(); if (e.key === 'Escape') setShowSaveInput(false); }} />
-            <button class="btn btn-sm btn-primary" onClick={doSave}>Save</button>
+            <input
+              ref={saveInputRef}
+              class="input"
+              placeholder="Query name…"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') doSave();
+                if (e.key === 'Escape') setShowSaveInput(false);
+              }}
+            />
+            <button class="btn btn-sm btn-primary" onClick={doSave}>
+              Save
+            </button>
           </div>
         )}
       </div>
       {libraryOpen && popupPos && (
         <div class="query-panel-backdrop" onClick={() => setLibraryOpen(false)}>
-          <div style={`position:fixed;top:${popupPos.top}px;left:${popupPos.left}px;z-index:1000`} onClick={(e) => e.stopPropagation()}>
+          <div
+            style={`position:fixed;top:${popupPos.top}px;left:${popupPos.left}px;z-index:1000`}
+            onClick={(e) => e.stopPropagation()}
+          >
             <LibraryPanel
               tab={libraryTab}
               onTabChange={setLibraryTab}

@@ -3,7 +3,7 @@
 // must not alter, delay or break a feature. The service worker validates the
 // name and may drop the event (e.g. when consent is absent). A name is ALL a
 // caller can send: there is no params argument, by design.
-import type { EventName } from './event.js';   // type-only: erased, no bundle impact
+import type { EventName } from './event.js'; // type-only: erased, no bundle impact
 
 const sentOnce = new Set<EventName>();
 
@@ -18,7 +18,9 @@ try {
     const get: unknown = chrome.storage?.local?.get;
     if (get) {
       Promise.resolve(chrome.storage.local.get(['usageConsent']))
-        .then((v) => { consentKnown = v?.usageConsent === true; })
+        .then((v) => {
+          consentKnown = v?.usageConsent === true;
+        })
         .catch(() => {});
     }
     chrome.storage?.onChanged?.addListener?.((changes, area) => {

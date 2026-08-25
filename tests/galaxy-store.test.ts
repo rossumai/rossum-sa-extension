@@ -19,7 +19,13 @@ describe('galaxy store', () => {
   describe('visibleTypes', () => {
     beforeEach(() => {
       // Reset to all-visible before each test.
-      store.visibleTypes.value = { organization: true, workspace: true, queue: true, hook: true, engine: true };
+      store.visibleTypes.value = {
+        organization: true,
+        workspace: true,
+        queue: true,
+        hook: true,
+        engine: true,
+      };
     });
 
     it('defaults to all five types visible', () => {

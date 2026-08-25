@@ -6,14 +6,25 @@ import { selectedCollection } from '../src/mdh/store.js';
 
 function getPipeline(): any {
   let api: any;
-  const Probe = () => { api = usePipeline(); return null; };
+  const Probe = () => {
+    api = usePipeline();
+    return null;
+  };
   render(<Probe />, document.createElement('div'));
   return api;
 }
 const M = '[{"$match":{"code":"{code}"}}]';
-const strInfo = { dominant: 'string', dominantBson: 'string', share: 1, distribution: [], mixed: false };
+const strInfo = {
+  dominant: 'string',
+  dominantBson: 'string',
+  share: 1,
+  distribution: [],
+  mixed: false,
+};
 
-beforeEach(() => { selectedCollection.value = 'col'; });
+beforeEach(() => {
+  selectedCollection.value = 'col';
+});
 
 describe('usePipeline type-aware functions', () => {
   it('computeEditorStateWithTypes uses the dataset field type as default', () => {
@@ -52,7 +63,9 @@ describe('usePipeline type-aware functions', () => {
   it('resolvedTypeForName reports the source for the badge', () => {
     const p = getPipeline();
     p.fieldTypes.value = { col: { code: strInfo } };
-    expect(p.resolvedTypeForName('code', { code: { field: 'code', collection: null, op: '$eq' } }, true)).toMatchObject({ type: 'string', source: 'field' });
+    expect(
+      p.resolvedTypeForName('code', { code: { field: 'code', collection: null, op: '$eq' } }, true),
+    ).toMatchObject({ type: 'string', source: 'field' });
   });
   it('reset clears type state', () => {
     const p = getPipeline();

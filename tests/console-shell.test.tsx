@@ -10,11 +10,15 @@ import { h, render } from 'preact';
 vi.mock('../src/console/components/Rail.jsx', () => ({ default: () => null }));
 vi.mock('../src/mdh/components/App.jsx', async () => {
   const { h } = await import('preact');
-  return { default: ({ connected }: any) => <div class="mdh-stub">{`mdh:${String(connected)}`}</div> };
+  return {
+    default: ({ connected }: any) => <div class="mdh-stub">{`mdh:${String(connected)}`}</div>,
+  };
 });
 vi.mock('../src/audit/components/App.jsx', async () => {
   const { h } = await import('preact');
-  return { default: ({ connected }: any) => <div class="audit-stub">{`audit:${String(connected)}`}</div> };
+  return {
+    default: ({ connected }: any) => <div class="audit-stub">{`audit:${String(connected)}`}</div>,
+  };
 });
 
 import Console from '../src/console/components/Console.jsx';

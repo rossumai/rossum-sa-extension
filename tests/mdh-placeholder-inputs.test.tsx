@@ -19,20 +19,28 @@ describe('parseAnnotationId', () => {
   });
 
   it('extracts the ID from a Rossum API URL with /annotations/<id>', () => {
-    expect(parseAnnotationId('https://elis.rossum.com/api/v1/annotations/17213336')).toBe('17213336');
+    expect(parseAnnotationId('https://elis.rossum.com/api/v1/annotations/17213336')).toBe(
+      '17213336',
+    );
   });
 
   it('extracts the ID from an /annotations/<id>/content URL', () => {
-    expect(parseAnnotationId('https://elis.rossum.com/api/v1/annotations/17213336/content')).toBe('17213336');
+    expect(parseAnnotationId('https://elis.rossum.com/api/v1/annotations/17213336/content')).toBe(
+      '17213336',
+    );
   });
 
   it('handles trailing query strings on /document/ URLs', () => {
-    expect(parseAnnotationId('https://example.rossum.app/document/17213336?email=foo')).toBe('17213336');
+    expect(parseAnnotationId('https://example.rossum.app/document/17213336?email=foo')).toBe(
+      '17213336',
+    );
   });
 
   it('handles deep-link query strings (datapointPath)', () => {
     expect(
-      parseAnnotationId('https://example.rossum.app/document/17213336?datapointPath=7795699250,7795699273'),
+      parseAnnotationId(
+        'https://example.rossum.app/document/17213336?datapointPath=7795699250,7795699273',
+      ),
     ).toBe('17213336');
   });
 
@@ -46,7 +54,9 @@ describe('parseAnnotationId', () => {
 describe('PlaceholderInputs Auto label — value-based guess', () => {
   it('marks the Auto option with "?" when no field type resolved', () => {
     const { container } = renderInputs({
-      names: ['cust'], values: { cust: '21199417' }, types: {},
+      names: ['cust'],
+      values: { cust: '21199417' },
+      types: {},
       resolvedTypeFor: () => ({ type: undefined, autoType: undefined }),
     });
     const autoOpt = container.querySelector('.placeholder-type-select option[value="auto"]');
@@ -55,7 +65,9 @@ describe('PlaceholderInputs Auto label — value-based guess', () => {
 
   it('does NOT mark with "?" when a field type resolved', () => {
     const { container } = renderInputs({
-      names: ['cust'], values: { cust: '21199417' }, types: {},
+      names: ['cust'],
+      values: { cust: '21199417' },
+      types: {},
       resolvedTypeFor: () => ({ type: 'string', autoType: 'string' }),
     });
     const autoOpt = container.querySelector('.placeholder-type-select option[value="auto"]');

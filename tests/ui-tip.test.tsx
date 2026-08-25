@@ -6,8 +6,18 @@ import Tip from '../src/ui/Tip.jsx';
 import styles from '../src/ui/Tip.module.css';
 
 let root: any;
-afterEach(() => { if (root) { render(null, root); root.remove(); } });
-function mount(props: any, child: any) { root = document.createElement('div'); document.body.appendChild(root); render(<Tip {...props}>{child}</Tip>, root); return root; }
+afterEach(() => {
+  if (root) {
+    render(null, root);
+    root.remove();
+  }
+});
+function mount(props: any, child: any) {
+  root = document.createElement('div');
+  document.body.appendChild(root);
+  render(<Tip {...props}>{child}</Tip>, root);
+  return root;
+}
 
 describe('Tip', () => {
   it('shows the popup on hover and hides on leave', () => {
@@ -15,21 +25,29 @@ describe('Tip', () => {
     const trigger = el.querySelector('.' + styles.trigger);
     expect(trigger).toBeTruthy();
     expect(el.querySelector('.' + styles.pop)).toBeNull();
-    act(() => { trigger.dispatchEvent(new MouseEvent('mouseenter')); });
+    act(() => {
+      trigger.dispatchEvent(new MouseEvent('mouseenter'));
+    });
     const pop = el.querySelector('.' + styles.pop);
     expect(pop).toBeTruthy();
     expect(pop.textContent).toContain('Explains the thing');
-    act(() => { trigger.dispatchEvent(new MouseEvent('mouseleave')); });
+    act(() => {
+      trigger.dispatchEvent(new MouseEvent('mouseleave'));
+    });
     expect(el.querySelector('.' + styles.pop)).toBeNull();
   });
   it('renders a vnode as popup content', () => {
     const el = mount({ text: <b>bold tip</b> }, <button>t</button>);
-    act(() => { el.querySelector('.' + styles.trigger).dispatchEvent(new MouseEvent('mouseenter')); });
+    act(() => {
+      el.querySelector('.' + styles.trigger).dispatchEvent(new MouseEvent('mouseenter'));
+    });
     expect(el.querySelector('.' + styles.pop + ' b').textContent).toBe('bold tip');
   });
   it('shows nothing when text is empty', () => {
     const el = mount({ text: '' }, <button>t</button>);
-    act(() => { el.querySelector('.' + styles.trigger).dispatchEvent(new MouseEvent('mouseenter')); });
+    act(() => {
+      el.querySelector('.' + styles.trigger).dispatchEvent(new MouseEvent('mouseenter'));
+    });
     expect(el.querySelector('.' + styles.pop)).toBeNull();
   });
   it('block mode renders a <div> trigger with the block class', () => {

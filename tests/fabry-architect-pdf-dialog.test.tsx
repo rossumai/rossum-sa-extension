@@ -13,11 +13,16 @@ function openAndMount({ deliverableTitle = 'Scope', count = 3 } = {}) {
   openPdfDialog({ deliverableTitle, count }, (arg: any) => confirmed.push(arg));
   const root = document.createElement('div');
   document.body.appendChild(root);
-  act(() => { render(modalContent.value!.render(), root); });
+  act(() => {
+    render(modalContent.value!.render(), root);
+  });
   return { root, confirmed };
 }
 const rows = (root: any) => [...root.querySelectorAll('.fabry-arch-pdf-row')];
-const input = (root: any, label: any) => rows(root).find((r) => r.textContent.includes(label)).querySelector('input');
+const input = (root: any, label: any) =>
+  rows(root)
+    .find((r) => r.textContent.includes(label))
+    .querySelector('input');
 
 beforeEach(() => {
   closeModal();
@@ -48,8 +53,14 @@ describe('scope', () => {
 
   it('reports the scope on confirm', () => {
     const { root, confirmed } = openAndMount({ count: 2 });
-    act(() => { input(root, 'This deliverable').click(); });
-    act(() => { [...root.querySelectorAll('button')].find((b) => /print dialog/i.test(b.textContent))!.click(); });
+    act(() => {
+      input(root, 'This deliverable').click();
+    });
+    act(() => {
+      [...root.querySelectorAll('button')]
+        .find((b) => /print dialog/i.test(b.textContent))!
+        .click();
+    });
     expect(confirmed).toHaveLength(1);
     expect(confirmed[0].scope).toBe('one');
   });
@@ -67,8 +78,14 @@ describe('content options', () => {
 
   it('persists them on confirm, so they are never re-asked', () => {
     const { root, confirmed } = openAndMount();
-    act(() => { input(root, 'Check verdict').click(); });
-    act(() => { [...root.querySelectorAll('button')].find((b) => /print dialog/i.test(b.textContent))!.click(); });
+    act(() => {
+      input(root, 'Check verdict').click();
+    });
+    act(() => {
+      [...root.querySelectorAll('button')]
+        .find((b) => /print dialog/i.test(b.textContent))!
+        .click();
+    });
     expect(store.pdfOptions.value).toEqual({ contents: true, verdicts: true });
     expect(confirmed[0].options).toEqual({ contents: true, verdicts: true });
   });
@@ -82,14 +99,20 @@ describe('content options', () => {
   it('re-disables it when the scope narrows to one deliverable', () => {
     const { root } = openAndMount({ count: 4 });
     expect(input(root, 'Contents page').disabled).toBe(false);
-    act(() => { input(root, 'This deliverable').click(); });
+    act(() => {
+      input(root, 'This deliverable').click();
+    });
     expect(input(root, 'Contents page').disabled).toBe(true);
   });
 
   it('cancel changes nothing and reports nothing', () => {
     const { root, confirmed } = openAndMount();
-    act(() => { input(root, 'Check verdict').click(); });
-    act(() => { [...root.querySelectorAll('button')].find((b) => b.textContent === 'Cancel')!.click(); });
+    act(() => {
+      input(root, 'Check verdict').click();
+    });
+    act(() => {
+      [...root.querySelectorAll('button')].find((b) => b.textContent === 'Cancel')!.click();
+    });
     expect(confirmed).toHaveLength(0);
     expect(store.pdfOptions.value).toEqual({ contents: true, verdicts: false });
   });

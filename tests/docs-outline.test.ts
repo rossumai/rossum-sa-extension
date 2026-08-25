@@ -7,7 +7,10 @@ import { extractOutline, slugifyHeading, outlineWithoutTitle } from '../src/docs
 
 const renderedIds = (text: any) => {
   const html = createMarkdownRenderer().render(text, {});
-  return [...html.matchAll(/<h([1-6]) id="([^"]*)"/g)].map((m) => ({ level: Number(m[1]), slug: m[2] }));
+  return [...html.matchAll(/<h([1-6]) id="([^"]*)"/g)].map((m) => ({
+    level: Number(m[1]),
+    slug: m[2],
+  }));
 };
 
 describe('slugs match the renderer', () => {
@@ -26,16 +29,22 @@ describe('slugs match the renderer', () => {
       // Only h2/h3 are listed, and each one's slug must exist in the rendered document.
       expect(outline.map((h) => h.level).every((l) => l === 2 || l === 3)).toBe(true);
       for (const h of outline) {
-        expect(ids.some((r) => r.slug === h.slug), `${h.text} -> ${h.slug}`).toBe(true);
+        expect(
+          ids.some((r) => r.slug === h.slug),
+          `${h.text} -> ${h.slug}`,
+        ).toBe(true);
       }
       // …and every rendered h2/h3 is listed, in order.
-      expect(outline.map((h) => h.slug)).toEqual(ids.filter((r) => r.level === 2 || r.level === 3).map((r) => r.slug));
+      expect(outline.map((h) => h.slug)).toEqual(
+        ids.filter((r) => r.level === 2 || r.level === 3).map((r) => r.slug),
+      );
     });
   }
 
   it('reproduces the duplicate suffixes and the ASCII-only slug rule', () => {
-    expect(extractOutline('## Overview\n\n## Overview\n\n## Overview\n').map((h) => h.slug))
-      .toEqual(['overview', 'overview-1', 'overview-2']);
+    expect(
+      extractOutline('## Overview\n\n## Overview\n\n## Overview\n').map((h) => h.slug),
+    ).toEqual(['overview', 'overview-1', 'overview-2']);
     // An h1 advances the counter even though it is not listed.
     expect(extractOutline('# Title\n\n## Title\n').map((h) => h.slug)).toEqual(['title-1']);
     expect(slugifyHeading('Ünïcode heading')).toBe('ncode-heading');
@@ -45,12 +54,27 @@ describe('slugs match the renderer', () => {
 
 describe('extractOutline', () => {
   it('ignores headings inside fenced blocks, both fence styles', () => {
-    const text = ['## Real', '', '```markdown', '## Fake', '```', '', '~~~', '### Also fake', '~~~', '', '### Real two', ''].join('\n');
+    const text = [
+      '## Real',
+      '',
+      '```markdown',
+      '## Fake',
+      '```',
+      '',
+      '~~~',
+      '### Also fake',
+      '~~~',
+      '',
+      '### Real two',
+      '',
+    ].join('\n');
     expect(extractOutline(text).map((h) => h.text)).toEqual(['Real', 'Real two']);
   });
 
   it('lists h2 and h3 only, and records the source line', () => {
-    const text = ['# One', '', '## Two', '', 'body', '', '### Three', '', '#### Four', ''].join('\n');
+    const text = ['# One', '', '## Two', '', 'body', '', '### Three', '', '#### Four', ''].join(
+      '\n',
+    );
     expect(extractOutline(text)).toEqual([
       { level: 2, text: 'Two', slug: 'two', line: 2 },
       { level: 3, text: 'Three', slug: 'three', line: 6 },
@@ -85,11 +109,13 @@ describe('outlineWithoutTitle — the sidebar row already names the document', (
   it('drops only the FIRST-LINE heading, not a later one that happens to share its text', () => {
     const entries = outlineWithoutTitle('## Scope\n\ntext\n\n## Scope\n\nagain\n');
     expect(entries).toHaveLength(1);
-    expect(entries[0].slug).toBe('scope-1');      // the renderer's duplicate suffix is preserved
+    expect(entries[0].slug).toBe('scope-1'); // the renderer's duplicate suffix is preserved
   });
 
   it('tolerates leading blank lines, prose-first documents and junk', () => {
-    expect(outlineWithoutTitle('\n\n## Real title\n\n## Second\n').map((e) => e.text)).toEqual(['Second']);
+    expect(outlineWithoutTitle('\n\n## Real title\n\n## Second\n').map((e) => e.text)).toEqual([
+      'Second',
+    ]);
     expect(outlineWithoutTitle('Just prose.\n\n## Kept\n').map((e) => e.text)).toEqual(['Kept']);
     expect(outlineWithoutTitle('')).toEqual([]);
     expect(outlineWithoutTitle(null)).toEqual([]);

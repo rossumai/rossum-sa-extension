@@ -21,7 +21,8 @@ function mount(props: any) {
 // contention; poll longer, and passing runs are not slowed.
 const waitForCM = (fn: any) => vi.waitFor(fn, { timeout: 5000, interval: 20 });
 
-const LONG_STAGE = '[{ "$match": { "vendor_name": "a very long value that would wrap in a narrow pane" } }]';
+const LONG_STAGE =
+  '[{ "$match": { "vendor_name": "a very long value that would wrap in a narrow pane" } }]';
 
 describe('JsonEditor soft wrapping', () => {
   it('does not wrap in aggregate mode', async () => {

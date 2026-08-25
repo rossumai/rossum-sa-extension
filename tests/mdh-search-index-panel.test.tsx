@@ -10,7 +10,9 @@ vi.mock('../src/mdh/api.js');
 // Force a cache miss so the panel always loads from the (mocked) API.
 vi.mock('../src/mdh/cache.js', () => ({ get: () => null, set: () => {}, invalidate: () => {} }));
 // Stub the CodeMirror editor — we only care about the card chrome (Copy/badges).
-vi.mock('../src/mdh/components/JsonEditor.jsx', () => ({ default: () => <div class="json-editor-stub" /> }));
+vi.mock('../src/mdh/components/JsonEditor.jsx', () => ({
+  default: () => <div class="json-editor-stub" />,
+}));
 
 import * as api from '../src/mdh/api.js';
 import SearchIndexPanel from '../src/mdh/components/SearchIndexPanel.jsx';
@@ -63,7 +65,8 @@ describe('SearchIndexPanel — copy is create-ready', () => {
 
     const expected = JSON.stringify(
       { indexName: 'default', mappings: { dynamic: false, fields: { NAME: { type: 'string' } } } },
-      null, 2,
+      null,
+      2,
     );
     expect(writeText).toHaveBeenCalledWith(expected);
   });
@@ -93,7 +96,9 @@ describe('SearchIndexPanel — runtime state is in badges, not JSON', () => {
   }
 
   it('shows a "not queryable" badge when queryable is false', async () => {
-    vi.mocked(api.listSearchIndexes).mockResolvedValue({ result: [listedIndex({ queryable: false })] });
+    vi.mocked(api.listSearchIndexes).mockResolvedValue({
+      result: [listedIndex({ queryable: false })],
+    });
     const root = mount();
 
     await vi.waitFor(() => expect(root.querySelector('.action-copy')).not.toBeNull());
@@ -101,7 +106,9 @@ describe('SearchIndexPanel — runtime state is in badges, not JSON', () => {
   });
 
   it('does not show a queryable badge when queryable is true', async () => {
-    vi.mocked(api.listSearchIndexes).mockResolvedValue({ result: [listedIndex({ queryable: true })] });
+    vi.mocked(api.listSearchIndexes).mockResolvedValue({
+      result: [listedIndex({ queryable: true })],
+    });
     const root = mount();
 
     await vi.waitFor(() => expect(root.querySelector('.action-copy')).not.toBeNull());

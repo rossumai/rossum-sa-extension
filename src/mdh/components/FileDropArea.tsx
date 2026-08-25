@@ -31,13 +31,19 @@ export function extensionMatches(name: string, exts: string[]): boolean {
   return exts.some((ext) => lower.endsWith(ext));
 }
 
-export default function FileDropArea(
-  { accept, onFile, onReject, inputTestid, children }:
-  {
-    accept?: string; onFile: (file: File) => void; onReject?: (msg: string) => void;
-    inputTestid?: string; children?: ComponentChildren;
-  },
-) {
+export default function FileDropArea({
+  accept,
+  onFile,
+  onReject,
+  inputTestid,
+  children,
+}: {
+  accept?: string;
+  onFile: (file: File) => void;
+  onReject?: (msg: string) => void;
+  inputTestid?: string;
+  children?: ComponentChildren;
+}) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const dragDepth = useRef(0); // nested enter/leave counter — avoids flicker
   const [dragging, setDragging] = useState(false);

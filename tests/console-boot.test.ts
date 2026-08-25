@@ -33,7 +33,13 @@ describe('pickInitialApp', () => {
 describe('resolveBootAuth', () => {
   it('consumes a staging entry and carries app + pipeline prefill', () => {
     const out = resolveBootAuth({
-      entry: { token: 't', domain: 'd', app: 'audit', pendingCollection: 'invoices', pendingPipeline: '[]' },
+      entry: {
+        token: 't',
+        domain: 'd',
+        app: 'audit',
+        pendingCollection: 'invoices',
+        pendingPipeline: '[]',
+      },
       session: { token: null, domain: null },
     });
     expect(out).toEqual({
@@ -41,13 +47,20 @@ describe('resolveBootAuth', () => {
       domain: 'd',
       stagingApp: 'audit',
       consumeKey: true,
-      pendingCtx: { pendingCollection: 'invoices', pendingPipeline: '[]', pendingVariables: undefined },
+      pendingCtx: {
+        pendingCollection: 'invoices',
+        pendingPipeline: '[]',
+        pendingVariables: undefined,
+      },
     });
   });
   it('resolveBootAuth carries pendingVariableTypes from the staging entry', () => {
     const entry = {
-      token: 't', domain: 'd', app: 'mdh',
-      pendingCollection: 'C', pendingPipeline: '[]',
+      token: 't',
+      domain: 'd',
+      app: 'mdh',
+      pendingCollection: 'C',
+      pendingPipeline: '[]',
       pendingVariables: { cust: '21199417' },
       pendingVariableTypes: { cust: 'string' },
     };
@@ -79,9 +92,10 @@ describe('computeStaleAuthRemovals', () => {
       consoleAuth_bad: { token: 'x' }, // no createdAt
       consoleActiveApp: 'mdh',
     };
-    expect(computeStaleAuthRemovals(all, now, TTL).sort()).toEqual(
-      ['consoleAuth_bad', 'consoleAuth_old'],
-    );
+    expect(computeStaleAuthRemovals(all, now, TTL).sort()).toEqual([
+      'consoleAuth_bad',
+      'consoleAuth_old',
+    ]);
   });
   it('sweeps orphaned old-build keys', () => {
     const now = 1_000_000_000;
@@ -92,9 +106,12 @@ describe('computeStaleAuthRemovals', () => {
       mdhDomain: 'leaked',
       consoleActiveApp: 'audit',
     };
-    expect(computeStaleAuthRemovals(all, now, TTL).sort()).toEqual(
-      ['auditAuth_y', 'mdhAuth_x', 'mdhDomain', 'mdhToken'],
-    );
+    expect(computeStaleAuthRemovals(all, now, TTL).sort()).toEqual([
+      'auditAuth_y',
+      'mdhAuth_x',
+      'mdhDomain',
+      'mdhToken',
+    ]);
   });
 });
 

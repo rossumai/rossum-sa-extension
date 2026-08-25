@@ -3,9 +3,15 @@
 // the lock IS status==='reviewing'; the holder IS modified_by; a missing
 // modified_by means we cannot attribute the lock, so we stay silent.
 
-export function isLockedByOther(
-  { status, modifiedBy, meUrl }: { status?: string | null; modifiedBy?: string | null; meUrl?: string | null },
-): boolean {
+export function isLockedByOther({
+  status,
+  modifiedBy,
+  meUrl,
+}: {
+  status?: string | null;
+  modifiedBy?: string | null;
+  meUrl?: string | null;
+}): boolean {
   return status === 'reviewing' && !!modifiedBy && !!meUrl && modifiedBy !== meUrl;
 }
 

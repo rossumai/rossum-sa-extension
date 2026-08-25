@@ -27,7 +27,7 @@ export const TAB_SCOPED_KEYS = [
 ] as const;
 
 /** One of the eight keys above — `as const` turns the list into a checked union. */
-export type TabScopedKey = typeof TAB_SCOPED_KEYS[number];
+export type TabScopedKey = (typeof TAB_SCOPED_KEYS)[number];
 
 /** Whatever the caller stored: JSON in sessionStorage, native in chrome.storage.local. */
 type TabValue = unknown;
@@ -59,6 +59,14 @@ export function resolveTabState(
 // Persist a per-tab value to BOTH surfaces. Best-effort: a storage hiccup must
 // never break navigation, so each write is guarded independently.
 export function writeTabState(key: string, value: TabValue): void {
-  try { sessionStorage.setItem(key, JSON.stringify(value)); } catch { /* ignore */ }
-  try { chrome.storage.local.set({ [key]: value }); } catch { /* ignore */ }
+  try {
+    sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* ignore */
+  }
+  try {
+    chrome.storage.local.set({ [key]: value });
+  } catch {
+    /* ignore */
+  }
 }

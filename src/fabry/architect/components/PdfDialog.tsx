@@ -1,6 +1,13 @@
 import { h } from 'preact';
 import { useState } from 'preact/hooks';
-import { openModal, closeModal, ModalBody, ModalActions, ModalMessage, ModalFieldLabel } from '../../../ui/Modal.jsx';
+import {
+  openModal,
+  closeModal,
+  ModalBody,
+  ModalActions,
+  ModalMessage,
+  ModalFieldLabel,
+} from '../../../ui/Modal.jsx';
 import * as store from '../store.js';
 
 // Asked every time: which scope. Remembered: what the document includes.
@@ -10,9 +17,11 @@ import * as store from '../store.js';
 // options persist in store.pdfOptions and are never re-asked.
 type PdfScope = { deliverableTitle?: string; count: number };
 
-function PdfForm(
-  { deliverableTitle, count, onConfirm }: PdfScope & { onConfirm: (choice: any) => void },
-) {
+function PdfForm({
+  deliverableTitle,
+  count,
+  onConfirm,
+}: PdfScope & { onConfirm: (choice: any) => void }) {
   const [scope, setScope] = useState(count > 1 ? 'all' : 'one');
   const [opts, setOpts] = useState(store.pdfOptions.value);
   const toggle = (k: any) => setOpts((o) => ({ ...o, [k]: !(o as any)[k] }));
@@ -28,11 +37,25 @@ function PdfForm(
 
       <ModalFieldLabel>{'What to print'}</ModalFieldLabel>
       <label class="fabry-arch-pdf-row">
-        <input type="radio" name="pdf-scope" checked={scope === 'one'} onChange={() => setScope('one')} />
-        <span>{'This deliverable'}<span class="fabry-arch-pdf-hint">{deliverableTitle}</span></span>
+        <input
+          type="radio"
+          name="pdf-scope"
+          checked={scope === 'one'}
+          onChange={() => setScope('one')}
+        />
+        <span>
+          {'This deliverable'}
+          <span class="fabry-arch-pdf-hint">{deliverableTitle}</span>
+        </span>
       </label>
       <label class="fabry-arch-pdf-row">
-        <input type="radio" name="pdf-scope" checked={scope === 'all'} disabled={count < 2} onChange={() => setScope('all')} />
+        <input
+          type="radio"
+          name="pdf-scope"
+          checked={scope === 'all'}
+          disabled={count < 2}
+          onChange={() => setScope('all')}
+        />
         <span>
           {'Whole specification'}
           <span class="fabry-arch-pdf-hint">
@@ -43,25 +66,42 @@ function PdfForm(
 
       <ModalFieldLabel>{'Include'}</ModalFieldLabel>
       <label class={'fabry-arch-pdf-row' + (many ? '' : ' off')}>
-        <input type="checkbox" checked={opts.contents} disabled={!many} onChange={() => toggle('contents')} />
-        <span>{'Contents page'}<span class="fabry-arch-pdf-hint">{many ? 'a list of the documents, first page' : 'needs more than one document'}</span></span>
+        <input
+          type="checkbox"
+          checked={opts.contents}
+          disabled={!many}
+          onChange={() => toggle('contents')}
+        />
+        <span>
+          {'Contents page'}
+          <span class="fabry-arch-pdf-hint">
+            {many ? 'a list of the documents, first page' : 'needs more than one document'}
+          </span>
+        </span>
       </label>
       <label class="fabry-arch-pdf-row">
         <input type="checkbox" checked={opts.verdicts} onChange={() => toggle('verdicts')} />
-        <span>{'Check verdict'}<span class="fabry-arch-pdf-hint">{'the last ✓ Met / ✗ Not met from Fabry'}</span></span>
+        <span>
+          {'Check verdict'}
+          <span class="fabry-arch-pdf-hint">{'the last ✓ Met / ✗ Not met from Fabry'}</span>
+        </span>
       </label>
 
       <ModalActions>
-        <button type="button" class="btn btn-secondary" onClick={closeModal}>{'Cancel'}</button>
+        <button type="button" class="btn btn-secondary" onClick={closeModal}>
+          {'Cancel'}
+        </button>
         <button
           type="button"
           class="btn btn-primary"
           onClick={() => {
-            store.setPdfOptions(opts);      // remembered for next time
+            store.setPdfOptions(opts); // remembered for next time
             closeModal();
             onConfirm({ scope, options: opts });
           }}
-        >{'Open print dialog'}</button>
+        >
+          {'Open print dialog'}
+        </button>
       </ModalActions>
     </ModalBody>
   );

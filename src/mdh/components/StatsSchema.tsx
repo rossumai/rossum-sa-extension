@@ -14,8 +14,11 @@ function buildUnion(schemaShapes: any[]) {
   const seen = new Set<string>(baseline);
   const extras: string[] = [];
   for (let i = 1; i < schemaShapes.length; i++) {
-    for (const f of (schemaShapes[i].sampleFields || [])) {
-      if (!seen.has(f)) { seen.add(f); extras.push(f); }
+    for (const f of schemaShapes[i].sampleFields || []) {
+      if (!seen.has(f)) {
+        seen.add(f);
+        extras.push(f);
+      }
     }
   }
   extras.sort();
@@ -25,10 +28,15 @@ function buildUnion(schemaShapes: any[]) {
 // Side-by-side structures: each shape is a column listing the union of fields;
 // a field this shape lacks is ghosted/struck, a field it adds over the most
 // common shape is green — so the structures and their differences read at once.
-function ShapeColumns(
-  { schemaShapes, union, baselineSet }:
-  { schemaShapes: any[]; union: string[]; baselineSet: Set<string> },
-) {
+function ShapeColumns({
+  schemaShapes,
+  union,
+  baselineSet,
+}: {
+  schemaShapes: any[];
+  union: string[];
+  baselineSet: Set<string>;
+}) {
   const total = schemaShapes.reduce((sum, x) => sum + x.docCount, 0) || 1;
   return (
     <div class="stats-shape-cols">
@@ -38,15 +46,26 @@ function ShapeColumns(
         return (
           <div class="stats-shape-col">
             <div class="stats-shape-col-h">
-              <span><b>Shape {i + 1}</b>{i === 0 ? <span class="stats-shape-baseline"> {'·'} most common</span> : ''}</span>
-              <span class="stats-shape-col-meta">{s.fieldCount} fields {'·'} {s.docCount.toLocaleString()} {'·'} {pct === 0 && s.docCount > 0 ? '<1' : pct}%</span>
+              <span>
+                <b>Shape {i + 1}</b>
+                {i === 0 ? <span class="stats-shape-baseline"> {'·'} most common</span> : ''}
+              </span>
+              <span class="stats-shape-col-meta">
+                {s.fieldCount} fields {'·'} {s.docCount.toLocaleString()} {'·'}{' '}
+                {pct === 0 && s.docCount > 0 ? '<1' : pct}%
+              </span>
             </div>
             <ul>
               {union.map((f) => {
                 const present = has.has(f);
                 const added = present && !baselineSet.has(f);
                 const cls = !present ? 'is-gone' : added ? 'is-add' : '';
-                return <li class={cls}><span class="mk">{!present ? '·' : added ? '+' : ''}</span>{f}</li>;
+                return (
+                  <li class={cls}>
+                    <span class="mk">{!present ? '·' : added ? '+' : ''}</span>
+                    {f}
+                  </li>
+                );
               })}
             </ul>
           </div>
@@ -68,7 +87,9 @@ export default function StatsSchema({ schemaShapes }: { schemaShapes?: any[] | n
     <div>
       <div class="stats-band-label">Schema</div>
       {!multi && (
-        <div class="stats-schema-line">Consistent {'·'} 1 shape{fieldCount != null ? ` · ${fieldCount} fields` : ''}</div>
+        <div class="stats-schema-line">
+          Consistent {'·'} 1 shape{fieldCount != null ? ` · ${fieldCount} fields` : ''}
+        </div>
       )}
       {multi && long && (
         <button class="stats-shape-toggle" onClick={() => setExpanded(!expanded)}>
@@ -76,7 +97,9 @@ export default function StatsSchema({ schemaShapes }: { schemaShapes?: any[] | n
           <span class="stats-shape-chevron">{expanded ? '▾' : '▸'}</span>
         </button>
       )}
-      {showCols && <ShapeColumns schemaShapes={schemaShapes!} union={u!.union} baselineSet={u!.baselineSet} />}
+      {showCols && (
+        <ShapeColumns schemaShapes={schemaShapes!} union={u!.union} baselineSet={u!.baselineSet} />
+      )}
     </div>
   );
 }

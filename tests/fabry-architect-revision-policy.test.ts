@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { shouldSnapshot, openSession, touchSession, prunePlan, IDLE_MS, CAP } from '../src/fabry/architect/revisionPolicy.js';
+import {
+  shouldSnapshot,
+  openSession,
+  touchSession,
+  prunePlan,
+  IDLE_MS,
+  CAP,
+} from '../src/fabry/architect/revisionPolicy.js';
 
 describe('shouldSnapshot', () => {
   const base = { deliverableId: 'd1', source: 'edit', now: 1_000_000 };
@@ -12,12 +19,14 @@ describe('shouldSnapshot', () => {
     const session = openSession({ deliverableId: 'd1', source: 'edit', now: 1_000_000 });
     // 600ms later, and 600ms after that: the whole point is that these write nothing
     expect(shouldSnapshot({ ...base, session, now: 1_000_600 })).toBe(false);
-    expect(shouldSnapshot({ ...base, session: touchSession(session, 1_000_600), now: 1_001_200 })).toBe(false);
+    expect(
+      shouldSnapshot({ ...base, session: touchSession(session, 1_000_600), now: 1_001_200 }),
+    ).toBe(false);
   });
 
   it('snapshots after an idle gap longer than IDLE_MS', () => {
     const session = openSession({ deliverableId: 'd1', source: 'edit', now: 0 });
-    expect(shouldSnapshot({ ...base, session, now: IDLE_MS })).toBe(false);        // exactly at the edge
+    expect(shouldSnapshot({ ...base, session, now: IDLE_MS })).toBe(false); // exactly at the edge
     expect(shouldSnapshot({ ...base, session, now: IDLE_MS + 1 })).toBe(true);
   });
 
@@ -37,7 +46,8 @@ describe('shouldSnapshot', () => {
 });
 
 describe('prunePlan', () => {
-  const revs = (n: any, from = 0) => Array.from({ length: n }, (_, i) => ({ id: `r${from + i}`, at: 1000 + from + i }));
+  const revs = (n: any, from = 0) =>
+    Array.from({ length: n }, (_, i) => ({ id: `r${from + i}`, at: 1000 + from + i }));
 
   it('keeps everything up to the cap', () => {
     expect(prunePlan(revs(CAP))).toEqual([]);
@@ -51,7 +61,12 @@ describe('prunePlan', () => {
   });
 
   it('is deterministic when timestamps tie', () => {
-    const tied = [{ id: 'b', at: 5 }, { id: 'a', at: 5 }, { id: 'c', at: 5 }, { id: 'd', at: 5 }];
+    const tied = [
+      { id: 'b', at: 5 },
+      { id: 'a', at: 5 },
+      { id: 'c', at: 5 },
+      { id: 'd', at: 5 },
+    ];
     expect(prunePlan(tied, 2)).toEqual(prunePlan([...tied].reverse(), 2));
   });
 

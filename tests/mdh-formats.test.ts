@@ -27,7 +27,10 @@ describe('format registry', () => {
   });
 
   it('csv parse yields row objects', () => {
-    const r = getFormat('csv').parse(new TextEncoder().encode('a,b\n1,2\n').buffer, getFormat('csv').defaultOpts);
+    const r = getFormat('csv').parse(
+      new TextEncoder().encode('a,b\n1,2\n').buffer,
+      getFormat('csv').defaultOpts,
+    );
     expect(r.docs).toEqual([{ a: '1', b: '2' }]);
   });
 

@@ -13,16 +13,23 @@ export const SCALE_MODES = ['linear', 'sqrt', 'log'];
 // Color scale stops for index overhead: data-heavy (blue) → teal → index-heavy
 // (yellow). Kept in sync with the legend gradient in console.css (.oc-legend-bar).
 const SCALE_STOPS: [Rgb, Rgb, Rgb] = [
-  [66, 112, 219],  // #4270db blue (data-heavy)
-  [25, 184, 154],  // #19b89a teal
-  [245, 197, 24],  // #f5c518 yellow (index-heavy)
+  [66, 112, 219], // #4270db blue (data-heavy)
+  [25, 184, 154], // #19b89a teal
+  [245, 197, 24], // #f5c518 yellow (index-heavy)
 ];
 
-function lerp(a: number, b: number, t: number) { return Math.round(a + (b - a) * t); }
+function lerp(a: number, b: number, t: number) {
+  return Math.round(a + (b - a) * t);
+}
 type Rgb = [number, number, number];
 
-function lerp3(a: Rgb, b: Rgb, t: number): Rgb { return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)]; }
-function toHex(c: number) { const s = c.toString(16); return s.length < 2 ? `0${s}` : s; }
+function lerp3(a: Rgb, b: Rgb, t: number): Rgb {
+  return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+}
+function toHex(c: number) {
+  const s = c.toString(16);
+  return s.length < 2 ? `0${s}` : s;
+}
 
 // ratio (0..∞) → [r,g,b], clamped at 1.0 (100%+ index overhead = the top stop).
 // `Number.isFinite` is the guard: a missing ratio colours as zero overhead.
@@ -40,7 +47,10 @@ export function overheadColor(ratio: number | null | undefined): string {
 // WCAG relative luminance → pick readable tile text over a given overhead color
 // (the yellow end is light and needs dark text; the blue end needs white).
 function relLuminance([r, g, b]: Rgb): number {
-  const f = (v: number) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  const f = (v: number) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
   return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
 }
 export function overheadTextColor(ratio: number): string {
@@ -105,14 +115,24 @@ export function squarify(items: any[], width: number, height: number): any[] {
   const scale = (width * height) / total;
   const vals = positive.map((it) => ({ it, a: it.value * scale }));
 
-  let x = 0; let y = 0; let w = width; let h = height;
+  let x = 0;
+  let y = 0;
+  let w = width;
+  let h = height;
   const out: any[] = [];
   let row: any[] = [];
 
   const worst = (r: any[], side: number) => {
-    let sum = 0; let mx = 0; let mn = Infinity;
-    for (const o of r) { sum += o.a; if (o.a > mx) mx = o.a; if (o.a < mn) mn = o.a; }
-    const s2 = sum * sum; const d2 = side * side;
+    let sum = 0;
+    let mx = 0;
+    let mn = Infinity;
+    for (const o of r) {
+      sum += o.a;
+      if (o.a > mx) mx = o.a;
+      if (o.a < mn) mn = o.a;
+    }
+    const s2 = sum * sum;
+    const d2 = side * side;
     return Math.max((d2 * mx) / s2, s2 / (d2 * mn));
   };
 
@@ -120,21 +140,39 @@ export function squarify(items: any[], width: number, height: number): any[] {
     let sum = 0;
     for (const o of r) sum += o.a;
     if (w >= h) {
-      const sw = sum / h; let yy = y;
-      for (const o of r) { const hh = o.a / sw; out.push({ ...o.it, x, y: yy, w: sw, h: hh }); yy += hh; }
-      x += sw; w -= sw;
+      const sw = sum / h;
+      let yy = y;
+      for (const o of r) {
+        const hh = o.a / sw;
+        out.push({ ...o.it, x, y: yy, w: sw, h: hh });
+        yy += hh;
+      }
+      x += sw;
+      w -= sw;
     } else {
-      const sh = sum / w; let xx = x;
-      for (const o of r) { const ww = o.a / sh; out.push({ ...o.it, x: xx, y, w: ww, h: sh }); xx += ww; }
-      y += sh; h -= sh;
+      const sh = sum / w;
+      let xx = x;
+      for (const o of r) {
+        const ww = o.a / sh;
+        out.push({ ...o.it, x: xx, y, w: ww, h: sh });
+        xx += ww;
+      }
+      y += sh;
+      h -= sh;
     }
   };
 
   for (const v of vals) {
     const side = Math.min(w, h);
-    if (row.length === 0) { row.push(v); continue; }
+    if (row.length === 0) {
+      row.push(v);
+      continue;
+    }
     if (worst(row.concat([v]), side) <= worst(row, side)) row.push(v);
-    else { layout(row); row = [v]; }
+    else {
+      layout(row);
+      row = [v];
+    }
   }
   if (row.length) layout(row);
   return out;
@@ -143,9 +181,17 @@ export function squarify(items: any[], width: number, height: number): any[] {
 // Full treemap: items → scaled value → squarified rects → color attached.
 export function buildTreemap(
   rows: any[],
-  { width, height, topN = TOP_N, mode = 'linear' }: { width: number; height: number; topN?: number; mode?: string } = {} as any,
+  {
+    width,
+    height,
+    topN = TOP_N,
+    mode = 'linear',
+  }: { width: number; height: number; topN?: number; mode?: string } = {} as any,
 ) {
-  const items = treemapItems(rows, topN).map((it) => ({ ...it, value: scaleArea(it.storageSize, mode) }));
+  const items = treemapItems(rows, topN).map((it) => ({
+    ...it,
+    value: scaleArea(it.storageSize, mode),
+  }));
   return squarify(items, width, height).map((t) => ({
     ...t,
     color: t.isOther ? null : overheadColor(t.overhead),
@@ -202,8 +248,18 @@ export function buildScatter(
   const pts = (rows || []).filter((r) => r && !r.error && r.count > 0 && r.avgObjSize > 0);
   if (pts.length === 0 || !width || !height) return { points: [], xTicks: [], yTicks: [], plot };
 
-  const xScale = axisScale(pts.map((r) => r.count), mode, M.l, M.l + pw);
-  const yScale = axisScale(pts.map((r) => r.avgObjSize), mode, M.t + ph, M.t); // y grows upward
+  const xScale = axisScale(
+    pts.map((r) => r.count),
+    mode,
+    M.l,
+    M.l + pw,
+  );
+  const yScale = axisScale(
+    pts.map((r) => r.avgObjSize),
+    mode,
+    M.t + ph,
+    M.t,
+  ); // y grows upward
 
   const points = pts.map((r) => {
     const overhead = indexOverhead(r);

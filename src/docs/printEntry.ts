@@ -20,14 +20,17 @@ function fail(message: string) {
 
 async function boot() {
   const id = new URLSearchParams(location.search).get('printId');
-  if (!id) { fail('Nothing to print: this page is opened from the Architect.'); return; }
+  if (!id) {
+    fail('Nothing to print: this page is opened from the Architect.');
+    return;
+  }
   const key = PREFIX + id;
 
   let payload: PrintPayload | null = null;
   try {
     const stored = await chrome.storage.session.get(key);
-    payload = stored && stored[key] as PrintPayload;
-    await chrome.storage.session.remove(key);   // single use, like the console auth staging
+    payload = stored && (stored[key] as PrintPayload);
+    await chrome.storage.session.remove(key); // single use, like the console auth staging
   } catch (err) {
     fail('Could not read the staged document.');
     return;
@@ -50,15 +53,22 @@ async function boot() {
   // Two frames plus the font-loading promise is enough in practice; the manual link stays as
   // the fallback for anything that blocks it.
   const ready = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
-  ready.catch(() => {}).then(() => requestAnimationFrame(() => requestAnimationFrame(() => {
-    document.getElementById('hint')!.textContent = 'Choose “Save as PDF” in the print dialog. ';
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = 'Open it again';
-    btn.addEventListener('click', openDialog);
-    document.getElementById('hint')!.appendChild(btn);
-    openDialog();
-  })));
+  ready
+    .catch(() => {})
+    .then(() =>
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          document.getElementById('hint')!.textContent =
+            'Choose “Save as PDF” in the print dialog. ';
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.textContent = 'Open it again';
+          btn.addEventListener('click', openDialog);
+          document.getElementById('hint')!.appendChild(btn);
+          openDialog();
+        }),
+      ),
+    );
 }
 
 boot();

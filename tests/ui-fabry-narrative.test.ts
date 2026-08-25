@@ -17,7 +17,9 @@ describe('parseCitations', () => {
     expect(parseCitations('done [e:blocker', true)).toEqual([{ type: 'text', text: 'done ' }]);
     expect(parseCitations('done [e:', true)).toEqual([{ type: 'text', text: 'done ' }]);
     expect(parseCitations('a [e:x] then [e:drift:added', true)).toEqual([
-      { type: 'text', text: 'a ' }, { type: 'cite', id: 'x' }, { type: 'text', text: ' then ' },
+      { type: 'text', text: 'a ' },
+      { type: 'cite', id: 'x' },
+      { type: 'text', text: ' then ' },
     ]);
     // A bare "[" or "[e" (no colon yet) is ambiguous prose → left as-is.
     expect(parseCitations('see [1] note', true)).toEqual([{ type: 'text', text: 'see [1] note' }]);
@@ -25,13 +27,28 @@ describe('parseCitations', () => {
   it('does NOT truncate a finished (non-streaming) render that ends with an unclosed [e: fragment', () => {
     // On the final render the text is kept verbatim — silently dropping a completed
     // narrative's trailing content would be worse than a stray marker.
-    expect(parseCitations('reference it with [e:')).toEqual([{ type: 'text', text: 'reference it with [e:' }]);
+    expect(parseCitations('reference it with [e:')).toEqual([
+      { type: 'text', text: 'reference it with [e:' },
+    ]);
     expect(parseCitations('done [e:blocker')).toEqual([{ type: 'text', text: 'done [e:blocker' }]);
   });
   it('matches the full evidence-id charset (letters/digits/_ . : -) — real ids use colons heavily', () => {
-    const ids = ['blocker:0', 'field:item_amount', 'gap:hookLogs', 'drift:added:12', 'workflow:step:5', 'intake:arrival', 'label-not:7', 'message:0'];
+    const ids = [
+      'blocker:0',
+      'field:item_amount',
+      'gap:hookLogs',
+      'drift:added:12',
+      'workflow:step:5',
+      'intake:arrival',
+      'label-not:7',
+      'message:0',
+    ];
     const text = ids.map((id) => `x [e:${id}]`).join(' ');
-    expect(parseCitations(text).filter((s) => s.type === 'cite').map((s) => s.id)).toEqual(ids);
+    expect(
+      parseCitations(text)
+        .filter((s) => s.type === 'cite')
+        .map((s) => s.id),
+    ).toEqual(ids);
   });
 });
 

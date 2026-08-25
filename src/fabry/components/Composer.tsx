@@ -15,11 +15,23 @@ const GERUNDS = ['Thinking', 'Investigating', 'Reading', 'Cross-checking', 'Answ
 
 // Bottom-bar icons (stroke, currentColor). Kept inline so the composer owns no
 // extra deps; sized by the button, not hard-coded here beyond the 24-box viewBox.
-const IconPlus = () => <svg class="fabry-bar-ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>;
-const IconSend = () => <svg class="fabry-bar-ico" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7" /></svg>;
+const IconPlus = () => (
+  <svg class="fabry-bar-ico" viewBox="0 0 24 24">
+    <path d="M12 5v14M5 12h14" />
+  </svg>
+);
+const IconSend = () => (
+  <svg class="fabry-bar-ico" viewBox="0 0 24 24">
+    <path d="M12 19V5M5 12l7-7 7 7" />
+  </svg>
+);
 // Persona chip caret — deliberately mid-sized (see .fabry-persona-caret): big
 // enough to read as a menu affordance, not so big it dominates the chip.
-const IconCaret = () => <svg class="fabry-persona-caret" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>;
+const IconCaret = () => (
+  <svg class="fabry-persona-caret" viewBox="0 0 24 24">
+    <path d="M6 9l6 6 6-6" />
+  </svg>
+);
 
 function fileToImage(file: any) {
   return new Promise((resolve, reject) => {
@@ -37,17 +49,25 @@ export default function Composer() {
   const personaRef = useRef<HTMLSpanElement | null>(null);
   const streaming = store.streaming.value;
   const isNewChat = !store.activeChatId.value;
-  const showMenu = draft.startsWith('/') && !draft.includes('\n') && store.commands.value.length > 0;
+  const showMenu =
+    draft.startsWith('/') && !draft.includes('\n') && store.commands.value.length > 0;
   const showPersona = isNewChat && !streaming; // persona is locked once a chat exists
 
   // Close the persona dropdown on outside-click / Escape.
   useEffect(() => {
     if (!personaOpen) return undefined;
-    const onDoc = (e: any) => { if (personaRef.current && !personaRef.current.contains(e.target)) setPersonaOpen(false); };
-    const onKey = (e: any) => { if (e.key === 'Escape') setPersonaOpen(false); };
+    const onDoc = (e: any) => {
+      if (personaRef.current && !personaRef.current.contains(e.target)) setPersonaOpen(false);
+    };
+    const onKey = (e: any) => {
+      if (e.key === 'Escape') setPersonaOpen(false);
+    };
     document.addEventListener('mousedown', onDoc);
     document.addEventListener('keydown', onKey);
-    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [personaOpen]);
 
   async function addFiles(files: any) {
@@ -81,16 +101,32 @@ export default function Composer() {
     // Read the live DOM value directly (not the `draft` state closure): the
     // `input` event just before this keydown may not have propagated to a
     // re-render yet, and the raw element value is always current.
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(e.target.value); }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      submit(e.target.value);
+    }
   }
 
   function onPaste(e: any) {
-    const files = [...(e.clipboardData?.items || [])].filter((i) => i.kind === 'file').map((i) => i.getAsFile()).filter(Boolean);
-    if (files.length) { e.preventDefault(); addFiles(files); }
+    const files = [...(e.clipboardData?.items || [])]
+      .filter((i) => i.kind === 'file')
+      .map((i) => i.getAsFile())
+      .filter(Boolean);
+    if (files.length) {
+      e.preventDefault();
+      addFiles(files);
+    }
   }
 
   return (
-    <div class="fabry-composer" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer?.files || []); }}>
+    <div
+      class="fabry-composer"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault();
+        addFiles(e.dataTransfer?.files || []);
+      }}
+    >
       {store.sendError.value && <div class="fabry-senderr">{store.sendError.value}</div>}
       <div class="fabry-composer-box">
         {images.length > 0 && (
@@ -98,19 +134,39 @@ export default function Composer() {
             {images.map((img, i) => (
               <span class="fabry-attach">
                 <img src={`data:${img.media_type};base64,${img.data}`} alt="attachment" />
-                <button type="button" title="Remove" onClick={() => setImages(images.filter((_, j) => j !== i))}>{'×'}</button>
+                <button
+                  type="button"
+                  title="Remove"
+                  onClick={() => setImages(images.filter((_, j) => j !== i))}
+                >
+                  {'×'}
+                </button>
               </span>
             ))}
           </div>
         )}
         <div class="fabry-input-wrap">
-          {showMenu && <CommandMenu query={draft} commands={store.commands.value} onPick={(v) => setDraft(v)} />}
+          {showMenu && (
+            <CommandMenu
+              query={draft}
+              commands={store.commands.value}
+              onPick={(v) => setDraft(v)}
+            />
+          )}
           <textarea
             class="fabry-input"
             rows={1}
-            placeholder={streaming ? 'Prepare your next message…' : 'What would you like to know about this organization?'}
+            placeholder={
+              streaming
+                ? 'Prepare your next message…'
+                : 'What would you like to know about this organization?'
+            }
             value={draft}
-            onInput={(e: any) => { setDraft(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 180) + 'px'; }}
+            onInput={(e: any) => {
+              setDraft(e.target.value);
+              e.target.style.height = 'auto';
+              e.target.style.height = Math.min(e.target.scrollHeight, 180) + 'px';
+            }}
             onKeyDown={onKeyDown}
             onPaste={onPaste}
           />
@@ -118,14 +174,35 @@ export default function Composer() {
         <div class="fabry-bar">
           <label class="fabry-attach-btn" title="Attach image">
             <IconPlus />
-            <input type="file" accept={IMG_TYPES.join(',')} multiple hidden onChange={(e: any) => { addFiles(e.target.files); e.target.value = ''; }} />
+            <input
+              type="file"
+              accept={IMG_TYPES.join(',')}
+              multiple
+              hidden
+              onChange={(e: any) => {
+                addFiles(e.target.files);
+                e.target.value = '';
+              }}
+            />
           </label>
-          {streaming && <span class="fabry-working"><GerundLoader gerunds={GERUNDS} /></span>}
+          {streaming && (
+            <span class="fabry-working">
+              <GerundLoader gerunds={GERUNDS} />
+            </span>
+          )}
           <span class="fabry-bar-spacer" />
           {showPersona && (
             <span class="fabry-persona-wrap" ref={personaRef}>
-              <button type="button" class="fabry-persona-chip" title="Persona for the next chat" aria-haspopup="menu" aria-expanded={personaOpen} onClick={() => setPersonaOpen((o) => !o)}>
-                {personaLabel(store.personaChoice.value)}<IconCaret />
+              <button
+                type="button"
+                class="fabry-persona-chip"
+                title="Persona for the next chat"
+                aria-haspopup="menu"
+                aria-expanded={personaOpen}
+                onClick={() => setPersonaOpen((o) => !o)}
+              >
+                {personaLabel(store.personaChoice.value)}
+                <IconCaret />
               </button>
               {personaOpen && (
                 <div class="fabry-persona-menu" role="menu">
@@ -135,10 +212,21 @@ export default function Composer() {
                       key={p.value}
                       role="menuitemradio"
                       aria-checked={store.personaChoice.value === p.value}
-                      class={'fabry-persona-menu-item' + (store.personaChoice.value === p.value ? ' on' : '')}
-                      onClick={() => { store.personaChoice.value = p.value; setPersonaOpen(false); }}
+                      class={
+                        'fabry-persona-menu-item' +
+                        (store.personaChoice.value === p.value ? ' on' : '')
+                      }
+                      onClick={() => {
+                        store.personaChoice.value = p.value;
+                        setPersonaOpen(false);
+                      }}
                     >
-                      <span class="fabry-persona-menu-label">{p.label}<span class="fabry-persona-check">{store.personaChoice.value === p.value ? '✓' : ''}</span></span>
+                      <span class="fabry-persona-menu-label">
+                        {p.label}
+                        <span class="fabry-persona-check">
+                          {store.personaChoice.value === p.value ? '✓' : ''}
+                        </span>
+                      </span>
                       <span class="fabry-persona-menu-hint">{p.hint}</span>
                     </button>
                   ))}
@@ -147,25 +235,47 @@ export default function Composer() {
             </span>
           )}
           {store.deepVerifyAllowed.value && (
-            <Tip text={<span><b>Deep verify</b> {'—'} checks each answer in a fresh chat and auto-fixes issues. Roughly 2{'–'}3{'×'} the tokens and latency per message.</span>}>
+            <Tip
+              text={
+                <span>
+                  <b>Deep verify</b> {'—'} checks each answer in a fresh chat and auto-fixes issues.
+                  Roughly 2{'–'}3{'×'} the tokens and latency per message.
+                </span>
+              }
+            >
               <button
                 type="button"
                 class={'fabry-deep-toggle' + (store.deepMode.value ? ' on' : '')}
                 aria-label="Deep verify"
                 aria-pressed={store.deepMode.value}
-                onClick={() => { store.deepMode.value = !store.deepMode.value; }}
+                onClick={() => {
+                  store.deepMode.value = !store.deepMode.value;
+                }}
               >
                 <FabryMark animated={false} size={17} />
               </button>
             </Tip>
           )}
-          {streaming
-            ? <button type="button" class="fabry-stop" title="Stop" onClick={stopStreaming}><span class="fabry-stop-sq" /></button>
-            : <button type="button" class="fabry-send" title="Send" disabled={!draft.trim()} onClick={() => submit()}><IconSend /></button>}
+          {streaming ? (
+            <button type="button" class="fabry-stop" title="Stop" onClick={stopStreaming}>
+              <span class="fabry-stop-sq" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              class="fabry-send"
+              title="Send"
+              disabled={!draft.trim()}
+              onClick={() => submit()}
+            >
+              <IconSend />
+            </button>
+          )}
         </div>
       </div>
       <div class="fabry-notice">
-        Mr. Fabry works read-only here {'—'} it inspects this organization to answer you, but won't change anything. The persona sets its working style.
+        Mr. Fabry works read-only here {'—'} it inspects this organization to answer you, but won't
+        change anything. The persona sets its working style.
       </div>
     </div>
   );

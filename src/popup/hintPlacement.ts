@@ -16,7 +16,10 @@ export type AnchorRect = { left: number; top: number; bottom: number };
 export type Size = { width: number; height: number };
 
 export function placeHint(
-  anchor: AnchorRect, tip: Size, viewport: Size, gap = GAP,
+  anchor: AnchorRect,
+  tip: Size,
+  viewport: Size,
+  gap = GAP,
 ): { top: number; left: number } {
   // Preferred: directly below the status dot, left edges aligned.
   let left = anchor.left;

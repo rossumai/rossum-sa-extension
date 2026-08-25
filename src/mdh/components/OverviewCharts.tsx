@@ -21,7 +21,11 @@ const SCALE_NOTE: Record<string, string> = {
   sqrt: '√ scale — small collections stay visible; areas are compressed, not exact share.',
   log: 'log scale — every tile readable; area is not proportional to size.',
 };
-const SCALE_AXIS_LABEL: Record<string, string> = { linear: 'linear', sqrt: '√ scale', log: 'log–log' };
+const SCALE_AXIS_LABEL: Record<string, string> = {
+  linear: 'linear',
+  sqrt: '√ scale',
+  log: 'log–log',
+};
 
 function formatBytes(n: any) {
   if (n == null) return '—';
@@ -30,7 +34,9 @@ function formatBytes(n: any) {
   if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MiB`;
   return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GiB`;
 }
-function pct(r: any) { return `${Math.round((r || 0) * 100)}%`; }
+function pct(r: any) {
+  return `${Math.round((r || 0) * 100)}%`;
+}
 function tickLabel(v: any) {
   if (v >= 1e6) return `${v / 1e6}M`;
   if (v >= 1e3) return `${v / 1e3}k`;
@@ -39,17 +45,30 @@ function tickLabel(v: any) {
 
 function getPref(keys: any, cb: any) {
   if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return;
-  try { chrome.storage.local.get(keys, cb); } catch { /* non-extension context */ }
+  try {
+    chrome.storage.local.get(keys, cb);
+  } catch {
+    /* non-extension context */
+  }
 }
 function setPref(obj: any) {
   if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return;
-  try { chrome.storage.local.set(obj); } catch { /* non-extension context */ }
+  try {
+    chrome.storage.local.set(obj);
+  } catch {
+    /* non-extension context */
+  }
 }
 
-export default function OverviewCharts(
-  { rows, settled, onOpen }:
-  { rows: any[]; settled?: boolean; onOpen: (name: string) => void },
-) {
+export default function OverviewCharts({
+  rows,
+  settled,
+  onOpen,
+}: {
+  rows: any[];
+  settled?: boolean;
+  onOpen: (name: string) => void;
+}) {
   const [mode, setMode] = useState<string>('linear');
   const [hovered, setHovered] = useState<any>(null);
   const [tip, setTip] = useState<any>(null);
@@ -66,10 +85,14 @@ export default function OverviewCharts(
       if (!active || !res) return;
       if (SCALE_MODES.includes(res[SCALE_KEY])) setMode(res[SCALE_KEY]);
     });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const anyTreemap = rows.some((r) => r && !r.error && typeof r.storageSize === 'number' && r.storageSize > 0);
+  const anyTreemap = rows.some(
+    (r) => r && !r.error && typeof r.storageSize === 'number' && r.storageSize > 0,
+  );
   const anyScatter = rows.some((r) => r && !r.error && r.count > 0 && r.avgObjSize > 0);
 
   // Measure chart widths. Runs before paint (useLayoutEffect) and re-runs when
@@ -77,8 +100,14 @@ export default function OverviewCharts(
   // never collapse to 0 width (we keep the last good / default width otherwise).
   useLayoutEffect(() => {
     const measure = () => {
-      if (tmRef.current) { const w = tmRef.current.clientWidth; if (w > 0) setTmW(w); }
-      if (scRef.current) { const w = scRef.current.clientWidth; if (w > 0) setScW(w); }
+      if (tmRef.current) {
+        const w = tmRef.current.clientWidth;
+        if (w > 0) setTmW(w);
+      }
+      if (scRef.current) {
+        const w = scRef.current.clientWidth;
+        if (w > 0) setScW(w);
+      }
     };
     measure();
     let ro: ResizeObserver | undefined;
@@ -88,7 +117,10 @@ export default function OverviewCharts(
       if (scRef.current) ro.observe(scRef.current);
     }
     window.addEventListener('resize', measure);
-    return () => { if (ro) ro.disconnect(); window.removeEventListener('resize', measure); };
+    return () => {
+      if (ro) ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
   }, [anyTreemap, anyScatter]);
 
   // Keep the hover tooltip inside the viewport: offset from the cursor, flip to
@@ -120,15 +152,22 @@ export default function OverviewCharts(
   // or is empty) → don't show the panel at all.
   if (settled && !anyTreemap && !anyScatter) return null;
 
-  const tiles = anyTreemap ? buildTreemap(rows, { width: tmW, height: CHART_H, topN: TOP_N, mode }) : [];
+  const tiles = anyTreemap
+    ? buildTreemap(rows, { width: tmW, height: CHART_H, topN: TOP_N, mode })
+    : [];
   const scatter = anyScatter
     ? buildScatter(rows, { width: scW, height: CHART_H, mode })
-    : { points: [], xTicks: [], yTicks: [], plot: null } as unknown as ReturnType<typeof buildScatter>;
+    : ({ points: [], xTicks: [], yTicks: [], plot: null } as unknown as ReturnType<
+        typeof buildScatter
+      >);
 
   function moveTip(e: any, title: any, lines: any) {
     setTip({ x: e.clientX, y: e.clientY, title, lines });
   }
-  function clearHover() { setHovered(null); setTip(null); }
+  function clearHover() {
+    setHovered(null);
+    setTip(null);
+  }
 
   return (
     <div class="overview-charts">
@@ -144,46 +183,69 @@ export default function OverviewCharts(
                   class={mode === m ? 'is-active' : ''}
                   title={SCALE_TITLE[m]}
                   onClick={() => pickMode(m)}
-                >{SCALE_LABEL[m]}</button>
+                >
+                  {SCALE_LABEL[m]}
+                </button>
               ))}
             </span>
           </div>
 
           <div class="oc-treemap" ref={tmRef} style={{ height: `${CHART_H}px` }}>
             {tiles.length === 0 ? (
-              <div class="oc-placeholder" style={{ height: `${CHART_H}px` }}>{settled ? 'No storage data' : `Charting${'…'}`}</div>
-            ) : tiles.map((t) => {
-              const showLabel = t.w > 52 && t.h > 26;
-              const showSub = t.h > 42;
-              const lines = t.isOther
-                ? [`${formatBytes(t.storageSize)} · ${pct(t.overhead)} index`, `${t.memberCount} folded collections`]
-                : [
-                  `${formatBytes(t.storageSize)} on disk · ${t.row.count != null ? t.row.count.toLocaleString() : '—'} docs`,
-                  `avg ${formatBytes(t.row.avgObjSize)} · ${pct(t.overhead)} index overhead`,
-                ];
-              return (
-                <div
-                  key={t.name}
-                  class={'oc-tile' + (t.isOther ? ' is-other' : '') + (hovered === t.name ? ' is-hover' : '')}
-                  style={{
-                    left: `${t.x}px`, top: `${t.y}px`,
-                    width: `${t.w}px`, height: `${t.h}px`,
-                    background: t.isOther ? undefined : t.color,
-                    color: t.isOther ? undefined : t.textColor,
-                  }}
-                  onMouseMove={(e) => { setHovered(t.name); moveTip(e, t.name, lines); }}
-                  onMouseLeave={clearHover}
-                  onClick={() => { if (!t.isOther) onOpen(t.name); }}
-                >
-                  {showLabel && <div class={'oc-tile-name' + (t.w > 120 ? ' is-lg' : '')}>{t.name}</div>}
-                  {showLabel && showSub && (
-                    <div class="oc-tile-sub">
-                      {formatBytes(t.storageSize)}{t.isOther ? '' : ` · ${pct(t.overhead)} idx`}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+              <div class="oc-placeholder" style={{ height: `${CHART_H}px` }}>
+                {settled ? 'No storage data' : `Charting${'…'}`}
+              </div>
+            ) : (
+              tiles.map((t) => {
+                const showLabel = t.w > 52 && t.h > 26;
+                const showSub = t.h > 42;
+                const lines = t.isOther
+                  ? [
+                      `${formatBytes(t.storageSize)} · ${pct(t.overhead)} index`,
+                      `${t.memberCount} folded collections`,
+                    ]
+                  : [
+                      `${formatBytes(t.storageSize)} on disk · ${t.row.count != null ? t.row.count.toLocaleString() : '—'} docs`,
+                      `avg ${formatBytes(t.row.avgObjSize)} · ${pct(t.overhead)} index overhead`,
+                    ];
+                return (
+                  <div
+                    key={t.name}
+                    class={
+                      'oc-tile' +
+                      (t.isOther ? ' is-other' : '') +
+                      (hovered === t.name ? ' is-hover' : '')
+                    }
+                    style={{
+                      left: `${t.x}px`,
+                      top: `${t.y}px`,
+                      width: `${t.w}px`,
+                      height: `${t.h}px`,
+                      background: t.isOther ? undefined : t.color,
+                      color: t.isOther ? undefined : t.textColor,
+                    }}
+                    onMouseMove={(e) => {
+                      setHovered(t.name);
+                      moveTip(e, t.name, lines);
+                    }}
+                    onMouseLeave={clearHover}
+                    onClick={() => {
+                      if (!t.isOther) onOpen(t.name);
+                    }}
+                  >
+                    {showLabel && (
+                      <div class={'oc-tile-name' + (t.w > 120 ? ' is-lg' : '')}>{t.name}</div>
+                    )}
+                    {showLabel && showSub && (
+                      <div class="oc-tile-sub">
+                        {formatBytes(t.storageSize)}
+                        {t.isOther ? '' : ` · ${pct(t.overhead)} idx`}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
 
           <div class="oc-legend">
@@ -208,25 +270,76 @@ export default function OverviewCharts(
               <svg width={scatter.plot.width} height={CHART_H} style={{ overflow: 'visible' }}>
                 {scatter.xTicks.map((tk) => (
                   <Fragment key={`x${tk.v}`}>
-                    <line class="oc-grid" x1={tk.x} y1={scatter.plot.t} x2={tk.x} y2={scatter.plot.t + scatter.plot.ph} />
-                    <text class="oc-tick" x={tk.x} y={scatter.plot.t + scatter.plot.ph + 14} font-size="8" text-anchor="middle">{tickLabel(tk.v)}</text>
+                    <line
+                      class="oc-grid"
+                      x1={tk.x}
+                      y1={scatter.plot.t}
+                      x2={tk.x}
+                      y2={scatter.plot.t + scatter.plot.ph}
+                    />
+                    <text
+                      class="oc-tick"
+                      x={tk.x}
+                      y={scatter.plot.t + scatter.plot.ph + 14}
+                      font-size="8"
+                      text-anchor="middle"
+                    >
+                      {tickLabel(tk.v)}
+                    </text>
                   </Fragment>
                 ))}
                 {scatter.yTicks.map((tk) => (
                   <Fragment key={`y${tk.v}`}>
-                    <line class="oc-grid" x1={scatter.plot.l} y1={tk.y} x2={scatter.plot.l + scatter.plot.pw} y2={tk.y} />
-                    <text class="oc-tick" x={scatter.plot.l - 5} y={tk.y + 3} font-size="8" text-anchor="end">{formatBytes(tk.v)}</text>
+                    <line
+                      class="oc-grid"
+                      x1={scatter.plot.l}
+                      y1={tk.y}
+                      x2={scatter.plot.l + scatter.plot.pw}
+                      y2={tk.y}
+                    />
+                    <text
+                      class="oc-tick"
+                      x={scatter.plot.l - 5}
+                      y={tk.y + 3}
+                      font-size="8"
+                      text-anchor="end"
+                    >
+                      {formatBytes(tk.v)}
+                    </text>
                   </Fragment>
                 ))}
-                <line class="oc-axis" x1={scatter.plot.l} y1={scatter.plot.t} x2={scatter.plot.l} y2={scatter.plot.t + scatter.plot.ph} />
-                <line class="oc-axis" x1={scatter.plot.l} y1={scatter.plot.t + scatter.plot.ph} x2={scatter.plot.l + scatter.plot.pw} y2={scatter.plot.t + scatter.plot.ph} />
-                <text class="oc-tick" x={scatter.plot.l + scatter.plot.pw} y={scatter.plot.t + scatter.plot.ph + 22} font-size="8" text-anchor="end">documents {'→'}</text>
+                <line
+                  class="oc-axis"
+                  x1={scatter.plot.l}
+                  y1={scatter.plot.t}
+                  x2={scatter.plot.l}
+                  y2={scatter.plot.t + scatter.plot.ph}
+                />
+                <line
+                  class="oc-axis"
+                  x1={scatter.plot.l}
+                  y1={scatter.plot.t + scatter.plot.ph}
+                  x2={scatter.plot.l + scatter.plot.pw}
+                  y2={scatter.plot.t + scatter.plot.ph}
+                />
+                <text
+                  class="oc-tick"
+                  x={scatter.plot.l + scatter.plot.pw}
+                  y={scatter.plot.t + scatter.plot.ph + 22}
+                  font-size="8"
+                  text-anchor="end"
+                >
+                  documents {'→'}
+                </text>
                 {scatter.points.map((p) => (
                   <circle
                     key={p.name}
                     class={'oc-scatter-dot' + (hovered === p.name ? ' is-hover' : '')}
-                    cx={p.cx} cy={p.cy} r={hovered === p.name ? 7 : 4.5}
-                    fill={p.color} fill-opacity="0.82"
+                    cx={p.cx}
+                    cy={p.cy}
+                    r={hovered === p.name ? 7 : 4.5}
+                    fill={p.color}
+                    fill-opacity="0.82"
                     onMouseMove={(e) => {
                       setHovered(p.name);
                       moveTip(e, p.name, [
@@ -244,9 +357,15 @@ export default function OverviewCharts(
         </div>
 
         {tip && (
-          <div class="oc-tooltip" ref={tipRef} style={{ left: `${tip.x + 14}px`, top: `${tip.y + 14}px` }}>
+          <div
+            class="oc-tooltip"
+            ref={tipRef}
+            style={{ left: `${tip.x + 14}px`, top: `${tip.y + 14}px` }}
+          >
             <b>{tip.title}</b>
-            {tip.lines.map((l: any, i: any) => <div key={i}>{l}</div>)}
+            {tip.lines.map((l: any, i: any) => (
+              <div key={i}>{l}</div>
+            ))}
           </div>
         )}
       </div>

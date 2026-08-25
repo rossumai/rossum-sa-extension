@@ -23,7 +23,14 @@ export function makeNameResolver(getJson: (apiPath: string) => unknown, cap = DE
   function notify(apiPath: string) {
     const set = pending.get(apiPath);
     pending.delete(apiPath);
-    if (set) for (const cb of set) { try { cb(); } catch { /* ignore */ } }
+    if (set)
+      for (const cb of set) {
+        try {
+          cb();
+        } catch {
+          /* ignore */
+        }
+      }
   }
   function pump() {
     while (active < cap && queue.length) {
@@ -32,7 +39,11 @@ export function makeNameResolver(getJson: (apiPath: string) => unknown, cap = DE
       Promise.resolve(getJson(apiPath))
         .then((obj) => cache.put(apiPath, obj))
         .catch(() => cache.setStatus(apiPath, 'error'))
-        .finally(() => { active -= 1; notify(apiPath); pump(); });
+        .finally(() => {
+          active -= 1;
+          notify(apiPath);
+          pump();
+        });
     }
   }
 
@@ -47,7 +58,10 @@ export function makeNameResolver(getJson: (apiPath: string) => unknown, cap = DE
       if (!apiPath) return;
       const e = cache.nameFor(apiPath);
       if (e && (e.status === 'done' || e.status === 'error')) return; // settled
-      if (onChange) { if (!pending.has(apiPath)) pending.set(apiPath, new Set()); pending.get(apiPath)!.add(onChange); }
+      if (onChange) {
+        if (!pending.has(apiPath)) pending.set(apiPath, new Set());
+        pending.get(apiPath)!.add(onChange);
+      }
       if (e && e.status === 'loading') return; // already in flight
       cache.setStatus(apiPath, 'loading');
       queue.push(apiPath);

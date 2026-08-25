@@ -6,16 +6,30 @@ let store: any;
 beforeEach(() => {
   sessionStorage.clear();
   store = {};
-  globalThis.chrome = ({
-    storage: { local: { set: vi.fn((obj) => { Object.assign(store, obj); return Promise.resolve(); }) } } as any,
-  } as any);
+  globalThis.chrome = {
+    storage: {
+      local: {
+        set: vi.fn((obj) => {
+          Object.assign(store, obj);
+          return Promise.resolve();
+        }),
+      },
+    } as any,
+  } as any;
 });
 
 describe('TAB_SCOPED_KEYS', () => {
   it('lists exactly the eight navigation keys', () => {
-    expect([...TAB_SCOPED_KEYS].sort()).toEqual(
-      ['consoleActiveApp', 'fabryActiveChat', 'fabryArchitectActive', 'fabryMode', 'mdhActivePanel', 'mdhActiveView', 'mdhOpsSearch', 'mdhSelectedCollection'],
-    );
+    expect([...TAB_SCOPED_KEYS].sort()).toEqual([
+      'consoleActiveApp',
+      'fabryActiveChat',
+      'fabryArchitectActive',
+      'fabryMode',
+      'mdhActivePanel',
+      'mdhActiveView',
+      'mdhOpsSearch',
+      'mdhSelectedCollection',
+    ]);
   });
 });
 

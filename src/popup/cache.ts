@@ -15,9 +15,13 @@ type Cached<T> = { fetchedAt?: number } & T;
 // so bump the prefix and let stale entries fall through to a refetch.
 const HOOKS_PREFIX = 'mdhProv:hooks:v3:';
 
-const hooksKey = (domain: string, queueId: string | number) => `${HOOKS_PREFIX}${domain}#${queueId}`;
+const hooksKey = (domain: string, queueId: string | number) =>
+  `${HOOKS_PREFIX}${domain}#${queueId}`;
 
-export async function getCachedHookEntries(domain: string, queueId: string | number): Promise<any[] | null> {
+export async function getCachedHookEntries(
+  domain: string,
+  queueId: string | number,
+): Promise<any[] | null> {
   const key = hooksKey(domain, queueId);
   const stored = await chrome.storage.session.get(key);
   const entry = stored[key] as Cached<{ entries: any[] }> | undefined;
@@ -26,7 +30,11 @@ export async function getCachedHookEntries(domain: string, queueId: string | num
   return entry.entries;
 }
 
-export async function setCachedHookEntries(domain: string, queueId: string | number, entries: any[]): Promise<void> {
+export async function setCachedHookEntries(
+  domain: string,
+  queueId: string | number,
+  entries: any[],
+): Promise<void> {
   // Persist only the fields the popup uses; avoid the full hook detail blob.
   const trimmed = entries.map(({ hook, cfgs }: { hook: any; cfgs: any }) => ({
     hook: { id: hook.id, name: hook.name },
@@ -39,9 +47,13 @@ export async function setCachedHookEntries(domain: string, queueId: string | num
 
 // ── Schema types (per queue) ──
 const SCHEMA_PREFIX = 'mdhProv:schemaTypes:v1:';
-const schemaKey = (domain: string, queueId: string | number) => `${SCHEMA_PREFIX}${domain}#${queueId}`;
+const schemaKey = (domain: string, queueId: string | number) =>
+  `${SCHEMA_PREFIX}${domain}#${queueId}`;
 
-export async function getCachedSchemaTypes(domain: string, queueId: string | number): Promise<any | null> {
+export async function getCachedSchemaTypes(
+  domain: string,
+  queueId: string | number,
+): Promise<any | null> {
   if (!queueId) return null;
   const key = schemaKey(domain, queueId);
   const stored = await chrome.storage.session.get(key);
@@ -51,7 +63,11 @@ export async function getCachedSchemaTypes(domain: string, queueId: string | num
   return entry.types;
 }
 
-export async function setCachedSchemaTypes(domain: string, queueId: string | number, types: any): Promise<void> {
+export async function setCachedSchemaTypes(
+  domain: string,
+  queueId: string | number,
+  types: any,
+): Promise<void> {
   if (!queueId) return;
   await chrome.storage.session.set({
     [schemaKey(domain, queueId)]: { types, fetchedAt: Date.now() },
@@ -68,9 +84,13 @@ export async function setCachedSchemaTypes(domain: string, queueId: string | num
 // expired — the row scope has no other source, so bump rather than tolerate it.
 const ANN_PREFIX = 'mdhProv:ann:v4:';
 
-const annKey = (domain: string, annotationId: string | number) => `${ANN_PREFIX}${domain}#${annotationId}`;
+const annKey = (domain: string, annotationId: string | number) =>
+  `${ANN_PREFIX}${domain}#${annotationId}`;
 
-export async function getCachedAnnotation(domain: string, annotationId: string | number): Promise<any | null> {
+export async function getCachedAnnotation(
+  domain: string,
+  annotationId: string | number,
+): Promise<any | null> {
   if (!annotationId) return null;
   const key = annKey(domain, annotationId);
   const stored = await chrome.storage.session.get(key);
@@ -80,14 +100,21 @@ export async function getCachedAnnotation(domain: string, annotationId: string |
   return entry;
 }
 
-export async function setCachedAnnotation(domain: string, annotationId: string | number, data: any): Promise<void> {
+export async function setCachedAnnotation(
+  domain: string,
+  annotationId: string | number,
+  data: any,
+): Promise<void> {
   if (!annotationId) return;
   await chrome.storage.session.set({
     [annKey(domain, annotationId)]: { ...data, fetchedAt: Date.now() },
   });
 }
 
-export async function dropCachedAnnotation(domain: string, annotationId: string | number): Promise<void> {
+export async function dropCachedAnnotation(
+  domain: string,
+  annotationId: string | number,
+): Promise<void> {
   if (!annotationId) return;
   await chrome.storage.session.remove(annKey(domain, annotationId));
 }
@@ -96,10 +123,21 @@ export async function dropCachedAnnotation(domain: string, annotationId: string 
 
 const REPLAY_PREFIX = 'mdhProv:replay:';
 
-const replayKey = (domain: string, annotationId: string | number, modifiedAt: string | number | null | undefined, rowIdx: number, cfgKey: string) =>
-  `${REPLAY_PREFIX}${domain}#${annotationId}#${modifiedAt}#${rowIdx}#${cfgKey}`;
+const replayKey = (
+  domain: string,
+  annotationId: string | number,
+  modifiedAt: string | number | null | undefined,
+  rowIdx: number,
+  cfgKey: string,
+) => `${REPLAY_PREFIX}${domain}#${annotationId}#${modifiedAt}#${rowIdx}#${cfgKey}`;
 
-export async function getCachedReplay(domain: string, annotationId: string | number, modifiedAt: string | number | null | undefined, rowIdx: number, cfgKey: string): Promise<any[] | null> {
+export async function getCachedReplay(
+  domain: string,
+  annotationId: string | number,
+  modifiedAt: string | number | null | undefined,
+  rowIdx: number,
+  cfgKey: string,
+): Promise<any[] | null> {
   if (!annotationId || !modifiedAt) return null;
   const key = replayKey(domain, annotationId, modifiedAt, rowIdx, cfgKey);
   const stored = await chrome.storage.session.get(key);
@@ -109,7 +147,14 @@ export async function getCachedReplay(domain: string, annotationId: string | num
   return entry.statuses;
 }
 
-export async function setCachedReplay(domain: string, annotationId: string | number, modifiedAt: string | number | null | undefined, rowIdx: number, cfgKey: string, statuses: any[]): Promise<void> {
+export async function setCachedReplay(
+  domain: string,
+  annotationId: string | number,
+  modifiedAt: string | number | null | undefined,
+  rowIdx: number,
+  cfgKey: string,
+  statuses: any[],
+): Promise<void> {
   if (!annotationId || !modifiedAt || !statuses) return;
   if (!statuses.every((s: unknown) => s != null)) return;
   await chrome.storage.session.set({

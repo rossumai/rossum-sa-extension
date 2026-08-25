@@ -5,8 +5,10 @@ vi.mock('../src/fabry/architect/api.js', () => ({
   COLLECTION: '_SA_EXTENSION__fabry_architect',
   ensureCollection: vi.fn().mockResolvedValue(undefined),
   loadDeliverables: vi.fn().mockResolvedValue({ deliverables: [], results: {}, implement: {} }),
-  addDeliverable: vi.fn().mockResolvedValue({}), updateDeliverable: vi.fn().mockResolvedValue({}),
-  deleteDeliverable: vi.fn().mockResolvedValue({}), saveResult: vi.fn().mockResolvedValue({}),
+  addDeliverable: vi.fn().mockResolvedValue({}),
+  updateDeliverable: vi.fn().mockResolvedValue({}),
+  deleteDeliverable: vi.fn().mockResolvedValue({}),
+  saveResult: vi.fn().mockResolvedValue({}),
   setOrder: vi.fn().mockResolvedValue({}),
   saveImplementResult: vi.fn().mockResolvedValue({}),
 }));
@@ -24,22 +26,39 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 // write), passes its per-task check, then the deliverable roll-up also passes.
 function scriptStreamMessage() {
   return vi.fn().mockImplementation(async (id, content, { onEvent } = {}) => {
-    if (content.startsWith('/persona')) { onEvent({ type: 'finish' }); return; }
-    if (content.includes('break the requirement into')) {                 // plan turn
-      onEvent({ type: 'text-delta', delta: '[{"text":"create VAT rule","acceptance":"rule exists"}]' });
-      onEvent({ type: 'finish' }); return;
+    if (content.startsWith('/persona')) {
+      onEvent({ type: 'finish' });
+      return;
     }
-    if (content.includes('implementing ONE task')) {                     // task-implement turn
+    if (content.includes('break the requirement into')) {
+      // plan turn
+      onEvent({
+        type: 'text-delta',
+        delta: '[{"text":"create VAT rule","acceptance":"rule exists"}]',
+      });
+      onEvent({ type: 'finish' });
+      return;
+    }
+    if (content.includes('implementing ONE task')) {
+      // task-implement turn
       onEvent({ type: 'tool-input-start', toolCallId: 't1', toolName: 'create_rule' });
       onEvent({ type: 'tool-input-available', toolCallId: 't1', input: { name: 'VAT' } });
       onEvent({ type: 'tool-output-available', toolCallId: 't1', output: 'ok' });
-      onEvent({ type: 'text-delta', delta: 'Created a VAT rule.' }); onEvent({ type: 'finish' }); return;
+      onEvent({ type: 'text-delta', delta: 'Created a VAT rule.' });
+      onEvent({ type: 'finish' });
+      return;
     }
-    if (content.includes('verifying whether ONE implementation task')) {  // task-check turn
-      onEvent({ type: 'text-delta', delta: 'VERDICT: PASS\nThe task is done.' }); onEvent({ type: 'finish' }); return;
+    if (content.includes('verifying whether ONE implementation task')) {
+      // task-check turn
+      onEvent({ type: 'text-delta', delta: 'VERDICT: PASS\nThe task is done.' });
+      onEvent({ type: 'finish' });
+      return;
     }
-    if (content.includes('auditing a Rossum organization')) {             // deliverable roll-up turn
-      onEvent({ type: 'text-delta', delta: 'VERDICT: PASS\nThe requirement is met.' }); onEvent({ type: 'finish' }); return;
+    if (content.includes('auditing a Rossum organization')) {
+      // deliverable roll-up turn
+      onEvent({ type: 'text-delta', delta: 'VERDICT: PASS\nThe requirement is met.' });
+      onEvent({ type: 'finish' });
+      return;
     }
     onEvent({ type: 'finish' });
   });
@@ -47,26 +66,32 @@ function scriptStreamMessage() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  store.deliverables.value = []; store.results.value = {}; store.implement.value = {}; store.implementRunning.value = false;
+  store.deliverables.value = [];
+  store.results.value = {};
+  store.implement.value = {};
+  store.implementRunning.value = false;
 });
 
 describe('reImplement (task-decomposition loop, audited)', () => {
   beforeEach(() => {
     store.deliverables.value = [deliverable({ id: 'a', text: 'Add a VAT rule', order: 1 })];
     let n = 0;
-    vi.mocked(agentApi.createChat).mockImplementation(async () => 'chat_' + (n++));
+    vi.mocked(agentApi.createChat).mockImplementation(async () => 'chat_' + n++);
     vi.mocked(agentApi.streamMessage).mockImplementation(scriptStreamMessage());
   });
 
   it('write boundary: only the task-implement turn carries mcpMode read-write', async () => {
     await reImplement('a');
     await flush();
-    const findCall = (re: any) => vi.mocked(agentApi.streamMessage).mock.calls.find((c) => re.test(c[1]));
+    const findCall = (re: any) =>
+      vi.mocked(agentApi.streamMessage).mock.calls.find((c) => re.test(c[1]));
     const planCall = findCall(/break the requirement into/);
     const taskCall = findCall(/implementing ONE task/);
     const taskCheckCall = findCall(/verifying whether ONE implementation task/);
     const rollupCall = findCall(/auditing a Rossum organization/);
-    const primeCall = vi.mocked(agentApi.streamMessage).mock.calls.find((c) => c[1].startsWith('/persona'));
+    const primeCall = vi
+      .mocked(agentApi.streamMessage)
+      .mock.calls.find((c) => c[1].startsWith('/persona'));
     expect(planCall).toBeTruthy();
     expect(taskCall).toBeTruthy();
     expect(taskCheckCall).toBeTruthy();
@@ -88,7 +113,7 @@ describe('reImplement (task-decomposition loop, audited)', () => {
     expect(store.implement.value.a.tasks).toHaveLength(1);
     expect(store.implement.value.a.tasks![0].status).toBe('done');
     expect(store.implement.value.a.writes![0]).toMatchObject({ tool: 'create_rule', ok: true });
-    expect(store.results.value.a.verdict).toBe('pass');           // reflected in the shared verdict banner
+    expect(store.results.value.a.verdict).toBe('pass'); // reflected in the shared verdict banner
     // ...and PERSISTED as the Check result so it survives reload (not just in-memory).
     expect(api.saveResult).toHaveBeenCalledWith('a', expect.objectContaining({ verdict: 'pass' }));
     expect(store.results.value.a.stale).toBe(false);
@@ -104,46 +129,65 @@ describe('reImplement (task-decomposition loop, audited)', () => {
     vi.mocked(agentApi.createChat).mockResolvedValue('chat_x');
     vi.mocked(agentApi.streamMessage).mockReset();
     // plan turn resolves normally; the task-implement turn hangs until the run is aborted.
-    vi.mocked(agentApi.streamMessage).mockImplementation((id, content, { signal, onEvent } = {}) => {
-      if (content.includes('break the requirement into')) {
-        onEvent!({ type: 'text-delta', delta: '[{"text":"create VAT rule","acceptance":"rule exists"}]' });
-        onEvent!({ type: 'finish' });
-        return Promise.resolve();
-      }
-      return new Promise((resolve) => { if (signal) signal.addEventListener('abort', () => resolve()); });
-    });
-    const p = reImplement('a');            // do NOT await — it is mid-stream
+    vi.mocked(agentApi.streamMessage).mockImplementation(
+      (id, content, { signal, onEvent } = {}) => {
+        if (content.includes('break the requirement into')) {
+          onEvent!({
+            type: 'text-delta',
+            delta: '[{"text":"create VAT rule","acceptance":"rule exists"}]',
+          });
+          onEvent!({ type: 'finish' });
+          return Promise.resolve();
+        }
+        return new Promise((resolve) => {
+          if (signal) signal.addEventListener('abort', () => resolve());
+        });
+      },
+    );
+    const p = reImplement('a'); // do NOT await — it is mid-stream
     await flush();
-    expect(store.implement.value.a.running).toBe(true);    // spinner is up
-    stopImplement();                        // abort the run
-    await p;                                // let runImplementList settle
-    expect(store.implement.value.a.running).toBe(false);   // spinner cleared
+    expect(store.implement.value.a.running).toBe(true); // spinner is up
+    stopImplement(); // abort the run
+    await p; // let runImplementList settle
+    expect(store.implement.value.a.running).toBe(false); // spinner cleared
     expect(store.implementRunning.value).toBe(false);
   });
 
   it('Stop persists a terminal "stopped" result WITH the writes the interrupted turn already executed', async () => {
     vi.mocked(agentApi.createChat).mockReset();
-    let n = 0; vi.mocked(agentApi.createChat).mockImplementation(async () => 'chat_' + (n++));
+    let n = 0;
+    vi.mocked(agentApi.createChat).mockImplementation(async () => 'chat_' + n++);
     vi.mocked(agentApi.streamMessage).mockReset();
-    vi.mocked(agentApi.streamMessage).mockImplementation((id, content, { signal, onEvent } = {}) => {
-      if (content.startsWith('/persona')) { onEvent!({ type: 'finish' }); return Promise.resolve(); }
-      if (content.includes('break the requirement into')) {
-        onEvent!({ type: 'text-delta', delta: '[{"text":"t1","acceptance":"a"}]' });
+    vi.mocked(agentApi.streamMessage).mockImplementation(
+      (id, content, { signal, onEvent } = {}) => {
+        if (content.startsWith('/persona')) {
+          onEvent!({ type: 'finish' });
+          return Promise.resolve();
+        }
+        if (content.includes('break the requirement into')) {
+          onEvent!({ type: 'text-delta', delta: '[{"text":"t1","acceptance":"a"}]' });
+          onEvent!({ type: 'finish' });
+          return Promise.resolve();
+        }
+        if (content.includes('implementing ONE task')) {
+          // The agent executes a write, then the turn hangs until the run is aborted,
+          // at which point the transport THROWS AbortError (as agentApi.js does).
+          onEvent!({ type: 'tool-input-start', toolCallId: 'w1', toolName: 'create_hook' });
+          onEvent!({ type: 'tool-input-available', toolCallId: 'w1', input: { name: 'H' } });
+          onEvent!({ type: 'tool-output-available', toolCallId: 'w1', output: 'ok' });
+          return new Promise((_, reject) => {
+            if (signal)
+              signal.addEventListener('abort', () => {
+                const e = new Error('aborted');
+                e.name = 'AbortError';
+                reject(e);
+              });
+          });
+        }
         onEvent!({ type: 'finish' });
         return Promise.resolve();
-      }
-      if (content.includes('implementing ONE task')) {
-        // The agent executes a write, then the turn hangs until the run is aborted,
-        // at which point the transport THROWS AbortError (as agentApi.js does).
-        onEvent!({ type: 'tool-input-start', toolCallId: 'w1', toolName: 'create_hook' });
-        onEvent!({ type: 'tool-input-available', toolCallId: 'w1', input: { name: 'H' } });
-        onEvent!({ type: 'tool-output-available', toolCallId: 'w1', output: 'ok' });
-        return new Promise((_, reject) => {
-          if (signal) signal.addEventListener('abort', () => { const e = new Error('aborted'); e.name = 'AbortError'; reject(e); });
-        });
-      }
-      onEvent!({ type: 'finish' }); return Promise.resolve();
-    });
+      },
+    );
     const p = reImplement('a');
     await flush();
     stopImplement();
@@ -161,23 +205,30 @@ describe('reImplement (task-decomposition loop, audited)', () => {
 
   it('a write from a turn that RESOLVED just as Stop fired is still audited (no resolve-then-abort loss)', async () => {
     vi.mocked(agentApi.createChat).mockReset();
-    let n = 0; vi.mocked(agentApi.createChat).mockImplementation(async () => 'chat_' + (n++));
+    let n = 0;
+    vi.mocked(agentApi.createChat).mockImplementation(async () => 'chat_' + n++);
     vi.mocked(agentApi.streamMessage).mockReset();
     vi.mocked(agentApi.streamMessage).mockImplementation((id, content, { onEvent } = {}) => {
-      if (content.startsWith('/persona')) { onEvent!({ type: 'finish' }); return Promise.resolve(); }
+      if (content.startsWith('/persona')) {
+        onEvent!({ type: 'finish' });
+        return Promise.resolve();
+      }
       if (content.includes('break the requirement into')) {
-        onEvent!({ type: 'text-delta', delta: '[{"text":"t1","acceptance":"a"}]' }); onEvent!({ type: 'finish' }); return Promise.resolve();
+        onEvent!({ type: 'text-delta', delta: '[{"text":"t1","acceptance":"a"}]' });
+        onEvent!({ type: 'finish' });
+        return Promise.resolve();
       }
       if (content.includes('implementing ONE task')) {
         onEvent!({ type: 'tool-input-start', toolCallId: 'w1', toolName: 'create_hook' });
         onEvent!({ type: 'tool-input-available', toolCallId: 'w1', input: { name: 'H' } });
         onEvent!({ type: 'tool-output-available', toolCallId: 'w1', output: 'ok' });
         onEvent!({ type: 'text-delta', delta: 'done' });
-        stopImplement();            // Stop fires exactly as this turn completes...
+        stopImplement(); // Stop fires exactly as this turn completes...
         onEvent!({ type: 'finish' });
-        return Promise.resolve();   // ...and the stream RESOLVES (does not throw)
+        return Promise.resolve(); // ...and the stream RESOLVES (does not throw)
       }
-      onEvent!({ type: 'finish' }); return Promise.resolve();
+      onEvent!({ type: 'finish' });
+      return Promise.resolve();
     });
     await reImplement('a');
     await flush();
@@ -199,26 +250,45 @@ describe('reImplement (task-decomposition loop, audited)', () => {
     expect(store.results.value.a.running).toBe(true);
     await reImplement('a'); // must be blocked
     expect(store.implementRunning.value).toBe(false);
-    expect(vi.mocked(agentApi.streamMessage).mock.calls.some((c) => c[1].includes('break the requirement into'))).toBe(false); // no plan turn
+    expect(
+      vi
+        .mocked(agentApi.streamMessage)
+        .mock.calls.some((c) => c[1].includes('break the requirement into')),
+    ).toBe(false); // no plan turn
     expect(api.saveImplementResult).not.toHaveBeenCalled();
   });
 
   it('a transport-errored roll-up updates the banner but does NOT persist (preserves last-known-good)', async () => {
     // Everything passes up to the roll-up, which throws (e.g. 429/network).
     vi.mocked(agentApi.streamMessage).mockImplementation(async (id, content, { onEvent } = {}) => {
-      if (content.startsWith('/persona')) { onEvent!({ type: 'finish' }); return; }
-      if (content.includes('break the requirement into')) {
-        onEvent!({ type: 'text-delta', delta: '[{"text":"t","acceptance":"a"}]' }); onEvent!({ type: 'finish' }); return;
+      if (content.startsWith('/persona')) {
+        onEvent!({ type: 'finish' });
+        return;
       }
-      if (content.includes('implementing ONE task')) { onEvent!({ type: 'text-delta', delta: 'done' }); onEvent!({ type: 'finish' }); return; }
-      if (content.includes('verifying whether ONE implementation task')) { onEvent!({ type: 'text-delta', delta: 'VERDICT: PASS' }); onEvent!({ type: 'finish' }); return; }
-      if (content.includes('auditing a Rossum organization')) { throw new Error('gate down'); }
+      if (content.includes('break the requirement into')) {
+        onEvent!({ type: 'text-delta', delta: '[{"text":"t","acceptance":"a"}]' });
+        onEvent!({ type: 'finish' });
+        return;
+      }
+      if (content.includes('implementing ONE task')) {
+        onEvent!({ type: 'text-delta', delta: 'done' });
+        onEvent!({ type: 'finish' });
+        return;
+      }
+      if (content.includes('verifying whether ONE implementation task')) {
+        onEvent!({ type: 'text-delta', delta: 'VERDICT: PASS' });
+        onEvent!({ type: 'finish' });
+        return;
+      }
+      if (content.includes('auditing a Rossum organization')) {
+        throw new Error('gate down');
+      }
       onEvent!({ type: 'finish' });
     });
     await reImplement('a');
     await flush();
     expect(store.implement.value.a.status).toBe('uncertain');
-    expect(store.results.value.a.verdict).toBe('uncertain');   // banner reflects the failed roll-up
-    expect(api.saveResult).not.toHaveBeenCalled();             // but nothing persisted
+    expect(store.results.value.a.verdict).toBe('uncertain'); // banner reflects the failed roll-up
+    expect(api.saveResult).not.toHaveBeenCalled(); // but nothing persisted
   });
 });

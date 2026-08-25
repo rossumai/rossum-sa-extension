@@ -15,8 +15,13 @@ describe('highlightCode', () => {
   });
 
   it('python: keywords, strings, comments, decorators, literals', () => {
-    const tokens = highlightCode('@app\ndef f():\n    # hi\n    return "s" if True else None', 'python');
-    const byType = Object.fromEntries(tokens.filter((t) => t.type !== 'plain').map((t) => [t.type + ':' + t.text, true]));
+    const tokens = highlightCode(
+      '@app\ndef f():\n    # hi\n    return "s" if True else None',
+      'python',
+    );
+    const byType = Object.fromEntries(
+      tokens.filter((t) => t.type !== 'plain').map((t) => [t.type + ':' + t.text, true]),
+    );
     expect(byType['dec:@app']).toBe(true);
     expect(byType['kw:def']).toBe(true);
     expect(byType['com:# hi']).toBe(true);
@@ -35,7 +40,9 @@ describe('highlightCode', () => {
   });
 
   it('unknown language falls through as one plain token', () => {
-    expect(highlightCode('graph TD\n  A --> B', 'mermaid')).toEqual([{ type: 'plain', text: 'graph TD\n  A --> B' }]);
+    expect(highlightCode('graph TD\n  A --> B', 'mermaid')).toEqual([
+      { type: 'plain', text: 'graph TD\n  A --> B' },
+    ]);
     expect(highlightCode('x', '')).toEqual([{ type: 'plain', text: 'x' }]);
   });
 

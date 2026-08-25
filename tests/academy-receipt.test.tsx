@@ -34,17 +34,20 @@ beforeEach(() => {
   state = {};
   render(null, document.body);
   document.body.innerHTML = '';
-  globalThis.chrome = ({ storage: {
-    local: {
-      get: vi.fn(async (keys) => {
-        const out = {};
-        for (const k of (Array.isArray(keys) ? keys : [keys])) if (k in state) (out as any)[k] = state[k];
-        return out;
-      }),
-      set: vi.fn(async (obj) => Object.assign(state, obj)),
-    },
-    onChanged: { addListener: vi.fn(), removeListener: vi.fn() },
-  } as any } as any);
+  globalThis.chrome = {
+    storage: {
+      local: {
+        get: vi.fn(async (keys) => {
+          const out = {};
+          for (const k of Array.isArray(keys) ? keys : [keys])
+            if (k in state) (out as any)[k] = state[k];
+          return out;
+        }),
+        set: vi.fn(async (obj) => Object.assign(state, obj)),
+      },
+      onChanged: { addListener: vi.fn(), removeListener: vi.fn() },
+    } as any,
+  } as any;
   store.setOrigin('https://partner-sandbox.rossum.app');
   store.progress.value = completeProgress();
 });
@@ -54,19 +57,25 @@ const whoami = async () => ({ id: 42, username: 'j.doe', url: '/api/v1/users/42'
 // A response set that beats the "nothing" baselines below on every check.
 // `result` (singular) is the live Data Storage key — see the note in the
 // re-verification test.
-const passingGet = () => vi.fn(async (path) => {
-  if (path.includes('hooks')) return { results: [{ url: '/api/v1/hooks/7', queues: ['/api/v1/queues/1'] }] };
-  if (path.includes('rules')) return { results: [{ id: 5 }] };
-  if (path.includes('queues')) return { results: [{ url: '/api/v1/queues/4', default_score_threshold: 0.9 }] };
-  if (path.includes('collections')) return { result: ['a', 'b'] };
-  return { results: [{ content: [{ children: [{ id: 'x' }, { id: 'y' }] }] }] }; // schemas
-});
+const passingGet = () =>
+  vi.fn(async (path) => {
+    if (path.includes('hooks'))
+      return { results: [{ url: '/api/v1/hooks/7', queues: ['/api/v1/queues/1'] }] };
+    if (path.includes('rules')) return { results: [{ id: 5 }] };
+    if (path.includes('queues'))
+      return { results: [{ url: '/api/v1/queues/4', default_score_threshold: 0.9 }] };
+    if (path.includes('collections')) return { result: ['a', 'b'] };
+    return { results: [{ content: [{ children: [{ id: 'x' }, { id: 'y' }] }] }] }; // schemas
+  });
 
 function givePassingBaselines() {
   for (const m of TRACK.missions) {
     store.progress.value!.missions[m.id].baseline = {
-      hookAttachedToQueue: [], ruleCreated: [], thresholdChanged: { 4: 0.5 },
-      collectionAdded: 0, schemaFieldAdded: 0,
+      hookAttachedToQueue: [],
+      ruleCreated: [],
+      thresholdChanged: { 4: 0.5 },
+      collectionAdded: 0,
+      schemaFieldAdded: 0,
     };
   }
 }
@@ -88,9 +97,11 @@ describe('mintReceipt', () => {
   it('issues a receipt that verifies with the real key when every check passes', async () => {
     // A baseline of "nothing" plus a response containing something = a delta.
     const get = vi.fn(async (path) => {
-      if (path.includes('hooks')) return { results: [{ url: '/api/v1/hooks/7', queues: ['/api/v1/queues/1'] }] };
+      if (path.includes('hooks'))
+        return { results: [{ url: '/api/v1/hooks/7', queues: ['/api/v1/queues/1'] }] };
       if (path.includes('rules')) return { results: [{ id: 5 }] };
-      if (path.includes('queues')) return { results: [{ url: '/api/v1/queues/4', default_score_threshold: 0.9 }] };
+      if (path.includes('queues'))
+        return { results: [{ url: '/api/v1/queues/4', default_score_threshold: 0.9 }] };
       // `result` — SINGULAR — is the live Data Storage contract. This mock used
       // the `collections` FALLBACK key, so it would have passed just as happily
       // with the primary key wrong, which is exactly the defect the comments in
@@ -102,8 +113,11 @@ describe('mintReceipt', () => {
     // Give every mission a baseline that the responses above beat.
     for (const m of TRACK.missions) {
       p!.missions[m.id].baseline = {
-        hookAttachedToQueue: [], ruleCreated: [], thresholdChanged: { 4: 0.5 },
-        collectionAdded: 0, schemaFieldAdded: 0,
+        hookAttachedToQueue: [],
+        ruleCreated: [],
+        thresholdChanged: { 4: 0.5 },
+        collectionAdded: 0,
+        schemaFieldAdded: 0,
       };
     }
     const res = await mintReceipt({ get, whoami, now: () => new Date('2026-08-07T10:00:00Z') });
@@ -113,21 +127,26 @@ describe('mintReceipt', () => {
 
   it('records the org host and the self-attested count on the receipt', async () => {
     const get = vi.fn(async (path) => {
-      if (path.includes('hooks')) return { results: [{ url: '/api/v1/hooks/7', queues: ['/api/v1/queues/1'] }] };
+      if (path.includes('hooks'))
+        return { results: [{ url: '/api/v1/hooks/7', queues: ['/api/v1/queues/1'] }] };
       if (path.includes('rules')) return { results: [{ id: 5 }] };
-      if (path.includes('queues')) return { results: [{ url: '/api/v1/queues/4', default_score_threshold: 0.9 }] };
+      if (path.includes('queues'))
+        return { results: [{ url: '/api/v1/queues/4', default_score_threshold: 0.9 }] };
       if (path.includes('collections')) return { result: ['a', 'b'] };
       return { results: [{ content: [{ children: [{ id: 'x' }, { id: 'y' }] }] }] }; // schemas
     });
     const p = store.progress.value;
     for (const m of TRACK.missions) {
       p!.missions[m.id].baseline = {
-        hookAttachedToQueue: [], ruleCreated: [], thresholdChanged: { 4: 0.5 },
-        collectionAdded: 0, schemaFieldAdded: 0,
+        hookAttachedToQueue: [],
+        ruleCreated: [],
+        thresholdChanged: { 4: 0.5 },
+        collectionAdded: 0,
+        schemaFieldAdded: 0,
       };
     }
     const res = await mintReceipt({ get, whoami, now: () => new Date('2026-08-07T10:00:00Z') });
-    expect(res.ok).toBe(true);                        // no `if` — the mint must succeed
+    expect(res.ok).toBe(true); // no `if` — the mint must succeed
     expect(res.text).toContain('partner-sandbox.rossum.app');
     expect(res.text).toContain('self-attested');
   });
@@ -139,7 +158,10 @@ describe('mintReceipt', () => {
     const get = passingGet();
     givePassingBaselines();
     const res = await mintReceipt({
-      get, whoami: async () => { throw new Error('API 401'); },
+      get,
+      whoami: async () => {
+        throw new Error('API 401');
+      },
       now: () => new Date('2026-08-07T10:00:00Z'),
     });
     expect(res.ok).toBe(false);
@@ -150,7 +172,9 @@ describe('mintReceipt', () => {
   it('returns a failure result instead of rejecting when a progress write throws', async () => {
     const get = passingGet();
     givePassingBaselines();
-    globalThis.chrome.storage.local.set = vi.fn(async () => { throw new Error('QuotaExceededError'); });
+    globalThis.chrome.storage.local.set = vi.fn(async () => {
+      throw new Error('QuotaExceededError');
+    });
     const res = await mintReceipt({ get, whoami, now: () => new Date('2026-08-07T10:00:00Z') });
     expect(res.ok).toBe(false);
     expect(res.reason).toBe('error');
@@ -159,7 +183,10 @@ describe('mintReceipt', () => {
   it('distinguishes an unreachable org from work that no longer holds', async () => {
     givePassingBaselines();
     const res = await mintReceipt({
-      get: async () => { throw new Error('NetworkError'); }, whoami,
+      get: async () => {
+        throw new Error('NetworkError');
+      },
+      whoami,
       now: () => new Date('2026-08-07T10:00:00Z'),
     });
     expect(res.reason).toBe('unreachable');
@@ -174,7 +201,8 @@ describe('mintReceipt', () => {
     const get = passingGet();
     givePassingBaselines();
     const res = await mintReceipt({
-      get, whoami: async () => ({ username: 'j.doe', url: '/api/v1/users/not-a-number' }),
+      get,
+      whoami: async () => ({ username: 'j.doe', url: '/api/v1/users/not-a-number' }),
       now: () => new Date('2026-08-07T10:00:00Z'),
     });
     expect(res.ok).toBe(false);
@@ -191,7 +219,8 @@ describe('mintReceipt', () => {
     givePassingBaselines();
     for (const username of ['a|b', 'a\nb']) {
       const res = await mintReceipt({
-        get, whoami: async () => ({ id: 42, username, url: '/api/v1/users/42' }),
+        get,
+        whoami: async () => ({ id: 42, username, url: '/api/v1/users/42' }),
         now: () => new Date('2026-08-07T10:00:00Z'),
       });
       expect(res.ok, `username ${JSON.stringify(username)} must not mint`).toBe(false);
@@ -203,7 +232,8 @@ describe('mintReceipt', () => {
     const get = passingGet();
     givePassingBaselines();
     const res = await mintReceipt({
-      get, whoami: async () => ({ id: 42, username: '   ', url: '/api/v1/users/42' }),
+      get,
+      whoami: async () => ({ id: 42, username: '   ', url: '/api/v1/users/42' }),
       now: () => new Date('2026-08-07T10:00:00Z'),
     });
     expect(res.ok).toBe(false);
@@ -214,7 +244,8 @@ describe('mintReceipt', () => {
     const get = passingGet();
     givePassingBaselines();
     const res = await mintReceipt({
-      get, whoami: async () => ({ id: 42, username: 'j.doe ', url: '/api/v1/users/42' }),
+      get,
+      whoami: async () => ({ id: 42, username: 'j.doe ', url: '/api/v1/users/42' }),
       now: () => new Date('2026-08-07T10:00:00Z'),
     });
     expect(res.ok).toBe(true);
@@ -226,9 +257,14 @@ describe('TrainerPanel', () => {
   it('accepts a genuine receipt', async () => {
     const { renderReceipt, mintCode } = await import('../src/training/receipt.js');
     const fields = {
-      trackId: TRACK.id, trackVersion: TRACK.version, host: 'partner-sandbox.rossum.app',
-      userId: 42, username: 'j.doe', missionsPassed: TRACK.missions.map((m) => m.id),
-      selfCount: 6, dateUtc: '2026-08-07',
+      trackId: TRACK.id,
+      trackVersion: TRACK.version,
+      host: 'partner-sandbox.rossum.app',
+      userId: 42,
+      username: 'j.doe',
+      missionsPassed: TRACK.missions.map((m) => m.id),
+      selfCount: 6,
+      dateUtc: '2026-08-07',
     };
     const text = renderReceipt(fields, await mintCode(fields, sign));
     render(<TrainerPanel />, document.body);
@@ -243,10 +279,19 @@ describe('TrainerPanel', () => {
   it('rejects a tampered receipt', async () => {
     const { renderReceipt, mintCode } = await import('../src/training/receipt.js');
     const fields = {
-      trackId: TRACK.id, trackVersion: TRACK.version, host: 'a.rossum.app',
-      userId: 1, username: 'a', missionsPassed: ['m1'], selfCount: 0, dateUtc: '2026-08-07',
+      trackId: TRACK.id,
+      trackVersion: TRACK.version,
+      host: 'a.rossum.app',
+      userId: 1,
+      username: 'a',
+      missionsPassed: ['m1'],
+      selfCount: 0,
+      dateUtc: '2026-08-07',
     };
-    const text = renderReceipt(fields, await mintCode(fields, sign)).replace('a.rossum.app', 'b.rossum.app');
+    const text = renderReceipt(fields, await mintCode(fields, sign)).replace(
+      'a.rossum.app',
+      'b.rossum.app',
+    );
     render(<TrainerPanel />, document.body);
     const ta = document.querySelector('textarea')!;
     ta.value = text;

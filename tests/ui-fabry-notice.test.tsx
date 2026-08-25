@@ -19,15 +19,26 @@ describe('FabryNotice', () => {
     expect(mount({ notice: null }).querySelector(sel(styles.notice))).toBeNull();
   });
   it('error shows the message', () => {
-    expect(mount({ notice: { kind: 'error', text: 'boom' } }).querySelector(sel(styles.error))!.textContent).toContain('boom');
+    expect(
+      mount({ notice: { kind: 'error', text: 'boom' } }).querySelector(sel(styles.error))!
+        .textContent,
+    ).toContain('boom');
   });
   it('unsupported names the type and shows the raw payload in details', () => {
-    const root = mount({ notice: { kind: 'unsupported', types: ['data-agent-confirmation'], payloads: [{ type: 'data-agent-confirmation', data: { prompt: 'ok?' } }] } });
+    const root = mount({
+      notice: {
+        kind: 'unsupported',
+        types: ['data-agent-confirmation'],
+        payloads: [{ type: 'data-agent-confirmation', data: { prompt: 'ok?' } }],
+      },
+    });
     const el = root.querySelector(sel(styles.warn))!;
     expect(el.textContent).toContain('data-agent-confirmation');
     expect(el.querySelector('details pre')!.textContent).toContain('ok?');
   });
   it('empty shows a quiet no-response note', () => {
-    expect(mount({ notice: { kind: 'empty' } }).querySelector(sel(styles.muted))!.textContent).toContain('no response');
+    expect(
+      mount({ notice: { kind: 'empty' } }).querySelector(sel(styles.muted))!.textContent,
+    ).toContain('no response');
   });
 });

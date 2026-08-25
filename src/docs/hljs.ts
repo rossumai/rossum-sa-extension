@@ -28,7 +28,19 @@ import yaml from 'highlight.js/lib/languages/yaml';
 
 // `ini` is highlight.js's own grammar id for TOML, and `xml` covers HTML — both
 // match localpages' EXT_TO_LANG mapping.
-export const GRAMMARS = { bash, css, diff, ini, javascript, json, markdown, python, sql, xml, yaml };
+export const GRAMMARS = {
+  bash,
+  css,
+  diff,
+  ini,
+  javascript,
+  json,
+  markdown,
+  python,
+  sql,
+  xml,
+  yaml,
+};
 
 for (const [name, grammar] of Object.entries(GRAMMARS)) hljs.registerLanguage(name, grammar);
 

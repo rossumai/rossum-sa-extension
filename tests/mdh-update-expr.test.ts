@@ -18,7 +18,10 @@ describe('stripEmptyOperators', () => {
   it('only strips operator-style keys (those starting with $)', () => {
     // A replaceOne-style document with a literal field whose value is {} must
     // not be touched — that empty object is a legitimate field value.
-    expect(stripEmptyOperators({ name: 'Acme', metadata: {} })).toEqual({ name: 'Acme', metadata: {} });
+    expect(stripEmptyOperators({ name: 'Acme', metadata: {} })).toEqual({
+      name: 'Acme',
+      metadata: {},
+    });
   });
 
   it('does not mutate the input', () => {

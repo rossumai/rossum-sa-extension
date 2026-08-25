@@ -7,20 +7,34 @@ import * as store from '../src/devtools/store.js';
 import * as api from '../src/devtools/api.js';
 
 async function waitFor(fn: any, tries = 100) {
-  for (let i = 0; i < tries; i++) { if (fn()) return; await new Promise((r) => setTimeout(r, 0)); }
+  for (let i = 0; i < tries; i++) {
+    if (fn()) return;
+    await new Promise((r) => setTimeout(r, 0));
+  }
   throw new Error('waitFor timed out');
 }
 
 const RES = { type: 'queue', id: '1', apiPath: '/api/v1/queues/1', label: 'Queue' };
 const RES2 = { type: 'hook', id: '2', apiPath: '/api/v1/hooks/2', label: 'Hook' };
 
-function mount() { const root = document.createElement('div'); render(<Panel />, root); return root; }
-function rerender(root: any) { render(<Panel />, root); }
+function mount() {
+  const root = document.createElement('div');
+  render(<Panel />, root);
+  return root;
+}
+function rerender(root: any) {
+  render(<Panel />, root);
+}
 
 beforeEach(() => {
-  store.tabs.value = []; store.activeId.value = null; store.linkMenu.value = null; store.tabMenu.value = null;
-  store._resetToast(); store.curlMenu.value = false;
-  globalThis.URL.createObjectURL = () => 'blob:mock'; globalThis.URL.revokeObjectURL = () => {};
+  store.tabs.value = [];
+  store.activeId.value = null;
+  store.linkMenu.value = null;
+  store.tabMenu.value = null;
+  store._resetToast();
+  store.curlMenu.value = false;
+  globalThis.URL.createObjectURL = () => 'blob:mock';
+  globalThis.URL.revokeObjectURL = () => {};
 });
 
 describe('DevTools Panel', () => {
@@ -47,7 +61,11 @@ describe('DevTools Panel', () => {
 
   it('shows the Save pill with a change count only when the buffer is dirty', () => {
     const t = store.openTab(RES, 'page');
-    store.patchTab(t.id, { original: { name: 'A' }, buffer: JSON.stringify({ name: 'B' }), dirty: true });
+    store.patchTab(t.id, {
+      original: { name: 'A' },
+      buffer: JSON.stringify({ name: 'B' }),
+      dirty: true,
+    });
     const root = mount();
     const pill = root.querySelector('.rawjson-savepill');
     expect(pill).not.toBeNull();
@@ -64,10 +82,15 @@ describe('DevTools Panel', () => {
 
   it('Save opens the diff overlay', async () => {
     const t = store.openTab(RES, 'page');
-    store.patchTab(t.id, { original: { name: 'A' }, buffer: JSON.stringify({ name: 'B' }), dirty: true });
+    store.patchTab(t.id, {
+      original: { name: 'A' },
+      buffer: JSON.stringify({ name: 'B' }),
+      dirty: true,
+    });
     const root = mount();
     root.querySelector<HTMLElement>('.rawjson-save')!.click();
-    for (let i = 0; i < 50 && !root.querySelector('.rawjson-diff-overlay'); i++) await Promise.resolve();
+    for (let i = 0; i < 50 && !root.querySelector('.rawjson-diff-overlay'); i++)
+      await Promise.resolve();
     expect(root.querySelector('.rawjson-diff-overlay')).not.toBeNull();
   });
 
@@ -79,8 +102,26 @@ describe('DevTools Panel', () => {
   });
 
   it('renders a PreviewPane (not the editor) and no Save for a preview tab', () => {
-    const t = store.openTab({ type: 'documents', id: '5', apiPath: '/api/v1/documents/5/content', label: 'Content', readOnly: true }, 'page');
-    store.patchTab(t.id, { preview: { kind: 'blob', contentType: 'application/pdf', size: 3, filename: 'd.pdf', blob: { size: 3 } }, readOnly: true });
+    const t = store.openTab(
+      {
+        type: 'documents',
+        id: '5',
+        apiPath: '/api/v1/documents/5/content',
+        label: 'Content',
+        readOnly: true,
+      },
+      'page',
+    );
+    store.patchTab(t.id, {
+      preview: {
+        kind: 'blob',
+        contentType: 'application/pdf',
+        size: 3,
+        filename: 'd.pdf',
+        blob: { size: 3 },
+      },
+      readOnly: true,
+    });
     const root = mount();
     expect(root.querySelector('.rawjson-preview')).not.toBeNull();
     expect(root.querySelector('.cm-editor')).toBeNull();
@@ -113,12 +154,16 @@ describe('DevTools Panel', () => {
       const b = store.openTab(RES2, 'link');
       store.patchTab(b.id, { original: { id: 2 } });
       const root = mount();
-      expect(root.querySelector('.rawjson-tab.active .rawjson-tab-label')!.textContent).toContain('Hook');
+      expect(root.querySelector('.rawjson-tab.active .rawjson-tab-label')!.textContent).toContain(
+        'Hook',
+      );
       const tabEls = [...root.querySelectorAll('.rawjson-tab')];
       const firstTab = tabEls.find((el) => el.textContent.includes('Queue'));
       (firstTab as HTMLElement).click();
       rerender(root);
-      expect(root.querySelector('.rawjson-tab.active .rawjson-tab-label')!.textContent).toContain('Queue');
+      expect(root.querySelector('.rawjson-tab.active .rawjson-tab-label')!.textContent).toContain(
+        'Queue',
+      );
       expect(store.activeId.value).toBe(a.id);
     });
 
@@ -129,10 +174,14 @@ describe('DevTools Panel', () => {
       store.patchTab(b.id, { original: { id: 2 } });
       const root = mount();
       // page tab: no close button
-      const pageTabEl = [...root.querySelectorAll('.rawjson-tab')].find((el) => el.textContent.includes('Queue'));
+      const pageTabEl = [...root.querySelectorAll('.rawjson-tab')].find((el) =>
+        el.textContent.includes('Queue'),
+      );
       expect(pageTabEl!.querySelector('.rawjson-tab-close')).toBeNull();
       // link tab: has a close button that removes it
-      const linkTabEl = [...root.querySelectorAll('.rawjson-tab')].find((el) => el.textContent.includes('Hook'));
+      const linkTabEl = [...root.querySelectorAll('.rawjson-tab')].find((el) =>
+        el.textContent.includes('Hook'),
+      );
       linkTabEl!.querySelector<HTMLElement>('.rawjson-tab-close')!.click();
       rerender(root);
       expect(root.querySelectorAll('.rawjson-tab').length).toBe(1);
@@ -269,13 +318,18 @@ describe('DevTools Panel', () => {
       store.patchTab(a.id, { original: { id: 1 } });
       const b = store.openTab(RES2, 'link');
       store.patchTab(b.id, { original: { id: 2 } });
-      const c = store.openTab({ type: 'user', id: '3', apiPath: '/api/v1/users/3', label: 'User' }, 'link');
+      const c = store.openTab(
+        { type: 'user', id: '3', apiPath: '/api/v1/users/3', label: 'User' },
+        'link',
+      );
       store.patchTab(c.id, { original: { id: 3 } });
       store.tabMenu.value = { id: b.id, x: 5, y: 5 };
       const root = mount();
       await waitFor(() => root.querySelector('.rawjson-tabmenu'));
       const menu = root.querySelector('.rawjson-tabmenu');
-      const closeOtherBtn = [...menu!.querySelectorAll('button')].find((btn) => btn.textContent.includes('Close Other Tabs'));
+      const closeOtherBtn = [...menu!.querySelectorAll('button')].find((btn) =>
+        btn.textContent.includes('Close Other Tabs'),
+      );
       closeOtherBtn!.click();
       rerender(root);
       expect(store.tabs.value.length).toBe(2);
@@ -295,7 +349,9 @@ describe('DevTools Panel', () => {
       const root = mount();
       await waitFor(() => root.querySelector('.rawjson-tabmenu'));
       const menu = root.querySelector('.rawjson-tabmenu');
-      const closeBtn = [...menu!.querySelectorAll('button')].find((btn) => btn.textContent.trim() === 'Close');
+      const closeBtn = [...menu!.querySelectorAll('button')].find(
+        (btn) => btn.textContent.trim() === 'Close',
+      );
       expect(closeBtn).not.toBeUndefined();
       closeBtn!.click();
       rerender(root);
@@ -325,10 +381,14 @@ describe('DevTools Panel', () => {
       const root = mount();
       await waitFor(() => root.querySelector('.rawjson-tabmenu'));
       const menu = root.querySelector('.rawjson-tabmenu')!;
-      const closeBtn = [...menu.querySelectorAll('button')].find((btn) => btn.textContent.trim() === 'Close');
+      const closeBtn = [...menu.querySelectorAll('button')].find(
+        (btn) => btn.textContent.trim() === 'Close',
+      );
       expect(closeBtn).toBeUndefined(); // no plain "Close" for the page tab
       // With other tabs present it still offers "Close Other Tabs".
-      const closeOthers = [...menu.querySelectorAll('button')].find((btn) => btn.textContent.includes('Close Other Tabs'));
+      const closeOthers = [...menu.querySelectorAll('button')].find((btn) =>
+        btn.textContent.includes('Close Other Tabs'),
+      );
       expect(closeOthers).not.toBeUndefined();
     });
 
@@ -366,7 +426,9 @@ describe('DevTools Panel', () => {
       const a = store.openTab(RES, 'page');
       store.patchTab(a.id, { original: { id: 1 } });
       const root = mount();
-      const pageTab = [...root.querySelectorAll('.rawjson-tab')].find((el) => el.textContent.includes('Queue'));
+      const pageTab = [...root.querySelectorAll('.rawjson-tab')].find((el) =>
+        el.textContent.includes('Queue'),
+      );
       expect(pageTab!.classList.contains('rawjson-tab--page')).toBe(true);
       expect((pageTab as HTMLElement).draggable).toBe(false);
     });
@@ -377,7 +439,9 @@ describe('DevTools Panel', () => {
       const b = store.openTab(RES2, 'link');
       store.patchTab(b.id, { original: { id: 2 } });
       const root = mount();
-      const linkTab = [...root.querySelectorAll('.rawjson-tab')].find((el) => el.textContent.includes('Hook'));
+      const linkTab = [...root.querySelectorAll('.rawjson-tab')].find((el) =>
+        el.textContent.includes('Hook'),
+      );
       expect((linkTab as HTMLElement).draggable).toBe(true);
     });
 
@@ -386,7 +450,10 @@ describe('DevTools Panel', () => {
       store.patchTab(a.id, { original: { id: 1 } });
       const b = store.openTab(RES2, 'link');
       store.patchTab(b.id, { original: { id: 2 } });
-      const c = store.openTab({ type: 'user', id: '3', apiPath: '/api/v1/users/3', label: 'User' }, 'link');
+      const c = store.openTab(
+        { type: 'user', id: '3', apiPath: '/api/v1/users/3', label: 'User' },
+        'link',
+      );
       store.patchTab(c.id, { original: { id: 3 } });
       expect(store.tabs.value.map((t) => t.id)).toEqual([a.id, b.id, c.id]);
       store.moveTab(c.id, a.id);
@@ -418,7 +485,9 @@ describe('DevTools Panel', () => {
     });
 
     it('shows a failure toast (not a success one) when the clipboard write rejects', async () => {
-      (globalThis.navigator as any).clipboard = { writeText: () => Promise.reject(new Error('denied')) };
+      (globalThis.navigator as any).clipboard = {
+        writeText: () => Promise.reject(new Error('denied')),
+      };
       const t = store.openTab(RES, 'page');
       store.patchTab(t.id, { original: { id: 1 } });
       const root = mount();
@@ -437,7 +506,9 @@ describe('DevTools Panel', () => {
       store.patchTab(t.id, { original: { id: 1 } });
       store.curlMenu.value = true;
       const root = mount();
-      const menuBtn = [...root.querySelectorAll('.rawjson-curlmenu button')].find((b) => /live token/i.test(b.textContent));
+      const menuBtn = [...root.querySelectorAll('.rawjson-curlmenu button')].find((b) =>
+        /live token/i.test(b.textContent),
+      );
       expect(menuBtn).not.toBeNull();
       (menuBtn as HTMLElement).click();
       await waitFor(() => writeText.mock.calls.length > 0);

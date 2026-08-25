@@ -5,9 +5,13 @@ import { fetchJson } from '../../popup/mdh-provenance.js';
 // The one piece of UI the popup never needed: a panel that outlives a click has
 // to say WHICH document it is showing. The id alone already identifies it, so the
 // file name is strictly an upgrade — every failure path just keeps the id.
-export default function DocumentStrip(
-  { ctx, annotationId }: { ctx: any; annotationId?: string | null },
-) {
+export default function DocumentStrip({
+  ctx,
+  annotationId,
+}: {
+  ctx: any;
+  annotationId?: string | null;
+}) {
   const [name, setName] = useState<string | null>(null);
 
   useEffect(() => {
@@ -29,7 +33,9 @@ export default function DocumentStrip(
         // Keep the id — it identifies the document unambiguously on its own.
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [annotationId, ctx?.domain, ctx?.token]);
 
   if (!annotationId) {
@@ -44,7 +50,9 @@ export default function DocumentStrip(
   return (
     <div class="sp-strip">
       <i class="sp-live"></i>
-      <span class="sp-strip-title" title={name || 'Document'}>{name || 'Document'}</span>
+      <span class="sp-strip-title" title={name || 'Document'}>
+        {name || 'Document'}
+      </span>
       <code class="sp-strip-id">#{annotationId}</code>
       <span class="sp-strip-hint">following this tab</span>
     </div>

@@ -23,11 +23,17 @@ export default function SearchIndexPanel() {
     if (!collection) return;
 
     const cached = cache.get(collection, 'searchIndexes');
-    if (cached !== null) { setIndexes(cached); return; }
+    if (cached !== null) {
+      setIndexes(cached);
+      return;
+    }
 
     const isVisible = activePanel.value === 'search-indexes';
     try {
-      if (isVisible) { loading.value = true; error.value = null; }
+      if (isVisible) {
+        loading.value = true;
+        error.value = null;
+      }
       const res = await api.listSearchIndexes(collection, false);
       const result = res.result || [];
       cache.set(collection, 'searchIndexes', result);
@@ -35,13 +41,19 @@ export default function SearchIndexPanel() {
       if (selectedCollection.value !== collection) return;
       setIndexes(result);
     } catch (err: any) {
-      if (isVisible) { error.value = { message: err.message }; loading.value = false; }
+      if (isVisible) {
+        error.value = { message: err.message };
+        loading.value = false;
+      }
     }
   }
 
   // Clear any in-flight op poll on collection/panel switch so a previous
   // collection's operation can't surface its result here.
-  useEffect(() => { clear(); loadSearchIndexes(); }, [selectedCollection.value, activePanel.value]);
+  useEffect(() => {
+    clear();
+    loadSearchIndexes();
+  }, [selectedCollection.value, activePanel.value]);
 
   function openCreateModal() {
     const editorRef: { current: JsonEditorHandle | null } = { current: null };
@@ -75,7 +87,11 @@ export default function SearchIndexPanel() {
           loading.value = false;
           closeModal();
           const opId = res.operationId;
-          if (opId) track(opId, { label: `Creating search index "${indexName}"`, onFinished: loadSearchIndexes });
+          if (opId)
+            track(opId, {
+              label: `Creating search index "${indexName}"`,
+              onFinished: loadSearchIndexes,
+            });
           else loadSearchIndexes();
         } catch (err: any) {
           loading.value = false;
@@ -85,12 +101,18 @@ export default function SearchIndexPanel() {
 
       return (
         <ModalBody>
-          <ModalFieldLabel>collectionName is set automatically from the selected collection</ModalFieldLabel>
+          <ModalFieldLabel>
+            collectionName is set automatically from the selected collection
+          </ModalFieldLabel>
           <JsonEditor value={defaultTemplate()} minHeight="250px" editorRef={editorRef} />
           <div ref={hintRef} class="input-hint"></div>
           <ModalActions>
-            <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>
-            <button class="btn btn-primary" onClick={handleCreate}>Create Search Index</button>
+            <button class="btn btn-secondary" onClick={closeModal}>
+              Cancel
+            </button>
+            <button class="btn btn-primary" onClick={handleCreate}>
+              Create Search Index
+            </button>
           </ModalActions>
         </ModalBody>
       );
@@ -105,7 +127,11 @@ export default function SearchIndexPanel() {
       cache.invalidate(selectedCollection.value as string, 'searchIndexes');
       loading.value = false;
       const opId = res.operationId;
-      if (opId) track(opId, { label: `Dropping search index "${indexName}"`, onFinished: loadSearchIndexes });
+      if (opId)
+        track(opId, {
+          label: `Dropping search index "${indexName}"`,
+          onFinished: loadSearchIndexes,
+        });
       else loadSearchIndexes();
     } catch (err: any) {
       error.value = { message: err.message };
@@ -117,28 +143,58 @@ export default function SearchIndexPanel() {
     <div class="panel">
       <div class="toolbar">
         <span style="flex:1;font-weight:500">Search Indexes (Atlas Search)</span>
-        <button class="btn btn-success btn-sm" onClick={openCreateModal}>+ Create</button>
-        <button class="icon-btn" title="Refresh" onClick={() => { cache.invalidate(selectedCollection.value as string, 'searchIndexes'); loadSearchIndexes(); }}>{'\u21bb'}</button>
+        <button class="btn btn-success btn-sm" onClick={openCreateModal}>
+          + Create
+        </button>
+        <button
+          class="icon-btn"
+          title="Refresh"
+          onClick={() => {
+            cache.invalidate(selectedCollection.value as string, 'searchIndexes');
+            loadSearchIndexes();
+          }}
+        >
+          {'\u21bb'}
+        </button>
       </div>
       <div class="index-list">
         {indexes.length === 0 ? (
-          <div style="padding:16px;color:var(--text-secondary);font-size:12px">No search indexes</div>
-        ) : indexes.map((idx) => {
-          const isObj = typeof idx === 'object' && idx !== null;
-          const name = isObj ? (idx.name || '(unnamed)') : String(idx);
-          const badges = [];
-          const status = isObj && idx.status ? String(idx.status).toUpperCase() : null;
-          const isFailed = status === 'FAILED' || status === 'STALE';
-          if (isObj && idx.status) {
-            const cls = status === 'READY' ? 'index-badge-ready'
-              : (status === 'PENDING' || status === 'BUILDING') ? 'index-badge-pending'
-              : isFailed ? 'index-badge-failed' : '';
-            badges.push({ text: idx.status.toLowerCase(), cls });
-          }
-          if (isObj && idx.type) badges.push({ text: idx.type });
-          if (isObj && idx.queryable === false) badges.push({ text: 'not queryable', cls: 'index-badge-warning' });
-          return <IndexCard name={name} badges={badges} definition={isObj ? toCreateSearchIndexDefinition(idx) : null} canDrop onDrop={() => doDropSearchIndex(name)} cardClass={(isFailed ? 'record-card-failed' : null) as string | undefined} />;
-        })}
+          <div style="padding:16px;color:var(--text-secondary);font-size:12px">
+            No search indexes
+          </div>
+        ) : (
+          indexes.map((idx) => {
+            const isObj = typeof idx === 'object' && idx !== null;
+            const name = isObj ? idx.name || '(unnamed)' : String(idx);
+            const badges = [];
+            const status = isObj && idx.status ? String(idx.status).toUpperCase() : null;
+            const isFailed = status === 'FAILED' || status === 'STALE';
+            if (isObj && idx.status) {
+              const cls =
+                status === 'READY'
+                  ? 'index-badge-ready'
+                  : status === 'PENDING' || status === 'BUILDING'
+                    ? 'index-badge-pending'
+                    : isFailed
+                      ? 'index-badge-failed'
+                      : '';
+              badges.push({ text: idx.status.toLowerCase(), cls });
+            }
+            if (isObj && idx.type) badges.push({ text: idx.type });
+            if (isObj && idx.queryable === false)
+              badges.push({ text: 'not queryable', cls: 'index-badge-warning' });
+            return (
+              <IndexCard
+                name={name}
+                badges={badges}
+                definition={isObj ? toCreateSearchIndexDefinition(idx) : null}
+                canDrop
+                onDrop={() => doDropSearchIndex(name)}
+                cardClass={(isFailed ? 'record-card-failed' : null) as string | undefined}
+              />
+            );
+          })
+        )}
       </div>
     </div>
   );

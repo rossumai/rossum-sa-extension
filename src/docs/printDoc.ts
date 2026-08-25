@@ -18,11 +18,18 @@ import { buildSpecSections, type SpecDoc, type SpecResults } from './specDocumen
 
 export const DEFAULT_OPTIONS = { contents: true, verdicts: false };
 
-const VERDICT: Record<string, string> = { pass: '✓ Met', fail: '✗ Not met', uncertain: '? Uncertain' };
-
+const VERDICT: Record<string, string> = {
+  pass: '✓ Met',
+  fail: '✗ Not met',
+  uncertain: '? Uncertain',
+};
 
 function esc(s: unknown) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 // The printed status is the CHECK verdict alone (2026-08-19). The ported `.state-label` classes are
@@ -60,14 +67,15 @@ export function buildPrintDocument({
   if (opts.contents && deliverables.length > 1) {
     const contentsMd = buildContentsMarkdown(
       deliverables.map((d) => ({
-        title: displayTitle(d), slug: slugs.get(d.id)!,
+        title: displayTitle(d),
+        slug: slugs.get(d.id)!,
         verdict: results[d.id] && results[d.id]!.verdict,
       })),
       {
         heading,
         columns: { verdict: !!opts.verdicts },
         intro: `${deliverables.length} documents.`,
-        note: null,   // no standing note on paper; contents.js defaults to none since 2026-08-18
+        note: null, // no standing note on paper; contents.js defaults to none since 2026-08-18
       },
     );
     // Links point at `slug.md`, which resolves to nothing on paper — strip them so the
@@ -84,19 +92,25 @@ export function buildPrintDocument({
 
   // Rendering, sanitizing and warning collection are shared with the on-screen unified view
   // (specDocument.js); only the print presentation below belongs to this file.
-  const { sections: built, warnings: buildWarnings } = buildSpecSections({ deliverables, displayTitle, results, md });
+  const { sections: built, warnings: buildWarnings } = buildSpecSections({
+    deliverables,
+    displayTitle,
+    results,
+    md,
+  });
   warnings.push(...buildWarnings);
   for (const s of built) {
     const meta = opts.verdicts ? verdictChip(results[s.id]) : '';
     // The deliverable's own text is never rewritten — a title, when needed, is a header ABOVE
     // it. And it is only needed when the document does NOT already name itself: otherwise the
     // page opens with the same words twice ("Welcome" over "Welcome to localpages").
-    const header = (s.showTitle || meta)
-      ? `<header class="print-doc-head${s.showTitle ? '' : ' meta-only'}">`
-        + (s.showTitle ? `<h1 class="print-doc-title">${esc(s.title)}</h1>` : '')
-        + (meta ? `<div class="print-doc-meta">${meta}</div>` : '')
-        + '</header>'
-      : '';
+    const header =
+      s.showTitle || meta
+        ? `<header class="print-doc-head${s.showTitle ? '' : ' meta-only'}">` +
+          (s.showTitle ? `<h1 class="print-doc-title">${esc(s.title)}</h1>` : '') +
+          (meta ? `<div class="print-doc-meta">${meta}</div>` : '') +
+          '</header>'
+        : '';
     sections.push(`<section class="print-doc">${header}${s.bodyHtml}</section>`);
   }
 

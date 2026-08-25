@@ -41,7 +41,8 @@ describe('receipt key boundary', () => {
 
   it('no other bundle ships it — the content script must never carry the key', () => {
     const dist = join(ROOT, 'dist');
-    if (!existsSync(dist)) throw new Error('run `npm run build` before this test — it inspects dist/');
+    if (!existsSync(dist))
+      throw new Error('run `npm run build` before this test — it inspects dist/');
     const offenders = walk(dist)
       .filter((p: any) => rel(p) !== 'dist/console/console.js')
       .filter((p: any) => readFileSync(p, 'utf8').includes(RECEIPT_KEY))

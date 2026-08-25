@@ -68,7 +68,11 @@ function combinedSignal(externalSignal?: AbortSignal | null) {
   return { signal, timer, externalSignal };
 }
 
-async function post(path: string, body: unknown, { signal: externalSignal }: RequestOpts = {}): Promise<any> {
+async function post(
+  path: string,
+  body: unknown,
+  { signal: externalSignal }: RequestOpts = {},
+): Promise<any> {
   const { signal, timer } = combinedSignal(externalSignal);
   let res: Response;
   try {
@@ -88,7 +92,10 @@ async function post(path: string, body: unknown, { signal: externalSignal }: Req
   }
   clearTimeout(timer);
   if (res.status === 401) {
-    throw apiError('Session expired. Open a Rossum page and click Data Storage again to reconnect.', 401);
+    throw apiError(
+      'Session expired. Open a Rossum page and click Data Storage again to reconnect.',
+      401,
+    );
   }
   const data = await res.json().catch(() => null);
   if (!res.ok) {
@@ -137,7 +144,10 @@ async function get(path: string, { signal: externalSignal }: RequestOpts = {}): 
   }
   clearTimeout(timer);
   if (res.status === 401) {
-    throw apiError('Session expired. Open a Rossum page and click Data Storage again to reconnect.', 401);
+    throw apiError(
+      'Session expired. Open a Rossum page and click Data Storage again to reconnect.',
+      401,
+    );
   }
   const data = await res.json().catch(() => null);
   if (!res.ok) {
@@ -181,11 +191,18 @@ export function listCollections(filter: MongoQuery | null = null, nameOnly = tru
   return post('/collections/list', { filter, nameOnly });
 }
 
-export function createCollection(collectionName: string, options: Record<string, unknown> = {}): Promise<any> {
+export function createCollection(
+  collectionName: string,
+  options: Record<string, unknown> = {},
+): Promise<any> {
   return post('/collections/create', { collectionName, options });
 }
 
-export function renameCollection(collectionName: string, target: string, dropTarget = false): Promise<any> {
+export function renameCollection(
+  collectionName: string,
+  target: string,
+  dropTarget = false,
+): Promise<any> {
   return post('/collections/rename', { collectionName, target, dropTarget });
 }
 
@@ -204,12 +221,19 @@ export function insertOne(collectionName: string, document: DsDocument): Promise
   return post('/data/insert_one', { collectionName, document });
 }
 
-export function insertMany(collectionName: string, documents: DsDocument[], ordered = false): Promise<any> {
+export function insertMany(
+  collectionName: string,
+  documents: DsDocument[],
+  ordered = false,
+): Promise<any> {
   return post('/data/insert_many', { collectionName, documents, ordered });
 }
 
 export function updateOne(
-  collectionName: string, filter: MongoQuery, update: MongoQuery, options?: Record<string, unknown>,
+  collectionName: string,
+  filter: MongoQuery,
+  update: MongoQuery,
+  options?: Record<string, unknown>,
 ): Promise<any> {
   const body: Record<string, unknown> = { collectionName, filter, update };
   if (options) body.options = options;
@@ -217,7 +241,10 @@ export function updateOne(
 }
 
 export function updateMany(
-  collectionName: string, filter: MongoQuery, update: MongoQuery, options?: Record<string, unknown>,
+  collectionName: string,
+  filter: MongoQuery,
+  update: MongoQuery,
+  options?: Record<string, unknown>,
 ): Promise<any> {
   const body: Record<string, unknown> = { collectionName, filter, update };
   if (options) body.options = options;
@@ -233,14 +260,21 @@ export function deleteMany(collectionName: string, filter: MongoQuery): Promise<
 }
 
 export function replaceOne(
-  collectionName: string, filter: MongoQuery, replacement: DsDocument, options?: Record<string, unknown>,
+  collectionName: string,
+  filter: MongoQuery,
+  replacement: DsDocument,
+  options?: Record<string, unknown>,
 ): Promise<any> {
   const body: Record<string, unknown> = { collectionName, filter, replacement };
   if (options) body.options = options;
   return post('/data/replace_one', body);
 }
 
-export function aggregate(collectionName: string, pipeline: PipelineStage[], { signal }: RequestOpts = {}): Promise<any> {
+export function aggregate(
+  collectionName: string,
+  pipeline: PipelineStage[],
+  { signal }: RequestOpts = {},
+): Promise<any> {
   return post('/data/aggregate', { collectionName, pipeline }, { signal });
 }
 
@@ -251,25 +285,41 @@ export function bulkWrite(collectionName: string, operations: MongoQuery[]): Pro
 // Per-collection storage stats via $collStats. Returns doc count + on-disk
 // sizes including a per-index `indexSizes` map (regular indexes only — Atlas
 // search indexes are not covered). $indexStats (usage) is NOT authorized.
-export function collectionStats(collectionName: string, { signal }: RequestOpts = {}): Promise<any> {
-  return aggregate(collectionName, [
-    { $collStats: { storageStats: {} } },
-    { $project: {
-      count: '$storageStats.count',
-      size: '$storageStats.size',
-      storageSize: '$storageStats.storageSize',
-      totalIndexSize: '$storageStats.totalIndexSize',
-      indexSizes: '$storageStats.indexSizes',
-    } },
-  ], { signal });
+export function collectionStats(
+  collectionName: string,
+  { signal }: RequestOpts = {},
+): Promise<any> {
+  return aggregate(
+    collectionName,
+    [
+      { $collStats: { storageStats: {} } },
+      {
+        $project: {
+          count: '$storageStats.count',
+          size: '$storageStats.size',
+          storageSize: '$storageStats.storageSize',
+          totalIndexSize: '$storageStats.totalIndexSize',
+          indexSizes: '$storageStats.indexSizes',
+        },
+      },
+    ],
+    { signal },
+  );
 }
 
-export function listIndexes(collectionName: string, nameOnly = false, { signal }: RequestOpts = {}): Promise<any> {
+export function listIndexes(
+  collectionName: string,
+  nameOnly = false,
+  { signal }: RequestOpts = {},
+): Promise<any> {
   return post('/indexes/list', { collectionName, nameOnly }, { signal });
 }
 
 export function createIndex(
-  collectionName: string, indexName: string, keys: Record<string, unknown>, options: Record<string, unknown> = {},
+  collectionName: string,
+  indexName: string,
+  keys: Record<string, unknown>,
+  options: Record<string, unknown> = {},
 ): Promise<any> {
   return post('/indexes/create', { collectionName, indexName, keys, options });
 }
@@ -278,7 +328,11 @@ export function dropIndex(collectionName: string, indexName: string): Promise<an
   return post('/indexes/drop', { collectionName, indexName });
 }
 
-export function listSearchIndexes(collectionName: string, nameOnly = false, { signal }: RequestOpts = {}): Promise<any> {
+export function listSearchIndexes(
+  collectionName: string,
+  nameOnly = false,
+  { signal }: RequestOpts = {},
+): Promise<any> {
   return post('/search_indexes/list', { collectionName, nameOnly }, { signal });
 }
 
@@ -293,7 +347,14 @@ export type SearchIndexDefinition = {
 
 export function createSearchIndex(
   collectionName: string,
-  { indexName, mappings, analyzer, analyzers, searchAnalyzer, synonyms }: SearchIndexDefinition = {},
+  {
+    indexName,
+    mappings,
+    analyzer,
+    analyzers,
+    searchAnalyzer,
+    synonyms,
+  }: SearchIndexDefinition = {},
 ): Promise<any> {
   const body: Record<string, unknown> = { collectionName, indexName, mappings };
   if (analyzer) body.analyzer = analyzer;
@@ -321,7 +382,11 @@ const MAX_POLL_ERRORS = 5;
 
 export async function waitForOperation(
   operationId: string,
-  { intervalMs = 600, timeoutMs = 120_000, signal }: RequestOpts & { intervalMs?: number; timeoutMs?: number } = {},
+  {
+    intervalMs = 600,
+    timeoutMs = 120_000,
+    signal,
+  }: RequestOpts & { intervalMs?: number; timeoutMs?: number } = {},
 ): Promise<Operation> {
   const start = Date.now();
   let consecutiveErrors = 0;
@@ -338,21 +403,30 @@ export async function waitForOperation(
       // running. Tolerate a few in a row; only give up after MAX, tagged so
       // callers render a neutral "couldn't confirm" state, not a red failure.
       if (++consecutiveErrors >= MAX_POLL_ERRORS || Date.now() - start > timeoutMs) {
-        const e = new Error(`Could not check operation ${operationId} status: ${(err as Error).message}`) as ApiError;
+        const e = new Error(
+          `Could not check operation ${operationId} status: ${(err as Error).message}`,
+        ) as ApiError;
         e.pollUnavailable = true;
         throw e;
       }
-      await new Promise((resolve) => { setTimeout(resolve, intervalMs); });
+      await new Promise((resolve) => {
+        setTimeout(resolve, intervalMs);
+      });
       continue;
     }
     if (op.status === 'FINISHED') return op;
-    if (op.status === 'FAILED') throw new Error(op.error_message || `Operation ${operationId} failed`);
+    if (op.status === 'FAILED')
+      throw new Error(op.error_message || `Operation ${operationId} failed`);
     if (Date.now() - start > timeoutMs) {
-      const e = new Error(`Operation ${operationId} did not finish within ${Math.round(timeoutMs / 1000)}s`) as ApiError;
+      const e = new Error(
+        `Operation ${operationId} did not finish within ${Math.round(timeoutMs / 1000)}s`,
+      ) as ApiError;
       e.timedOut = true; // let callers render a "still running" state, not a red failure
       throw e;
     }
-    await new Promise((resolve) => { setTimeout(resolve, intervalMs); });
+    await new Promise((resolve) => {
+      setTimeout(resolve, intervalMs);
+    });
   }
 }
 
@@ -378,7 +452,9 @@ export async function listOperations(limit = 5000): Promise<any> {
   }
   clearTimeout(timer);
   if (res.status === 401) {
-    throw new Error('Session expired. Open a Rossum page and click Data Storage again to reconnect.');
+    throw new Error(
+      'Session expired. Open a Rossum page and click Data Storage again to reconnect.',
+    );
   }
   const data = await res.json().catch(() => null);
   if (!res.ok) {
@@ -391,7 +467,9 @@ export async function listOperations(limit = 5000): Promise<any> {
 // Distinct service from Data Storage: {baseDomain}/svc/data-matching/api/v1.
 // Writes are multipart file uploads returning 202 + a `Location` op-status URL
 // whose last path segment is the operation id. Uploads are JSON (type fidelity).
-function dmBase() { return `${baseDomain}/svc/data-matching/api/v1`; }
+function dmBase() {
+  return `${baseDomain}/svc/data-matching/api/v1`;
+}
 
 function opIdFromLocation(res: Response): string | null {
   const loc = res.headers?.get?.('location') || res.headers?.get?.('content-location') || '';
@@ -400,7 +478,10 @@ function opIdFromLocation(res: Response): string | null {
 }
 
 async function dmWrite(
-  method: string, collectionName: string, form: FormData, externalSignal?: AbortSignal | null,
+  method: string,
+  collectionName: string,
+  form: FormData,
+  externalSignal?: AbortSignal | null,
 ): Promise<{ operationId: string }> {
   const { signal, timer } = combinedSignal(externalSignal);
   let res: Response;
@@ -420,7 +501,11 @@ async function dmWrite(
     throw err;
   }
   clearTimeout(timer);
-  if (res.status === 401) throw apiError('Session expired. Open a Rossum page and click Data Storage again to reconnect.', 401);
+  if (res.status === 401)
+    throw apiError(
+      'Session expired. Open a Rossum page and click Data Storage again to reconnect.',
+      401,
+    );
   const data = await res.json().catch(() => null);
   if (!res.ok) throw apiError(data?.message || `API error ${res.status}`, res.status);
   const operationId = opIdFromLocation(res);
@@ -431,11 +516,15 @@ async function dmWrite(
 function jsonFilePart(file: Blob | string | unknown): Blob {
   // Accept a Blob (already built by the caller) or a JSON string.
   if (typeof Blob !== 'undefined' && file instanceof Blob) return file;
-  return new Blob([typeof file === 'string' ? file : JSON.stringify(file)], { type: 'application/json' });
+  return new Blob([typeof file === 'string' ? file : JSON.stringify(file)], {
+    type: 'application/json',
+  });
 }
 
 export function datasetReplace(
-  collectionName: string, file: Blob | string | unknown, { signal }: RequestOpts = {},
+  collectionName: string,
+  file: Blob | string | unknown,
+  { signal }: RequestOpts = {},
 ): Promise<{ operationId: string }> {
   const form = new FormData();
   form.append('file', jsonFilePart(file), 'data.json');
@@ -444,13 +533,16 @@ export function datasetReplace(
 }
 
 export function datasetUpdate(
-  collectionName: string, file: Blob | string | unknown, idKeys: string[] | null | undefined, { signal }: RequestOpts = {},
+  collectionName: string,
+  file: Blob | string | unknown,
+  idKeys: string[] | null | undefined,
+  { signal }: RequestOpts = {},
 ): Promise<{ operationId: string }> {
   const form = new FormData();
   form.append('file', jsonFilePart(file), 'data.json');
   form.append('encoding', 'utf-8');
   form.append('update_or_new', 'true');
-  for (const k of (idKeys || [])) form.append('id_keys', k);
+  for (const k of idKeys || []) form.append('id_keys', k);
   return dmWrite('PATCH', collectionName, form, signal);
 }
 
@@ -459,8 +551,16 @@ export function datasetUpdate(
 // `failed` surfacing `error`. Tolerant of a few transient poll failures.
 export async function waitForDatasetOperation(
   operationId: string,
-  { intervalMs = 2000, timeoutMs = 300_000, signal, onPoll }:
-    RequestOpts & { intervalMs?: number; timeoutMs?: number; onPoll?: (op: DatasetOperation) => void } = {},
+  {
+    intervalMs = 2000,
+    timeoutMs = 300_000,
+    signal,
+    onPoll,
+  }: RequestOpts & {
+    intervalMs?: number;
+    timeoutMs?: number;
+    onPoll?: (op: DatasetOperation) => void;
+  } = {},
 ): Promise<DatasetOperation> {
   const start = Date.now();
   let consecutiveErrors = 0;
@@ -469,29 +569,44 @@ export async function waitForDatasetOperation(
     let op: DatasetOperation;
     try {
       const { signal: reqSignal, timer } = combinedSignal(signal);
-      const res = await fetch(`${dmBase()}/operation/${encodeURIComponent(operationId)}`, { headers: { Authorization: authHeader }, signal: reqSignal });
+      const res = await fetch(`${dmBase()}/operation/${encodeURIComponent(operationId)}`, {
+        headers: { Authorization: authHeader },
+        signal: reqSignal,
+      });
       clearTimeout(timer);
       op = await res.json().catch(() => ({}));
       consecutiveErrors = 0;
     } catch (err) {
       if (++consecutiveErrors >= 5 || Date.now() - start > timeoutMs) {
-        const e = new Error(`Could not check operation ${operationId}: ${(err as Error).message}`) as ApiError;
+        const e = new Error(
+          `Could not check operation ${operationId}: ${(err as Error).message}`,
+        ) as ApiError;
         e.pollUnavailable = true;
         throw e;
       }
-      await new Promise((r) => { setTimeout(r, intervalMs); });
+      await new Promise((r) => {
+        setTimeout(r, intervalMs);
+      });
       continue;
     }
     // Surface the live operation object each poll so callers can show a
     // heartbeat (status, timestamps, file metadata) — proof the job is alive.
-    try { onPoll?.(op); } catch { /* a caller callback must never break polling */ }
+    try {
+      onPoll?.(op);
+    } catch {
+      /* a caller callback must never break polling */
+    }
     if (op.status === 'finished' || op.status === 'unknown') return op;
     if (op.status === 'failed') throw new Error(op.error || `Operation ${operationId} failed`);
     if (Date.now() - start > timeoutMs) {
-      const e = new Error(`Operation ${operationId} did not finish within ${Math.round(timeoutMs / 1000)}s`) as ApiError;
+      const e = new Error(
+        `Operation ${operationId} did not finish within ${Math.round(timeoutMs / 1000)}s`,
+      ) as ApiError;
       e.timedOut = true;
       throw e;
     }
-    await new Promise((r) => { setTimeout(r, intervalMs); });
+    await new Promise((r) => {
+      setTimeout(r, intervalMs);
+    });
   }
 }

@@ -8,7 +8,14 @@ export default function ErrorBanner() {
   return (
     <div class="error-banner">
       <span>{err.message}</span>
-      <button class="dismiss" onClick={() => { error.value = null; }}>{'\u00d7'}</button>
+      <button
+        class="dismiss"
+        onClick={() => {
+          error.value = null;
+        }}
+      >
+        {'\u00d7'}
+      </button>
     </div>
   );
 }

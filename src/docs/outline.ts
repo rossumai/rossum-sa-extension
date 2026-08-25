@@ -15,7 +15,8 @@
 
 // Identical to the slugify passed to markdown-it-anchor in render.js.
 export function slugifyHeading(text: unknown): string {
-  return String(text ?? '').toLowerCase()
+  return String(text ?? '')
+    .toLowerCase()
     .replace(/[^\w\s-]/g, '')
     .trim()
     .replace(/\s+/g, '-');
@@ -27,7 +28,10 @@ const HEADING = /^(#{1,6})\s+(.*)$/;
 // Strip the inline markers a heading's TEXT may carry, so the sidebar shows words rather than
 // syntax. Mirrors format.js's headingTitle, which does the same for a deliverable's name.
 function headingText(raw: unknown): string {
-  return String(raw ?? '').replace(/`([^`]+)`/g, '$1').replace(/[*_`]/g, '').trim();
+  return String(raw ?? '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/[*_`]/g, '')
+    .trim();
 }
 
 // text -> [{ level, text, slug, line }] for h2/h3, in document order.
@@ -45,8 +49,14 @@ export function extractOutline(text: unknown): OutlineEntry[] {
     // A fenced block can contain anything, including a `## heading` example — upstream's own
     // documentation does exactly that, and the renderer does not treat it as a heading.
     const f = line.match(FENCE);
-    if (fence) { if (f && line.trim().startsWith(fence)) fence = null; continue; }
-    if (f) { fence = f[1]; continue; }
+    if (fence) {
+      if (f && line.trim().startsWith(fence)) fence = null;
+      continue;
+    }
+    if (f) {
+      fence = f[1];
+      continue;
+    }
 
     const m = line.match(HEADING);
     if (!m) continue;
@@ -72,7 +82,10 @@ export function outlineWithoutTitle(text: unknown): OutlineEntry[] {
   const lines = String(text ?? '').split('\n');
   let titleLine = -1;
   for (let i = 0; i < lines.length; i += 1) {
-    if (lines[i].trim()) { titleLine = i; break; }
+    if (lines[i].trim()) {
+      titleLine = i;
+      break;
+    }
   }
   return extractOutline(text).filter((e) => e.line !== titleLine);
 }

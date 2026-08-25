@@ -31,18 +31,34 @@ import type { SourceSection } from '../../../docs/specDocument.js';
 //
 // Staleness is a property OF THIS VERDICT (the check predates the current text), so it is rendered
 // INSIDE the pill — unfilled, same hue, with the word — rather than as a second badge beside it.
-export const VERDICT: Record<string, string[]> = { pass: ['pass', '✓ Met'], fail: ['fail', '✗ Not met'], uncertain: ['uncertain', '? Uncertain'] };
+export const VERDICT: Record<string, string[]> = {
+  pass: ['pass', '✓ Met'],
+  fail: ['fail', '✗ Not met'],
+  uncertain: ['uncertain', '? Uncertain'],
+};
 export function CheckBadge({ result }: { result: CheckResult | undefined }) {
   if (result && result.running) return <span class="fabry-spec-pill run">{'Checking…'}</span>;
   const known = result && VERDICT[result.verdict as string];
-  if (!known) return <span class="fabry-spec-pill none" title="No check has run for this deliverable">{'Not checked'}</span>;
+  if (!known)
+    return (
+      <span class="fabry-spec-pill none" title="No check has run for this deliverable">
+        {'Not checked'}
+      </span>
+    );
   const [cls, label] = known;
   const stale = !!result.stale;
   return (
     <span
       class={'fabry-spec-pill ' + cls + (stale ? ' stale' : '')}
-      title={stale ? 'This verdict is older than the text — re-run the check' : 'The last check of this deliverable'}
-    >{label}{stale ? ' · stale' : ''}</span>
+      title={
+        stale
+          ? 'This verdict is older than the text — re-run the check'
+          : 'The last check of this deliverable'
+      }
+    >
+      {label}
+      {stale ? ' · stale' : ''}
+    </span>
   );
 }
 
@@ -84,12 +100,16 @@ function ReviewHost({ deliverable, kind }: { deliverable: Deliverable; kind: str
           data-act="review-close"
           title="Close — it stays available in the inspector"
           onClick={() => store.setReviewTarget(null)}
-        >{'✕ Close'}</button>
+        >
+          {'✕ Close'}
+        </button>
       </div>
       <div class="fabry-spec-review-body">
-        {kind === 'refine'
-          ? <RefineDock deliverable={deliverable} />
-          : <HistoryPanel deliverable={deliverable} />}
+        {kind === 'refine' ? (
+          <RefineDock deliverable={deliverable} />
+        ) : (
+          <HistoryPanel deliverable={deliverable} />
+        )}
       </div>
     </div>
   );
@@ -109,7 +129,8 @@ export default function SpecView() {
   const restoreRef = useRef<any>(null);
   const modeRef = useRef(mode);
   if (modeRef.current !== mode) {
-    restoreRef.current = store.pinnedTarget.value || store.settledTarget.value || store.spyTarget.value;
+    restoreRef.current =
+      store.pinnedTarget.value || store.settledTarget.value || store.spyTarget.value;
     modeRef.current = mode;
   }
 
@@ -130,8 +151,14 @@ export default function SpecView() {
       const api = docRef.current;
       if (!api) return;
       // No slug = "take me to this deliverable" (a sidebar row); a slug = one of its headings.
-      if (docId) { store.setSpyTarget(docId); store.setSettledTarget(docId, { immediate: true }); }
-      if (!slug && docId) { api.scrollToDeliverable(docId); return; }
+      if (docId) {
+        store.setSpyTarget(docId);
+        store.setSettledTarget(docId, { immediate: true });
+      }
+      if (!slug && docId) {
+        api.scrollToDeliverable(docId);
+        return;
+      }
       // Preview resolves by id prefix, Edit by deliverable id — both need to know WHICH document's
       // heading was clicked, so it travels in the shared options argument.
       api.scrollToSlug(slug, docId ? prefixFor(slugs.get(docId) || '') : '', { docId });
@@ -157,19 +184,29 @@ export default function SpecView() {
       rafRef.current = 0;
       const top = api.scroller ? api.scroller.scrollTop : 0;
       const id = currentSection(api.sectionTops(), top);
-      if (id) { store.setSpyTarget(id); store.setSettledTarget(id); }
+      if (id) {
+        store.setSpyTarget(id);
+        store.setSettledTarget(id);
+      }
       const head = activeHeadingAt(api.headingTops(), top);
       if (head) store.setActiveHeading(head.slug);
     });
   }
 
   useEffect(() => {
-    const onKey = (e: any) => { if (e.key === 'Escape' && store.reviewTarget.value) store.setReviewTarget(null); };
+    const onKey = (e: any) => {
+      if (e.key === 'Escape' && store.reviewTarget.value) store.setReviewTarget(null);
+    };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, []);
 
-  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
+  useEffect(
+    () => () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    },
+    [],
+  );
 
   const review = store.reviewTarget.value;
   const headerFor = (s: any) => {
@@ -188,8 +225,22 @@ export default function SpecView() {
       <div class="fabry-spec-bar">
         <span class="fabry-spec-lbl">Specification</span>
         <div class="fabry-spec-modes fabry-arch-viewtoggle" role="group" aria-label="Text mode">
-          <button type="button" aria-pressed={mode === 'edit'} title="Markdown source" onClick={() => store.setDocView('edit')}>{'✎ Edit'}</button>
-          <button type="button" aria-pressed={mode === 'preview'} title="Rendered document — the mode Cmd+F searches" onClick={() => store.setDocView('preview')}>{'◑ Preview'}</button>
+          <button
+            type="button"
+            aria-pressed={mode === 'edit'}
+            title="Markdown source"
+            onClick={() => store.setDocView('edit')}
+          >
+            {'✎ Edit'}
+          </button>
+          <button
+            type="button"
+            aria-pressed={mode === 'preview'}
+            title="Rendered document — the mode Cmd+F searches"
+            onClick={() => store.setDocView('preview')}
+          >
+            {'◑ Preview'}
+          </button>
         </div>
         <span class="fabry-spec-sp" />
         <button
@@ -198,11 +249,16 @@ export default function SpecView() {
           data-act="pdf"
           disabled={note === 'busy' || !ds.length}
           title="Print, or save as PDF"
-          onClick={() => openPdfFlow(
-            ds.find((d) => d.id === (store.pinnedTarget.value || store.settledTarget.value)) || ds[0],
-            { onNote: setNote, onWarnings: (w) => setWarnings((prev) => [...w, ...prev]) },
-          )}
-        >{note === 'busy' ? 'Preparing…' : '⤓ PDF'}</button>
+          onClick={() =>
+            openPdfFlow(
+              ds.find((d) => d.id === (store.pinnedTarget.value || store.settledTarget.value)) ||
+                ds[0],
+              { onNote: setNote, onWarnings: (w) => setWarnings((prev) => [...w, ...prev]) },
+            )
+          }
+        >
+          {note === 'busy' ? 'Preparing…' : '⤓ PDF'}
+        </button>
         <button
           type="button"
           class="fabry-spec-btn"
@@ -210,18 +266,27 @@ export default function SpecView() {
           aria-pressed={store.railOpen.value}
           title={store.railOpen.value ? 'Hide the inspector' : 'Show the inspector'}
           onClick={() => store.setRailOpen(!store.railOpen.value)}
-        >{store.railOpen.value ? '⇥ Inspector' : '⇤ Inspector'}</button>
+        >
+          {store.railOpen.value ? '⇥ Inspector' : '⇤ Inspector'}
+        </button>
       </div>
       {(warnings.length > 0 || (note && note !== 'busy')) && (
         <div class="fabry-arch-doc-warn">
           {note && note !== 'busy' && <div class="fabry-arch-doc-note">{note}</div>}
-          {warnings.map((w, i) => <div key={i}>{w}</div>)}
+          {warnings.map((w, i) => (
+            <div key={i}>{w}</div>
+          ))}
           <button
             type="button"
             class="fabry-arch-doc-warn-x"
             aria-label="Dismiss"
-            onClick={() => { setWarnings([]); setNote(null); }}
-          >{'×'}</button>
+            onClick={() => {
+              setWarnings([]);
+              setNote(null);
+            }}
+          >
+            {'×'}
+          </button>
         </div>
       )}
       {mode === 'preview' ? (
@@ -242,7 +307,12 @@ export default function SpecView() {
           }}
         />
       ) : (
-        <SourceColumn sections={sections} headerFor={headerFor} docRef={docRef} onScroll={onScroll} />
+        <SourceColumn
+          sections={sections}
+          headerFor={headerFor}
+          docRef={docRef}
+          onScroll={onScroll}
+        />
       )}
     </div>
   );
@@ -256,7 +326,10 @@ export default function SpecView() {
 // that this is affordable: five 700-line editors mount in 70ms, none of them scrolls internally, and
 // only the visible lines are rendered.
 export function SourceColumn({
-  sections, headerFor, docRef, onScroll,
+  sections,
+  headerFor,
+  docRef,
+  onScroll,
 }: {
   sections: SourceSection[];
   headerFor?: (s: any) => any;
@@ -264,14 +337,17 @@ export function SourceColumn({
   onScroll?: (info: any) => void;
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const views = useRef(new Map());     // deliverable id -> EditorView, for exact line geometry
+  const views = useRef(new Map()); // deliverable id -> EditorView, for exact line geometry
   const pending = useRef(new Map());
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // One timer for the column, a pending value PER deliverable: every section is editable at once, so a
   // single slot would drop an edit the moment the reader moved to another field.
   function flush() {
-    if (timer.current) { clearTimeout(timer.current); timer.current = null; }
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
     const edits = [...pending.current.entries()];
     pending.current.clear();
     for (const [id, text] of edits) updateDeliverable(id, text);
@@ -280,7 +356,10 @@ export function SourceColumn({
   function onEdit(id: any, text: any) {
     pending.current.set(id, text);
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => { timer.current = null; flush(); }, 600);
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      flush();
+    }, 600);
   }
 
   // Navigation and the spy behave exactly as in Preview, which is what the deliverable list expects. A
@@ -309,7 +388,9 @@ export function SourceColumn({
           try {
             const line = view.state.doc.line(Math.min(view.state.doc.lines, e.line + 1));
             headings.push({ docId: id, slug: e.slug, top: base + view.lineBlockAt(line.from).top });
-          } catch { /* a document edited out from under the outline: skip that entry */ }
+          } catch {
+            /* a document edited out from under the outline: skip that entry */
+          }
         }
       }
       geo = {
@@ -326,7 +407,9 @@ export function SourceColumn({
       };
       return geo;
     };
-    const invalidate = () => { geo = null; };
+    const invalidate = () => {
+      geo = null;
+    };
     window.addEventListener('resize', invalidate);
 
     // Landing EXACTLY, on a column of virtualised editors. CodeMirror estimates the height of lines
@@ -337,7 +420,8 @@ export function SourceColumn({
     // corrections close the gap. `seq` makes a newer jump win, so a correction can never yank a reader
     // who has already clicked somewhere else. (This is the section-level twin of scrollLineIntoView.)
     let seq = 0;
-    const topOf = (el: any) => root.scrollTop + (el.getBoundingClientRect().top - root.getBoundingClientRect().top);
+    const topOf = (el: any) =>
+      root.scrollTop + (el.getBoundingClientRect().top - root.getBoundingClientRect().top);
     const settle = (el: any, mine: any, left: any) => {
       if (mine !== seq || left <= 0) return;
       const delta = topOf(el) - root.scrollTop;
@@ -349,7 +433,11 @@ export function SourceColumn({
       if (!el) return false;
       const mine = ++seq;
       const y = Math.max(0, topOf(el));
-      if (instant) { root.scrollTop = y; requestAnimationFrame(() => settle(el, mine, 3)); return true; }
+      if (instant) {
+        root.scrollTop = y;
+        requestAnimationFrame(() => settle(el, mine, 3));
+        return true;
+      }
       animateScrollTop(root, y, { duration: SCROLL_MS });
       setTimeout(() => settle(el, mine, 3), SCROLL_MS + 30);
       return true;
@@ -358,10 +446,13 @@ export function SourceColumn({
       scroller: root,
       sectionTops: () => readGeo().sections,
       headingTops: () => readGeo().headings,
-      scrollToDeliverable: (id: any, opts: any) => jumpToEl(
-        [...root.querySelectorAll<HTMLElement>('[data-deliverable]')].find((el) => el.dataset.deliverable === id),
-        opts,
-      ),
+      scrollToDeliverable: (id: any, opts: any) =>
+        jumpToEl(
+          [...root.querySelectorAll<HTMLElement>('[data-deliverable]')].find(
+            (el) => el.dataset.deliverable === id,
+          ),
+          opts,
+        ),
       scrollToSlug: (slug: any, _prefix: any, opts: { docId?: string } = {}) => {
         // Which deliverable owns this heading, and on which source line.
         //
@@ -371,7 +462,10 @@ export function SourceColumn({
         // reader had clicked the second). Preview disambiguates with the id prefix; in source the
         // id itself is the answer, so it travels in the options.
         const ordered = opts.docId
-          ? [...sections.filter((x) => x.id === opts.docId), ...sections.filter((x) => x.id !== opts.docId)]
+          ? [
+              ...sections.filter((x) => x.id === opts.docId),
+              ...sections.filter((x) => x.id !== opts.docId),
+            ]
           : sections;
         for (const sec of ordered) {
           const entry = extractOutline(sec.text || '').find((e) => e.slug === slug);
@@ -386,7 +480,9 @@ export function SourceColumn({
       },
     };
     if (docRef) docRef.current = api;
-    const fire = () => { if (onScroll) onScroll(api); };
+    const fire = () => {
+      if (onScroll) onScroll(api);
+    };
     root.addEventListener('scroll', fire, { passive: true });
     fire();
     return () => {
@@ -408,8 +504,13 @@ export function SourceColumn({
                 text={s.text}
                 onChange={(t) => onEdit(s.id, t)}
                 viewRef={{
-                  get current() { return views.current.get(s.id) || null; },
-                  set current(v) { if (v) views.current.set(s.id, v); else views.current.delete(s.id); },
+                  get current() {
+                    return views.current.get(s.id) || null;
+                  },
+                  set current(v) {
+                    if (v) views.current.set(s.id, v);
+                    else views.current.delete(s.id);
+                  },
                 }}
               />
             </div>

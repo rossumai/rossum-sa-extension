@@ -10,16 +10,22 @@ import JSON5 from 'json5';
 
 const mock = vi.hoisted(() => ({ text: '', onChange: null as any, onValidChange: null as any }));
 
-globalThis.chrome = ({
+globalThis.chrome = {
   storage: {
     local: {
-      get: (keys: any, cb: any) => { if (cb) { cb({}); return; } return Promise.resolve({}); },
+      get: (keys: any, cb: any) => {
+        if (cb) {
+          cb({});
+          return;
+        }
+        return Promise.resolve({});
+      },
       set: () => Promise.resolve(),
       remove: () => Promise.resolve(),
     },
   },
   runtime: { onMessage: { addListener: () => {} } } as any,
-} as any);
+} as any;
 
 vi.mock('../src/mdh/api.js');
 
@@ -30,8 +36,18 @@ vi.mock('../src/mdh/components/PipelineEditor.jsx', () => ({
     if (editorRef) {
       editorRef.current = {
         getValue: () => mock.text,
-        setValue: (v: any) => { mock.text = v; onChange && onChange(); },
-        isValid: () => { try { JSON5.parse(mock.text); return true; } catch { return false; } },
+        setValue: (v: any) => {
+          mock.text = v;
+          onChange && onChange();
+        },
+        isValid: () => {
+          try {
+            JSON5.parse(mock.text);
+            return true;
+          } catch {
+            return false;
+          }
+        },
         getParsed: () => JSON5.parse(mock.text),
         focus: () => {},
         refresh: () => {},
@@ -58,8 +74,12 @@ function typeInEditor(text: any) {
   clearTimeout(validTimer);
   try {
     JSON5.parse(text);
-    validTimer = setTimeout(() => { if (mock.onValidChange) mock.onValidChange(); }, 500);
-  } catch { /* invalid — no onValidChange, matches the real editor */ }
+    validTimer = setTimeout(() => {
+      if (mock.onValidChange) mock.onValidChange();
+    }, 500);
+  } catch {
+    /* invalid — no onValidChange, matches the real editor */
+  }
 }
 
 // Condition-based, never a fixed sleep: the mock editor's onValidChange lands at
@@ -68,7 +88,12 @@ function typeInEditor(text: any) {
 async function waitFor(cond: any, desc = 'condition', timeoutMs = 5000) {
   const start = Date.now();
   for (;;) {
-    let ok = false; try { ok = cond(); } catch { ok = false; }
+    let ok = false;
+    try {
+      ok = cond();
+    } catch {
+      ok = false;
+    }
     if (ok) return;
     if (Date.now() - start > timeoutMs) throw new Error(`Timeout: ${desc}`);
     await new Promise((r) => setTimeout(r, 5));
@@ -77,9 +102,9 @@ async function waitFor(cond: any, desc = 'condition', timeoutMs = 5000) {
 
 // Did a query run against the collection whose serialized pipeline contains frag?
 function ranWith(frag: any) {
-  return vi.mocked(api.aggregate).mock.calls.some(
-    ([col, pl]) => col === 'vendors' && JSON.stringify(pl).includes(frag),
-  );
+  return vi
+    .mocked(api.aggregate)
+    .mock.calls.some(([col, pl]) => col === 'vendors' && JSON.stringify(pl).includes(frag));
 }
 
 beforeEach(() => {
@@ -111,7 +136,10 @@ describe('DataPanel variables → debug + query', () => {
     const input = root.querySelector<HTMLInputElement>('.placeholder-input')!;
     expect(input, 'Variables input should appear').not.toBeNull();
     expect(root.querySelector('.pipeline-debug-hint'), 'no hint is ever shown').toBeNull();
-    expect(root.querySelector('.pipeline-debug-input-row'), 'debug shows immediately').not.toBeNull();
+    expect(
+      root.querySelector('.pipeline-debug-input-row'),
+      'debug shows immediately',
+    ).not.toBeNull();
 
     // fill the value → re-runs with the typed value
     input.value = '5';
@@ -135,7 +163,10 @@ describe('DataPanel variables → debug + query', () => {
     const input = root.querySelector<HTMLInputElement>('.placeholder-input')!;
     expect(input, 'Variables input should appear').not.toBeNull();
     expect(root.querySelector('.pipeline-debug-hint'), 'no hint is ever shown').toBeNull();
-    expect(root.querySelector('.pipeline-debug-input-row'), 'debug shows immediately').not.toBeNull();
+    expect(
+      root.querySelector('.pipeline-debug-input-row'),
+      'debug shows immediately',
+    ).not.toBeNull();
 
     input.value = 'ACME';
     input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -152,12 +183,20 @@ describe('DataPanel variables → debug + query', () => {
     await waitFor(() => mock.text !== '', 'the [collection] effect to seed the default pipeline');
 
     // {part_no} is embedded in a larger string — a valid variable, substituted into the text.
-    typeInEditor('[{"$match":{"LINE DESC":"BLUE WIDGET {part_no} LARGE"}},{"$sort":{"_id":-1}},{"$skip":0},{"$limit":50}]');
+    typeInEditor(
+      '[{"$match":{"LINE DESC":"BLUE WIDGET {part_no} LARGE"}},{"$sort":{"_id":-1}},{"$skip":0},{"$limit":50}]',
+    );
     await waitFor(() => root.querySelector('.placeholder-input'), 'a variable input to appear');
     // Runs immediately with the unfilled var → emptied substitution (two spaces).
-    await waitFor(() => ranWith('BLUE WIDGET  LARGE'), 'the query to run with the empty embedded value');
+    await waitFor(
+      () => ranWith('BLUE WIDGET  LARGE'),
+      'the query to run with the empty embedded value',
+    );
 
-    expect(root.querySelector('.placeholder-input'), 'a variable input should appear').not.toBeNull();
+    expect(
+      root.querySelector('.placeholder-input'),
+      'a variable input should appear',
+    ).not.toBeNull();
     expect(root.querySelector('.pipeline-debug-hint'), 'no unresolved hint').toBeNull();
     expect(root.querySelector('.pipeline-debug-input-row'), 'debug should render').not.toBeNull();
 
@@ -166,7 +205,9 @@ describe('DataPanel variables → debug + query', () => {
     input.dispatchEvent(new Event('input', { bubbles: true }));
     await waitFor(() => ranWith('BLUE WIDGET XYZ LARGE'), 'the filled embedded query to run');
 
-    expect(ranWith('BLUE WIDGET XYZ LARGE'), 'the filled embedded query should have run').toBe(true);
+    expect(ranWith('BLUE WIDGET XYZ LARGE'), 'the filled embedded query should have run').toBe(
+      true,
+    );
   });
 
   it('split modifier: the variable stays as-is, the input is raw, the query runs with the array', async () => {
@@ -177,7 +218,10 @@ describe('DataPanel variables → debug + query', () => {
     await waitFor(() => mock.text !== '', 'the [collection] effect to seed the default pipeline');
 
     typeInEditor('[{"$match":{"tags":"{categories | split(\',\')}"}}]');
-    await waitFor(() => root.querySelector('.placeholder-input'), 'a variable input to appear for the split placeholder');
+    await waitFor(
+      () => root.querySelector('.placeholder-input'),
+      'a variable input to appear for the split placeholder',
+    );
 
     const input = root.querySelector<HTMLInputElement>('.placeholder-input')!;
     expect(input, 'a variable input should appear for the split placeholder').not.toBeNull();
@@ -186,8 +230,14 @@ describe('DataPanel variables → debug + query', () => {
     // The user types the raw, comma-joined value — exactly what the field holds.
     input.value = 'food,drink';
     input.dispatchEvent(new Event('input', { bubbles: true }));
-    await waitFor(() => ranWith('"tags":["food","drink"]'), 'the query to run with the split array value');
+    await waitFor(
+      () => ranWith('"tags":["food","drink"]'),
+      'the query to run with the split array value',
+    );
 
-    expect(ranWith('"tags":["food","drink"]'), 'the query should run with the split array value').toBe(true);
+    expect(
+      ranWith('"tags":["food","drink"]'),
+      'the query should run with the split array value',
+    ).toBe(true);
   });
 });

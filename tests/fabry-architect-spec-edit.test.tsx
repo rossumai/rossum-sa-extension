@@ -5,14 +5,19 @@ import { act } from 'preact/test-utils';
 
 vi.mock('../src/fabry/architect/actions.js', () => ({ updateDeliverable: vi.fn() }));
 vi.mock('../src/fabry/architect/components/SourceEditor.jsx', () => ({
-  default: ({ text, onChange }: any) => <textarea
-    class="cm-mock"
-    value={text}
-    onInput={(e: Event) => onChange && onChange((e.currentTarget as HTMLTextAreaElement).value)}
-  />,
+  default: ({ text, onChange }: any) => (
+    <textarea
+      class="cm-mock"
+      value={text}
+      onInput={(e: Event) => onChange && onChange((e.currentTarget as HTMLTextAreaElement).value)}
+    />
+  ),
 }));
 
-vi.mock('../src/mdh/smoothScroll.js', async (orig) => ({ ...(await orig()), animateScrollTop: vi.fn() }));
+vi.mock('../src/mdh/smoothScroll.js', async (orig) => ({
+  ...(await orig()),
+  animateScrollTop: vi.fn(),
+}));
 
 import * as store from '../src/fabry/architect/store.js';
 import { updateDeliverable } from '../src/fabry/architect/actions.js';
@@ -26,12 +31,17 @@ const D = [
 function mount() {
   const root = document.createElement('div');
   document.body.appendChild(root);
-  act(() => { render(<SpecView />, root); });
+  act(() => {
+    render(<SpecView />, root);
+  });
   return root;
 }
 const fields = (root: any) => [...root.querySelectorAll('.cm-mock')];
 function type(el: any, value: any) {
-  act(() => { el.value = value; el.dispatchEvent(new window.Event('input', { bubbles: true })); });
+  act(() => {
+    el.value = value;
+    el.dispatchEvent(new window.Event('input', { bubbles: true }));
+  });
 }
 beforeEach(() => {
   vi.clearAllMocks();
@@ -41,7 +51,9 @@ beforeEach(() => {
   store.results.value = {};
   store.docView.value = 'edit';
   store.railOpen.value = true;
-  store.spyTarget.value = 'd1'; store.settledTarget.value = 'd1'; store.pinnedTarget.value = null;
+  store.spyTarget.value = 'd1';
+  store.settledTarget.value = 'd1';
+  store.pinnedTarget.value = null;
 });
 
 describe('edit mode', () => {
@@ -65,7 +77,9 @@ describe('edit mode', () => {
   it('saves through the same action the pane used, so version capture is unchanged', async () => {
     const root = mount();
     type(fields(root)[0], '# One\n\nedited\n');
-    await vi.waitFor(() => expect(updateDeliverable).toHaveBeenCalledWith('d1', '# One\n\nedited\n'));
+    await vi.waitFor(() =>
+      expect(updateDeliverable).toHaveBeenCalledWith('d1', '# One\n\nedited\n'),
+    );
   });
 
   it('keeps a pending edit PER deliverable — editing two fields must not drop either', () => {
@@ -73,7 +87,9 @@ describe('edit mode', () => {
     const root = mount();
     type(fields(root)[0], 'first edited\n');
     type(fields(root)[1], 'second edited\n');
-    act(() => { vi.advanceTimersByTime(700); });
+    act(() => {
+      vi.advanceTimersByTime(700);
+    });
     expect(updateDeliverable).toHaveBeenCalledWith('d1', 'first edited\n');
     expect(updateDeliverable).toHaveBeenCalledWith('d2', 'second edited\n');
     vi.useRealTimers();
@@ -82,13 +98,17 @@ describe('edit mode', () => {
   it('flushes pending edits when the column unmounts (a mode switch)', () => {
     const root = mount();
     type(fields(root)[1], 'switched away\n');
-    act(() => { store.docView.value = 'preview'; });
+    act(() => {
+      store.docView.value = 'preview';
+    });
     expect(updateDeliverable).toHaveBeenCalledWith('d2', 'switched away\n');
   });
 
   it('passes an EXTERNAL text change (a restore) down to the editor', () => {
     const root = mount();
-    act(() => { store.deliverables.value = [deliverable({ ...D[0], text: '# One\n\nrestored\n' }), D[1]]; });
+    act(() => {
+      store.deliverables.value = [deliverable({ ...D[0], text: '# One\n\nrestored\n' }), D[1]];
+    });
     expect(fields(root)[0].value).toBe('# One\n\nrestored\n');
   });
 

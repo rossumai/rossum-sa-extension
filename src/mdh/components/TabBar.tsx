@@ -47,7 +47,9 @@ export default function TabBar() {
       {TABS.map(({ id, label }) => (
         <button
           class={'tab' + (activePanel.value === id ? ' active' : '')}
-          onClick={() => { activePanel.value = id; }}
+          onClick={() => {
+            activePanel.value = id;
+          }}
         >
           {label}
           {id === 'stats' && <StatsAlertIcon />}

@@ -9,9 +9,15 @@ import styles from './Tip.module.css';
 // when there isn't room below (e.g. a control pinned to the bottom of the viewport).
 // `text` may be a string OR a vnode (for richer content). `block` wraps a
 // block-level child in a <div> so it keeps its width; otherwise an inline <span>.
-export default function Tip(
-  { text, block, children }: { text?: ComponentChildren; block?: boolean; children?: ComponentChildren },
-) {
+export default function Tip({
+  text,
+  block,
+  children,
+}: {
+  text?: ComponentChildren;
+  block?: boolean;
+  children?: ComponentChildren;
+}) {
   const ref = useRef<any>(null);
   const popRef = useRef<any>(null);
   const [rect, setRect] = useState<any>(null);
@@ -22,7 +28,9 @@ export default function Tip(
     const r = el.getBoundingClientRect();
     setRect({ cx: r.left + r.width / 2, top: r.top, bottom: r.bottom });
   }
-  function hide() { setRect(null); }
+  function hide() {
+    setRect(null);
+  }
 
   // Center under (or over) the trigger, clamp horizontally to the viewport, and
   // flip above when there's no room below. Runs before paint so there's no jump.
@@ -41,10 +49,21 @@ export default function Tip(
 
   const Tag = block ? 'div' : 'span';
   return (
-    <Tag ref={ref} class={styles.trigger + (block ? ' ' + styles.block : '')} onMouseEnter={show} onMouseLeave={hide}>
+    <Tag
+      ref={ref}
+      class={styles.trigger + (block ? ' ' + styles.block : '')}
+      onMouseEnter={show}
+      onMouseLeave={hide}
+    >
       {children}
       {rect && (
-        <span ref={popRef} class={styles.pop} style={{ left: `${rect.cx}px`, top: `${rect.bottom + 6}px` }}>{text}</span>
+        <span
+          ref={popRef}
+          class={styles.pop}
+          style={{ left: `${rect.cx}px`, top: `${rect.bottom + 6}px` }}
+        >
+          {text}
+        </span>
       )}
     </Tag>
   );

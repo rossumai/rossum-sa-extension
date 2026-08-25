@@ -25,6 +25,48 @@ esbuild bundles ES modules from `src/` into `dist/`. No transpilation, no other 
 - `dist/` is the loadable extension, and is gitignored. **Tests run `src/`, the browser runs
   `dist/` — rebuild before asking anyone to reload the extension.**
 
+## Formatting
+
+Prettier owns `src/` and `tests/`, and only `*.ts` / `*.tsx` / `*.css` there. Config is
+`.prettierrc.json`; `npm run format` writes, `npm run format:check` is the gate.
+
+- **Pinned EXACT (`"prettier": "3.9.6"`, no caret)**, for the same reason as the markdown-it
+  render family: a minor bump can change formatting output, which would fail `format:check` on
+  a tree nobody touched.
+- **Deliberately NOT formatted**: every `.md` (so `CLAUDE.md`, `PRIVACY.md` and the whole dated
+  record under `docs/superpowers/` keep their hand-wrapped prose), the 12 `.html`, the JSON and
+  YAML, and — a consequence worth knowing — `build.js` and `vitest.config.mjs`, the only two
+  non-TypeScript code files in the repo.
+- **`tests/fixtures/` is in `.prettierignore`.** Those `.md` files are upstream localpages' own
+  examples, and `expected/*.html` is the byte-exact output upstream produces from them.
+  Reformatting the inputs would change that output and retire the "ported verbatim" claim
+  `tests/docs-render-equivalence.test.ts` exists to make checkable. They are outside the format
+  globs already; the ignore entry is so widening those globs cannot rewrite them by accident.
+- **CSS keeps double quotes** (`singleQuote: false` in an override) because `build.js` COPIES
+  all five hand-written sheets rather than compiling them, so their formatting ships literally —
+  and two of them (`doc-theme.css`, `print.css`) are verbatim ports of upstream's sheets, where
+  `"Segoe UI"` staying `"Segoe UI"` keeps a future re-port diffable. The cost is that
+  `popup.css`'s hand-written single quotes became double.
+- **First formatting of a file may need two passes.** Prettier 3.9.6 is not idempotent on
+  `vi.fn().mockResolvedValue({…})`: pass one splits the member chain, pass two collapses it back
+  (the better form) and it is stable after that. Six test files did this. `format:check` is what
+  catches it — run it, do not assume one `--write` converged.
+
+**Formatting is rendering-neutral but NOT emit-neutral, so the "diff the unminified bundles"
+rule under TypeScript gives a false alarm here.** Prettier re-anchors whitespace inside JSX
+text, moving a space between a text child and an explicit `" "` child — measured at ~29 sites,
+`+28` in `console.js` and `-1` in `popup.js`. Preact concatenates adjacent text children, so the
+rendered text is unchanged; the vnode child array is not. Verified when the formatter landed
+(2026-08-25), and the way to re-verify after any reformat:
+
+- 23 of the 30 shipped files were byte-identical.
+- `console.js` and `popup.js` became **byte-identical after merging adjacent string literals**
+  (`"A","B"` → `"AB"`), which is exactly and only the space-child re-anchoring.
+- The five copied CSS sheets were identical after canonicalising comments, whitespace, quote
+  delimiter and number format (`.02em`→`0.02em`, `0.60`→`0.6`). Canonicalise by stripping space
+  only AFTER `:` and around `{};,` — keep it before `:` and between selectors, or `a :hover` and
+  a descendant combinator get masked.
+
 ## TypeScript
 
 **Every file in the repo is TypeScript: `src/` is 203 `.ts` + 159 `.tsx` + 1 `.d.ts`, and `tests/`
@@ -286,6 +328,14 @@ Enforced by tests, not by convention. Do not weaken them.
   ignoring four `read-write` mentions in the transport it exists to guard. Three shapes do it: an
   extension filter, an allowlist literal, and a direct `readFileSync`. Mutation-test a guard
   after touching what it scans.
+- **A source scanner that works LINE by line goes blind the moment a statement wraps.**
+  `tests/dead-code.test.ts` stripped import lines with `!/^\s*import\s/`, so a wrapped import
+  left its member names on continuation lines the filter could not see — the declaration then
+  counted as a use and every unused import in a wrapped statement passed. It was already blind
+  on 48 statements before Prettier, and would have been on 125 after. Strip whole STATEMENTS
+  with a newline-spanning regex, the way `importGraph` in the same file always did. Proven by
+  mutating one unused import and checking both line shapes; if a guard only fails in one of
+  them, the guard is the bug.
 - Guard Chrome-only APIs for jsdom (`CSS.escape`, `scrollIntoView`), and use the repo's own tween
   (`src/mdh/smoothScroll.ts`) for navigation jumps rather than `behavior: 'smooth'`, whose
   duration scales with distance (measured ≥1481ms vs 198ms).

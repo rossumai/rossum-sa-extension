@@ -29,38 +29,68 @@ describe('rowsToDocs', () => {
   });
 
   it('omits empty cells under emptyMode omit (and preserves 0 / false)', () => {
-    const { docs } = rowsToDocs([['a', 'b'], [0, undefined], [false, 'x']], { hasHeader: true, emptyMode: 'omit' });
-    expect(docs[0]).toEqual({ a: 0 });              // b omitted; 0 kept
-    expect(docs[1]).toEqual({ a: false, b: 'x' });  // false kept
+    const { docs } = rowsToDocs(
+      [
+        ['a', 'b'],
+        [0, undefined],
+        [false, 'x'],
+      ],
+      { hasHeader: true, emptyMode: 'omit' },
+    );
+    expect(docs[0]).toEqual({ a: 0 }); // b omitted; 0 kept
+    expect(docs[1]).toEqual({ a: false, b: 'x' }); // false kept
   });
 
   it('generates column_N names when hasHeader is false', () => {
-    const { docs, columns } = rowsToDocs([['x', 1], ['y', 2]], { hasHeader: false });
+    const { docs, columns } = rowsToDocs(
+      [
+        ['x', 1],
+        ['y', 2],
+      ],
+      { hasHeader: false },
+    );
     expect(columns).toEqual(['column_1', 'column_2']);
-    expect(docs).toEqual([{ column_1: 'x', column_2: 1 }, { column_1: 'y', column_2: 2 }]);
+    expect(docs).toEqual([
+      { column_1: 'x', column_2: 1 },
+      { column_1: 'y', column_2: 2 },
+    ]);
   });
 
   it('fills blank header names and de-duplicates them with a warning', () => {
-    const { columns, warnings } = rowsToDocs([['id', '', 'id'], [1, 2, 3]], { hasHeader: true });
+    const { columns, warnings } = rowsToDocs(
+      [
+        ['id', '', 'id'],
+        [1, 2, 3],
+      ],
+      { hasHeader: true },
+    );
     expect(columns).toEqual(['id', 'column_2', 'id_2']);
     expect(warnings.join(' ')).toMatch(/Duplicate column/);
   });
 
   it('keeps renamed columns unique when the suffix would itself collide', () => {
-    const { docs, columns } = rowsToDocs([['id', 'id', 'id_2'], [1, 2, 3]], { hasHeader: true });
+    const { docs, columns } = rowsToDocs(
+      [
+        ['id', 'id', 'id_2'],
+        [1, 2, 3],
+      ],
+      { hasHeader: true },
+    );
     // The second 'id' renames to 'id_2'; the third column's literal 'id_2'
     // header then collides and must bump again to 'id_2_2' rather than silently
     // overwriting the renamed column. All three keys stay distinct (matches the
     // collision-safe csv.js dedupeHeaders: ['a','a','a_2'] -> ['a','a_2','a_2_2']).
     expect(columns).toEqual(['id', 'id_2', 'id_2_2']);
-    expect(new Set(columns).size).toBe(3);     // all keys distinct
+    expect(new Set(columns).size).toBe(3); // all keys distinct
     expect(Object.keys(docs[0])).toHaveLength(3);
     expect(docs[0]).toEqual({ id: 1, id_2: 2, id_2_2: 3 }); // all three values preserved
   });
 
   it('drops fully-empty rows and returns empty for a header-only sheet', () => {
     expect(rowsToDocs([['only']], { hasHeader: true }).docs).toEqual([]);
-    expect(rowsToDocs([['a'], [undefined], [], ['x']], { hasHeader: true }).docs).toEqual([{ a: 'x' }]);
+    expect(rowsToDocs([['a'], [undefined], [], ['x']], { hasHeader: true }).docs).toEqual([
+      { a: 'x' },
+    ]);
   });
 });
 
@@ -69,7 +99,8 @@ describe('readWorkbook / readRels', () => {
     const wb = `<?xml version="1.0"?><workbook xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
       <sheets><sheet name="People" sheetId="1" r:id="rId1"/><sheet name="Extra" sheetId="2" r:id="rId2"/></sheets></workbook>`;
     expect(readWorkbook(wb).sheets).toEqual([
-      { name: 'People', rid: 'rId1' }, { name: 'Extra', rid: 'rId2' },
+      { name: 'People', rid: 'rId1' },
+      { name: 'Extra', rid: 'rId2' },
     ]);
     const rels = `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
       <Relationship Id="rId1" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Target="worksheets/sheet2.xml"/></Relationships>`;
@@ -94,12 +125,12 @@ describe('readSheet', () => {
   </sheetData></worksheet>`;
   it('decodes each cell type by its t attribute, placed by column ref', () => {
     const rows = readSheet(xml, shared);
-    expect(rows[0]).toEqual(['Alice', true, 45306]);         // s, b, number
-    expect(rows[1][0]).toBe('inline');                        // inlineStr
-    expect(rows[1][2]).toBe('formula');                       // str (B2 missing -> hole)
-    expect(rows[1][1]).toBeUndefined();                       // sparse cell
-    expect(rows[1][3]).toBeNull();                            // error -> null
-    expect(rows[1][4]).toBe('2024-01-15');                    // d -> ISO string kept as-is
+    expect(rows[0]).toEqual(['Alice', true, 45306]); // s, b, number
+    expect(rows[1][0]).toBe('inline'); // inlineStr
+    expect(rows[1][2]).toBe('formula'); // str (B2 missing -> hole)
+    expect(rows[1][1]).toBeUndefined(); // sparse cell
+    expect(rows[1][3]).toBeNull(); // error -> null
+    expect(rows[1][4]).toBe('2024-01-15'); // d -> ISO string kept as-is
   });
 });
 
@@ -140,7 +171,13 @@ describe('parseXlsx', () => {
     expect(r.error).toBeNull();
     expect(r.sheets).toEqual(['People', 'Extra']);
     expect(r.columns).toEqual(['name', 'age', 'active', 'joined', 'note']);
-    expect(r.docs[0]).toEqual({ name: 'Alice', age: 30, active: true, joined: 45306, note: 'hello' });
+    expect(r.docs[0]).toEqual({
+      name: 'Alice',
+      age: 30,
+      active: true,
+      joined: 45306,
+      note: 'hello',
+    });
     expect(r.docs[1]).toEqual({ name: 'Bob', age: 25, active: false, joined: 44196, note: null });
     expect(typeof r.docs[0].joined).toBe('number'); // date serial stays a number
   });
@@ -160,18 +197,24 @@ describe('parseXlsx', () => {
   });
 });
 
-import { readStyles, readWorkbook as readWb, rowsToDocs as xlsxRowsToDocs } from '../src/mdh/xlsx.js';
+import {
+  readStyles,
+  readWorkbook as readWb,
+  rowsToDocs as xlsxRowsToDocs,
+} from '../src/mdh/xlsx.js';
 
 describe('readStyles', () => {
   it('flags cellXfs entries whose numFmt is a date', () => {
-    const xml = '<styleSheet><numFmts><numFmt numFmtId="164" formatCode="yyyy-mm-dd"/></numFmts>' +
+    const xml =
+      '<styleSheet><numFmts><numFmt numFmtId="164" formatCode="yyyy-mm-dd"/></numFmts>' +
       '<cellXfs count="3"><xf numFmtId="0"/><xf numFmtId="14"/><xf numFmtId="164"/></cellXfs></styleSheet>';
     expect(readStyles(xml)).toEqual([false, true, true]);
   });
 });
 
 describe('readWorkbook date1904', () => {
-  const WB = (pr: any) => `<workbook xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${pr}<sheets><sheet name="A" r:id="rId1"/></sheets></workbook>`;
+  const WB = (pr: any) =>
+    `<workbook xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${pr}<sheets><sheet name="A" r:id="rId1"/></sheets></workbook>`;
   it('reads the date1904 flag', () => {
     expect(readWb(WB('<workbookPr date1904="1"/>')).date1904).toBe(true);
     expect(readWb(WB('')).date1904).toBe(false);
@@ -180,7 +223,13 @@ describe('readWorkbook date1904', () => {
 
 describe('rowsToDocs emptyMode/trim (xlsx)', () => {
   it("supports emptyMode 'empty'", () => {
-    const { docs } = xlsxRowsToDocs([['a', 'b'], ['x', undefined]], { hasHeader: true, emptyMode: 'empty' });
+    const { docs } = xlsxRowsToDocs(
+      [
+        ['a', 'b'],
+        ['x', undefined],
+      ],
+      { hasHeader: true, emptyMode: 'empty' },
+    );
     expect(docs[0]).toEqual({ a: 'x', b: '' });
   });
   it('trims string cells when trim:true, leaving non-strings untouched', () => {

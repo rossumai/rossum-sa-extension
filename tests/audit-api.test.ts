@@ -21,7 +21,12 @@ function jsonRes(body: any, { ok = true, status = 200 } = {}) {
 describe('get + buildQuery', () => {
   it('builds a GET request with Authorization and Accept headers', async () => {
     fetchMock.mockResolvedValue(jsonRes({ results: [] }));
-    const qs = api.buildQuery({ page: 2, page_size: 100, object_type: 'annotation', action: 'create' });
+    const qs = api.buildQuery({
+      page: 2,
+      page_size: 100,
+      object_type: 'annotation',
+      action: 'create',
+    });
     await api.get(`/api/v1/audit_logs/?${qs}`);
     const [url, opts] = fetchMock.mock.calls[0];
     expect(url).toMatch(/^https:\/\/x\.rossum\.ai\/api\/v1\/audit_logs\/\?/);
@@ -55,8 +60,11 @@ describe('get + buildQuery', () => {
   it('marks 403 as featureUnavailable', async () => {
     fetchMock.mockResolvedValue(jsonRes({ detail: 'Forbidden' }, { ok: false, status: 403 }));
     let caught: any;
-    try { await api.get('/api/v1/audit_logs/?object_type=annotation'); }
-    catch (e: any) { caught = e; }
+    try {
+      await api.get('/api/v1/audit_logs/?object_type=annotation');
+    } catch (e: any) {
+      caught = e;
+    }
     expect(caught).toBeDefined();
     expect(caught.status).toBe(403);
     expect(caught.featureUnavailable).toBe(true);
@@ -66,22 +74,30 @@ describe('get + buildQuery', () => {
   it('does NOT mark 404 as featureUnavailable', async () => {
     fetchMock.mockResolvedValue(jsonRes({ detail: 'Bad param' }, { ok: false, status: 404 }));
     let caught: any;
-    try { await api.get('/api/v1/audit_logs/?object_type=badtype'); }
-    catch (e: any) { caught = e; }
+    try {
+      await api.get('/api/v1/audit_logs/?object_type=badtype');
+    } catch (e: any) {
+      caught = e;
+    }
     expect(caught.status).toBe(404);
     expect(caught.featureUnavailable).toBeUndefined();
   });
 
   it('extracts DRF field-error arrays into err.fieldErrors', async () => {
-    fetchMock.mockResolvedValue(jsonRes(
-      { object_type: ['Available options: [\'annotation\', \'document\']'] },
-      { ok: false, status: 400 },
-    ));
+    fetchMock.mockResolvedValue(
+      jsonRes(
+        { object_type: ["Available options: ['annotation', 'document']"] },
+        { ok: false, status: 400 },
+      ),
+    );
     let caught: any;
-    try { await api.get('/api/v1/audit_logs/?object_type=badtype'); }
-    catch (e: any) { caught = e; }
+    try {
+      await api.get('/api/v1/audit_logs/?object_type=badtype');
+    } catch (e: any) {
+      caught = e;
+    }
     expect(caught.fieldErrors).toEqual({
-      object_type: ['Available options: [\'annotation\', \'document\']'],
+      object_type: ["Available options: ['annotation', 'document']"],
     });
   });
 
@@ -114,7 +130,9 @@ import { extractParam, normalizePage } from '../src/audit/api.js';
 
 describe('extractParam', () => {
   it('reads a query param from an absolute URL', () => {
-    expect(extractParam('https://x/api/v1/audit_logs?cursor=abc123&page_size=3', 'cursor')).toBe('abc123');
+    expect(extractParam('https://x/api/v1/audit_logs?cursor=abc123&page_size=3', 'cursor')).toBe(
+      'abc123',
+    );
   });
   it('returns null for missing param or bad url', () => {
     expect(extractParam('https://x/api/v1/audit_logs?page_size=3', 'cursor')).toBeNull();
@@ -125,17 +143,59 @@ describe('extractParam', () => {
 
 describe('normalizePage', () => {
   it('offset: derives hasPrev from current page, hasNext from next link', () => {
-    const p = normalizePage({ total: 43, total_pages: 15, next: 'https://x?page=2', previous: null }, 'offset', 1);
-    expect(p).toMatchObject({ total: 43, totalPages: 15, hasNext: true, hasPrev: false, nextCursor: null, prevCursor: null });
-    expect(normalizePage({ total: 43, total_pages: 15, next: null, previous: 'https://x?page=1' }, 'offset', 2).hasPrev).toBe(true);
+    const p = normalizePage(
+      { total: 43, total_pages: 15, next: 'https://x?page=2', previous: null },
+      'offset',
+      1,
+    );
+    expect(p).toMatchObject({
+      total: 43,
+      totalPages: 15,
+      hasNext: true,
+      hasPrev: false,
+      nextCursor: null,
+      prevCursor: null,
+    });
+    expect(
+      normalizePage(
+        { total: 43, total_pages: 15, next: null, previous: 'https://x?page=1' },
+        'offset',
+        2,
+      ).hasPrev,
+    ).toBe(true);
   });
   it('cursor: extracts next/prev cursors and total', () => {
-    const p = normalizePage({ total: 238, total_pages: 80, next: 'https://x?cursor=NEXT&include_total=true', previous: null }, 'cursor', 1);
-    expect(p).toMatchObject({ total: 238, totalPages: 80, hasNext: true, hasPrev: false, nextCursor: 'NEXT', prevCursor: null });
+    const p = normalizePage(
+      {
+        total: 238,
+        total_pages: 80,
+        next: 'https://x?cursor=NEXT&include_total=true',
+        previous: null,
+      },
+      'cursor',
+      1,
+    );
+    expect(p).toMatchObject({
+      total: 238,
+      totalPages: 80,
+      hasNext: true,
+      hasPrev: false,
+      nextCursor: 'NEXT',
+      prevCursor: null,
+    });
     const p2 = normalizePage({ next: null, previous: 'https://x?cursor=PREV' }, 'cursor', 1);
-    expect(p2).toMatchObject({ hasNext: false, hasPrev: true, nextCursor: null, prevCursor: 'PREV' });
+    expect(p2).toMatchObject({
+      hasNext: false,
+      hasPrev: true,
+      nextCursor: null,
+      prevCursor: 'PREV',
+    });
   });
   it('handles a null pagination object', () => {
-    expect(normalizePage(null, 'offset', 1)).toMatchObject({ total: null, hasNext: false, hasPrev: false });
+    expect(normalizePage(null, 'offset', 1)).toMatchObject({
+      total: null,
+      hasNext: false,
+      hasPrev: false,
+    });
   });
 });

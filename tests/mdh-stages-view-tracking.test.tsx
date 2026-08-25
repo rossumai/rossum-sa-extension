@@ -12,64 +12,92 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { h, render } from 'preact';
 import { act } from 'preact/test-utils';
 
-globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
-globalThis.chrome = ({ storage: { local: { get: (k: any, cb: any) => cb && cb({}), set() {}, remove() {} } } } as any);
+globalThis.ResizeObserver = class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+globalThis.chrome = {
+  storage: { local: { get: (k: any, cb: any) => cb && cb({}), set() {}, remove() {} } },
+} as any;
 
 vi.mock('../src/usage/track.js', () => ({ track: vi.fn(), trackOnce: vi.fn() }));
 vi.mock('../src/mdh/api.js');
-vi.mock('../src/mdh/components/RecordCard.jsx', () => ({ default: () => <div class="record-card-stub" /> }));
-vi.mock('../src/mdh/components/StagesView.jsx', () => ({ default: () => <div class="stages-view-stub" /> }));
+vi.mock('../src/mdh/components/RecordCard.jsx', () => ({
+  default: () => <div class="record-card-stub" />,
+}));
+vi.mock('../src/mdh/components/StagesView.jsx', () => ({
+  default: () => <div class="stages-view-stub" />,
+}));
 
 import RecordList from '../src/mdh/components/RecordList.jsx';
 import { track, trackOnce } from '../src/usage/track.js';
-import { skip, selectedCollection, selectionMode, selectedIds, selectionPipelineDirty, resultsView, inspectTarget } from '../src/mdh/store.js';
+import {
+  skip,
+  selectedCollection,
+  selectionMode,
+  selectedIds,
+  selectionPipelineDirty,
+  resultsView,
+  inspectTarget,
+} from '../src/mdh/store.js';
 
 const pagination = { hasPrev: () => false, hasNext: () => false, page: () => 1 };
 
 function renderList() {
   const root = document.createElement('div');
   document.body.appendChild(root);
-  render(<RecordList
-    records={[{ _id: '1' }]}
-    pipelineText="[]"
-    filterState={{}}
-    sortState={{}}
-    lastQueryMs={0}
-    totalCount={null}
-    pagination={pagination}
-    onSort={() => {}}
-    onFilter={() => {}}
-    onPageChange={() => {}}
-    onEdit={() => {}}
-    onDelete={() => {}}
-    onRefresh={() => {}}
-    downloadState={null}
-    onCancelDownload={() => {}}
-    onEnterSelectionMode={() => {}}
-    onExitSelectionMode={() => {}}
-    onBulkDelete={() => {}}
-    onBulkUpdate={() => {}}
-    onSelectPage={() => {}}
-    onClearSelection={() => {}}
-    onViewSelected={() => {}}
-  />, root);
+  render(
+    <RecordList
+      records={[{ _id: '1' }]}
+      pipelineText="[]"
+      filterState={{}}
+      sortState={{}}
+      lastQueryMs={0}
+      totalCount={null}
+      pagination={pagination}
+      onSort={() => {}}
+      onFilter={() => {}}
+      onPageChange={() => {}}
+      onEdit={() => {}}
+      onDelete={() => {}}
+      onRefresh={() => {}}
+      downloadState={null}
+      onCancelDownload={() => {}}
+      onEnterSelectionMode={() => {}}
+      onExitSelectionMode={() => {}}
+      onBulkDelete={() => {}}
+      onBulkUpdate={() => {}}
+      onSelectPage={() => {}}
+      onClearSelection={() => {}}
+      onViewSelected={() => {}}
+    />,
+    root,
+  );
   return root;
 }
 
-const clickView = (root: any, label: any) => act(() => {
-  const btn = [...root.querySelectorAll('.view-seg-opt')].find((b) => b.textContent.trim() === label);
-  if (!btn) throw new Error(`no "${label}" view button`);
-  btn.click();
-});
+const clickView = (root: any, label: any) =>
+  act(() => {
+    const btn = [...root.querySelectorAll('.view-seg-opt')].find(
+      (b) => b.textContent.trim() === label,
+    );
+    if (!btn) throw new Error(`no "${label}" view button`);
+    btn.click();
+  });
 
 describe('sa_mdh_stages_view', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     vi.clearAllMocks();
-    skip.value = 0; selectedCollection.value = 'c'; selectionMode.value = false;
+    skip.value = 0;
+    selectedCollection.value = 'c';
+    selectionMode.value = false;
     // selectedIds is a Map signal — a Set happened to satisfy the .size/.has this test reads.
-    selectedIds.value = new Map(); selectionPipelineDirty.value = false;
-    resultsView.value = 'list'; inspectTarget.value = null;
+    selectedIds.value = new Map();
+    selectionPipelineDirty.value = false;
+    resultsView.value = 'list';
+    inspectTarget.value = null;
   });
 
   it('reports once when the Stages view is opened', () => {

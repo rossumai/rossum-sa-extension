@@ -7,10 +7,8 @@ function detectMac() {
   if (typeof navigator === 'undefined') return false;
   // userAgentData is the modern API; fall back to navigator.platform (deprecated
   // but still supported in Chrome) and finally userAgent.
-  const platform = (navigator as any).userAgentData?.platform
-    || navigator.platform
-    || navigator.userAgent
-    || '';
+  const platform =
+    (navigator as any).userAgentData?.platform || navigator.platform || navigator.userAgent || '';
   return /mac|iphone|ipad|ipod/i.test(platform);
 }
 

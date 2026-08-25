@@ -40,7 +40,11 @@ export function parseNarrative(text: unknown, streaming = false): NarrativeBlock
     const t = line.trim();
     if (!t) continue;
     const m = /^[-•]\s+(.*)$/.exec(t);
-    blocks.push(m ? { type: 'li', segments: parseCitations(m[1], streaming) } : { type: 'p', segments: parseCitations(t, streaming) });
+    blocks.push(
+      m
+        ? { type: 'li', segments: parseCitations(m[1], streaming) }
+        : { type: 'p', segments: parseCitations(t, streaming) },
+    );
   }
   return blocks;
 }

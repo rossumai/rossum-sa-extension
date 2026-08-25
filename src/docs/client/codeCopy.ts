@@ -8,7 +8,7 @@
 export function initCodeCopy(root: HTMLElement): () => void {
   var doc = root.ownerDocument || document;
   var pres = root.querySelectorAll('.markdown-body pre');
-  pres.forEach(function(pre: Element) {
+  pres.forEach(function (pre: Element) {
     var btn = doc.createElement('button');
     btn.type = 'button';
     btn.className = 'code-copy-btn';
@@ -20,19 +20,24 @@ export function initCodeCopy(root: HTMLElement): () => void {
       btn.classList.add(state);
       btn.textContent = label;
       if (resetTimer) clearTimeout(resetTimer);
-      resetTimer = setTimeout(function() {
+      resetTimer = setTimeout(function () {
         btn.classList.remove('copied', 'failed');
         btn.textContent = 'Copy';
       }, 1500);
     }
-    btn.addEventListener('click', function(e: Event) {
+    btn.addEventListener('click', function (e: Event) {
       e.preventDefault();
       var code = pre.querySelector('code');
       var text = (code || pre).textContent || '';
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text)
-          .then(function() { flash('copied', 'Copied!'); })
-          .catch(function() { fallbackCopy(text); });
+        navigator.clipboard
+          .writeText(text)
+          .then(function () {
+            flash('copied', 'Copied!');
+          })
+          .catch(function () {
+            fallbackCopy(text);
+          });
       } else {
         fallbackCopy(text);
       }
@@ -48,7 +53,11 @@ export function initCodeCopy(root: HTMLElement): () => void {
       doc.body.appendChild(ta);
       ta.select();
       var ok = false;
-      try { ok = doc.execCommand('copy'); } catch (err) { ok = false; }
+      try {
+        ok = doc.execCommand('copy');
+      } catch (err) {
+        ok = false;
+      }
       doc.body.removeChild(ta);
       flash(ok ? 'copied' : 'failed', ok ? 'Copied!' : 'Failed');
     }

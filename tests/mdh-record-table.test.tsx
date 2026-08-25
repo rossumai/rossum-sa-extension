@@ -9,15 +9,21 @@ import { copyTextFor } from '../src/mdh/displayValue.js';
 function renderTable(props = {}) {
   const root = document.createElement('div');
   document.body.appendChild(root);
-  render(<RecordTable
-    records={[{ _id: '1', name: 'Alice', tags: ['x', 'y'] }, { _id: '2', name: 'Bob', tags: [] }]}
-    columns={['_id', 'name', 'tags']}
-    sortState={{}}
-    filterState={{}}
-    onSort={() => {}}
-    onFilter={() => {}}
-    {...props}
-  />, root);
+  render(
+    <RecordTable
+      records={[
+        { _id: '1', name: 'Alice', tags: ['x', 'y'] },
+        { _id: '2', name: 'Bob', tags: [] },
+      ]}
+      columns={['_id', 'name', 'tags']}
+      sortState={{}}
+      filterState={{}}
+      onSort={() => {}}
+      onFilter={() => {}}
+      {...props}
+    />,
+    root,
+  );
   return root;
 }
 
@@ -66,7 +72,10 @@ describe('RecordTable', () => {
     let root: any;
     await act(() => {
       root = renderTable({
-        records: [{ _id: { $oid: 'aaa111' }, name: 'Alice' }, { _id: { $oid: 'bbb222' }, name: 'Bob' }],
+        records: [
+          { _id: { $oid: 'aaa111' }, name: 'Alice' },
+          { _id: { $oid: 'bbb222' }, name: 'Bob' },
+        ],
         columns: ['_id', 'name'],
       });
     });
@@ -97,7 +106,15 @@ describe('RecordTable', () => {
     let root: any;
     await act(() => {
       root = renderTable({
-        records: [{ _id: '1', items: [{ sku: 'a', qty: 1 }, { sku: 'b', qty: 3 }] }],
+        records: [
+          {
+            _id: '1',
+            items: [
+              { sku: 'a', qty: 1 },
+              { sku: 'b', qty: 3 },
+            ],
+          },
+        ],
         columns: ['_id', 'items'],
       });
     });
@@ -199,9 +216,12 @@ describe('RecordTable', () => {
     let root: any;
     await act(() => {
       root = renderTable({
-        records: [{ _id: { $oid: 'aaaaaaaaaaaaaaaaaaaaaaaa' }, when: { $date: '2020-01-01T00:00:00Z' } }],
+        records: [
+          { _id: { $oid: 'aaaaaaaaaaaaaaaaaaaaaaaa' }, when: { $date: '2020-01-01T00:00:00Z' } },
+        ],
         columns: ['_id', 'when'],
-        sortState: {}, filterState: {},
+        sortState: {},
+        filterState: {},
       });
     });
     // Table uses the shared compact .value-type-tag, not the wide .json-tree-badge.
@@ -289,7 +309,9 @@ describe('RecordTable', () => {
     await act(async () => {
       idCopyBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(copyTextFor({ $oid: 'aaaaaaaaaaaaaaaaaaaaaaaa' }));
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      copyTextFor({ $oid: 'aaaaaaaaaaaaaaaaaaaaaaaa' }),
+    );
 
     // Reset clipboard mock
     vi.mocked(navigator.clipboard.writeText).mockClear();
@@ -303,7 +325,9 @@ describe('RecordTable', () => {
     await act(async () => {
       itemsCopyBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(JSON.stringify([{ sku: 'x' }], null, 2));
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      JSON.stringify([{ sku: 'x' }], null, 2),
+    );
   });
 
   it('reveals a special character in a string cell', () => {
@@ -363,7 +387,11 @@ describe('RecordTable', () => {
       columns: ['_id', 'n', 'b'],
     });
     const tds = root.querySelectorAll('tbody td');
-    expect(tds[1].querySelector('.record-table-value.json-tree-value-number')!.textContent).toBe('42');
-    expect(tds[2].querySelector('.record-table-value.json-tree-value-bool')!.textContent).toBe('true');
+    expect(tds[1].querySelector('.record-table-value.json-tree-value-number')!.textContent).toBe(
+      '42',
+    );
+    expect(tds[2].querySelector('.record-table-value.json-tree-value-bool')!.textContent).toBe(
+      'true',
+    );
   });
 });

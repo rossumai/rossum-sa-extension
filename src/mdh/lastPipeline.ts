@@ -24,7 +24,9 @@ export function saveLastPipeline(
         placeholderTypes: { ...(placeholderTypes || {}) },
       },
     });
-  } catch { /* storage unavailable — non-fatal */ }
+  } catch {
+    /* storage unavailable — non-fatal */
+  }
 }
 
 // Pure decision for the boot path: given the stored entry, the collection that

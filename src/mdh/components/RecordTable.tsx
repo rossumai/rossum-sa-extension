@@ -1,6 +1,12 @@
 import { h } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
-import { displayValue, getEjsonType, formatEjsonValue, EJSON_TYPES, copyTextFor } from '../displayValue.js';
+import {
+  displayValue,
+  getEjsonType,
+  formatEjsonValue,
+  EJSON_TYPES,
+  copyTextFor,
+} from '../displayValue.js';
 import { selectionMode } from '../store.js';
 import { isRecordSelected, toggleRecordSelection } from '../recordSelection.js';
 import { computeColumnWidths, clampAutoFit } from '../recordTableLayout.js';
@@ -21,7 +27,12 @@ function isComplexValue(value: any) {
 }
 
 export default function RecordTable({
-  records, columns, sortState, filterState, onSort, onFilter,
+  records,
+  columns,
+  sortState,
+  filterState,
+  onSort,
+  onFilter,
 }: SortFilterControls & {
   records: any[];
   columns: string[];
@@ -35,11 +46,16 @@ export default function RecordTable({
 
   // Reset inline-expand state when the data changes (pagination / new query
   // reuses this component instance) so stale "i:col" keys don't pre-expand cells.
-  useEffect(() => { setExpanded(new Set()); }, [records]);
+  useEffect(() => {
+    setExpanded(new Set());
+  }, [records]);
 
   // Reset column widths only when the column SET changes (not on every render).
   const colKey = columns.join('|');
-  useEffect(() => { colWidthsRef.current = {}; setColWidths({}); }, [colKey]);
+  useEffect(() => {
+    colWidthsRef.current = {};
+    setColWidths({});
+  }, [colKey]);
 
   // Track the wrap's available width so the computed filler (last) column always
   // fills the pane — re-measures when the pane resizes (pipeline splitter,
@@ -138,7 +154,8 @@ export default function RecordTable({
   function measureColumnContent(table: any, colPos: any, label: any) {
     const ghost = document.createElement('table');
     ghost.className = 'record-table';
-    ghost.style.cssText = 'position:fixed;left:-99999px;top:0;visibility:hidden;table-layout:auto;width:auto;min-width:0;';
+    ghost.style.cssText =
+      'position:fixed;left:-99999px;top:0;visibility:hidden;table-layout:auto;width:auto;min-width:0;';
     const tbody = document.createElement('tbody');
 
     const headTr = document.createElement('tr');
@@ -193,16 +210,35 @@ export default function RecordTable({
       const key = i + ':' + col;
       const isExp = expanded.has(key);
       return (
-        <td key={col} class={'record-table-cell-complex' + (isExp ? ' record-table-cell-expanded' : '')}>
+        <td
+          key={col}
+          class={'record-table-cell-complex' + (isExp ? ' record-table-cell-expanded' : '')}
+        >
           <div class="record-table-cell-inner">
-            <span class="record-table-badge" onClick={(e) => { e.stopPropagation(); toggleExpand(key); }} title={isExp ? 'Collapse' : 'Expand'}>
-              <span class="record-table-caret">{isExp ? '▼' : '▶'}</span>{' ' + displayValue(value)}
+            <span
+              class="record-table-badge"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleExpand(key);
+              }}
+              title={isExp ? 'Collapse' : 'Expand'}
+            >
+              <span class="record-table-caret">{isExp ? '▼' : '▶'}</span>
+              {' ' + displayValue(value)}
             </span>
             <CopyButton getText={() => JSON.stringify(value, null, 2)} kind="json" />
           </div>
           {isExp && (
             <div class="record-table-nested">
-              <JsonTree data={value} depth={0} collapseDepth={1} sortState={sortState} filterState={filterState} onSort={onSort} onFilter={onFilter} />
+              <JsonTree
+                data={value}
+                depth={0}
+                collapseDepth={1}
+                sortState={sortState}
+                filterState={filterState}
+                onSort={onSort}
+                onFilter={onFilter}
+              />
             </div>
           )}
         </td>
@@ -216,8 +252,16 @@ export default function RecordTable({
       return (
         <td key={col}>
           <div class="record-table-cell-inner">
-            <span class={'record-table-value ' + info.css + (filtered ? ' json-tree-value-filtered' : '')}>{formatted}</span>
-            <span class={'value-type-tag ' + info.css} title={info.label}>{info.short}</span>
+            <span
+              class={
+                'record-table-value ' + info.css + (filtered ? ' json-tree-value-filtered' : '')
+              }
+            >
+              {formatted}
+            </span>
+            <span class={'value-type-tag ' + info.css} title={info.label}>
+              {info.short}
+            </span>
             <CopyButton getText={() => copyTextFor(value)} kind="value" />
           </div>
         </td>
@@ -230,7 +274,9 @@ export default function RecordTable({
       return (
         <td key={col}>
           <div class="record-table-cell-inner">
-            <span class="record-table-value json-tree-value-null" title="field omitted">{'—'}</span>
+            <span class="record-table-value json-tree-value-null" title="field omitted">
+              {'—'}
+            </span>
           </div>
         </td>
       );
@@ -245,21 +291,54 @@ export default function RecordTable({
     if (value === null) {
       inner = <span class="record-table-value json-tree-value-null">null</span>;
     } else if (value === '') {
-      inner = <span class="record-table-value json-tree-value-null" title="empty string">(empty)</span>;
+      inner = (
+        <span class="record-table-value json-tree-value-null" title="empty string">
+          (empty)
+        </span>
+      );
     } else if (typeof value === 'number') {
-      inner = <span class={'record-table-value json-tree-value-number' + (filtered ? ' json-tree-value-filtered' : '')}>{String(value)}</span>;
+      inner = (
+        <span
+          class={
+            'record-table-value json-tree-value-number' +
+            (filtered ? ' json-tree-value-filtered' : '')
+          }
+        >
+          {String(value)}
+        </span>
+      );
     } else if (typeof value === 'boolean') {
-      inner = <span class={'record-table-value json-tree-value-bool' + (filtered ? ' json-tree-value-filtered' : '')}>{String(value)}</span>;
+      inner = (
+        <span
+          class={
+            'record-table-value json-tree-value-bool' +
+            (filtered ? ' json-tree-value-filtered' : '')
+          }
+        >
+          {String(value)}
+        </span>
+      );
     } else if (typeof value === 'string') {
-      inner = <span class={'record-table-value' + (filtered ? ' json-tree-value-filtered' : '')}><SpecialText value={value} quote limit={CELL_TEXT_CAP} /></span>;
+      inner = (
+        <span class={'record-table-value' + (filtered ? ' json-tree-value-filtered' : '')}>
+          <SpecialText value={value} quote limit={CELL_TEXT_CAP} />
+        </span>
+      );
     } else {
-      inner = <span class={'record-table-value' + (filtered ? ' json-tree-value-filtered' : '')}>{displayValue(value)}</span>;
+      inner = (
+        <span class={'record-table-value' + (filtered ? ' json-tree-value-filtered' : '')}>
+          {displayValue(value)}
+        </span>
+      );
     }
 
     return (
-      <td key={col} class="record-table-cell-clickable"
+      <td
+        key={col}
+        class="record-table-cell-clickable"
         onClick={() => onFilter(col, value)}
-        title={filtered ? `Filtering by ${col} — click to remove` : `Click to filter by ${col}`}>
+        title={filtered ? `Filtering by ${col} — click to remove` : `Click to filter by ${col}`}
+      >
         <div class="record-table-cell-inner">
           {inner}
           <CopyButton getText={() => copyTextFor(value)} kind="value" />
@@ -296,15 +375,24 @@ export default function RecordTable({
           <tr>
             {selecting && <th class="record-table-check" aria-label="select"></th>}
             {columns.map((col, idx) => (
-              <th key={col} class="record-table-th" onClick={() => onSort(col)} title="Click to sort">
-                {col}{sortBadge(col)}
+              <th
+                key={col}
+                class="record-table-th"
+                onClick={() => onSort(col)}
+                title="Click to sort"
+              >
+                {col}
+                {sortBadge(col)}
                 {idx !== columns.length - 1 && (
                   <span
                     class="col-resizer"
                     title="Drag to resize · double-click to fit content"
                     onMouseDown={(e) => startColResize(col, e)}
                     onClick={(e) => e.stopPropagation()}
-                    onDblClick={(e) => { e.stopPropagation(); autoFitCol(col, e); }}
+                    onDblClick={(e) => {
+                      e.stopPropagation();
+                      autoFitCol(col, e);
+                    }}
                   />
                 )}
               </th>
@@ -313,11 +401,23 @@ export default function RecordTable({
         </thead>
         <tbody>
           {records.map((rec, i) => (
-            <tr key={i} class={selecting && isRecordSelected(rec) ? 'record-table-row-selected' : undefined}>
+            <tr
+              key={i}
+              class={selecting && isRecordSelected(rec) ? 'record-table-row-selected' : undefined}
+            >
               {selecting && (
                 <td class="record-table-check">
-                  <input type="checkbox" class="record-checkbox" checked={isRecordSelected(rec)}
-                    onClick={(e) => { e.stopPropagation(); toggleRecordSelection(rec); }} onChange={() => {}} aria-label="Select record" />
+                  <input
+                    type="checkbox"
+                    class="record-checkbox"
+                    checked={isRecordSelected(rec)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleRecordSelection(rec);
+                    }}
+                    onChange={() => {}}
+                    aria-label="Select record"
+                  />
                 </td>
               )}
               {columns.map((col) => renderCell(rec, col, i))}

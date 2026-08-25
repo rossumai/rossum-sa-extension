@@ -4,7 +4,12 @@
 
 export async function runChecks(
   reqs: any[],
-  { runOne, onResult, concurrency = 3, signal }: {
+  {
+    runOne,
+    onResult,
+    concurrency = 3,
+    signal,
+  }: {
     runOne: (r: any) => Promise<any>;
     onResult?: (id: string, result: any) => void;
     concurrency?: number;
@@ -25,7 +30,12 @@ export async function runChecks(
       try {
         result = await runOne(req);
       } catch (err) {
-        result = { verdict: 'uncertain', evidence: `Check could not complete: ${(err as Error)?.message || err}`, chatId: null, error: true };
+        result = {
+          verdict: 'uncertain',
+          evidence: `Check could not complete: ${(err as Error)?.message || err}`,
+          chatId: null,
+          error: true,
+        };
       }
       if (signal && signal.aborted) return;
       if (result == null) return; // aborted/stale mid-runOne
@@ -34,7 +44,9 @@ export async function runChecks(
     }
   }
 
-  const workers = Array.from({ length: Math.max(1, Math.min(concurrency, reqs.length)) }, () => worker());
+  const workers = Array.from({ length: Math.max(1, Math.min(concurrency, reqs.length)) }, () =>
+    worker(),
+  );
   await Promise.all(workers);
   return results;
 }

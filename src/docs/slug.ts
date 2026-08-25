@@ -14,7 +14,8 @@
 export const RESERVED = new Set(['index']);
 
 export function slugify(title: unknown): string {
-  const base = String(title ?? '').toLowerCase()
+  const base = String(title ?? '')
+    .toLowerCase()
     // identical to render.js's anchor slugify
     .replace(/[^\w\s-]/g, '')
     .trim()
@@ -44,4 +45,3 @@ export function assignSlugs(
   }
   return out;
 }
-

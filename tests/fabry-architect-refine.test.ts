@@ -1,8 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { buildRefineFirst, buildRefineNext, parseRefinedText } from '../src/fabry/architect/refine.js';
+import {
+  buildRefineFirst,
+  buildRefineNext,
+  parseRefinedText,
+} from '../src/fabry/architect/refine.js';
 
 describe('refine.buildRefineFirst', () => {
-  const p = buildRefineFirst('the invoices Q should be automatic', 'add an 80% automation threshold');
+  const p = buildRefineFirst(
+    'the invoices Q should be automatic',
+    'add an 80% automation threshold',
+  );
   it('carries the rules (clarity, preserve-meaning, read-only, return-only), the requirement, and the instruction', () => {
     expect(p).toMatch(/clarity/i);
     expect(p).toMatch(/preserve the requirement's meaning/i);

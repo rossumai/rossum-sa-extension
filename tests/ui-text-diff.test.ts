@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { tokenize, diffWords } from '../src/ui/textDiff.js';
 
-const join = (segs: any, types: any) => segs.filter((s: any) => types.includes(s.type)).map((s: any) => s.text).join('');
+const join = (segs: any, types: any) =>
+  segs
+    .filter((s: any) => types.includes(s.type))
+    .map((s: any) => s.text)
+    .join('');
 
 describe('textDiff', () => {
   it('tokenize keeps words and whitespace so the text reconstructs exactly', () => {

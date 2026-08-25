@@ -1,11 +1,32 @@
 import { describe, it, expect, vi } from 'vitest';
-import { buildSynthesisPrompt, buildFollowupPrompt, runSynthesis, continueSynthesis } from '../src/inspector/synthesize.js';
+import {
+  buildSynthesisPrompt,
+  buildFollowupPrompt,
+  runSynthesis,
+  continueSynthesis,
+} from '../src/inspector/synthesize.js';
 
 const EV = {
-  verdict: { state: 'blocked', headline: 'Not automated — 1 blocking error', reasons: [{ fact: 'f', evidenceId: 'blocker:0' }] },
+  verdict: {
+    state: 'blocked',
+    headline: 'Not automated — 1 blocking error',
+    reasons: [{ fact: 'f', evidenceId: 'blocker:0' }],
+  },
   items: [
-    { id: 'blocker:0', section: 'blockers', fact: 'automation blocker error_message', reliability: 'verified', culprit: { kind: 'rule', id: 7, name: 'PO required' } },
-    { id: 'gap:hookLogs', section: 'blockers', fact: 'hook logs unavailable', reliability: 'unavailable', culprit: null },
+    {
+      id: 'blocker:0',
+      section: 'blockers',
+      fact: 'automation blocker error_message',
+      reliability: 'verified',
+      culprit: { kind: 'rule', id: 7, name: 'PO required' },
+    },
+    {
+      id: 'gap:hookLogs',
+      section: 'blockers',
+      fact: 'hook logs unavailable',
+      reliability: 'unavailable',
+      culprit: null,
+    },
   ],
 };
 
@@ -45,7 +66,13 @@ describe('runSynthesis', () => {
     };
     const texts: any = [];
     const phases: any = [];
-    const res = await runSynthesis({ agentApi, evidence: EV, annotation: { id: 1, status: 'to_review', queueId: '5' }, onPhase: (p) => phases.push(p), onText: (t) => texts.push(t) });
+    const res = await runSynthesis({
+      agentApi,
+      evidence: EV,
+      annotation: { id: 1, status: 'to_review', queueId: '5' },
+      onPhase: (p) => phases.push(p),
+      onText: (t) => texts.push(t),
+    });
     expect(prompts[0]).toBe('/persona cautious');
     expect(res.text).toBe('Blocked [e:blocker:0]');
     expect(res.reasoning).toContain('thinking');
@@ -66,10 +93,21 @@ describe('continueSynthesis', () => {
         onEvent({ type: 'finish' });
       }),
     };
-    const run = await runSynthesis({ agentApi, evidence: EV, annotation: { id: 1, status: 'to_review' }, onPhase: () => {}, onText: () => {} });
+    const run = await runSynthesis({
+      agentApi,
+      evidence: EV,
+      annotation: { id: 1, status: 'to_review' },
+      onPhase: () => {},
+      onText: () => {},
+    });
     expect(run.chatId).toBe('chat9');
     const texts: any = [];
-    const res = await continueSynthesis({ agentApi, chatId: run.chatId, question: 'why is po_number empty?', onText: (t) => texts.push(t) });
+    const res = await continueSynthesis({
+      agentApi,
+      chatId: run.chatId,
+      question: 'why is po_number empty?',
+      onText: (t) => texts.push(t),
+    });
     expect(agentApi.createChat).toHaveBeenCalledTimes(1); // no new chat
     const followup: any = prompts[prompts.length - 1];
     expect(followup[0]).toBe('chat9');

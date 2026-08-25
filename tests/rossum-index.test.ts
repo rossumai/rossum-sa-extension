@@ -9,13 +9,13 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 function loadEntry(settings: any) {
   vi.resetModules();
-  globalThis.chrome = ({
+  globalThis.chrome = {
     storage: {
       local: {
         get: vi.fn().mockResolvedValue(settings),
       },
     } as any,
-  } as any);
+  } as any;
 }
 
 describe('rossum content-script entry', () => {
@@ -28,7 +28,9 @@ describe('rossum content-script entry', () => {
   it('always observes for closable-tooltips even when all toggles are off', async () => {
     loadEntry({});
     const observeSpy = vi.fn();
-    globalThis.MutationObserver = (vi.fn(function (this: any) { this.observe = observeSpy; }) as any);
+    globalThis.MutationObserver = vi.fn(function (this: any) {
+      this.observe = observeSpy;
+    }) as any;
 
     await import('../src/rossum/index.js');
     await new Promise((r) => setTimeout(r, 0));
@@ -45,7 +47,9 @@ describe('rossum content-script entry', () => {
   it('observes document.body once any feature is enabled', async () => {
     loadEntry({ schemaAnnotationsEnabled: true });
     const observeSpy = vi.fn();
-    globalThis.MutationObserver = (vi.fn(function (this: any) { this.observe = observeSpy; }) as any);
+    globalThis.MutationObserver = vi.fn(function (this: any) {
+      this.observe = observeSpy;
+    }) as any;
 
     await import('../src/rossum/index.js');
     await new Promise((r) => setTimeout(r, 0));
@@ -59,10 +63,10 @@ describe('rossum content-script entry', () => {
   it('walks added subtrees and invokes every registered handler per element', async () => {
     loadEntry({ schemaAnnotationsEnabled: true, expandFormulasEnabled: true });
     let observerCallback: any;
-    globalThis.MutationObserver = (vi.fn(function (this: any, cb) {
+    globalThis.MutationObserver = vi.fn(function (this: any, cb) {
       observerCallback = cb;
       this.observe = vi.fn();
-    }) as any);
+    }) as any;
 
     await import('../src/rossum/index.js');
     await new Promise((r) => setTimeout(r, 0));
@@ -81,7 +85,10 @@ describe('rossum content-script entry', () => {
     const visited = new Set();
     for (const el of [parent, child1, child2, grandchild]) {
       const orig = el.matches.bind(el);
-      el.matches = ((sel: string) => { visited.add(el); return orig(sel); }) as typeof el.matches;
+      el.matches = ((sel: string) => {
+        visited.add(el);
+        return orig(sel);
+      }) as typeof el.matches;
     }
 
     observerCallback([{ addedNodes: [parent] }]);
@@ -96,10 +103,10 @@ describe('rossum content-script entry', () => {
   it('ignores non-element added nodes (text nodes, comments)', async () => {
     loadEntry({ schemaAnnotationsEnabled: true });
     let observerCallback: any;
-    globalThis.MutationObserver = (vi.fn(function (this: any, cb) {
+    globalThis.MutationObserver = vi.fn(function (this: any, cb) {
       observerCallback = cb;
       this.observe = vi.fn();
-    }) as any);
+    }) as any;
 
     await import('../src/rossum/index.js');
     await new Promise((r) => setTimeout(r, 0));
@@ -111,7 +118,9 @@ describe('rossum content-script entry', () => {
 
   it('injects schema-ids CSS only when that feature is enabled', async () => {
     loadEntry({ schemaAnnotationsEnabled: true });
-    globalThis.MutationObserver = (vi.fn(function (this: any) { this.observe = vi.fn(); }) as any);
+    globalThis.MutationObserver = vi.fn(function (this: any) {
+      this.observe = vi.fn();
+    }) as any;
 
     await import('../src/rossum/index.js');
     await new Promise((r) => setTimeout(r, 0));
@@ -125,7 +134,9 @@ describe('rossum content-script entry', () => {
 
   it('does not inject schema-ids CSS when the feature is disabled', async () => {
     loadEntry({ expandFormulasEnabled: true });
-    globalThis.MutationObserver = (vi.fn(function (this: any) { this.observe = vi.fn(); }) as any);
+    globalThis.MutationObserver = vi.fn(function (this: any) {
+      this.observe = vi.fn();
+    }) as any;
 
     await import('../src/rossum/index.js');
     await new Promise((r) => setTimeout(r, 0));

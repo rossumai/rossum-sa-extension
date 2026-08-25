@@ -24,7 +24,9 @@ export function openDatasetManagement(
 ) {
   const { storageSet, tabsCreate, getURL, uuid, now } = deps;
   const authId = uuid();
-  const opts: chrome.tabs.CreateProperties = { url: getURL(`console/console.html?authId=${authId}`) };
+  const opts: chrome.tabs.CreateProperties = {
+    url: getURL(`console/console.html?authId=${authId}`),
+  };
   // Open right next to the tab the request came from (same window).
   const opener = msg.openerTab;
   if (opener && typeof opener.index === 'number') {
@@ -32,7 +34,14 @@ export function openDatasetManagement(
     opts.windowId = opener.windowId;
   }
   storageSet(
-    { [`consoleAuth_${authId}`]: { token: msg.token, domain: msg.domain, app: 'mdh', createdAt: now() } },
+    {
+      [`consoleAuth_${authId}`]: {
+        token: msg.token,
+        domain: msg.domain,
+        app: 'mdh',
+        createdAt: now(),
+      },
+    },
     () => tabsCreate(opts),
   );
   return authId;
@@ -41,13 +50,11 @@ export function openDatasetManagement(
 // Bring every existing tab in line, then set the global default. Order matters:
 // switching the default off FIRST would momentarily close a panel already open
 // on a Rossum tab whose per-tab option has not been written yet (worker restart).
-export async function syncSidePanelTabs(
-  deps: {
-    /** Only `id` and `url` are read, so a stub need not build whole chrome Tabs. */
-    queryTabs: () => Promise<Array<{ id?: number; url?: string } | null>>;
-    setOptions: (opts: any) => unknown;
-  },
-) {
+export async function syncSidePanelTabs(deps: {
+  /** Only `id` and `url` are read, so a stub need not build whole chrome Tabs. */
+  queryTabs: () => Promise<Array<{ id?: number; url?: string } | null>>;
+  setOptions: (opts: any) => unknown;
+}) {
   const { queryTabs, setOptions } = deps;
   const tabs = await queryTabs();
   // Issued together (they are independent) and all awaited before the default is
@@ -111,7 +118,13 @@ if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
     // immediately and let Chrome terminate the worker mid-send.
     collect(msg)
       .catch(() => {})
-      .then(() => { try { sendResponse(); } catch { /* receiver gone */ } });
+      .then(() => {
+        try {
+          sendResponse();
+        } catch {
+          /* receiver gone */
+        }
+      });
     return true;
   });
 }

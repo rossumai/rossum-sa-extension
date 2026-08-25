@@ -19,7 +19,10 @@ function mount(node: any) {
 
 // jsdom's Event has no dataTransfer, so we attach one. `cancelable: true`
 // lets preventDefault register on event.defaultPrevented.
-function dragEvent(type: any, { files = [], types = ['Files'] }: { files?: File[]; types?: string[] } = {}) {
+function dragEvent(
+  type: any,
+  { files = [], types = ['Files'] }: { files?: File[]; types?: string[] } = {},
+) {
   const ev = new Event(type, { bubbles: true, cancelable: true });
   Object.defineProperty(ev, 'dataTransfer', {
     value: { files, types, dropEffect: 'none' },
@@ -32,7 +35,11 @@ async function waitFor(fn: any, { timeout = 1000, interval = 10 } = {}) {
   const start = Date.now();
   for (;;) {
     let v: any;
-    try { v = fn(); } catch { v = null; }
+    try {
+      v = fn();
+    } catch {
+      v = null;
+    }
     if (v) return v;
     if (Date.now() - start > timeout) throw new Error(`waitFor timed out`);
     await new Promise((r) => setTimeout(r, interval));
@@ -42,17 +49,14 @@ async function waitFor(fn: any, { timeout = 1000, interval = 10 } = {}) {
 describe('FileDropArea helpers', () => {
   it('allowedExtensions keeps only the dotted tokens, lowercased', () => {
     expect(allowedExtensions('.csv,text/csv')).toEqual(['.csv']);
-    expect(allowedExtensions('.jsonl,.ndjson,application/x-ndjson'))
-      .toEqual(['.jsonl', '.ndjson']);
+    expect(allowedExtensions('.jsonl,.ndjson,application/x-ndjson')).toEqual(['.jsonl', '.ndjson']);
     expect(allowedExtensions('.XML,text/xml')).toEqual(['.xml']);
   });
 
   it('formatExpected reads naturally for 1, 2, and 3+ extensions', () => {
     expect(formatExpected(['.json'])).toBe('Expected a .json file');
-    expect(formatExpected(['.jsonl', '.ndjson']))
-      .toBe('Expected a .jsonl or .ndjson file');
-    expect(formatExpected(['.a', '.b', '.c']))
-      .toBe('Expected a .a, .b, or .c file');
+    expect(formatExpected(['.jsonl', '.ndjson'])).toBe('Expected a .jsonl or .ndjson file');
+    expect(formatExpected(['.a', '.b', '.c'])).toBe('Expected a .a, .b, or .c file');
   });
 
   it('extensionMatches is case-insensitive and permissive when no exts', () => {
@@ -65,13 +69,17 @@ describe('FileDropArea helpers', () => {
 describe('FileDropArea component', () => {
   it('drops a matching file → onFile, and prevents the browser default', () => {
     let got = null;
-    const root = mount(<FileDropArea
-      accept=".csv,text/csv"
-      onFile={(f) => { got = f; }}
-      onReject={() => {}}
-    >
-      <div class="file-input-label">Click to select a CSV file</div>
-    </FileDropArea>);
+    const root = mount(
+      <FileDropArea
+        accept=".csv,text/csv"
+        onFile={(f) => {
+          got = f;
+        }}
+        onReject={() => {}}
+      >
+        <div class="file-input-label">Click to select a CSV file</div>
+      </FileDropArea>,
+    );
     const area = root.querySelector('.file-input-area');
     const file = new File(['a,b\n1,2'], 'data.csv', { type: 'text/csv' });
     const ev = dragEvent('drop', { files: [file] });
@@ -81,14 +89,21 @@ describe('FileDropArea component', () => {
   });
 
   it('drops a wrong-extension file → onReject, not onFile', () => {
-    let got = null; let rejected = null;
-    const root = mount(<FileDropArea
-      accept=".csv,text/csv"
-      onFile={(f) => { got = f; }}
-      onReject={(m) => { rejected = m; }}
-    >
-      <div>pick</div>
-    </FileDropArea>);
+    let got = null;
+    let rejected = null;
+    const root = mount(
+      <FileDropArea
+        accept=".csv,text/csv"
+        onFile={(f) => {
+          got = f;
+        }}
+        onReject={(m) => {
+          rejected = m;
+        }}
+      >
+        <div>pick</div>
+      </FileDropArea>,
+    );
     const area = root.querySelector('.file-input-area');
     const file = new File(['x'], 'notes.txt', { type: 'text/plain' });
     area!.dispatchEvent(dragEvent('drop', { files: [file] }));
@@ -97,7 +112,11 @@ describe('FileDropArea component', () => {
   });
 
   it('highlights on dragenter (Files) and clears on dragleave', async () => {
-    const root = mount(<FileDropArea accept=".csv" onFile={() => {}}><div>pick</div></FileDropArea>);
+    const root = mount(
+      <FileDropArea accept=".csv" onFile={() => {}}>
+        <div>pick</div>
+      </FileDropArea>,
+    );
     const area = root.querySelector('.file-input-area')!;
     area.dispatchEvent(dragEvent('dragenter', { files: [] }));
     await waitFor(() => area.classList.contains('drag-over'));
@@ -107,7 +126,11 @@ describe('FileDropArea component', () => {
   });
 
   it('ignores a drag that carries no files (e.g. dragging page content)', async () => {
-    const root = mount(<FileDropArea accept=".csv" onFile={() => {}}><div>pick</div></FileDropArea>);
+    const root = mount(
+      <FileDropArea accept=".csv" onFile={() => {}}>
+        <div>pick</div>
+      </FileDropArea>,
+    );
     const area = root.querySelector('.file-input-area')!;
     area.dispatchEvent(dragEvent('dragenter', { types: ['text/plain'] }));
     await new Promise((r) => setTimeout(r, 40));
@@ -116,7 +139,16 @@ describe('FileDropArea component', () => {
 
   it('click path forwards the file WITHOUT extension validation (back-compat)', () => {
     let got = null;
-    const root = mount(<FileDropArea accept=".csv,text/csv" onFile={(f) => { got = f; }}><div>pick</div></FileDropArea>);
+    const root = mount(
+      <FileDropArea
+        accept=".csv,text/csv"
+        onFile={(f) => {
+          got = f;
+        }}
+      >
+        <div>pick</div>
+      </FileDropArea>,
+    );
     const input = root.querySelector('input[type="file"]');
     const file = new File(['x'], 'forced.txt', { type: 'text/plain' });
     Object.defineProperty(input, 'files', { value: [file], configurable: true });
@@ -125,9 +157,17 @@ describe('FileDropArea component', () => {
   });
 
   it('forwards inputTestid, and omits data-testid when not given', () => {
-    const a = mount(<FileDropArea accept=".csv" onFile={() => {}} inputTestid="demo-input"><div>p</div></FileDropArea>);
+    const a = mount(
+      <FileDropArea accept=".csv" onFile={() => {}} inputTestid="demo-input">
+        <div>p</div>
+      </FileDropArea>,
+    );
     expect(a.querySelector('[data-testid="demo-input"]')).toBeTruthy();
-    const b = mount(<FileDropArea accept=".csv" onFile={() => {}}><div>p</div></FileDropArea>);
+    const b = mount(
+      <FileDropArea accept=".csv" onFile={() => {}}>
+        <div>p</div>
+      </FileDropArea>,
+    );
     expect(b.querySelector('input[type="file"]')!.hasAttribute('data-testid')).toBe(false);
   });
 });
@@ -136,7 +176,7 @@ describe('Modal overlay mis-drop guard', () => {
   it('swallows a file drop on the overlay so the browser never opens the file', () => {
     openModal('Drag test', () => <div class="inner">body</div>);
     const root = mount(<Modal />);
-    const overlay = root.querySelector(('.' + mstyles.overlay));
+    const overlay = root.querySelector('.' + mstyles.overlay);
     expect(overlay).toBeTruthy();
     const ev = dragEvent('drop', { files: [], types: ['Files'] });
     overlay!.dispatchEvent(ev);

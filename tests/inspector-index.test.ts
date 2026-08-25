@@ -1,7 +1,9 @@
 // @vitest-environment node
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 vi.mock('../src/inspector/api.js');
-vi.mock('../src/inspector/orchestrate.js', () => ({ orchestrateAttributions: vi.fn(async () => {}) }));
+vi.mock('../src/inspector/orchestrate.js', () => ({
+  orchestrateAttributions: vi.fn(async () => {}),
+}));
 vi.mock('../src/agent/agentApi.js', () => ({
   init: vi.fn(),
   probeAgent: vi.fn(() => Promise.resolve(false)),
@@ -16,23 +18,54 @@ import * as api from '../src/inspector/api.js';
 import * as store from '../src/inspector/store.js';
 import * as agentApi from '../src/agent/agentApi.js';
 import { orchestrateAttributions } from '../src/inspector/orchestrate.js';
-import { initInspector, loadAnnotation, loadQueueRules, askFabry, closeAnnotation } from '../src/inspector/index.jsx';
+import {
+  initInspector,
+  loadAnnotation,
+  loadQueueRules,
+  askFabry,
+  closeAnnotation,
+} from '../src/inspector/index.jsx';
 
 function waitFor(fn: any, { timeout = 1000, step = 5 } = {}) {
-  return new Promise<void>((res, rej) => { const t0 = Date.now(); (function p() { let ok = false; try { ok = fn(); } catch { /* ignore */ } if (ok) return res(); if (Date.now() - t0 > timeout) return rej(new Error('timeout')); setTimeout(p, step); })(); });
+  return new Promise<void>((res, rej) => {
+    const t0 = Date.now();
+    (function p() {
+      let ok = false;
+      try {
+        ok = fn();
+      } catch {
+        /* ignore */
+      }
+      if (ok) return res();
+      if (Date.now() - t0 > timeout) return rej(new Error('timeout'));
+      setTimeout(p, step);
+    })();
+  });
 }
 
-beforeEach(() => { store.reset(); vi.clearAllMocks(); });
+beforeEach(() => {
+  store.reset();
+  vi.clearAllMocks();
+});
 
 describe('inspector orchestrator', () => {
   it('initInspector flips connected false on whoami failure', async () => {
-    vi.mocked(api.whoami).mockRejectedValue(Object.assign(new Error('Session expired'), { status: 401 }));
+    vi.mocked(api.whoami).mockRejectedValue(
+      Object.assign(new Error('Session expired'), { status: 401 }),
+    );
     await initInspector();
     expect(store.connected.value).toBe(false);
   });
 
   it('loadAnnotation populates data from core GETs (blocker followed from URL)', async () => {
-    vi.mocked(api.getAnnotation).mockResolvedValue({ id: 5, status: 'to_review', messages: [], automation_blocker: 'https://h/api/v1/automation_blockers/9', queue: 'https://h/api/v1/queues/3', schema: 'https://h/api/v1/schemas/7' });
+    vi.mocked(api.getAnnotation).mockResolvedValue({
+      id: 5,
+      status: 'to_review',
+      messages: [],
+      automation_blocker: 'https://h/api/v1/automation_blockers/9',
+      queue: 'https://h/api/v1/queues/3',
+      schema: 'https://h/api/v1/schemas/7',
+    });
     vi.mocked(api.getAutomationBlocker).mockResolvedValue({ content: [{ type: 'low_score' }] });
     vi.mocked(api.getContent).mockResolvedValue({ content: [] });
     vi.mocked(api.getQueue).mockResolvedValue({ id: 3, automation_level: 'never' });
@@ -46,7 +79,12 @@ describe('inspector orchestrator', () => {
   });
 
   it('a successful load prefetches queue rules and runs the attribution orchestrator', async () => {
-    vi.mocked(api.getAnnotation).mockResolvedValue({ id: 6, status: 'to_review', messages: [], queue: 'https://h/api/v1/queues/3' });
+    vi.mocked(api.getAnnotation).mockResolvedValue({
+      id: 6,
+      status: 'to_review',
+      messages: [],
+      queue: 'https://h/api/v1/queues/3',
+    });
     vi.mocked(api.getContent).mockResolvedValue({ content: [] });
     vi.mocked(api.getQueue).mockResolvedValue({ id: 3 });
     vi.mocked(api.listRules).mockResolvedValue([{ id: 11, name: 'R', actions: [] }]);
@@ -66,7 +104,11 @@ describe('inspector orchestrator', () => {
   it('a stale queue-rules load does not contaminate a newer annotation (loadId guard)', async () => {
     store.data.value = { annotation: { id: 1, queue: 'https://h/api/v1/queues/3' }, resolved: {} };
     let resolveRules: any;
-    vi.mocked(api.listRules).mockReturnValue(new Promise((r) => { resolveRules = r; })); // A's rules are slow
+    vi.mocked(api.listRules).mockReturnValue(
+      new Promise((r) => {
+        resolveRules = r;
+      }),
+    ); // A's rules are slow
     const stale = loadQueueRules(); // captures the current loadId
     vi.mocked(api.getAnnotation).mockReturnValue(new Promise(() => {})); // never resolves — we only need the synchronous ++loadId
     loadAnnotation('2'); // navigate away → bumps loadId synchronously at entry
@@ -77,7 +119,12 @@ describe('inspector orchestrator', () => {
 });
 
 function mockAllSources() {
-  vi.mocked(api.getAnnotation).mockResolvedValue({ id: 1, status: 'to_review', messages: [], queue: 'https://h/api/v1/queues/3' });
+  vi.mocked(api.getAnnotation).mockResolvedValue({
+    id: 1,
+    status: 'to_review',
+    messages: [],
+    queue: 'https://h/api/v1/queues/3',
+  });
   vi.mocked(api.getContent).mockResolvedValue({ content: [] });
   vi.mocked(api.getQueue).mockResolvedValue({ id: 3 });
   vi.mocked(api.listRules).mockResolvedValue([]);
@@ -127,21 +174,27 @@ describe('staged lifecycle', () => {
     vi.mocked(agentApi.streamMessage).mockImplementation(async (_id, content, { onEvent } = {}) => {
       if (content === '/persona cautious') return;
       onEvent?.({ type: 'text-delta', delta: 'partial…' });
-      await new Promise((r) => { release = r; });
+      await new Promise((r) => {
+        release = r;
+      });
       onEvent?.({ type: 'text-delta', delta: 'FINAL — must not appear' });
       onEvent?.({ type: 'finish' });
     });
     try {
       store.setAnnotationId('1');
       loadAnnotation('1'); // not awaited — synthesis runs in the background
-      await waitFor(() => store.synthesis.value?.status === 'streaming' && store.synthesis.value.text === 'partial…');
+      await waitFor(
+        () =>
+          store.synthesis.value?.status === 'streaming' &&
+          store.synthesis.value.text === 'partial…',
+      );
       // Supersede: navigating to another annotation aborts the in-flight synthesis.
       vi.mocked(api.getAnnotation).mockReturnValue(new Promise(() => {})); // '2' never resolves
       loadAnnotation('2');
       release(); // let the now-stale synthesis stream finish AFTER the abort
       await new Promise((r) => setTimeout(r, 20));
-      expect(store.synthesis.value.status).not.toBe('done');       // stale 'done' never written
-      expect(store.synthesis.value.text).toBe('partial…');         // late delta was dropped by the guard
+      expect(store.synthesis.value.status).not.toBe('done'); // stale 'done' never written
+      expect(store.synthesis.value.text).toBe('partial…'); // late delta was dropped by the guard
     } finally {
       vi.mocked(agentApi.streamMessage).mockImplementation(saved!); // restore so sibling tests keep the default stream
     }
@@ -212,7 +265,11 @@ describe('closeAnnotation (back to landing)', () => {
     store.aiAvailable.value = false;
     mockAllSources();
     let resolveRules: any;
-    vi.mocked(api.listRules).mockReturnValue(new Promise((r) => { resolveRules = r; })); // keep gather in flight
+    vi.mocked(api.listRules).mockReturnValue(
+      new Promise((r) => {
+        resolveRules = r;
+      }),
+    ); // keep gather in flight
     store.setAnnotationId('1');
     const load = loadAnnotation('1');
     await waitFor(() => store.data.value != null);

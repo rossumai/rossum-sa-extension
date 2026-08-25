@@ -37,9 +37,11 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 function agentError(status: number): AgentError {
-  const e = new Error(status === 401
-    ? 'Session expired. Reopen the Console from a Rossum page to reconnect.'
-    : `Agent error ${status}`) as AgentError;
+  const e = new Error(
+    status === 401
+      ? 'Session expired. Reopen the Console from a Rossum page to reconnect.'
+      : `Agent error ${status}`,
+  ) as AgentError;
   e.status = status;
   return e;
 }
@@ -53,7 +55,11 @@ export async function probeAgent(): Promise<boolean> {
     if (!res.ok) return false;
     const data = await res.json().catch(() => null);
     return data?.status === 'healthy';
-  } catch { return false; } finally { clearTimeout(t); }
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(t);
+  }
 }
 
 // POST /chats — new chat session. Chats are read-only by default; write-enablement
@@ -64,7 +70,9 @@ export async function probeAgent(): Promise<boolean> {
 // write-enablement here.
 export async function createChat(): Promise<string> {
   const res = await fetch(`${AGENT_BASE}/chats`, {
-    method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: '{}',
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: '{}',
   });
   if (!res.ok) throw agentError(res.status);
   const data = await res.json();
@@ -87,8 +95,14 @@ export async function streamMessage(
     else signal.addEventListener('abort', onAbort, { once: true });
   }
   let idle: ReturnType<typeof setTimeout> | undefined;
-  const resetIdle = () => { clearTimeout(idle); idle = setTimeout(() => ctrl.abort(), IDLE_TIMEOUT); };
-  const cleanup = () => { clearTimeout(idle); if (signal) signal.removeEventListener('abort', onAbort); };
+  const resetIdle = () => {
+    clearTimeout(idle);
+    idle = setTimeout(() => ctrl.abort(), IDLE_TIMEOUT);
+  };
+  const cleanup = () => {
+    clearTimeout(idle);
+    if (signal) signal.removeEventListener('abort', onAbort);
+  };
 
   resetIdle();
   let res: Response;
@@ -103,9 +117,15 @@ export async function streamMessage(
       }),
       signal: ctrl.signal,
     });
-  } catch (err) { cleanup(); throw err; }
+  } catch (err) {
+    cleanup();
+    throw err;
+  }
 
-  if (!res.ok || !res.body) { cleanup(); throw agentError(res.status); }
+  if (!res.ok || !res.body) {
+    cleanup();
+    throw agentError(res.status);
+  }
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -133,7 +153,10 @@ async function getJson(path: string, init?: RequestInit): Promise<any> {
 }
 
 // GET /chats — the authenticated user's chat sessions, newest-first server-side.
-export function listChats({ limit = 50, offset = 0 }: { limit?: number; offset?: number } = {}): Promise<any> {
+export function listChats({
+  limit = 50,
+  offset = 0,
+}: { limit?: number; offset?: number } = {}): Promise<any> {
   return getJson(`/chats?limit=${limit}&offset=${offset}`);
 }
 
@@ -150,12 +173,16 @@ export async function listCommands(): Promise<any[]> {
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data?.commands) ? data.commands : [];
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 }
 
 // GET /chats/{id}/files/{filename} — needs auth headers; a plain <a href> would 401.
 export async function downloadChatFile(chatId: string, filename: string): Promise<Blob> {
-  const res = await fetch(`${AGENT_BASE}/chats/${chatId}/files/${encodeURIComponent(filename)}`, { headers: authHeaders() });
+  const res = await fetch(`${AGENT_BASE}/chats/${chatId}/files/${encodeURIComponent(filename)}`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) throw agentError(res.status);
   return res.blob();
 }

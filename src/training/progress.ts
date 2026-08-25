@@ -37,11 +37,20 @@ function missionOf(track: Track, missionId: string) {
   return track.missions.find((m) => m.id === missionId) || null;
 }
 
-export function stepState(progress: Progress | null | undefined, missionId: string, stepId: string): StepState | null {
+export function stepState(
+  progress: Progress | null | undefined,
+  missionId: string,
+  stepId: string,
+): StepState | null {
   return progress?.missions?.[missionId]?.steps?.[stepId]?.state ?? null;
 }
 
-export function startMission(progress: Progress, missionId: string, baseline: MissionProgress['baseline'], at: number): Progress {
+export function startMission(
+  progress: Progress,
+  missionId: string,
+  baseline: MissionProgress['baseline'],
+  at: number,
+): Progress {
   const existing = progress.missions[missionId];
   if (existing && existing.baseline != null) return progress; // captured exactly once
   return {
@@ -57,7 +66,13 @@ export function startMission(progress: Progress, missionId: string, baseline: Mi
   };
 }
 
-export function markStep(progress: Progress, missionId: string, stepId: string, state: StepState | null, at: number): Progress {
+export function markStep(
+  progress: Progress,
+  missionId: string,
+  stepId: string,
+  state: StepState | null,
+  at: number,
+): Progress {
   const mission = progress.missions[missionId] || { startedAt: at, baseline: null, steps: {} };
   const prev = mission.steps[stepId]?.state ?? null;
   // Monotonic: only an explicit null (re-verification) may clear a pass.
@@ -126,7 +141,10 @@ export function isTrackComplete(track: Track, progress: Progress): boolean {
 // Reconcile stored progress against a newer shipped curriculum: keep step ids
 // that still exist, drop the rest, and mark any receipt as issued against an
 // older track rather than silently revalidating it.
-export function migrate(track: Track, progress: Progress | null | undefined): Progress | null | undefined {
+export function migrate(
+  track: Track,
+  progress: Progress | null | undefined,
+): Progress | null | undefined {
   if (!progress) return progress;
   if (progress.trackVersion === track.version && progress.trackId === track.id) return progress;
   const missions: Record<string, MissionProgress> = {};

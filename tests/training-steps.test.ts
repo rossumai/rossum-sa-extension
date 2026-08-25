@@ -1,14 +1,22 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  CHECKS, evaluateVisit, evaluateApi, signatureFor, collectResponses,
+  CHECKS,
+  evaluateVisit,
+  evaluateApi,
+  signatureFor,
+  collectResponses,
 } from '../src/training/steps.js';
 
 const loc = (pathname: any, search = '') => ({ pathname, search });
 
 describe('evaluateVisit', () => {
   it('matches a detail route by type', () => {
-    expect(evaluateVisit({ target: { type: 'queue', detail: true } }, loc('/queues/42'))).toBe(true);
-    expect(evaluateVisit({ target: { type: 'hook', detail: true } }, loc('/queues/42'))).toBe(false);
+    expect(evaluateVisit({ target: { type: 'queue', detail: true } }, loc('/queues/42'))).toBe(
+      true,
+    );
+    expect(evaluateVisit({ target: { type: 'hook', detail: true } }, loc('/queues/42'))).toBe(
+      false,
+    );
   });
 
   it('distinguishes a list route from a detail route of the same type', () => {
@@ -43,23 +51,30 @@ describe('CHECKS', () => {
 
   it('hookAttachedToQueue passes only when a new hook:queue pair appears', () => {
     const hooks = CHECKS.hookAttachedToQueue.paths[0];
-    const before = { [hooks]: { results: [
-      { url: '/api/v1/hooks/7', queues: [] }] } };
-    const after = { [hooks]: { results: [
-      { url: '/api/v1/hooks/7', queues: ['/api/v1/queues/1'] }] } };
+    const before = { [hooks]: { results: [{ url: '/api/v1/hooks/7', queues: [] }] } };
+    const after = {
+      [hooks]: { results: [{ url: '/api/v1/hooks/7', queues: ['/api/v1/queues/1'] }] },
+    };
     const base = signatureFor('hookAttachedToQueue', before);
-    expect(evaluateApi(CHECKS.hookAttachedToQueue, signatureFor('hookAttachedToQueue', before), base)).toBe(false);
-    expect(evaluateApi(CHECKS.hookAttachedToQueue, signatureFor('hookAttachedToQueue', after), base)).toBe(true);
+    expect(
+      evaluateApi(CHECKS.hookAttachedToQueue, signatureFor('hookAttachedToQueue', before), base),
+    ).toBe(false);
+    expect(
+      evaluateApi(CHECKS.hookAttachedToQueue, signatureFor('hookAttachedToQueue', after), base),
+    ).toBe(true);
   });
 
   it('thresholdChanged passes only when a known queue threshold moves', () => {
     const p = CHECKS.thresholdChanged.paths[0];
-    const base = signatureFor('thresholdChanged', { [p]: { results: [
-      { url: '/api/v1/queues/4', default_score_threshold: 0.8 }] } });
-    const same = signatureFor('thresholdChanged', { [p]: { results: [
-      { url: '/api/v1/queues/4', default_score_threshold: 0.8 }] } });
-    const moved = signatureFor('thresholdChanged', { [p]: { results: [
-      { url: '/api/v1/queues/4', default_score_threshold: 0.95 }] } });
+    const base = signatureFor('thresholdChanged', {
+      [p]: { results: [{ url: '/api/v1/queues/4', default_score_threshold: 0.8 }] },
+    });
+    const same = signatureFor('thresholdChanged', {
+      [p]: { results: [{ url: '/api/v1/queues/4', default_score_threshold: 0.8 }] },
+    });
+    const moved = signatureFor('thresholdChanged', {
+      [p]: { results: [{ url: '/api/v1/queues/4', default_score_threshold: 0.95 }] },
+    });
     expect(evaluateApi(CHECKS.thresholdChanged, same, base)).toBe(false);
     expect(evaluateApi(CHECKS.thresholdChanged, moved, base)).toBe(true);
   });
@@ -72,8 +87,12 @@ describe('CHECKS', () => {
 
   it('no check is left referenced by nothing — every CHECKS id is used by a step', async () => {
     const { TRACK } = await import('../src/training/track.js');
-    const referenced = new Set(TRACK.missions
-      .flatMap((m) => m.steps).filter((s) => s.kind === 'api').map((s) => s.check));
+    const referenced = new Set(
+      TRACK.missions
+        .flatMap((m) => m.steps)
+        .filter((s) => s.kind === 'api')
+        .map((s) => s.check),
+    );
     expect([...Object.keys(CHECKS)].sort()).toEqual([...referenced].sort());
   });
 });
@@ -83,7 +102,12 @@ describe('CHECKS', () => {
 // track was verified against holds 96 rules and 133 schemas.
 describe('paging strategy', () => {
   it('every /api/v1/ check reads EVERY page', () => {
-    for (const id of ['ruleCreated', 'hookAttachedToQueue', 'thresholdChanged', 'schemaFieldAdded']) {
+    for (const id of [
+      'ruleCreated',
+      'hookAttachedToQueue',
+      'thresholdChanged',
+      'schemaFieldAdded',
+    ]) {
       expect(CHECKS[id].paginate, `${id} must paginate`).toBe(true);
     }
   });
@@ -108,11 +132,18 @@ describe('paging strategy', () => {
     const page = (queues: any, next: any) => ({ pagination: { next }, results: queues });
     // Queue 4 is the oldest — it sorts to page 1 ascending, and to the LAST
     // page descending. Either way it must end up in the signature.
-    const oldQueue = (t: any) => ({ url: 'https://o.rossum.app/api/v1/queues/4', default_score_threshold: t });
-    const newQueue = { url: 'https://o.rossum.app/api/v1/queues/900', default_score_threshold: 0.5 };
-    const fetcher = (t: any) => async (path: any) => (path === first
-      ? page([newQueue], 'https://o.rossum.app/api/v1/queues?page=2&page_size=100')
-      : page([oldQueue(t)], null));
+    const oldQueue = (t: any) => ({
+      url: 'https://o.rossum.app/api/v1/queues/4',
+      default_score_threshold: t,
+    });
+    const newQueue = {
+      url: 'https://o.rossum.app/api/v1/queues/900',
+      default_score_threshold: 0.5,
+    };
+    const fetcher = (t: any) => async (path: any) =>
+      path === first
+        ? page([newQueue], 'https://o.rossum.app/api/v1/queues?page=2&page_size=100')
+        : page([oldQueue(t)], null);
 
     const base: any = signatureFor('thresholdChanged', await collectResponses(check, fetcher(0.8)));
     const moved = signatureFor('thresholdChanged', await collectResponses(check, fetcher(0.95)));
@@ -130,7 +161,10 @@ describe('paging strategy', () => {
           results: [{ content: [{ children: [{ id: 'a' }] }] }],
         };
       }
-      return { pagination: { next: null }, results: [{ content: [{ children: [{ id: 'b' }, { id: 'c' }] }] }] };
+      return {
+        pagination: { next: null },
+        results: [{ content: [{ children: [{ id: 'b' }, { id: 'c' }] }] }],
+      };
     });
     const responses = await collectResponses(check, get);
     // Both pages counted: 1 + 2 fields. First page only would score 1.
@@ -144,7 +178,9 @@ describe('paging strategy', () => {
   it('does not page a check that did not ask to be paged', async () => {
     // collectionAdded is a POST to Data Storage — a flat list, no pagination.
     const get = vi.fn(async () => ({
-      pagination: { next: 'https://org.rossum.app/svc/data-storage/api/v1/collections/list?page=2' },
+      pagination: {
+        next: 'https://org.rossum.app/svc/data-storage/api/v1/collections/list?page=2',
+      },
       result: ['a'],
     }));
     await collectResponses(CHECKS.collectionAdded, get);
@@ -154,7 +190,8 @@ describe('paging strategy', () => {
   it('stops rather than spinning on a self-referential next link', async () => {
     const check = CHECKS.schemaFieldAdded;
     const get = vi.fn(async () => ({
-      pagination: { next: 'https://org.rossum.app/api/v1/schemas?page=2' }, results: [],
+      pagination: { next: 'https://org.rossum.app/api/v1/schemas?page=2' },
+      results: [],
     }));
     await collectResponses(check, get);
     expect(get.mock.calls.length).toBeLessThanOrEqual(51); // 1 + MAX_PAGES

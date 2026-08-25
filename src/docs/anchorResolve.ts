@@ -16,15 +16,24 @@
 export type HeadingRef = { id: string; text?: string | null };
 
 export function normalizeAnchor(value: unknown): string {
-  return String(value ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  return String(value ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
 }
 
 // headings: [{ id, text }] in document order. Returns an id, or null.
-export function resolveHeadingId(headings: HeadingRef[] | null | undefined, fragment: unknown): string | null {
+export function resolveHeadingId(
+  headings: HeadingRef[] | null | undefined,
+  fragment: unknown,
+): string | null {
   const list = Array.isArray(headings) ? headings.filter((h) => h && h.id) : [];
   if (!list.length) return null;
   let frag = String(fragment ?? '');
-  try { frag = decodeURIComponent(frag); } catch { /* keep the raw form */ }
+  try {
+    frag = decodeURIComponent(frag);
+  } catch {
+    /* keep the raw form */
+  }
   frag = frag.replace(/^#/, '').trim();
   if (!frag) return null;
 
@@ -34,7 +43,9 @@ export function resolveHeadingId(headings: HeadingRef[] | null | undefined, frag
   const target = normalizeAnchor(frag);
   if (!target) return null;
 
-  const equal = list.find((h) => normalizeAnchor(h.id) === target || normalizeAnchor(h.text) === target);
+  const equal = list.find(
+    (h) => normalizeAnchor(h.id) === target || normalizeAnchor(h.text) === target,
+  );
   if (equal) return equal.id;
 
   // A leading section number only: "2.1" → "21". Require the heading to continue with something
@@ -48,9 +59,15 @@ export function resolveHeadingId(headings: HeadingRef[] | null | undefined, frag
 }
 
 // DOM flavour: read the headings out of a rendered document and resolve against them.
-export function resolveHeadingElement(root: ParentNode | null | undefined, fragment: unknown): Element | null {
+export function resolveHeadingElement(
+  root: ParentNode | null | undefined,
+  fragment: unknown,
+): Element | null {
   if (!root || !root.querySelectorAll) return null;
   const nodes = [...root.querySelectorAll('h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]')];
-  const id = resolveHeadingId(nodes.map((n) => ({ id: n.id, text: n.textContent || '' })), fragment);
+  const id = resolveHeadingId(
+    nodes.map((n) => ({ id: n.id, text: n.textContent || '' })),
+    fragment,
+  );
   return id ? nodes.find((n) => n.id === id) || null : null;
 }

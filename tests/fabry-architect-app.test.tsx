@@ -2,15 +2,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { h, render } from 'preact';
 import { act } from 'preact/test-utils';
-globalThis.requestAnimationFrame = (cb) => { cb(0); return 0; };
+globalThis.requestAnimationFrame = (cb) => {
+  cb(0);
+  return 0;
+};
 globalThis.cancelAnimationFrame = () => {};
 vi.mock('../src/fabry/architect/actions.js', () => ({
   loadArchitect: vi.fn().mockResolvedValue(undefined),
-  updateDeliverable: vi.fn(), deleteDeliverable: vi.fn(), reRun: vi.fn(), stopRun: vi.fn(),
-  refineTurn: vi.fn(), answerRefine: vi.fn(), renameDeliverable: vi.fn(), reImplement: vi.fn(), stopImplement: vi.fn(),
+  updateDeliverable: vi.fn(),
+  deleteDeliverable: vi.fn(),
+  reRun: vi.fn(),
+  stopRun: vi.fn(),
+  refineTurn: vi.fn(),
+  answerRefine: vi.fn(),
+  renameDeliverable: vi.fn(),
+  reImplement: vi.fn(),
+  stopImplement: vi.fn(),
   setDeliverableState: vi.fn(),
-  loadRevisions: vi.fn().mockResolvedValue(undefined), openRevision: vi.fn().mockResolvedValue(undefined),
-  ensureRevisionText: vi.fn().mockResolvedValue(''), restoreRevision: vi.fn().mockResolvedValue(undefined),
+  loadRevisions: vi.fn().mockResolvedValue(undefined),
+  openRevision: vi.fn().mockResolvedValue(undefined),
+  ensureRevisionText: vi.fn().mockResolvedValue(''),
+  restoreRevision: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('../src/fabry/chat.js', () => ({ openChat: vi.fn() }));
 vi.mock('../src/ui/Modal.jsx', () => ({ promptModal: vi.fn() }));
@@ -26,20 +38,29 @@ import { deliverable } from './support/architect.js';
 function mount() {
   const root = document.createElement('div');
   document.body.appendChild(root);
-  act(() => { render(<ArchitectApp />, root); });
+  act(() => {
+    render(<ArchitectApp />, root);
+  });
   return root;
 }
 beforeEach(() => {
   vi.clearAllMocks();
   window.Element.prototype.scrollIntoView = function stub() {};
   document.body.innerHTML = '';
-  astore.deliverables.value = []; astore.results.value = {}; astore.activeId.value = null;
-  astore.loaded.value = true; astore.running.value = false; astore.loadError.value = null;
+  astore.deliverables.value = [];
+  astore.results.value = {};
+  astore.activeId.value = null;
+  astore.loaded.value = true;
+  astore.running.value = false;
+  astore.loadError.value = null;
   astore.docView.value = 'preview';
   astore.railOpen.value = true;
-  astore.spyTarget.value = null; astore.pinnedTarget.value = null; astore.reviewTarget.value = null;
+  astore.spyTarget.value = null;
+  astore.pinnedTarget.value = null;
+  astore.reviewTarget.value = null;
   astore.legacyNotice.value = null;
-  astore.implement.value = {}; astore.implementRunning.value = false;
+  astore.implement.value = {};
+  astore.implementRunning.value = false;
   fstore.fabryMode.value = 'architect';
   fstore.implementAllowed.value = true;
 });

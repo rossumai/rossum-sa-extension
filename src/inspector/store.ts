@@ -31,7 +31,11 @@ export type Enrichment = {
 // whole enrichment flow was unchecked: the `Array.isArray` guards its readers already
 // carry are the real contract, and this states it.
 export const enrichment = signal<Enrichment>({
-  audit: null, hookLogs: null, ruleLogs: null, workflow: null, notes: null,
+  audit: null,
+  hookLogs: null,
+  ruleLogs: null,
+  workflow: null,
+  notes: null,
 });
 export const live = signal<any>(null); // { messages, matchedTriggerRules }
 
@@ -39,12 +43,16 @@ export const live = signal<any>(null); // { messages, matchedTriggerRules }
 export const aiAvailable = signal(false);
 // Per-finding AI attribution state, keyed 'label:<id>' / 'reject'. Reset per annotation.
 export const attributions = signal<Record<string, any>>({});
-export function setAttribution(key: string, val: any) { attributions.value = { ...attributions.value, [key]: val }; }
+export function setAttribution(key: string, val: any) {
+  attributions.value = { ...attributions.value, [key]: val };
+}
 
 // Progressive investigation lifecycle (spec §4.3).
 const IDLE_INVESTIGATION = { stage: 'idle', sourcesDone: 0, sourcesTotal: 0, activity: '' };
 export const investigation = signal({ ...IDLE_INVESTIGATION });
-export function setInvestigation(patch: Record<string, any>) { investigation.value = { ...investigation.value, ...patch }; }
+export function setInvestigation(patch: Record<string, any>) {
+  investigation.value = { ...investigation.value, ...patch };
+}
 
 // Narrative synthesis state (null until the synthesize stage starts).
 export const synthesis = signal<any>(null);
@@ -60,7 +68,12 @@ export function clearPagePreviews() {
   const v = pagePreviews.value;
   if (v) {
     for (const p of v.pages || []) {
-      try { if (p.objectUrl && typeof URL !== 'undefined' && URL.revokeObjectURL) URL.revokeObjectURL(p.objectUrl); } catch { /* ignore */ }
+      try {
+        if (p.objectUrl && typeof URL !== 'undefined' && URL.revokeObjectURL)
+          URL.revokeObjectURL(p.objectUrl);
+      } catch {
+        /* ignore */
+      }
     }
   }
   pagePreviews.value = null;

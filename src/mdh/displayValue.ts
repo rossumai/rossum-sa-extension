@@ -35,8 +35,11 @@ export function formatEjsonValue(value: any, typeKey: string): string {
   if (typeKey === '$oid') return String(inner);
   if (typeKey === '$date') {
     const d = typeof inner === 'string' ? inner : inner?.$numberLong || String(inner);
-    try { return new Date(typeof d === 'string' && /^\d+$/.test(d) ? Number(d) : d).toISOString(); }
-    catch { return String(d); }
+    try {
+      return new Date(typeof d === 'string' && /^\d+$/.test(d) ? Number(d) : d).toISOString();
+    } catch {
+      return String(d);
+    }
   }
   if (typeKey === '$regex') return `/${inner}/${value.$options || ''}`;
   // $binary and $timestamp carry OBJECT payloads (unlike every other EJSON

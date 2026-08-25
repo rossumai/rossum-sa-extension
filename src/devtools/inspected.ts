@@ -6,7 +6,12 @@ const EXPR =
 
 /** What the inspected page reports. `search` is included so `?level=all` vs `?level=queue`
  *  on the same path re-detect. */
-export type InspectedContext = { token: string | null; domain: string; pathname: string; search: string };
+export type InspectedContext = {
+  token: string | null;
+  domain: string;
+  pathname: string;
+  search: string;
+};
 
 export type BridgeOptions = {
   chromeApi?: any;
@@ -32,13 +37,23 @@ export function startBridge(onContext: (ctx: InspectedContext) => void, opts: Br
     chromeApi.devtools.inspectedWindow.eval(EXPR, (result: string, err: unknown) => {
       if (stopped || err || !result) return;
       let ctx: InspectedContext;
-      try { ctx = JSON.parse(result); } catch { return; }
+      try {
+        ctx = JSON.parse(result);
+      } catch {
+        return;
+      }
       const key = `${ctx.domain}|${ctx.pathname}|${ctx.search || ''}|${ctx.token || ''}`;
-      if (key !== lastKey) { lastKey = key; onContext(ctx); }
+      if (key !== lastKey) {
+        lastKey = key;
+        onContext(ctx);
+      }
     });
   };
 
   read();
   const timer = setIntervalFn(read, intervalMs);
-  return () => { stopped = true; clearIntervalFn(timer); };
+  return () => {
+    stopped = true;
+    clearIntervalFn(timer);
+  };
 }

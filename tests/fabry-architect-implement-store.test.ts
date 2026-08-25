@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import * as store from '../src/fabry/architect/store.js';
 
-beforeEach(() => { store.implement.value = {}; store.implementRunning.value = false; });
+beforeEach(() => {
+  store.implement.value = {};
+  store.implementRunning.value = false;
+});
 
 describe('implement store', () => {
   it('setImplement merges a patch onto per-id state', () => {

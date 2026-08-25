@@ -16,24 +16,38 @@ export const IDLE_MS = 5 * 60 * 1000;
 // specification started from — hence the earliest revision is never the one pruned.
 export const CAP = 40;
 
-
 // session: { deliverableId, source, lastAt } | null
 /** One editing session. A version is stored per SESSION, not per save. */
 export type EditSession = { deliverableId: string; source: string; lastAt: number };
 
-export function shouldSnapshot(
-  { session, deliverableId, source = 'edit', now = 0, idleMs = IDLE_MS }:
-    { session?: EditSession | null; deliverableId?: string; source?: string; now?: number; idleMs?: number } = {},
-): boolean {
+export function shouldSnapshot({
+  session,
+  deliverableId,
+  source = 'edit',
+  now = 0,
+  idleMs = IDLE_MS,
+}: {
+  session?: EditSession | null;
+  deliverableId?: string;
+  source?: string;
+  now?: number;
+  idleMs?: number;
+} = {}): boolean {
   if (!session) return true;
   if (session.deliverableId !== deliverableId) return true;
   if (session.source !== source) return true;
   return now - (session.lastAt || 0) > idleMs;
 }
 
-export function openSession(
-  { deliverableId, source = 'edit', now = 0 }: { deliverableId: string; source?: string; now?: number },
-): EditSession {
+export function openSession({
+  deliverableId,
+  source = 'edit',
+  now = 0,
+}: {
+  deliverableId: string;
+  source?: string;
+  now?: number;
+}): EditSession {
   return { deliverableId, source, lastAt: now };
 }
 

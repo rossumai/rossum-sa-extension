@@ -2,7 +2,11 @@
 // the popup's version hash flip the `experimentalUnlocked` chrome.storage key.
 // Pure counter — the caller owns storage and UI.
 
-export function createUnlockCounter({ threshold = 5, windowMs = 2000, now = () => Date.now() } = {}) {
+export function createUnlockCounter({
+  threshold = 5,
+  windowMs = 2000,
+  now = () => Date.now(),
+} = {}) {
   let count = 0;
   let last = 0;
   return {

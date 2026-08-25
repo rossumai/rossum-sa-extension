@@ -8,9 +8,17 @@
 export const PRINT_PREFIX = 'docPrint_';
 
 // Pure + testable: the staging entry and the target URL for printing `html`.
-export function buildPrintRequest(
-  { html, title, uuid, now }: { html: string; title?: string; uuid: string; now: number },
-) {
+export function buildPrintRequest({
+  html,
+  title,
+  uuid,
+  now,
+}: {
+  html: string;
+  title?: string;
+  uuid: string;
+  now: number;
+}) {
   return {
     key: `${PRINT_PREFIX}${uuid}`,
     entry: { html, title, createdAt: now },
@@ -26,7 +34,8 @@ const realDeps = {
   getURL: (p: string) => chrome.runtime.getURL(p),
   sessionSet: (obj: Record<string, unknown>) => chrome.storage.session.set(obj),
   // Only index and windowId are read (both guarded), so that is what the seam promises.
-  getCurrentTab: (): Promise<{ index?: number; windowId?: number } | undefined> => chrome.tabs.getCurrent(),
+  getCurrentTab: (): Promise<{ index?: number; windowId?: number } | undefined> =>
+    chrome.tabs.getCurrent(),
   tabsCreate: (opts: chrome.tabs.CreateProperties) => chrome.tabs.create(opts),
 };
 
@@ -47,7 +56,9 @@ export async function openPrintTab(
       opts.index = cur.index + 1;
       opts.windowId = cur.windowId;
     }
-  } catch { /* positioning is best-effort */ }
+  } catch {
+    /* positioning is best-effort */
+  }
   await deps.tabsCreate(opts);
   return req.key;
 }

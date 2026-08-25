@@ -34,18 +34,25 @@ describe('panelOptionsFor', () => {
 describe('panelUpdateFor', () => {
   it('enables on a navigation INTO Rossum (url + tab.url both present)', () => {
     const tab = { url: R };
-    expect(panelUpdateFor(9, { status: 'loading', url: R }, tab))
-      .toEqual({ tabId: 9, path: SIDE_PANEL_PATH, enabled: true });
+    expect(panelUpdateFor(9, { status: 'loading', url: R }, tab)).toEqual({
+      tabId: 9,
+      path: SIDE_PANEL_PATH,
+      enabled: true,
+    });
   });
 
   // The critical case: leaving for a site we hold no permission for delivers NO
   // url at all. Keying on changeInfo.url would ignore this and leave the tab
   // enabled forever — observed live before the fix.
   it('disables on a navigation AWAY, where no URL is readable', () => {
-    expect(panelUpdateFor(9, { status: 'loading' }, { id: 9 }))
-      .toEqual({ tabId: 9, enabled: false });
-    expect(panelUpdateFor(9, { status: 'complete' }, { id: 9 }))
-      .toEqual({ tabId: 9, enabled: false });
+    expect(panelUpdateFor(9, { status: 'loading' }, { id: 9 })).toEqual({
+      tabId: 9,
+      enabled: false,
+    });
+    expect(panelUpdateFor(9, { status: 'complete' }, { id: 9 })).toEqual({
+      tabId: 9,
+      enabled: false,
+    });
   });
 
   it('ignores title and favicon churn', () => {
@@ -55,19 +62,20 @@ describe('panelUpdateFor', () => {
   });
 
   it('trusts tab.url over a stale changeInfo.url', () => {
-    expect(panelUpdateFor(9, { status: 'complete', url: R }, { url: 'https://example.com/' }))
-      .toEqual({ tabId: 9, enabled: false });
+    expect(
+      panelUpdateFor(9, { status: 'complete', url: R }, { url: 'https://example.com/' }),
+    ).toEqual({ tabId: 9, enabled: false });
   });
 });
 
 describe('syncSidePanelTabs', () => {
   it('enables Rossum tabs, disables the rest, and sets the global default LAST', async () => {
     const setOptions = vi.fn(async (_opts) => {});
-    const queryTabs = vi.fn(async () => ([
+    const queryTabs = vi.fn(async () => [
       { id: 1, url: R },
       { id: 2, url: 'https://example.com/' },
       { id: 3 },
-    ]));
+    ]);
 
     await syncSidePanelTabs({ queryTabs, setOptions });
 
@@ -83,7 +91,7 @@ describe('syncSidePanelTabs', () => {
 
   it('skips entries without a numeric tab id', async () => {
     const setOptions = vi.fn(async (_opts) => {});
-    const queryTabs = vi.fn(async () => ([{ url: R }, null]));
+    const queryTabs = vi.fn(async () => [{ url: R }, null]);
 
     await syncSidePanelTabs({ queryTabs, setOptions });
 
@@ -95,8 +103,12 @@ describe('openPanelForTab', () => {
   it('enables the tab before opening it', async () => {
     const order: any = [];
     const api = {
-      setOptions: vi.fn(async (o) => { order.push(['setOptions', o]); }),
-      open: vi.fn(async (o) => { order.push(['open', o]); }),
+      setOptions: vi.fn(async (o) => {
+        order.push(['setOptions', o]);
+      }),
+      open: vi.fn(async (o) => {
+        order.push(['open', o]);
+      }),
     };
 
     await openPanelForTab(42, api);

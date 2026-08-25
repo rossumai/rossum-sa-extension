@@ -20,7 +20,11 @@ export default function useStageCounts(collection: string, activeStages: any[]) 
   const activeKey = JSON.stringify(stages);
 
   useEffect(() => {
-    if (!collection || stages.length === 0) { setCounts({}); setInputInfo(null); return; }
+    if (!collection || stages.length === 0) {
+      setCounts({});
+      setInputInfo(null);
+      return;
+    }
     setCounts({});
     setInputInfo(null);
 
@@ -28,30 +32,51 @@ export default function useStageCounts(collection: string, activeStages: any[]) 
     stages.forEach((_, i) => {
       const prefix = stages.slice(0, i + 1);
       const t0 = performance.now();
-      api.aggregate(collection, [...stripWriteStages(prefix), { $count: 'n' }], { signal: controller.signal })
+      api
+        .aggregate(collection, [...stripWriteStages(prefix), { $count: 'n' }], {
+          signal: controller.signal,
+        })
         .then((res) => {
           if (controller.signal.aborted) return;
           const n = res?.result?.[0]?.n ?? 0;
-          setCounts((prev) => ({ ...prev, [i]: { count: n, ms: Math.round(performance.now() - t0) } }));
+          setCounts((prev) => ({
+            ...prev,
+            [i]: { count: n, ms: Math.round(performance.now() - t0) },
+          }));
         })
         .catch((err) => {
           if (err?.name === 'AbortError' || controller.signal.aborted) return;
           setCounts((prev) => ({
             ...prev,
-            [i]: { error: { message: (err as any)?.message || String(err), status: (err as any)?.status }, ms: Math.round(performance.now() - t0) },
+            [i]: {
+              error: {
+                message: (err as any)?.message || String(err),
+                status: (err as any)?.status,
+              },
+              ms: Math.round(performance.now() - t0),
+            },
           }));
         });
     });
 
     const inputT0 = performance.now();
-    api.aggregate(collection, [{ $collStats: { count: {} } }, { $limit: 1 }], { signal: controller.signal })
+    api
+      .aggregate(collection, [{ $collStats: { count: {} } }, { $limit: 1 }], {
+        signal: controller.signal,
+      })
       .then((res) => {
         if (controller.signal.aborted) return;
-        setInputInfo({ count: res?.result?.[0]?.count ?? 0, ms: Math.round(performance.now() - inputT0) });
+        setInputInfo({
+          count: res?.result?.[0]?.count ?? 0,
+          ms: Math.round(performance.now() - inputT0),
+        });
       })
       .catch((err) => {
         if (err?.name === 'AbortError' || controller.signal.aborted) return;
-        setInputInfo({ error: { message: (err as any)?.message || String(err), status: (err as any)?.status }, ms: Math.round(performance.now() - inputT0) });
+        setInputInfo({
+          error: { message: (err as any)?.message || String(err), status: (err as any)?.status },
+          ms: Math.round(performance.now() - inputT0),
+        });
       });
 
     return () => controller.abort();

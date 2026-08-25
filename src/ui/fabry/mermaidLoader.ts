@@ -7,7 +7,9 @@
 export type MermaidRenderer = (text: string, themeOpts?: any) => string;
 
 declare global {
-  interface Window { __fabryMermaidSvg?: MermaidRenderer }
+  interface Window {
+    __fabryMermaidSvg?: MermaidRenderer;
+  }
 }
 
 let pending: Promise<MermaidRenderer> | null = null;
@@ -16,9 +18,10 @@ export function getMermaidRenderer(): MermaidRenderer | null {
   return (typeof window !== 'undefined' && window.__fabryMermaidSvg) || null;
 }
 
-export function loadMermaidRenderer(
-  { src = 'mermaid.js', doc = document }: { src?: string; doc?: Document } = {},
-): Promise<MermaidRenderer> {
+export function loadMermaidRenderer({
+  src = 'mermaid.js',
+  doc = document,
+}: { src?: string; doc?: Document } = {}): Promise<MermaidRenderer> {
   const ready = getMermaidRenderer();
   if (ready) return Promise.resolve(ready);
   if (pending) return pending;
@@ -33,7 +36,9 @@ export function loadMermaidRenderer(
     script.onerror = () => reject(new Error('failed to load mermaid bundle'));
     doc.head.appendChild(script);
   });
-  pending.catch(() => { pending = null; }); // allow retry after a failed load
+  pending.catch(() => {
+    pending = null;
+  }); // allow retry after a failed load
   return pending;
 }
 
@@ -41,12 +46,19 @@ export function loadMermaidRenderer(
 // custom properties so diagrams match the active (light/dark) theme. Blue
 // accent per the console-wide scheme.
 export type MermaidTheme = {
-  bg: string; fg: string; line: string; accent: string; muted: string; surface: string; border: string;
+  bg: string;
+  fg: string;
+  line: string;
+  accent: string;
+  muted: string;
+  surface: string;
+  border: string;
 };
 
 export function themeFromTokens(doc: Document = document): MermaidTheme {
   const cs = getComputedStyle(doc.documentElement);
-  const v = (name: string, fallback: string) => (cs.getPropertyValue(name) || '').trim() || fallback;
+  const v = (name: string, fallback: string) =>
+    (cs.getPropertyValue(name) || '').trim() || fallback;
   // bg = the PAGE color (the svg has no background rect — probe-verified — so
   // bg only drives contrast math); surface = card color so nodes read as
   // elevated cards sitting directly on the page.

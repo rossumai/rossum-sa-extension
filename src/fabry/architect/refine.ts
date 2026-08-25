@@ -5,7 +5,7 @@
 
 const RULES = [
   "You are refining the WORDING of a single Statement-of-Work (SOW) requirement for a Rossum organization, following the user's instructions.",
-  'Improve clarity, grammar, and structure. PRESERVE the requirement\'s meaning and intent: do not add, remove, or weaken any requirement beyond what an instruction explicitly asks, and keep specific names, fields, queues, thresholds, and numbers unchanged unless an instruction (or an obvious typo) says otherwise.',
+  "Improve clarity, grammar, and structure. PRESERVE the requirement's meaning and intent: do not add, remove, or weaken any requirement beyond what an instruction explicitly asks, and keep specific names, fields, queues, thresholds, and numbers unchanged unless an instruction (or an obvious typo) says otherwise.",
   'You MAY use your READ-ONLY tools to inspect the live organization so names and identifiers are accurate (e.g. the exact queue or field name). Never create, update, or delete anything.',
   'After EACH instruction, return ONLY the COMPLETE revised requirement as Markdown — no preamble, no explanation, no code fences.',
 ].join('\n');

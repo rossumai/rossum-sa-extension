@@ -24,8 +24,11 @@ const isEmpty = (v: unknown) => v === undefined || v === null || v === '';
 // (cells are already natively typed); 0 and false are NOT treated as empty.
 export function rowsToDocs(
   rows: any[][],
-  { hasHeader = true, emptyMode = 'null', trim = false }:
-    { hasHeader?: boolean; emptyMode?: string; trim?: boolean } = {},
+  {
+    hasHeader = true,
+    emptyMode = 'null',
+    trim = false,
+  }: { hasHeader?: boolean; emptyMode?: string; trim?: boolean } = {},
 ) {
   const warnings: any[] = [];
   const dataRows = rows.filter((r) => !r.every(isEmpty));
@@ -62,13 +65,15 @@ export function rowsToDocs(
     for (let i = 0; i < header.length; i++) {
       let v = r[i];
       if (trim && typeof v === 'string') v = v.trim();
-      if (isEmpty(v)) { if (emptyMode !== 'omit') doc[header[i] as string] = emptyMode === 'empty' ? '' : null; }
-      else doc[header[i] as string] = v;
+      if (isEmpty(v)) {
+        if (emptyMode !== 'omit') doc[header[i] as string] = emptyMode === 'empty' ? '' : null;
+      } else doc[header[i] as string] = v;
     }
     return doc;
   });
   const ragged = body.filter((r) => r.length > header.length).length;
-  if (ragged) warnings.push(`${ragged} row(s) have more columns than the header; extra cells ignored.`);
+  if (ragged)
+    warnings.push(`${ragged} row(s) have more columns than the header; extra cells ignored.`);
   return { docs, columns: [...header], warnings };
 }
 
@@ -86,7 +91,7 @@ export function readWorkbook(xmlString: string): { sheets: any[]; date1904: bool
     rid: el.getAttribute('r:id') || el.getAttributeNS(RELS_NS, 'id') || '',
   }));
   const pr = doc.getElementsByTagName('workbookPr')[0];
-  const d = pr ? (pr.getAttribute('date1904') || '') : '';
+  const d = pr ? pr.getAttribute('date1904') || '' : '';
   const date1904 = d === '1' || d === 'true';
   return { sheets, date1904 };
 }
@@ -111,7 +116,8 @@ export function readStyles(xmlString: string): boolean[] {
 export function readRels(xmlString: string): Map<string, string> {
   const doc = parseXml(xmlString);
   const map = new Map();
-  for (const el of doc.getElementsByTagName('Relationship')) map.set(el.getAttribute('Id'), el.getAttribute('Target'));
+  for (const el of doc.getElementsByTagName('Relationship'))
+    map.set(el.getAttribute('Id'), el.getAttribute('Target'));
   return map;
 }
 
@@ -119,11 +125,13 @@ export function readSharedStrings(xmlString: string): string[] {
   const doc = parseXml(xmlString);
   // One entry per <si>; concatenate every <t> beneath it (covers plain + rich-text runs).
   return [...doc.getElementsByTagName('si')].map((si) =>
-    [...si.getElementsByTagName('t')].map((t) => t.textContent).join(''));
+    [...si.getElementsByTagName('t')].map((t) => t.textContent).join(''),
+  );
 }
 
 export function readSheet(
-  xmlString: string, sharedStrings: string[],
+  xmlString: string,
+  sharedStrings: string[],
   { styleIsDate = [], date1904 = false }: { styleIsDate?: boolean[]; date1904?: boolean } = {},
 ): any[][] {
   const doc = parseXml(xmlString);
@@ -146,8 +154,10 @@ export function readSheet(
         else if (t === 's') value = sharedStrings[Number(raw)];
         else if (t === 'b') value = raw === '1';
         else if (t === 'str') value = raw;
-        else if (t === 'd') value = raw;          // ISO date string (rare) — kept as-is
-        else if (t === 'e') value = null;         // error cell
+        else if (t === 'd')
+          value = raw; // ISO date string (rare) — kept as-is
+        else if (t === 'e')
+          value = null; // error cell
         else {
           // number (incl. date serials) — convert to {$date} when the cell's
           // style is a date number-format.
@@ -164,7 +174,9 @@ export function readSheet(
 }
 
 async function inflateRaw(bytes: Uint8Array): Promise<Uint8Array> {
-  const stream = new Response(bytes as any).body!.pipeThrough(new DecompressionStream('deflate-raw'));
+  const stream = new Response(bytes as any).body!.pipeThrough(
+    new DecompressionStream('deflate-raw'),
+  );
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
@@ -180,7 +192,10 @@ export async function unzip(arrayBuffer: ArrayBuffer): Promise<Map<string, Uint8
   let eocd = -1;
   const min = Math.max(0, dv.byteLength - 22 - 0xffff);
   for (let i = dv.byteLength - 22; i >= min; i--) {
-    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    if (dv.getUint32(i, true) === 0x06054b50) {
+      eocd = i;
+      break;
+    }
   }
   if (eocd < 0) throw new Error('Not a valid .xlsx file (no ZIP end-of-central-directory record).');
   const count = dv.getUint16(eocd + 10, true);
@@ -206,7 +221,8 @@ export async function unzip(arrayBuffer: ArrayBuffer): Promise<Map<string, Uint8
 
   const out = new Map();
   for (const e of entries) {
-    if (dv.getUint32(e.localOffset, true) !== 0x04034b50) throw new Error(`Bad local header for ${e.name}`);
+    if (dv.getUint32(e.localOffset, true) !== 0x04034b50)
+      throw new Error(`Bad local header for ${e.name}`);
     const lNameLen = dv.getUint16(e.localOffset + 26, true);
     const lExtraLen = dv.getUint16(e.localOffset + 28, true);
     const start = e.localOffset + 30 + lNameLen + lExtraLen;
@@ -222,8 +238,12 @@ const textOf = (u8: Uint8Array) => new TextDecoder().decode(u8);
 
 export async function parseXlsx(
   arrayBuffer: ArrayBuffer,
-  { sheet, hasHeader = true, emptyMode = 'null', trim = false }:
-    { sheet?: string; hasHeader?: boolean; emptyMode?: string; trim?: boolean } = {},
+  {
+    sheet,
+    hasHeader = true,
+    emptyMode = 'null',
+    trim = false,
+  }: { sheet?: string; hasHeader?: boolean; emptyMode?: string; trim?: boolean } = {},
 ) {
   try {
     const files = await unzip(arrayBuffer);
@@ -253,6 +273,12 @@ export async function parseXlsx(
     const { docs, columns, warnings } = rowsToDocs(rows, { hasHeader, emptyMode, trim });
     return { docs, columns, warnings, error: null, sheets };
   } catch (err) {
-    return { docs: [], columns: [], warnings: [], error: { message: (err as Error).message }, sheets: [] };
+    return {
+      docs: [],
+      columns: [],
+      warnings: [],
+      error: { message: (err as Error).message },
+      sheets: [],
+    };
   }
 }

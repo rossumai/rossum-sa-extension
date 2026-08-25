@@ -23,7 +23,10 @@ export default function ConnectionBar({ connected }: { connected: boolean | null
       const next = compute();
       // Skip the setState entirely when the displayed text hasn't changed \u2014
       // otherwise this fires a re-render every second of every connected session.
-      if (next !== last) { last = next; setCacheText(next); }
+      if (next !== last) {
+        last = next;
+        setCacheText(next);
+      }
     }, 1000);
     return () => clearInterval(id);
   }, [connected]);
@@ -31,7 +34,8 @@ export default function ConnectionBar({ connected }: { connected: boolean | null
   if (!connected) {
     return (
       <div class="connection-bar">
-        <span class="connection-dot error"></span> Not connected — open a Rossum page and click Data Storage in the extension popup
+        <span class="connection-dot error"></span> Not connected — open a Rossum page and click Data
+        Storage in the extension popup
       </div>
     );
   }

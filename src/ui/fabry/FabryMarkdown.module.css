@@ -3,55 +3,208 @@
    (--bg-code, --info-fg, etc.) stay central in console.css. The `hl-*` keys are
    the syntax-highlight palette; FabryMarkdown builds them as styles['hl-' + tokenType]. */
 
-.md p { margin: 8px 0; }
-.md h3.h { font-size: 16.5px; font-weight: 700; margin: 20px 0 8px; }
-.md h4.h { font-size: 14.5px; font-weight: 650; margin: 18px 0 6px; }
-.md h5.h { font-size: 13px; font-weight: 650; margin: 14px 0 4px; }
-.md h6.h { font-size: 12px; font-weight: 650; margin: 12px 0 4px; color: var(--text-secondary); }
-.md ul, .md ol { padding-left: 22px; margin: 8px 0; }
-.md li { margin: 3px 0; }
-.md li::marker { color: var(--text-secondary); }
+.md p {
+  margin: 8px 0;
+}
+.md h3.h {
+  font-size: 16.5px;
+  font-weight: 700;
+  margin: 20px 0 8px;
+}
+.md h4.h {
+  font-size: 14.5px;
+  font-weight: 650;
+  margin: 18px 0 6px;
+}
+.md h5.h {
+  font-size: 13px;
+  font-weight: 650;
+  margin: 14px 0 4px;
+}
+.md h6.h {
+  font-size: 12px;
+  font-weight: 650;
+  margin: 12px 0 4px;
+  color: var(--text-secondary);
+}
+.md ul,
+.md ol {
+  padding-left: 22px;
+  margin: 8px 0;
+}
+.md li {
+  margin: 3px 0;
+}
+.md li::marker {
+  color: var(--text-secondary);
+}
 
-.codewrap { position: relative; margin: 10px 0; }
-.lang { position: absolute; top: 6px; right: 10px; font-family: var(--font-mono); font-size: 9.5px; color: var(--text-secondary); user-select: none; }
-.code { background: var(--bg-code); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; overflow-x: auto; font-size: 12px; margin: 0; }
-.code .hl-kw { color: var(--mdh-special-bidi); }
-.code .hl-str { color: var(--success); }
-.code .hl-key { color: var(--info-fg); }
-.code .hl-num { color: var(--accent); }
-.code .hl-com { color: var(--text-secondary); font-style: italic; }
-.code .hl-lit { color: var(--warning); }
-.code .hl-dec { color: var(--info-fg); }
-.icode { background: var(--bg-code); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; font-size: 12px; }
+.codewrap {
+  position: relative;
+  margin: 10px 0;
+}
+.lang {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-secondary);
+  user-select: none;
+}
+.code {
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  font-size: 12px;
+  margin: 0;
+}
+.code .hl-kw {
+  color: var(--mdh-special-bidi);
+}
+.code .hl-str {
+  color: var(--success);
+}
+.code .hl-key {
+  color: var(--info-fg);
+}
+.code .hl-num {
+  color: var(--accent);
+}
+.code .hl-com {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+.code .hl-lit {
+  color: var(--warning);
+}
+.code .hl-dec {
+  color: var(--info-fg);
+}
+.icode {
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 4px;
+  font-size: 12px;
+}
 
-.tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; margin: 10px 0; }
-.table { border-collapse: collapse; font-size: 12px; width: 100%; }
-.table th { background: var(--bg-hover); font-weight: 600; font-size: 11.5px; }
-.table th, .table td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
-.table tr:last-child td { border-bottom: 0; }
+.tablewrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 10px 0;
+}
+.table {
+  border-collapse: collapse;
+  font-size: 12px;
+  width: 100%;
+}
+.table th {
+  background: var(--bg-hover);
+  font-weight: 600;
+  font-size: 11.5px;
+}
+.table th,
+.table td {
+  padding: 6px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+.table tr:last-child td {
+  border-bottom: 0;
+}
 
-.quote { border-left: 3px solid var(--info-border); margin: 8px 0; padding: 2px 10px; color: var(--text-secondary); }
-.h { margin: 10px 0 4px; }
-.hr { border: 0; border-top: 1px solid var(--border); margin: 18px 0; }
+.quote {
+  border-left: 3px solid var(--info-border);
+  margin: 8px 0;
+  padding: 2px 10px;
+  color: var(--text-secondary);
+}
+.h {
+  margin: 10px 0 4px;
+}
+.hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 18px 0;
+}
 
-.mermaid { position: relative; margin: 10px 0; border: 1px solid var(--border); border-radius: 8px; background: transparent; padding: 14px; overflow-x: auto; }
-.mermaidBox svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
-.mermaidSrc { font-family: var(--font-mono); font-size: 11px; line-height: 1.3; margin: 0; color: var(--text-secondary); opacity: .6; }
+.mermaid {
+  position: relative;
+  margin: 10px 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  padding: 14px;
+  overflow-x: auto;
+}
+.mermaidBox svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+.mermaidSrc {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.3;
+  margin: 0;
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
 
-.caret { display: inline-block; width: 7px; height: 14px; background: var(--accent); margin-left: 2px; animation: blink 1s steps(1) infinite; vertical-align: text-bottom; }
-@keyframes blink { 50% { opacity: 0; } }
+.caret {
+  display: inline-block;
+  width: 7px;
+  height: 14px;
+  background: var(--accent);
+  margin-left: 2px;
+  animation: blink 1s steps(1) infinite;
+  vertical-align: text-bottom;
+}
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
 
 /* Scrollbars for the scrollable markdown surfaces (the .fabry-main chat scrollbar
    stays in console.css since that surface isn't part of this component). */
-.code::-webkit-scrollbar, .mermaid::-webkit-scrollbar, .tablewrap::-webkit-scrollbar { width: 9px; height: 9px; }
-.code::-webkit-scrollbar-thumb, .mermaid::-webkit-scrollbar-thumb, .tablewrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+.code::-webkit-scrollbar,
+.mermaid::-webkit-scrollbar,
+.tablewrap::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+.code::-webkit-scrollbar-thumb,
+.mermaid::-webkit-scrollbar-thumb,
+.tablewrap::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
 
 /* Architect renders the CHECK EVIDENCE a touch smaller. Context overrides
    co-located with the component; .fabry-arch-evidence is a global ancestor.
    (.fabry-arch-preview was dropped from these selectors when the deliverable preview
    moved to the ported localpages renderer in src/docs/ — it no longer contains a
    FabryMarkdown tree, so those halves matched nothing.) */
-:global(.fabry-arch-evidence) .md { font-size: 12px; }
-:global(.fabry-arch-evidence) .md h3.h { font-size: 14px; margin: 14px 0 6px; }
-:global(.fabry-arch-evidence) .md h4.h { font-size: 12.5px; }
-:global(.fabry-arch-evidence) .md h5.h, :global(.fabry-arch-evidence) .md h6.h { font-size: 11.5px; }
+:global(.fabry-arch-evidence) .md {
+  font-size: 12px;
+}
+:global(.fabry-arch-evidence) .md h3.h {
+  font-size: 14px;
+  margin: 14px 0 6px;
+}
+:global(.fabry-arch-evidence) .md h4.h {
+  font-size: 12.5px;
+}
+:global(.fabry-arch-evidence) .md h5.h,
+:global(.fabry-arch-evidence) .md h6.h {
+  font-size: 11.5px;
+}

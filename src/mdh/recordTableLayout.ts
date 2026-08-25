@@ -4,10 +4,17 @@
 // shrinks below it; when the non-last columns overflow, the filler pins to `min`
 // and the table grows past the pane (the wrap scrolls).
 
-export function computeColumnWidths(
-  { availW, selectionW = 0, nonLastWidths, min = 60 }:
-    { availW: number; selectionW?: number; nonLastWidths: number[]; min?: number },
-) {
+export function computeColumnWidths({
+  availW,
+  selectionW = 0,
+  nonLastWidths,
+  min = 60,
+}: {
+  availW: number;
+  selectionW?: number;
+  nonLastWidths: number[];
+  min?: number;
+}) {
   const sumNonLast = nonLastWidths.reduce((a: number, b: number) => a + b, 0);
   const lastW = Math.max(min, Math.round(availW - selectionW - sumNonLast));
   return [...nonLastWidths, lastW];

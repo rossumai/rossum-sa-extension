@@ -9,7 +9,7 @@ import styles from '../src/ui/FabryMark.module.css';
 function mount(props?: any) {
   const root = document.createElement('div');
   document.body.appendChild(root);
-  render(<FabryMark {...props || null} />, root);
+  render(<FabryMark {...(props || null)} />, root);
   return root.querySelector('svg');
 }
 
@@ -20,7 +20,7 @@ describe('FabryMark', () => {
     expect(svg.classList.contains(styles.mark)).toBe(true);
     expect(svg.getAttribute('viewBox')).toBe('0 0 24 24');
     const d = svg.querySelector('path')!.getAttribute('d'); // a centered, closed four-point star
-    expect(d).toMatch(/^M12\b/);   // top point centered at x=12
+    expect(d).toMatch(/^M12\b/); // top point centered at x=12
     expect(d).toMatch(/[Zz]\s*$/); // closed path
   });
 

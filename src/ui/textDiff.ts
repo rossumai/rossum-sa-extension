@@ -42,11 +42,25 @@ export function diffWords(a: unknown, b: unknown): DiffSegment[] {
   let i = 0;
   let j = 0;
   while (i < n && j < m) {
-    if (A[i] === B[j]) { push('same', A[i]); i++; j++; }
-    else if (dp[i + 1][j] >= dp[i][j + 1]) { push('del', A[i]); i++; }
-    else { push('add', B[j]); j++; }
+    if (A[i] === B[j]) {
+      push('same', A[i]);
+      i++;
+      j++;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      push('del', A[i]);
+      i++;
+    } else {
+      push('add', B[j]);
+      j++;
+    }
   }
-  while (i < n) { push('del', A[i]); i++; }
-  while (j < m) { push('add', B[j]); j++; }
+  while (i < n) {
+    push('del', A[i]);
+    i++;
+  }
+  while (j < m) {
+    push('add', B[j]);
+    j++;
+  }
   return out;
 }

@@ -11,11 +11,21 @@ beforeEach(() => {
 describe('buildOpenTabRequest', () => {
   it('builds the consoleAuth staging key, entry, and console URL', () => {
     const req = buildOpenTabRequest({
-      token: 'tok', domain: 'https://x.rossum.app', collection: 'vendors', uuid: 'u1', now: 123,
+      token: 'tok',
+      domain: 'https://x.rossum.app',
+      collection: 'vendors',
+      uuid: 'u1',
+      now: 123,
     });
     expect(req).toEqual({
       authKey: 'consoleAuth_u1',
-      authEntry: { token: 'tok', domain: 'https://x.rossum.app', app: 'mdh', pendingCollection: 'vendors', createdAt: 123 },
+      authEntry: {
+        token: 'tok',
+        domain: 'https://x.rossum.app',
+        app: 'mdh',
+        pendingCollection: 'vendors',
+        createdAt: 123,
+      },
       url: 'console/console.html?authId=u1',
     });
   });
@@ -38,10 +48,18 @@ describe('openCollectionTab', () => {
     const deps = stubDeps();
     await openCollectionTab('vendors', deps);
     expect(deps.storageSet).toHaveBeenCalledWith({
-      consoleAuth_u1: { token: 'tok', domain: 'https://x.rossum.app', app: 'mdh', pendingCollection: 'vendors', createdAt: 123 },
+      consoleAuth_u1: {
+        token: 'tok',
+        domain: 'https://x.rossum.app',
+        app: 'mdh',
+        pendingCollection: 'vendors',
+        createdAt: 123,
+      },
     });
     expect(deps.tabsCreate).toHaveBeenCalledWith({
-      url: 'chrome-extension://abc/console/console.html?authId=u1', index: 4, windowId: 7,
+      url: 'chrome-extension://abc/console/console.html?authId=u1',
+      index: 4,
+      windowId: 7,
     });
   });
 
@@ -62,6 +80,8 @@ describe('openCollectionTab', () => {
   it('still opens the tab (without positioning) when getCurrentTab rejects', async () => {
     const deps = stubDeps({ getCurrentTab: () => Promise.reject(new Error('no tab')) });
     await openCollectionTab('vendors', deps);
-    expect(deps.tabsCreate).toHaveBeenCalledWith({ url: 'chrome-extension://abc/console/console.html?authId=u1' });
+    expect(deps.tabsCreate).toHaveBeenCalledWith({
+      url: 'chrome-extension://abc/console/console.html?authId=u1',
+    });
   });
 });

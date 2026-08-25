@@ -56,16 +56,20 @@ export function revealScrollTop(line: any, view: any): number | null {
 }
 
 export function prefersReducedMotion() {
-  return typeof window !== 'undefined'
-    && typeof window.matchMedia === 'function'
-    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
 }
 
 // One in-flight tween per element, so rapid hovers retarget instead of fighting.
 const running = new WeakMap();
 
 export function animateScrollTop(
-  el: any, top: number, { duration = SCROLL_MS, reduced }: { duration?: number; reduced?: boolean } = {},
+  el: any,
+  top: number,
+  { duration = SCROLL_MS, reduced }: { duration?: number; reduced?: boolean } = {},
 ) {
   if (!el) return;
   const prev = running.get(el);
@@ -76,11 +80,15 @@ export function animateScrollTop(
   const target = Math.max(0, Math.min(top, max));
   const from = el.scrollTop;
 
-  const skip = (reduced == null ? prefersReducedMotion() : reduced)
-    || typeof requestAnimationFrame !== 'function'
-    || typeof performance === 'undefined'
-    || Math.abs(target - from) < 2; // not worth animating, and avoids a visible nudge
-  if (skip) { el.scrollTop = target; return; }
+  const skip =
+    (reduced == null ? prefersReducedMotion() : reduced) ||
+    typeof requestAnimationFrame !== 'function' ||
+    typeof performance === 'undefined' ||
+    Math.abs(target - from) < 2; // not worth animating, and avoids a visible nudge
+  if (skip) {
+    el.scrollTop = target;
+    return;
+  }
 
   const start = performance.now();
   const step = (now: number) => {

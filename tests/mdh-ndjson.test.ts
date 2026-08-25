@@ -43,7 +43,10 @@ describe('buildNdjsonSerializer', () => {
   });
   it('preserves EJSON shapes and round-trips through parseNdjson', () => {
     const s = buildNdjsonSerializer();
-    const docs = [{ _id: { $oid: 'abc' }, n: 1 }, { _id: { $oid: 'def' }, n: 2 }];
+    const docs = [
+      { _id: { $oid: 'abc' }, n: 1 },
+      { _id: { $oid: 'def' }, n: 2 },
+    ];
     const text = docs.map((d) => s.item(d)).join(s.separator);
     expect(parseNdjson(text).docs).toEqual(docs);
   });

@@ -61,7 +61,14 @@ export async function probeLock(tabId: number, deps?: any) {
 
 function LockIcon() {
   return (
-    <svg width="13" height="14" viewBox="0 0 12 13" fill="none" stroke="currentColor" stroke-width="1.6">
+    <svg
+      width="13"
+      height="14"
+      viewBox="0 0 12 13"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.6"
+    >
       <rect x="1.5" y="5.5" width="9" height="6.2" rx="1.4" />
       <path d="M3.6 5.2V4a2.4 2.4 0 0 1 4.8 0v1.2" />
     </svg>

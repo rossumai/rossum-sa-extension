@@ -14,7 +14,11 @@ import { isDark } from './theme.js';
 // (there are unsaved edits). Reverting to the original therefore clears it.
 function computeDirty(original: unknown, text: string) {
   let parsed;
-  try { parsed = JSON.parse(text); } catch { return true; }
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return true;
+  }
   const { body, removed } = buildPatchBody(original, parsed);
   return Object.keys(body).length + removed.length > 0;
 }
@@ -24,22 +28,26 @@ import { resolver } from './nameResolve.js';
 
 // Approximate DevTools' JSON/source palette (exact tokens aren't exposed to
 // extension panels — only the theme name). Tune in dogfood.
-const lightHL = syntaxHighlighting(HighlightStyle.define([
-  { tag: tags.propertyName, color: '#881391' },
-  { tag: tags.string, color: '#c41a16' },
-  { tag: tags.number, color: '#1c00cf' },
-  { tag: tags.bool, color: '#0842a0' },
-  { tag: tags.null, color: '#808080' },
-  { tag: tags.keyword, color: '#881391' },
-]));
-const darkHL = syntaxHighlighting(HighlightStyle.define([
-  { tag: tags.propertyName, color: '#5db0d7' },
-  { tag: tags.string, color: '#f29766' },
-  { tag: tags.number, color: '#9980ff' },
-  { tag: tags.bool, color: '#569cd6' },
-  { tag: tags.null, color: '#808080' },
-  { tag: tags.keyword, color: '#c586c0' },
-]));
+const lightHL = syntaxHighlighting(
+  HighlightStyle.define([
+    { tag: tags.propertyName, color: '#881391' },
+    { tag: tags.string, color: '#c41a16' },
+    { tag: tags.number, color: '#1c00cf' },
+    { tag: tags.bool, color: '#0842a0' },
+    { tag: tags.null, color: '#808080' },
+    { tag: tags.keyword, color: '#881391' },
+  ]),
+);
+const darkHL = syntaxHighlighting(
+  HighlightStyle.define([
+    { tag: tags.propertyName, color: '#5db0d7' },
+    { tag: tags.string, color: '#f29766' },
+    { tag: tags.number, color: '#9980ff' },
+    { tag: tags.bool, color: '#569cd6' },
+    { tag: tags.null, color: '#808080' },
+    { tag: tags.keyword, color: '#c586c0' },
+  ]),
+);
 // Editor surface inherits the panel's theme-aware background (no oneDark dark surface).
 const surfaceTheme = EditorView.theme({
   '&': { backgroundColor: 'transparent', color: 'var(--fg)' },
@@ -48,15 +56,16 @@ const surfaceTheme = EditorView.theme({
   '.cm-activeLineGutter': { backgroundColor: 'transparent' },
 });
 
-export default function JsonCodeEditor(
-  { tabId, onFollowLink, onContextLink }:
-  {
-    tabId?: number | string;
-    onFollowLink?: (url: string) => void;
-    /** The context-menu handler also receives the click position. */
-    onContextLink?: (url: string, x?: number, y?: number) => unknown;
-  },
-) {
+export default function JsonCodeEditor({
+  tabId,
+  onFollowLink,
+  onContextLink,
+}: {
+  tabId?: number | string;
+  onFollowLink?: (url: string) => void;
+  /** The context-menu handler also receives the click position. */
+  onContextLink?: (url: string, x?: number, y?: number) => unknown;
+}) {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   // True while WE programmatically push an external buffer change into the view,
@@ -72,7 +81,10 @@ export default function JsonCodeEditor(
       if (u.docChanged && !syncingRef.current) {
         const text = u.state.doc.toString();
         const t = store.tabs.value.find((x) => x.id === tabId);
-        store.patchTab(tabId as string, { buffer: text, dirty: computeDirty(t ? t.original : null, text) });
+        store.patchTab(tabId as string, {
+          buffer: text,
+          dirty: computeDirty(t ? t.original : null, text),
+        });
       }
     });
     const extensions = [
@@ -114,7 +126,11 @@ export default function JsonCodeEditor(
   }, [buffer]);
 
   let parseError: string | null = null;
-  try { JSON.parse(buffer); } catch (e: any) { parseError = (e as Error).message; }
+  try {
+    JSON.parse(buffer);
+  } catch (e: any) {
+    parseError = (e as Error).message;
+  }
 
   return (
     <div class="rawjson-raw">

@@ -5,7 +5,13 @@ import { confirmModal } from './Modal.jsx';
 import JsonEditor from './JsonEditor.jsx';
 
 export default function IndexCard({
-  name, badges = [], definition, canDrop, onDrop, cardClass, meta,
+  name,
+  badges = [],
+  definition,
+  canDrop,
+  onDrop,
+  cardClass,
+  meta,
 }: {
   name: string;
   badges?: any[];
@@ -21,7 +27,9 @@ export default function IndexCard({
     const btn = e.currentTarget;
     navigator.clipboard.writeText(JSON.stringify(definition, null, 2)).then(() => {
       btn.textContent = '\u2713 Copied';
-      setTimeout(() => { btn.textContent = 'Copy'; }, 1000);
+      setTimeout(() => {
+        btn.textContent = 'Copy';
+      }, 1000);
     });
   }
 
@@ -34,23 +42,41 @@ export default function IndexCard({
   }
 
   return (
-    <div class={'record-card' + (expanded ? ' record-card-expanded' : '') + (cardClass ? ' ' + cardClass : '')}>
+    <div
+      class={
+        'record-card' +
+        (expanded ? ' record-card-expanded' : '') +
+        (cardClass ? ' ' + cardClass : '')
+      }
+    >
       <div
         class="record-card-header"
         style="cursor:pointer"
-        onClick={(e: any) => { if (!e.target.closest('.record-actions')) setExpanded(!expanded); }}
+        onClick={(e: any) => {
+          if (!e.target.closest('.record-actions')) setExpanded(!expanded);
+        }}
       >
         <span class="record-chevron">{expanded ? '\u25BC' : '\u25B6'}</span>
         <span class="record-summary">
           <strong>{name}</strong>
           {badges.map(({ text, cls }) => (
-            <span class={'index-badge' + (cls ? ' ' + cls : '')} style="margin-left:6px">{text}</span>
+            <span class={'index-badge' + (cls ? ' ' + cls : '')} style="margin-left:6px">
+              {text}
+            </span>
           ))}
         </span>
         {meta && <span class="index-card-meta">{meta}</span>}
         <span class="record-actions">
-          {definition && <button class="action-copy" onClick={handleCopy}>Copy</button>}
-          {canDrop && onDrop && <button class="action-delete" onClick={handleDrop}>Del</button>}
+          {definition && (
+            <button class="action-copy" onClick={handleCopy}>
+              Copy
+            </button>
+          )}
+          {canDrop && onDrop && (
+            <button class="action-delete" onClick={handleDrop}>
+              Del
+            </button>
+          )}
         </span>
       </div>
       {expanded && definition && (

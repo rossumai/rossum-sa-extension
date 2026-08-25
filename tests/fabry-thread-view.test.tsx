@@ -3,7 +3,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { h, render } from 'preact';
 
 vi.mock('../src/fabry/chat.js', () => ({
-  openChat: vi.fn(), sendMessage: vi.fn(), answerQuestions: vi.fn(),
+  openChat: vi.fn(),
+  sendMessage: vi.fn(),
+  answerQuestions: vi.fn(),
 }));
 
 import * as chat from '../src/fabry/chat.js';
@@ -28,10 +30,50 @@ beforeEach(() => {
   store.liveTurn.value = null;
   store.deepPhase.value = null;
   store.thread.value = [
-    { role: 'user', chip: true, command: false, text: '/persona cautious', images: [], feedback: null, reasoning: '', tools: [], interrupted: false },
-    { role: 'assistant', chip: false, command: false, text: 'Persona set.', images: [], feedback: null, reasoning: '', tools: [], interrupted: false },
-    { role: 'user', chip: false, command: false, text: '**q**', images: [], feedback: null, reasoning: '', tools: [], interrupted: false },
-    { role: 'assistant', chip: false, command: false, text: 'the **answer**', images: [], feedback: true, reasoning: 'thought hard', tools: ['rossum_get_queue'], interrupted: false },
+    {
+      role: 'user',
+      chip: true,
+      command: false,
+      text: '/persona cautious',
+      images: [],
+      feedback: null,
+      reasoning: '',
+      tools: [],
+      interrupted: false,
+    },
+    {
+      role: 'assistant',
+      chip: false,
+      command: false,
+      text: 'Persona set.',
+      images: [],
+      feedback: null,
+      reasoning: '',
+      tools: [],
+      interrupted: false,
+    },
+    {
+      role: 'user',
+      chip: false,
+      command: false,
+      text: '**q**',
+      images: [],
+      feedback: null,
+      reasoning: '',
+      tools: [],
+      interrupted: false,
+    },
+    {
+      role: 'assistant',
+      chip: false,
+      command: false,
+      text: 'the **answer**',
+      images: [],
+      feedback: true,
+      reasoning: 'thought hard',
+      tools: ['rossum_get_queue'],
+      interrupted: false,
+    },
   ];
 });
 
@@ -40,7 +82,9 @@ describe('Thread', () => {
     const root = mount();
     expect(root.querySelector('.fabry-turn-chip')!.textContent).toContain('/persona cautious');
     expect(root.querySelectorAll('.fabry-turn-user').length).toBe(1); // chip is not a user bubble
-    expect(root.querySelector('.fabry-turn-assistant .' + mdStyles.md + ' strong')!.textContent).toBe('answer');
+    expect(
+      root.querySelector('.fabry-turn-assistant .' + mdStyles.md + ' strong')!.textContent,
+    ).toBe('answer');
     expect(root.querySelector('.fabry-tools')!.textContent).toContain('reading the queue');
     expect(root.querySelector('.fabry-thinking')).toBeTruthy();
   });
@@ -53,12 +97,31 @@ describe('Thread', () => {
   });
   it('renders the streaming live turn with a caret and the interrupted refresh row', () => {
     store.streaming.value = true;
-    store.liveTurn.value = { reasoning: 'r', text: 'partial', tools: [], status: 'thinking', done: false };
+    store.liveTurn.value = {
+      reasoning: 'r',
+      text: 'partial',
+      tools: [],
+      status: 'thinking',
+      done: false,
+    };
     const root = mount();
     expect(root.querySelector('.fabry-turn-live .' + mdStyles.caret)).toBeTruthy();
     store.streaming.value = false;
     store.liveTurn.value = null;
-    store.thread.value = [...store.thread.value, { role: 'assistant', chip: false, command: false, text: 'par', images: [], feedback: null, reasoning: '', tools: [], interrupted: true }];
+    store.thread.value = [
+      ...store.thread.value,
+      {
+        role: 'assistant',
+        chip: false,
+        command: false,
+        text: 'par',
+        images: [],
+        feedback: null,
+        reasoning: '',
+        tools: [],
+        interrupted: true,
+      },
+    ];
     const root2 = mount();
     root2.querySelector<HTMLElement>('.fabry-refresh')!.click();
     expect(chat.openChat).toHaveBeenCalledWith('chat_1');
@@ -70,16 +133,42 @@ describe('Thread', () => {
     store.liveTurn.value = { reasoning: '', text: 'x', tools: [] };
     store.deepPhase.value = { phase: 'verify', round: 0 };
     const root = mount();
-    expect(root.querySelector('.fabry-deep-phase')!.textContent).toContain('Verifying in a fresh chat');
+    expect(root.querySelector('.fabry-deep-phase')!.textContent).toContain(
+      'Verifying in a fresh chat',
+    );
     store.deepPhase.value = { phase: 'refine', round: 2 };
     const root2 = mount();
     expect(root2.querySelector('.fabry-deep-phase')!.textContent).toContain('Refining 2/2');
   });
   it('verdict chip renders per state and expands the critic strip', async () => {
     store.thread.value = [
-      { role: 'user', chip: false, command: false, text: 'q', images: [], feedback: null, reasoning: '', tools: [], interrupted: false },
-      { role: 'assistant', chip: false, command: false, text: 'a', images: [], feedback: null, reasoning: '', tools: [], interrupted: false,
-        deep: { verdict: 'fail', issues: ['wrong count'], criticText: 'VERDICT: FAIL\n- wrong count' } },
+      {
+        role: 'user',
+        chip: false,
+        command: false,
+        text: 'q',
+        images: [],
+        feedback: null,
+        reasoning: '',
+        tools: [],
+        interrupted: false,
+      },
+      {
+        role: 'assistant',
+        chip: false,
+        command: false,
+        text: 'a',
+        images: [],
+        feedback: null,
+        reasoning: '',
+        tools: [],
+        interrupted: false,
+        deep: {
+          verdict: 'fail',
+          issues: ['wrong count'],
+          criticText: 'VERDICT: FAIL\n- wrong count',
+        },
+      },
     ];
     const root = mount();
     const chipEl = root.querySelector<HTMLElement>('.fabry-deep-chip.fail')!;
@@ -90,9 +179,29 @@ describe('Thread', () => {
   });
   it('renders a question form for a question turn and suppresses feedback', () => {
     store.thread.value = [
-      { role: 'user', chip: false, command: false, text: 'draft', images: [], feedback: null, reasoning: '', tools: [], interrupted: false },
-      { role: 'assistant', chip: false, command: false, text: '', images: [], feedback: null, reasoning: '', tools: [], interrupted: false,
-        questions: [{ question: 'Name?', options: [], multi_select: false }] },
+      {
+        role: 'user',
+        chip: false,
+        command: false,
+        text: 'draft',
+        images: [],
+        feedback: null,
+        reasoning: '',
+        tools: [],
+        interrupted: false,
+      },
+      {
+        role: 'assistant',
+        chip: false,
+        command: false,
+        text: '',
+        images: [],
+        feedback: null,
+        reasoning: '',
+        tools: [],
+        interrupted: false,
+        questions: [{ question: 'Name?', options: [], multi_select: false }],
+      },
     ];
     const root = mount();
     expect(root.querySelector('.fabry-q')).toBeTruthy();
@@ -100,11 +209,23 @@ describe('Thread', () => {
   });
   it('renders the unsupported-element notice for a text-less unknown turn', () => {
     store.thread.value = [
-      { role: 'assistant', chip: false, command: false, text: '', images: [], feedback: null, reasoning: '', tools: [], interrupted: false,
-        unhandled: [{ type: 'data-agent-confirmation', data: { prompt: 'ok?' } }] },
+      {
+        role: 'assistant',
+        chip: false,
+        command: false,
+        text: '',
+        images: [],
+        feedback: null,
+        reasoning: '',
+        tools: [],
+        interrupted: false,
+        unhandled: [{ type: 'data-agent-confirmation', data: { prompt: 'ok?' } }],
+      },
     ];
     const root = mount();
-    expect(root.querySelector('.' + noticeStyles.warn)!.textContent).toContain('data-agent-confirmation');
+    expect(root.querySelector('.' + noticeStyles.warn)!.textContent).toContain(
+      'data-agent-confirmation',
+    );
     expect(root.querySelector('.fabry-turn-foot')).toBeNull();
   });
 });

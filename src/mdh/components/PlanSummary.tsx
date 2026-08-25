@@ -5,15 +5,22 @@ import { useState } from 'preact/hooks';
 // holds the full verified bullet list (the caller passes the <ul>). Replaces
 // the always-visible "What will happen" blocks in the import/export wizards.
 // Collapsed on every mount; expansion is never persisted.
-export default function PlanSummary(
-  { summary, summaryTestid, children }:
-  { summary?: ComponentChildren; summaryTestid?: string; children?: ComponentChildren },
-) {
+export default function PlanSummary({
+  summary,
+  summaryTestid,
+  children,
+}: {
+  summary?: ComponentChildren;
+  summaryTestid?: string;
+  children?: ComponentChildren;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <div class="plan-summary">
       <div class="plan-summary-line">
-        <span class="plan-summary-text" data-testid={summaryTestid}>{summary}</span>
+        <span class="plan-summary-text" data-testid={summaryTestid}>
+          {summary}
+        </span>
         {children && (
           <button
             type="button"
@@ -21,7 +28,9 @@ export default function PlanSummary(
             aria-expanded={open}
             data-testid={summaryTestid ? `${summaryTestid}-toggle` : undefined}
             onClick={() => setOpen(!open)}
-          >{open ? 'Hide ▴' : 'Details ▾'}</button>
+          >
+            {open ? 'Hide ▴' : 'Details ▾'}
+          </button>
         )}
       </div>
       {open && <div class="import-steps">{children}</div>}

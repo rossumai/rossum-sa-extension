@@ -57,7 +57,11 @@ export const sidebarWidth = signal(280);
 export function setSidebarWidth(w: unknown): void {
   const width = clampSidebarWidth(w);
   sidebarWidth.value = width;
-  try { chrome.storage.local.set({ fabrySidebarWidth: width }); } catch { /* pref is best-effort */ }
+  try {
+    chrome.storage.local.set({ fabrySidebarWidth: width });
+  } catch {
+    /* pref is best-effort */
+  }
 }
 
 export function resetChatView(): void {

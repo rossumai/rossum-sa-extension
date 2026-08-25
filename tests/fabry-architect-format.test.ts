@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { deliverableTitle, headingTitle, relativeTime, summaryLine } from '../src/fabry/architect/format.js';
+import {
+  deliverableTitle,
+  headingTitle,
+  relativeTime,
+  summaryLine,
+} from '../src/fabry/architect/format.js';
 import { EXAMPLE_DELIVERABLE } from '../src/fabry/architect/example.js';
 
 describe('summaryLine', () => {
@@ -45,8 +50,8 @@ describe('headingTitle', () => {
   });
   it('matches only what the Fabry markdown renderer renders as a heading', () => {
     expect(headingTitle('##### Five hashes')).toBe(''); // renderer stops at ####
-    expect(headingTitle('#NoSpace')).toBe('');          // renderer requires the space
-    expect(headingTitle('  # Indented')).toBe('');      // renderer matches column 0 only
+    expect(headingTitle('#NoSpace')).toBe(''); // renderer requires the space
+    expect(headingTitle('  # Indented')).toBe(''); // renderer matches column 0 only
   });
   it('returns empty when the first non-empty line is not a heading', () => {
     expect(headingTitle('> banner line\n# Heading below')).toBe('');
@@ -72,5 +77,7 @@ describe('relativeTime', () => {
     expect(relativeTime(now - 3 * 3_600_000, now)).toBe('3h ago');
     expect(relativeTime(now - 2 * 86_400_000, now)).toBe('2d ago');
   });
-  it('tolerates missing input', () => { expect(relativeTime(null, now)).toBe(''); });
+  it('tolerates missing input', () => {
+    expect(relativeTime(null, now)).toBe('');
+  });
 });

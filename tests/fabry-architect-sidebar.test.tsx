@@ -2,13 +2,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { h, render } from 'preact';
 import { act } from 'preact/test-utils';
-globalThis.requestAnimationFrame = (cb) => { cb(0); return 0; };
+globalThis.requestAnimationFrame = (cb) => {
+  cb(0);
+  return 0;
+};
 globalThis.cancelAnimationFrame = () => {};
 vi.mock('../src/fabry/architect/actions.js', () => ({
   loadArchitect: vi.fn().mockResolvedValue(undefined),
   openDeliverable: vi.fn(),
-  addDeliverable: vi.fn(), runAll: vi.fn(), stopRun: vi.fn(),
-  moveDeliverable: vi.fn(), reRun: vi.fn(), deleteDeliverable: vi.fn(),
+  addDeliverable: vi.fn(),
+  runAll: vi.fn(),
+  stopRun: vi.fn(),
+  moveDeliverable: vi.fn(),
+  reRun: vi.fn(),
+  deleteDeliverable: vi.fn(),
 }));
 vi.mock('../src/ui/Modal.jsx', () => ({ confirmModal: vi.fn(), promptModal: vi.fn() }));
 import * as actions from '../src/fabry/architect/actions.js';
@@ -17,17 +24,33 @@ import * as store from '../src/fabry/architect/store.js';
 import ArchitectSidebar from '../src/fabry/architect/components/ArchitectSidebar.jsx';
 import { deliverable } from './support/architect.js';
 const flush = () => new Promise((r) => setTimeout(r, 0));
-function mount() { const root = document.createElement('div'); document.body.appendChild(root); render(<ArchitectSidebar />, root); return root; }
+function mount() {
+  const root = document.createElement('div');
+  document.body.appendChild(root);
+  render(<ArchitectSidebar />, root);
+  return root;
+}
 beforeEach(() => {
   vi.clearAllMocks();
-  store.deliverables.value = []; store.results.value = {}; store.activeId.value = null;
-  store.loaded.value = true; store.loadError.value = null; store.running.value = false;
+  store.deliverables.value = [];
+  store.results.value = {};
+  store.activeId.value = null;
+  store.loaded.value = true;
+  store.loadError.value = null;
+  store.running.value = false;
 });
 
 describe('ArchitectSidebar', () => {
-  it('loads on mount', async () => { mount(); await flush(); expect(actions.loadArchitect).toHaveBeenCalled(); });
+  it('loads on mount', async () => {
+    mount();
+    await flush();
+    expect(actions.loadArchitect).toHaveBeenCalled();
+  });
   it('renders a row per deliverable with a title', () => {
-    store.deliverables.value = [deliverable({ id: 'a', text: '# VAT', order: 1 }), deliverable({ id: 'b', text: 'plain', order: 2 })];
+    store.deliverables.value = [
+      deliverable({ id: 'a', text: '# VAT', order: 1 }),
+      deliverable({ id: 'b', text: 'plain', order: 2 }),
+    ];
     const root = mount();
     const rows = root.querySelectorAll('.fabry-arch-item');
     expect(rows.length).toBe(2);
@@ -42,20 +65,46 @@ describe('ArchitectSidebar', () => {
     expect(actions.openDeliverable).toHaveBeenCalledWith('a');
   });
   it('names a row by the heading its text declares, over an AI-generated title', () => {
-    store.deliverables.value = [deliverable({ id: 'a', text: '# Vendor Matching\nbody', order: 1, title: 'Generated Name', titleSource: 'ai' })];
+    store.deliverables.value = [
+      deliverable({
+        id: 'a',
+        text: '# Vendor Matching\nbody',
+        order: 1,
+        title: 'Generated Name',
+        titleSource: 'ai',
+      }),
+    ];
     const root = mount();
     expect(root.querySelector('.fabry-arch-item-title')!.textContent).toBe('Vendor Matching');
   });
   it('kebab Rename prefills with the name on screen, not the (absent) stored title', () => {
-    store.deliverables.value = [deliverable({ id: 'a', text: '# Vendor Matching\nbody', order: 1 })];
+    store.deliverables.value = [
+      deliverable({ id: 'a', text: '# Vendor Matching\nbody', order: 1 }),
+    ];
     const root = mount();
-    act(() => { root.querySelector<HTMLElement>('.fabry-arch-kebab')!.click(); });
-    act(() => { ([...root.querySelectorAll('.fabry-arch-menu-item')].find((b) => /Rename/.test(b.textContent)) as HTMLElement).click(); });
+    act(() => {
+      root.querySelector<HTMLElement>('.fabry-arch-kebab')!.click();
+    });
+    act(() => {
+      (
+        [...root.querySelectorAll('.fabry-arch-menu-item')].find((b) =>
+          /Rename/.test(b.textContent),
+        ) as HTMLElement
+      ).click();
+    });
     expect(vi.mocked(promptModal).mock.calls[0][1].initialValue).toBe('Vendor Matching');
   });
   it('renders status dots by verdict + running spinner + stale', () => {
-    store.deliverables.value = [deliverable({ id: 'a', text: 'A', order: 1 }), deliverable({ id: 'b', text: 'B', order: 2 }), deliverable({ id: 'c', text: 'C', order: 3 })];
-    store.results.value = { a: { evidence: '', chatId: null, verdict: 'pass', stale: false }, b: { verdict: null, evidence: '', chatId: null, running: true }, c: { evidence: '', chatId: null, verdict: 'fail', stale: true } };
+    store.deliverables.value = [
+      deliverable({ id: 'a', text: 'A', order: 1 }),
+      deliverable({ id: 'b', text: 'B', order: 2 }),
+      deliverable({ id: 'c', text: 'C', order: 3 }),
+    ];
+    store.results.value = {
+      a: { evidence: '', chatId: null, verdict: 'pass', stale: false },
+      b: { verdict: null, evidence: '', chatId: null, running: true },
+      c: { evidence: '', chatId: null, verdict: 'fail', stale: true },
+    };
     const root = mount();
     const dots = root.querySelectorAll('.fabry-arch-dot');
     expect(dots[0].className).toMatch(/pass/);
@@ -73,8 +122,13 @@ describe('ArchitectSidebar', () => {
     expect(actions.runAll).toHaveBeenCalled();
   });
   it('while running the Run-all control shows Stop with a progress count', () => {
-    store.deliverables.value = [deliverable({ id: 'a', text: 'A', order: 1 }), deliverable({ id: 'b', text: 'B', order: 2 })];
-    store.results.value = { a: { evidence: '', chatId: null, verdict: 'pass', stale: false, running: false } };
+    store.deliverables.value = [
+      deliverable({ id: 'a', text: 'A', order: 1 }),
+      deliverable({ id: 'b', text: 'B', order: 2 }),
+    ];
+    store.results.value = {
+      a: { evidence: '', chatId: null, verdict: 'pass', stale: false, running: false },
+    };
     store.running.value = true;
     const root = mount();
     const btn = root.querySelector<HTMLElement>('.fabry-arch-runall')!;
@@ -84,8 +138,15 @@ describe('ArchitectSidebar', () => {
     expect(root.querySelector('.fabry-arch-summary')!.textContent).toMatch(/1\s*\/\s*2/);
   });
   it('idle summary shows the met / not-met breakdown', () => {
-    store.deliverables.value = [deliverable({ id: 'a', text: 'A', order: 1 }), deliverable({ id: 'b', text: 'B', order: 2 }), deliverable({ id: 'c', text: 'C', order: 3 })];
-    store.results.value = { a: { evidence: '', chatId: null, verdict: 'pass', running: false }, b: { evidence: '', chatId: null, verdict: 'fail', running: false } };
+    store.deliverables.value = [
+      deliverable({ id: 'a', text: 'A', order: 1 }),
+      deliverable({ id: 'b', text: 'B', order: 2 }),
+      deliverable({ id: 'c', text: 'C', order: 3 }),
+    ];
+    store.results.value = {
+      a: { evidence: '', chatId: null, verdict: 'pass', running: false },
+      b: { evidence: '', chatId: null, verdict: 'fail', running: false },
+    };
     const root = mount();
     const s = root.querySelector('.fabry-arch-summary')!.textContent;
     expect(s).toMatch(/1 met/);
@@ -93,7 +154,10 @@ describe('ArchitectSidebar', () => {
   });
   it('summary ignores orphan results whose id is no longer in the list', () => {
     store.deliverables.value = [deliverable({ id: 'a', text: 'A', order: 1 })];
-    store.results.value = { a: { evidence: '', chatId: null, verdict: 'pass', running: false }, gone: { evidence: '', chatId: null, verdict: 'fail', running: false } };
+    store.results.value = {
+      a: { evidence: '', chatId: null, verdict: 'pass', running: false },
+      gone: { evidence: '', chatId: null, verdict: 'fail', running: false },
+    };
     const root = mount();
     const s = root.querySelector('.fabry-arch-summary')!.textContent;
     expect(s).toMatch(/1 deliverable/);
@@ -103,18 +167,30 @@ describe('ArchitectSidebar', () => {
   it('Enter on the kebab does not open the deliverable, but Enter on the row does', () => {
     store.deliverables.value = [deliverable({ id: 'a', text: 'A', order: 1 })];
     const root = mount();
-    root.querySelector('.fabry-arch-kebab')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    root
+      .querySelector('.fabry-arch-kebab')!
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     expect(actions.openDeliverable).not.toHaveBeenCalled(); // nested button doesn't bubble into open
-    root.querySelector('.fabry-arch-item')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    root
+      .querySelector('.fabry-arch-item')!
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     expect(actions.openDeliverable).toHaveBeenCalledWith('a');
   });
   it('rows are draggable; dropping one onto another reorders via moveDeliverable', () => {
-    store.deliverables.value = [deliverable({ id: 'a', text: 'A', order: 0 }), deliverable({ id: 'b', text: 'B', order: 1 }), deliverable({ id: 'c', text: 'C', order: 2 })];
+    store.deliverables.value = [
+      deliverable({ id: 'a', text: 'A', order: 0 }),
+      deliverable({ id: 'b', text: 'B', order: 1 }),
+      deliverable({ id: 'c', text: 'C', order: 2 }),
+    ];
     const root = mount();
     const rows = root.querySelectorAll('.fabry-arch-item');
     expect(rows[0].getAttribute('draggable')).toBe('true');
-    act(() => { rows[0].dispatchEvent(new Event('dragstart', { bubbles: true })); }); // drag A
-    act(() => { rows[2].dispatchEvent(new Event('drop', { bubbles: true })); });       // drop on C (index 2)
+    act(() => {
+      rows[0].dispatchEvent(new Event('dragstart', { bubbles: true }));
+    }); // drag A
+    act(() => {
+      rows[2].dispatchEvent(new Event('drop', { bubbles: true }));
+    }); // drop on C (index 2)
     expect(actions.moveDeliverable).toHaveBeenCalledWith('a', 2);
   });
 });
@@ -123,26 +199,40 @@ describe('ArchitectSidebar — kebab menu', () => {
   it('opens a menu; Re-run runs that deliverable and closes', () => {
     store.deliverables.value = [deliverable({ id: 'a', text: 'A', order: 1 })];
     const root = mount();
-    act(() => { root.querySelector<HTMLElement>('.fabry-arch-kebab')!.click(); });
+    act(() => {
+      root.querySelector<HTMLElement>('.fabry-arch-kebab')!.click();
+    });
     const menu = root.querySelector('.fabry-arch-menu');
     expect(menu).toBeTruthy();
-    const rerun = [...menu!.querySelectorAll('.fabry-arch-menu-item')].find((b) => /re-run/i.test(b.textContent));
-    act(() => { (rerun as HTMLElement).click(); });
+    const rerun = [...menu!.querySelectorAll('.fabry-arch-menu-item')].find((b) =>
+      /re-run/i.test(b.textContent),
+    );
+    act(() => {
+      (rerun as HTMLElement).click();
+    });
     expect(actions.reRun).toHaveBeenCalledWith('a');
     expect(root.querySelector('.fabry-arch-menu')).toBeNull();
   });
   it('clicking the kebab does not open the deliverable', () => {
     store.deliverables.value = [deliverable({ id: 'a', text: 'A', order: 1 })];
     const root = mount();
-    act(() => { root.querySelector<HTMLElement>('.fabry-arch-kebab')!.click(); });
+    act(() => {
+      root.querySelector<HTMLElement>('.fabry-arch-kebab')!.click();
+    });
     expect(actions.openDeliverable).not.toHaveBeenCalled();
   });
   it('Delete opens the shared confirm modal; deletes only on confirm', () => {
     store.deliverables.value = [deliverable({ id: 'a', text: 'A', order: 1 })];
     const root = mount();
-    act(() => { root.querySelector<HTMLElement>('.fabry-arch-kebab')!.click(); });
-    const del = [...root.querySelectorAll('.fabry-arch-menu-item')].find((b) => b.textContent === 'Delete');
-    act(() => { (del as HTMLElement).click(); });
+    act(() => {
+      root.querySelector<HTMLElement>('.fabry-arch-kebab')!.click();
+    });
+    const del = [...root.querySelectorAll('.fabry-arch-menu-item')].find(
+      (b) => b.textContent === 'Delete',
+    );
+    act(() => {
+      (del as HTMLElement).click();
+    });
     expect(confirmModal).toHaveBeenCalled();
     expect(actions.deleteDeliverable).not.toHaveBeenCalled(); // not until confirmed
     expect(root.querySelector('.fabry-arch-menu')).toBeNull(); // menu closed when the dialog opens
@@ -157,21 +247,36 @@ describe('the document outline in the sidebar', () => {
   // the deliverable it belongs to, because the in-page one needs a 1280px column and the pane
   // is ~936px at a 1280px window — it was hidden in practice.
   const WITH_HEADINGS = [
-    '# Solution', '', 'Intro.', '',
-    '## Overview', '', 'a', '',
-    '### Detail', '', 'b', '',
-    '## Operations', '', 'c', '',
-    '```markdown', '## Not a heading', '```', '',
+    '# Solution',
+    '',
+    'Intro.',
+    '',
+    '## Overview',
+    '',
+    'a',
+    '',
+    '### Detail',
+    '',
+    'b',
+    '',
+    '## Operations',
+    '',
+    'c',
+    '',
+    '```markdown',
+    '## Not a heading',
+    '```',
+    '',
   ].join('\n');
 
-  it('lists the open deliverable\'s h2/h3 headings, nested and indented by level', () => {
+  it("lists the open deliverable's h2/h3 headings, nested and indented by level", () => {
     store.deliverables.value = [deliverable({ id: 'a', text: WITH_HEADINGS, order: 1 })];
     store.activeId.value = 'a';
     const root = mount();
     const items = [...root.querySelectorAll('.fabry-arch-outline-item')];
     expect(items.map((b) => b.textContent)).toEqual(['Overview', 'Detail', 'Operations']);
     expect(items[0].classList.contains('level-2')).toBe(true);
-    expect(items[1].classList.contains('level-3')).toBe(true);   // indented deeper
+    expect(items[1].classList.contains('level-3')).toBe(true); // indented deeper
   });
 
   it('shows the outline for EVERY deliverable — the list is the whole table of contents', () => {
@@ -193,7 +298,9 @@ describe('the document outline in the sidebar', () => {
   it('does not repeat the deliverable own title, which the row already shows', () => {
     // Owner report, 2026-08-19: a specification whose document starts `## 1. Overview` had the same
     // words on the row and again one line below it.
-    store.deliverables.value = [deliverable({ id: 'a', text: '## 1. Overview\n\ntext\n\n## 1.1 Scope\n\nmore\n', order: 1 })];
+    store.deliverables.value = [
+      deliverable({ id: 'a', text: '## 1. Overview\n\ntext\n\n## 1.1 Scope\n\nmore\n', order: 1 }),
+    ];
     const root = mount();
     const labels = [...root.querySelectorAll('.fabry-arch-outline-item')].map((b) => b.textContent);
     expect(labels).toEqual(['1.1 Scope']);
@@ -215,7 +322,9 @@ describe('the document outline in the sidebar', () => {
   });
 
   it('renders nothing for a deliverable with no headings', () => {
-    store.deliverables.value = [deliverable({ id: 'a', text: 'Just prose, no headings.\n', order: 1 })];
+    store.deliverables.value = [
+      deliverable({ id: 'a', text: 'Just prose, no headings.\n', order: 1 }),
+    ];
     store.activeId.value = 'a';
     const root = mount();
     expect(root.querySelector('.fabry-arch-outline')).toBeNull();
@@ -227,7 +336,9 @@ describe('the document outline in the sidebar', () => {
     const jumped: any = [];
     store.setOutlineNavigator((slug: any) => jumped.push(slug));
     const root = mount();
-    act(() => { root.querySelectorAll<HTMLElement>('.fabry-arch-outline-item')[2].click(); });
+    act(() => {
+      root.querySelectorAll<HTMLElement>('.fabry-arch-outline-item')[2].click();
+    });
     expect(jumped).toEqual(['operations']);
     // The row's own click handler must not fire: the outline is a SIBLING of the row, and the
     // handler stops propagation as well.
@@ -250,7 +361,8 @@ describe('the document outline in the sidebar', () => {
     store.deliverables.value = [deliverable({ id: 'a', text: WITH_HEADINGS, order: 1 })];
     store.activeId.value = 'a';
     const root = mount();
-    expect([...root.querySelectorAll('.fabry-arch-outline-item')].map((b) => b.textContent))
-      .not.toContain('Not a heading');
+    expect(
+      [...root.querySelectorAll('.fabry-arch-outline-item')].map((b) => b.textContent),
+    ).not.toContain('Not a heading');
   });
 });

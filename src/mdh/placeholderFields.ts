@@ -18,9 +18,18 @@ function wholeNoModifierName(str: string): string | null {
 // Record name→{field, collection}, marking ambiguous if the name already mapped
 // to a DIFFERENT (field, collection) pair. `collection` is null (active) or a
 // non-empty raw string (possibly containing {var} placeholders).
-function record(out: Record<string, any>, name: string, field: string, collection: string | null, op: string | null): void {
+function record(
+  out: Record<string, any>,
+  name: string,
+  field: string,
+  collection: string | null,
+  op: string | null,
+): void {
   const prev = out[name];
-  if (prev === undefined) { out[name] = { field, collection, op }; return; }
+  if (prev === undefined) {
+    out[name] = { field, collection, op };
+    return;
+  }
   if (prev.ambiguous) return;
   if (prev.field !== field || (prev.collection || null) !== (collection || null)) {
     out[name] = { ambiguous: true };
@@ -29,12 +38,15 @@ function record(out: Record<string, any>, name: string, field: string, collectio
 
 // "$field" → "field"; anything else (incl. placeholders, which never start with $) → null.
 function exprFieldPath(v: unknown): string | null {
-  return (typeof v === 'string' && v.startsWith('$')) ? v.slice(1) : null;
+  return typeof v === 'string' && v.startsWith('$') ? v.slice(1) : null;
 }
 
 function walkExpr(node: any, out: Record<string, any>, collection: string | null): void {
   if (!node || typeof node !== 'object') return;
-  if (Array.isArray(node)) { for (const el of node) walkExpr(el, out, collection); return; }
+  if (Array.isArray(node)) {
+    for (const el of node) walkExpr(el, out, collection);
+    return;
+  }
   for (const [op, val] of Object.entries(node)) {
     if (CMP_OPS.has(op) && Array.isArray(val) && val.length === 2) {
       const field = exprFieldPath(val[0]) || exprFieldPath(val[1]);
@@ -46,9 +58,17 @@ function walkExpr(node: any, out: Record<string, any>, collection: string | null
   }
 }
 
-function resolveFieldValue(field: string, val: any, out: Record<string, any>, collection: string | null): void {
+function resolveFieldValue(
+  field: string,
+  val: any,
+  out: Record<string, any>,
+  collection: string | null,
+): void {
   const direct = wholeNoModifierName(val);
-  if (direct) { record(out, direct, field, collection, '$eq'); return; }
+  if (direct) {
+    record(out, direct, field, collection, '$eq');
+    return;
+  }
   if (val && typeof val === 'object' && !Array.isArray(val)) {
     for (const [op, opVal] of Object.entries(val)) {
       if (CMP_OPS.has(op)) {
@@ -65,12 +85,24 @@ function resolveFieldValue(field: string, val: any, out: Record<string, any>, co
 }
 
 function walkQuery(node: any, out: Record<string, any>, collection: string | null): void {
-  if (Array.isArray(node)) { for (const el of node) walkQuery(el, out, collection); return; }
+  if (Array.isArray(node)) {
+    for (const el of node) walkQuery(el, out, collection);
+    return;
+  }
   if (!node || typeof node !== 'object') return;
   for (const [key, val] of Object.entries(node)) {
-    if (key === '$expr') { walkExpr(val, out, collection); continue; }
-    if (LOGICAL_OPS.has(key)) { if (Array.isArray(val)) for (const sub of val) walkQuery(sub, out, collection); continue; }
-    if (key === '$not') { walkQuery(val, out, collection); continue; }
+    if (key === '$expr') {
+      walkExpr(val, out, collection);
+      continue;
+    }
+    if (LOGICAL_OPS.has(key)) {
+      if (Array.isArray(val)) for (const sub of val) walkQuery(sub, out, collection);
+      continue;
+    }
+    if (key === '$not') {
+      walkQuery(val, out, collection);
+      continue;
+    }
     if (key.startsWith('$')) continue; // other operators: ignore
     resolveFieldValue(key, val, out, collection); // key is a field path (incl. dotted)
   }
@@ -91,8 +123,10 @@ function walkPipeline(stages: any[], out: Record<string, any>, collection: strin
       if (coll && Array.isArray(uw.pipeline)) walkPipeline(uw.pipeline, out, coll);
     }
     if (stage.$lookup && typeof stage.$lookup === 'object') {
-      const from = typeof stage.$lookup.from === 'string' && stage.$lookup.from ? stage.$lookup.from : null;
-      if (from && Array.isArray(stage.$lookup.pipeline)) walkPipeline(stage.$lookup.pipeline, out, from);
+      const from =
+        typeof stage.$lookup.from === 'string' && stage.$lookup.from ? stage.$lookup.from : null;
+      if (from && Array.isArray(stage.$lookup.pipeline))
+        walkPipeline(stage.$lookup.pipeline, out, from);
     }
     if (stage.$facet && typeof stage.$facet === 'object') {
       for (const sub of Object.values(stage.$facet)) walkPipeline(sub as any[], out, collection);
@@ -109,7 +143,11 @@ export type FieldMapping = { field?: string; collection?: string | null; ambiguo
 
 export function mapPlaceholdersToFields(text: string): Record<string, FieldMapping> {
   let parsed;
-  try { parsed = JSON5.parse(text); } catch { return {}; }
+  try {
+    parsed = JSON5.parse(text);
+  } catch {
+    return {};
+  }
   if (!Array.isArray(parsed)) return {};
   const out: Record<string, FieldMapping> = {};
   walkPipeline(parsed, out, null); // null = active collection

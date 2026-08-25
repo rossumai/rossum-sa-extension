@@ -34,7 +34,8 @@ function render(name: any, env: any) {
   return wrapStandaloneImages(md.render(src, env));
 }
 
-const expected = (name: any, mode: any) => fs.readFileSync(path.join(FIX, 'expected', `${name}.${mode}.html`), 'utf8');
+const expected = (name: any, mode: any) =>
+  fs.readFileSync(path.join(FIX, 'expected', `${name}.${mode}.html`), 'utf8');
 
 describe('ported renderer reproduces upstream localpages byte-for-byte', () => {
   for (const name of DOCS) {
@@ -48,11 +49,11 @@ describe('ported renderer reproduces upstream localpages byte-for-byte', () => {
 
   test('the fixtures actually exercise the features being pinned', () => {
     const live = expected('index', 'live');
-    expect(live).toMatch(/markdown-alert-note/);        // GitHub alerts
+    expect(live).toMatch(/markdown-alert-note/); // GitHub alerts
     expect(live).toMatch(/markdown-alert-warning/);
-    expect(live).toMatch(/class="anchor"/);             // heading permalinks
-    expect(live).toMatch(/<figure>.*<figcaption>/s);    // standalone-image figures
-    expect(expected('architecture', 'live')).toMatch(/<div class="wide">.*<svg/s);  // mermaid
+    expect(live).toMatch(/class="anchor"/); // heading permalinks
+    expect(live).toMatch(/<figure>.*<figcaption>/s); // standalone-image figures
+    expect(expected('architecture', 'live')).toMatch(/<div class="wide">.*<svg/s); // mermaid
     // Upstream's own rendering of states.md, kept as the reference for what the element
     // USED to produce here (see the deliberate-divergence block below).
     const states = expected('states', 'live');
@@ -67,7 +68,9 @@ describe('ported renderer reproduces upstream localpages byte-for-byte', () => {
 describe('source-line anchors are live-only', () => {
   test('env.syncLines stamps data-src-line on block openings', () => {
     const md = createMarkdownRenderer();
-    const html = md.render('# Title\n\nBody paragraph.\n\n## Section\n\nMore.\n', { syncLines: true });
+    const html = md.render('# Title\n\nBody paragraph.\n\n## Section\n\nMore.\n', {
+      syncLines: true,
+    });
     expect(html).toMatch(/<h1 [^>]*data-src-line="0"/);
     expect(html).toMatch(/<p data-src-line="2">/);
     expect(html).toMatch(/<h2 [^>]*data-src-line="4"/);
@@ -90,7 +93,7 @@ describe('source-line anchors are live-only', () => {
 
 describe('mermaid is injected, not imported', () => {
   test('a mermaid fence falls back to a code block when no renderer is available', () => {
-    const md = createMarkdownRenderer();  // no mermaid injected (bundle not loaded yet)
+    const md = createMarkdownRenderer(); // no mermaid injected (bundle not loaded yet)
     const html = md.render('```mermaid\ngraph TD\n  A --> B\n```\n');
     expect(html).not.toMatch(/<svg/);
     expect(html).toMatch(/<pre><code/);
@@ -112,25 +115,31 @@ describe('the one deliberate divergence: <state-label> is no longer document mar
   test('it produces a visible notice and a warning instead of a badge', () => {
     const md = createMarkdownRenderer();
     const env = {} as any;
-    const html = md.render('## 3. Architecture\n\n<state-label state="ready" date="2026-08-17" />\n', env);
-    expect(html).not.toMatch(/class="state-label state-ready"/);   // no badge
-    expect(html).not.toMatch(/state-summary/);                      // no tally
-    expect(html).toMatch(/class="state-label state-error"/);        // a visible notice
+    const html = md.render(
+      '## 3. Architecture\n\n<state-label state="ready" date="2026-08-17" />\n',
+      env,
+    );
+    expect(html).not.toMatch(/class="state-label state-ready"/); // no badge
+    expect(html).not.toMatch(/state-summary/); // no tally
+    expect(html).toMatch(/class="state-label state-error"/); // a visible notice
     expect(html).toMatch(/renders as nothing/);
     expect(env.stateLabelWarnings).toHaveLength(1);
     expect(env.stateLabelWarnings[0].message).toMatch(/not supported here/);
   });
 
-  test('upstream\'s states.md now differs from upstream only in that respect', () => {
+  test("upstream's states.md now differs from upstream only in that respect", () => {
     // Everything that is not a state label still matches: same headings, same slugs, same
     // prose, same fenced example. Only the badges and the tally are gone.
     const ours = render('states', {});
     const theirs = expected('states', 'live');
-    const strip = (h: any) => h.replace(/<span class="state-label[\s\S]*?<\/span><\/span>/g, '')
-      .replace(/<div class="state-summary[\s\S]*?<\/div>\n?/, '')
-      .replace(/ class="has-state-label"/g, '')
-      .replace(/<span class="state-label state-error">[\s\S]*?<\/span><\/span>/g, '')
-      .replace(/\s+/g, ' ').trim();
+    const strip = (h: any) =>
+      h
+        .replace(/<span class="state-label[\s\S]*?<\/span><\/span>/g, '')
+        .replace(/<div class="state-summary[\s\S]*?<\/div>\n?/, '')
+        .replace(/ class="has-state-label"/g, '')
+        .replace(/<span class="state-label state-error">[\s\S]*?<\/span><\/span>/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
     expect(strip(ours)).toBe(strip(theirs));
   });
 });

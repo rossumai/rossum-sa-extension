@@ -8,26 +8,31 @@ function mount(props: any) {
   document.body.innerHTML = '';
   const root = document.createElement('div');
   document.body.appendChild(root);
-  render(<RecordCard
-    record={{ _id: '1', name: 'ACME' }}
-    index={0}
-    expanded
-    onToggle={() => {}}
-    onCopy={() => {}}
-    onEdit={() => {}}
-    onDelete={() => {}}
-    sortState={{}}
-    filterState={{}}
-    onSort={() => {}}
-    onFilter={() => {}}
-    charBudget={80}
-    indexes={[]}
-    {...props}
-  />, root);
+  render(
+    <RecordCard
+      record={{ _id: '1', name: 'ACME' }}
+      index={0}
+      expanded
+      onToggle={() => {}}
+      onCopy={() => {}}
+      onEdit={() => {}}
+      onDelete={() => {}}
+      sortState={{}}
+      filterState={{}}
+      onSort={() => {}}
+      onFilter={() => {}}
+      charBudget={80}
+      indexes={[]}
+      {...props}
+    />,
+    root,
+  );
   return root;
 }
 
-beforeEach(() => { selectionMode.value = false; });
+beforeEach(() => {
+  selectionMode.value = false;
+});
 
 describe('RecordCard readOnly', () => {
   it('default (not readOnly) shows Edit and Del actions', () => {

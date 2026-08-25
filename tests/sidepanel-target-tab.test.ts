@@ -28,9 +28,15 @@ describe('isRossumTab / viewState', () => {
 
 describe('sameTarget', () => {
   it('is true only when both the tab id and the URL match', () => {
-    expect(sameTarget({ id: 1, url: `${R}/document/1` }, { id: 1, url: `${R}/document/1` })).toBe(true);
-    expect(sameTarget({ id: 1, url: `${R}/document/1` }, { id: 1, url: `${R}/document/2` })).toBe(false);
-    expect(sameTarget({ id: 1, url: `${R}/document/1` }, { id: 2, url: `${R}/document/1` })).toBe(false);
+    expect(sameTarget({ id: 1, url: `${R}/document/1` }, { id: 1, url: `${R}/document/1` })).toBe(
+      true,
+    );
+    expect(sameTarget({ id: 1, url: `${R}/document/1` }, { id: 1, url: `${R}/document/2` })).toBe(
+      false,
+    );
+    expect(sameTarget({ id: 1, url: `${R}/document/1` }, { id: 2, url: `${R}/document/1` })).toBe(
+      false,
+    );
   });
 
   it('is false when either side is missing', () => {

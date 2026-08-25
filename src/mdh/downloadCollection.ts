@@ -47,18 +47,28 @@ export function buildJsonSerializer() {
 // CSV serializer. Columns are the exact union of deep leaf paths (address.city,
 // not a JSON blob under address), discovered in init() (after the picker).
 // Objects/arrays past the depth cap are JSON-encoded per csvCell.
-export function buildCsvSerializer(
-  { dialect = {}, header = true, bom = true, columns = null }:
-  { dialect?: any; header?: boolean; bom?: boolean; columns?: string[] | null } = {},
-) {
+export function buildCsvSerializer({
+  dialect = {},
+  header = true,
+  bom = true,
+  columns = null,
+}: { dialect?: any; header?: boolean; bom?: boolean; columns?: string[] | null } = {}) {
   let cols: string[] | null = columns;
   return {
     ext: 'csv',
     mimeType: 'text/csv',
     pickerTypes: [{ description: 'CSV file', accept: { 'text/csv': ['.csv'] } }],
-    async init({ collectionName, pipelineStages }: { collectionName: string; pipelineStages: any[] }) {
+    async init({
+      collectionName,
+      pipelineStages,
+    }: {
+      collectionName: string;
+      pipelineStages: any[];
+    }) {
       if (cols != null) return;
-      cols = orderColumns(await discoverLeafPaths(collectionName, pipelineStages, { aggregate: api.aggregate }));
+      cols = orderColumns(
+        await discoverLeafPaths(collectionName, pipelineStages, { aggregate: api.aggregate }),
+      );
     },
     preamble: () => (bom ? '﻿' : '') + (header ? csvHeader(cols!, dialect) + '\r\n' : ''),
     item: (doc: unknown) => csvRow(doc, cols!, dialect),
@@ -88,7 +98,9 @@ export function buildNdjsonSerializer() {
   return {
     ext: 'jsonl',
     mimeType: 'application/x-ndjson',
-    pickerTypes: [{ description: 'JSON Lines file', accept: { 'application/x-ndjson': ['.jsonl', '.ndjson'] } }],
+    pickerTypes: [
+      { description: 'JSON Lines file', accept: { 'application/x-ndjson': ['.jsonl', '.ndjson'] } },
+    ],
     preamble: () => '',
     item: (doc: unknown) => JSON.stringify(doc),
     separator: '\n',
@@ -185,8 +197,13 @@ export async function downloadCollection(collectionName: string, opts: DownloadO
       if (writer) await writer.write(chunk);
       else parts.push(chunk);
     }
-    function wakeOneWaiter() { const r = bufferWaiters.shift(); if (r) r(); }
-    function wakeAllWaiters() { while (bufferWaiters.length > 0) bufferWaiters.shift()!(); }
+    function wakeOneWaiter() {
+      const r = bufferWaiters.shift();
+      if (r) r();
+    }
+    function wakeAllWaiters() {
+      while (bufferWaiters.length > 0) bufferWaiters.shift()!();
+    }
 
     function scheduleFlush() {
       flushChain = flushChain.then(async () => {
@@ -211,7 +228,9 @@ export async function downloadCollection(collectionName: string, opts: DownloadO
       });
     }
 
-    function stopped() { return isCancelled() || workerError !== null; }
+    function stopped() {
+      return isCancelled() || workerError !== null;
+    }
 
     async function workerLoop() {
       while (true) {
@@ -245,9 +264,8 @@ export async function downloadCollection(collectionName: string, opts: DownloadO
     if (isBinary) await serializer.start(writeChunk, { collectionName, pipelineStages });
     else await writeChunk(serializer.preamble());
 
-    const workers = Array.from(
-      { length: Math.min(concurrency, offsets.length) },
-      () => workerLoop(),
+    const workers = Array.from({ length: Math.min(concurrency, offsets.length) }, () =>
+      workerLoop(),
     );
     await Promise.all(workers);
     await flushChain;
@@ -282,7 +300,11 @@ function pipelineEndsWithSort(stages: unknown): boolean {
 
 async function safeAbort(writer: any) {
   if (!writer || typeof writer.abort !== 'function') return;
-  try { await writer.abort('cancelled'); } catch { /* writer may already be closed */ }
+  try {
+    await writer.abort('cancelled');
+  } catch {
+    /* writer may already be closed */
+  }
 }
 
 // showSaveFilePicker is not in TS's DOM lib (File System Access is not in every engine), so the

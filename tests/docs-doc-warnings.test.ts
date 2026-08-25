@@ -23,7 +23,13 @@ function render(src: any) {
 describe('near-miss detection', () => {
   it('flags the element that used to work, and the names someone reaching for it types', () => {
     // Only names that markdown-it actually treats as HTML need a notice — see the next test.
-    for (const tag of ['state-label', 'section-state', 'statelabel', 'StateLabel', 'section-status']) {
+    for (const tag of [
+      'state-label',
+      'section-state',
+      'statelabel',
+      'StateLabel',
+      'section-status',
+    ]) {
       const { html, count } = render(`## S\n\n<${tag} state="ready" date="2026-08-17" />\n`);
       expect(count, tag).toBe(1);
       expect(html, tag).toMatch(/class="state-label state-error"/);
@@ -58,7 +64,16 @@ describe('near-miss detection', () => {
   it('never fires inside a fenced code block', () => {
     // Detection runs on the token stream, where a fence is a `fence` token and never an
     // html_block — upstream's insight, and the reason a doc can document the syntax.
-    const src = ['# Docs', '', '```markdown', '## 1. Overview', '', '<state-label state="verified" />', '```', ''].join('\n');
+    const src = [
+      '# Docs',
+      '',
+      '```markdown',
+      '## 1. Overview',
+      '',
+      '<state-label state="verified" />',
+      '```',
+      '',
+    ].join('\n');
     const { html, count } = render(src);
     expect(count).toBe(0);
     expect(html).not.toMatch(/state-error/);

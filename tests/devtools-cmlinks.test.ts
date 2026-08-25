@@ -13,14 +13,23 @@ describe('cmLinks', () => {
   });
   it('mounts as a CodeMirror extension without error', () => {
     const el = document.createElement('div');
-    const view = new EditorView({ state: EditorState.create({ doc: DOC, extensions: [basicSetup, rossumLinks(vi.fn())] }), parent: el });
+    const view = new EditorView({
+      state: EditorState.create({ doc: DOC, extensions: [basicSetup, rossumLinks(vi.fn())] }),
+      parent: el,
+    });
     expect(el.querySelector('.cm-editor')).not.toBeNull();
     view.destroy();
   });
   it('accepts onContextLink callback without error', () => {
     const el = document.createElement('div');
     const onContextLink = vi.fn();
-    const view = new EditorView({ state: EditorState.create({ doc: DOC, extensions: [basicSetup, rossumLinks(vi.fn(), onContextLink)] }), parent: el });
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: DOC,
+        extensions: [basicSetup, rossumLinks(vi.fn(), onContextLink)],
+      }),
+      parent: el,
+    });
     expect(el.querySelector('.cm-editor')).not.toBeNull();
     view.destroy();
   });
@@ -29,11 +38,19 @@ describe('cmLinks', () => {
     const el = document.createElement('div');
     document.body.appendChild(el);
     const view = new EditorView({
-      state: EditorState.create({ doc: DOC, extensions: [basicSetup, rossumLinks(vi.fn(), onContext)] }),
+      state: EditorState.create({
+        doc: DOC,
+        extensions: [basicSetup, rossumLinks(vi.fn(), onContext)],
+      }),
       parent: el,
     });
     view.posAtCoords = () => DOC.indexOf('schemas');
-    const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 5, clientY: 6 });
+    const ev = new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      clientX: 5,
+      clientY: 6,
+    });
     view.contentDOM.dispatchEvent(ev);
     expect(onContext).toHaveBeenCalled();
     expect(onContext.mock.calls[0][0]).toBe('https://acme.rossum.app/api/v1/schemas/9');
@@ -46,11 +63,19 @@ describe('cmLinks', () => {
     const el = document.createElement('div');
     document.body.appendChild(el);
     const view = new EditorView({
-      state: EditorState.create({ doc: DOC, extensions: [basicSetup, rossumLinks(vi.fn(), onContext)] }),
+      state: EditorState.create({
+        doc: DOC,
+        extensions: [basicSetup, rossumLinks(vi.fn(), onContext)],
+      }),
       parent: el,
     });
     view.posAtCoords = () => 0;
-    const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 1, clientY: 1 });
+    const ev = new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      clientX: 1,
+      clientY: 1,
+    });
     view.contentDOM.dispatchEvent(ev);
     expect(onContext).not.toHaveBeenCalled();
     expect(ev.defaultPrevented).toBe(false);

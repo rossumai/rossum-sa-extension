@@ -10,13 +10,13 @@ const flushPromises = () => new Promise((r) => setTimeout(r, 0));
 describe('Coupa content script', () => {
   beforeAll(async () => {
     // Mock chrome.storage.local
-    globalThis.chrome = ({
+    globalThis.chrome = {
       storage: {
         local: {
           get: () => Promise.resolve({ coupaFieldNamesEnabled: true }),
         },
       } as any,
-    } as any);
+    } as any;
 
     // ── Strategy 1: JSON metadata (React invoice pages) ──
 
@@ -38,9 +38,7 @@ describe('Coupa content script', () => {
           ],
         },
         summary_section: {
-          tax_lines: [
-            { label: 'Tax Amount', name: 'tax-amount' },
-          ],
+          tax_lines: [{ label: 'Tax Amount', name: 'tax-amount' }],
         },
       },
     });

@@ -64,7 +64,9 @@ export default function RecordCard({
     const btn = e.currentTarget;
     navigator.clipboard.writeText(JSON.stringify(record, null, 2)).then(() => {
       btn.textContent = '\u2713 Copied';
-      setTimeout(() => { btn.textContent = 'Copy'; }, 1000);
+      setTimeout(() => {
+        btn.textContent = 'Copy';
+      }, 1000);
     });
   }
 
@@ -83,12 +85,24 @@ export default function RecordCard({
   const showBody = collapsible ? expanded : true;
 
   return (
-    <div class={'record-card'
-      + (showBody ? ' record-card-expanded' : '')
-      + (collapsible ? '' : ' record-card-static')
-      + (isSelected ? ' record-card-selected' : '')}>
-      <div class="record-card-header"
-        onClick={collapsible ? (e: any) => { if (!e.target.closest('.record-actions')) onToggle(index); } : undefined}>
+    <div
+      class={
+        'record-card' +
+        (showBody ? ' record-card-expanded' : '') +
+        (collapsible ? '' : ' record-card-static') +
+        (isSelected ? ' record-card-selected' : '')
+      }
+    >
+      <div
+        class="record-card-header"
+        onClick={
+          collapsible
+            ? (e: any) => {
+                if (!e.target.closest('.record-actions')) onToggle(index);
+              }
+            : undefined
+        }
+      >
         {isSelectionMode && (
           <input
             type="checkbox"
@@ -107,14 +121,30 @@ export default function RecordCard({
               class="action-toggle-all"
               title={allExpanded ? 'Collapse nested fields' : 'Expand all nested fields'}
               onClick={toggleAll}
-            >{allExpanded ? 'Collapse' : 'Expand'}</button>
+            >
+              {allExpanded ? 'Collapse' : 'Expand'}
+            </button>
           )}
-          <button class="action-copy" title="Copy record as JSON" onClick={handleCopy}>Copy</button>
+          <button class="action-copy" title="Copy record as JSON" onClick={handleCopy}>
+            Copy
+          </button>
           {!isSelectionMode && !readOnly && (
-            <button class="action-edit" title="Edit with update expression" onClick={() => onEdit(record)}>Edit</button>
+            <button
+              class="action-edit"
+              title="Edit with update expression"
+              onClick={() => onEdit(record)}
+            >
+              Edit
+            </button>
           )}
           {!isSelectionMode && !readOnly && (
-            <button class="action-delete" title="Delete this record" onClick={() => onDelete(record, index)}>Del</button>
+            <button
+              class="action-delete"
+              title="Delete this record"
+              onClick={() => onDelete(record, index)}
+            >
+              Del
+            </button>
           )}
         </span>
       </div>

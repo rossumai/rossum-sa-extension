@@ -2,7 +2,14 @@ import { h, Fragment } from 'preact';
 import { useState, useRef, useEffect, useMemo } from 'preact/hooks';
 import { track } from '../../usage/track.js';
 import { selectedCollection } from '../store.js';
-import { closeModal, setModalTitle, ModalBody, ModalActions, ModalFieldLabel, ModalFileTitle } from './Modal.jsx';
+import {
+  closeModal,
+  setModalTitle,
+  ModalBody,
+  ModalActions,
+  ModalFieldLabel,
+  ModalFileTitle,
+} from './Modal.jsx';
 import FileDropArea from './FileDropArea.jsx';
 import JsonEditor from './JsonEditor.jsx';
 import { CsvPreview, JsonPreview, Segmented } from './ImportControls.jsx';
@@ -28,15 +35,18 @@ function sourceTitle(fileMeta: any, parsed: any) {
   const bits = [];
   if (fileMeta?.size != null) bits.push(formatBytes(fileMeta.size));
   bits.push(`${parsed.docs.length.toLocaleString()} row${parsed.docs.length === 1 ? '' : 's'}`);
-  if ((parsed.columns || []).length > 0) bits.push(`${parsed.columns.length} column${parsed.columns.length === 1 ? '' : 's'}`);
-  return (
-    <ModalFileTitle name={fileMeta?.name} meta={bits.join(' · ')} />
-  );
+  if ((parsed.columns || []).length > 0)
+    bits.push(`${parsed.columns.length} column${parsed.columns.length === 1 ? '' : 's'}`);
+  return <ModalFileTitle name={fileMeta?.name} meta={bits.join(' · ')} />;
 }
 
-export default function ImportWizard(
-  { onSuccess, fieldsFn }: { onSuccess?: () => unknown; fieldsFn?: () => any },
-) {
+export default function ImportWizard({
+  onSuccess,
+  fieldsFn,
+}: {
+  onSuccess?: () => unknown;
+  fieldsFn?: () => any;
+}) {
   const [stage, setStage] = useState(STAGE.PICK);
   const [source, setSource] = useState('file');
   const [format, setFormat] = useState<any>(null);
@@ -73,7 +83,12 @@ export default function ImportWizard(
   const lastParsedOptsRef = useRef<any>(null);
   const abortRef = useRef<AbortController | null>(null);
   const editorRef = useRef<JsonEditorHandle | null>(null);
-  useEffect(() => () => { abortRef.current?.abort(); }, []);
+  useEffect(
+    () => () => {
+      abortRef.current?.abort();
+    },
+    [],
+  );
 
   // Surface the picked file (name · size · rows · columns) in the modal header
   // so the Decide body stays compact; reverts to "Import" before a file exists
@@ -93,27 +108,40 @@ export default function ImportWizard(
   function handleFile(fileObj: any) {
     setErrorMsg(null);
     const id = detectFormat(fileObj.name);
-    if (!id) { setErrorMsg('Unsupported file — expected JSON, JSONL, CSV, Excel, or XML.'); return; }
+    if (!id) {
+      setErrorMsg('Unsupported file — expected JSON, JSONL, CSV, Excel, or XML.');
+      return;
+    }
     const f = getFormat(id);
     setFormat(id);
     setFileMeta({ name: fileObj.name, size: fileObj.size });
     const read = f.read === 'arrayBuffer' ? fileObj.arrayBuffer() : fileObj.text();
-    read.then(async (input: any) => {
-      setRawInput(input);
-      const initialOpts = f.detectOpts ? { ...f.defaultOpts, ...f.detectOpts(input) } : f.defaultOpts;
-      setOpts(initialOpts);
-      lastParsedOptsRef.current = JSON.stringify(initialOpts);
-      const res = await Promise.resolve(f.parse(input, parseOpts(initialOpts)));
-      if (!f.ConfigureControls) {
-        // No parsing options to fix on the Decide screen — errors stay here.
-        if (res.error) { setErrorMsg(res.error.message); return; }
-        if (!res.docs.length) { setErrorMsg('File contains no documents'); return; }
-      }
-      setParsed(res);
-      setKeys([]);
-      setShapeOverride(false);
-      setStage(STAGE.DECIDE);
-    }).catch((err: any) => setErrorMsg(`Couldn't read file: ${err.message}`));
+    read
+      .then(async (input: any) => {
+        setRawInput(input);
+        const initialOpts = f.detectOpts
+          ? { ...f.defaultOpts, ...f.detectOpts(input) }
+          : f.defaultOpts;
+        setOpts(initialOpts);
+        lastParsedOptsRef.current = JSON.stringify(initialOpts);
+        const res = await Promise.resolve(f.parse(input, parseOpts(initialOpts)));
+        if (!f.ConfigureControls) {
+          // No parsing options to fix on the Decide screen — errors stay here.
+          if (res.error) {
+            setErrorMsg(res.error.message);
+            return;
+          }
+          if (!res.docs.length) {
+            setErrorMsg('File contains no documents');
+            return;
+          }
+        }
+        setParsed(res);
+        setKeys([]);
+        setShapeOverride(false);
+        setStage(STAGE.DECIDE);
+      })
+      .catch((err: any) => setErrorMsg(`Couldn't read file: ${err.message}`));
   }
 
   // ---- clipboard next: parse the editor's raw text as JSON / JSON-lines ----
@@ -121,10 +149,19 @@ export default function ImportWizard(
     setErrorMsg(null);
     const raw = editorRef.current?.getValue?.() ?? '';
     const text = raw.trim();
-    if (!text) { setErrorMsg('No documents to import'); return; }
+    if (!text) {
+      setErrorMsg('No documents to import');
+      return;
+    }
     const res = getFormat('json').parse(text);
-    if (res.error) { setErrorMsg(res.error.message); return; }
-    if (!res.docs.length) { setErrorMsg('No documents to import'); return; }
+    if (res.error) {
+      setErrorMsg(res.error.message);
+      return;
+    }
+    if (!res.docs.length) {
+      setErrorMsg('No documents to import');
+      return;
+    }
     setClipboardText(raw); // restored into the editor when the user comes Back
     setFormat('json');
     setFileMeta({ name: 'Pasted data', size: null });
@@ -144,8 +181,17 @@ export default function ImportWizard(
     lastParsedOptsRef.current = optsKey;
     const token = ++parseToken.current;
     Promise.resolve(fmt.parse(rawInput, parseOpts(opts)))
-      .then((res) => { if (token === parseToken.current) { setParsed(res); setKeys([]); setShapeOverride(false); } })
-      .catch((err) => { if (token === parseToken.current) setParsed({ docs: [], columns: [], warnings: [], error: { message: err.message } }); });
+      .then((res) => {
+        if (token === parseToken.current) {
+          setParsed(res);
+          setKeys([]);
+          setShapeOverride(false);
+        }
+      })
+      .catch((err) => {
+        if (token === parseToken.current)
+          setParsed({ docs: [], columns: [], warnings: [], error: { message: err.message } });
+      });
     return undefined;
   }, [stage, rawInput, JSON.stringify(opts)]);
 
@@ -178,8 +224,18 @@ export default function ImportWizard(
         setShapeCoversAll(existing.length > 0 && existing.length < SHAPE_SAMPLE);
         setShapeLoading(false);
       })
-      .catch(() => { if (alive) { setShapeError(true); setShape(null); setShapeCount(0); setShapeCoversAll(false); setShapeLoading(false); } });
-    return () => { alive = false; };
+      .catch(() => {
+        if (alive) {
+          setShapeError(true);
+          setShape(null);
+          setShapeCount(0);
+          setShapeCoversAll(false);
+          setShapeLoading(false);
+        }
+      });
+    return () => {
+      alive = false;
+    };
   }, [stage, selectedCollection.value]);
 
   // ONE source of truth: the preview, the shape check and the upload all read
@@ -196,9 +252,10 @@ export default function ImportWizard(
   // from "the collection is empty" — so the summary must wait rather than
   // assert an emptiness that isn't known yet (same root cause as the confirm
   // button gate below).
-  const restoreSummary = restored?.summary && !shapeLoading
-    ? formatRestoreSummary(restored.summary, { hasShape: !!shape, shapeError })
-    : null;
+  const restoreSummary =
+    restored?.summary && !shapeLoading
+      ? formatRestoreSummary(restored.summary, { hasShape: !!shape, shapeError })
+      : null;
 
   // ---- import ----
   async function startImport() {
@@ -212,19 +269,41 @@ export default function ImportWizard(
         setStage(STAGE.IMPORTING);
         setImportProgress({ phase: 'insert', processed: 0, total: docs.length });
         const { kept } = dedupeById(docs);
-        const r = await runChunkedInsert(selectedCollection.value as string, kept, { signal: ctrl.signal, onProgress: setImportProgress });
-        setImportResult({ kind: 'insert', inserted: r.inserted, applied: 0, deleted: 0, skipped: 0, failedBatches: r.failedBatches, cancelled: r.cancelled });
+        const r = await runChunkedInsert(selectedCollection.value as string, kept, {
+          signal: ctrl.signal,
+          onProgress: setImportProgress,
+        });
+        setImportResult({
+          kind: 'insert',
+          inserted: r.inserted,
+          applied: 0,
+          deleted: 0,
+          skipped: 0,
+          failedBatches: r.failedBatches,
+          cancelled: r.cancelled,
+        });
         if (r.inserted > 0) onSuccess?.();
       } else {
         setStage(STAGE.IMPORTING);
         const startedAt = Date.now();
         setImportProgress({ phase: 'uploading', indeterminate: true, elapsedMs: 0 });
-        const blob = new Blob([JSON.stringify(stripServerFields(docs))], { type: 'application/json' });
-        const { operationId } = mode === 'update'
-          ? await api.datasetUpdate(selectedCollection.value as string, blob, keys, { signal: ctrl.signal })
-          : await api.datasetReplace(selectedCollection.value as string, blob, { signal: ctrl.signal });
+        const blob = new Blob([JSON.stringify(stripServerFields(docs))], {
+          type: 'application/json',
+        });
+        const { operationId } =
+          mode === 'update'
+            ? await api.datasetUpdate(selectedCollection.value as string, blob, keys, {
+                signal: ctrl.signal,
+              })
+            : await api.datasetReplace(selectedCollection.value as string, blob, {
+                signal: ctrl.signal,
+              });
         let checks = 0;
-        setImportProgress({ phase: 'processing', indeterminate: true, elapsedMs: Date.now() - startedAt });
+        setImportProgress({
+          phase: 'processing',
+          indeterminate: true,
+          elapsedMs: Date.now() - startedAt,
+        });
         // Feed each server poll into the progress UI so the user sees a live
         // heartbeat (status + check count + elapsed) instead of a frozen bar.
         await api.waitForDatasetOperation(operationId, {
@@ -238,11 +317,19 @@ export default function ImportWizard(
               status: op.status,
               checks,
               elapsedMs: Date.now() - startedAt,
-              file: op.file_metadata ? { filename: op.file_metadata.filename, size: op.file_metadata.file_size } : null,
+              file: op.file_metadata
+                ? { filename: op.file_metadata.filename, size: op.file_metadata.file_size }
+                : null,
             });
           },
         });
-        setImportResult({ kind: mode, sent: docs.length, serverManaged: true, ok: true, failedBatches: [] });
+        setImportResult({
+          kind: mode,
+          sent: docs.length,
+          serverManaged: true,
+          ok: true,
+          failedBatches: [],
+        });
         onSuccess?.();
       }
       setStage(STAGE.DONE);
@@ -251,7 +338,14 @@ export default function ImportWizard(
         // User cancelled. An Update/Replace request may already be running on the
         // server (it can't be recalled), so report a neutral cancelled state
         // rather than "Import failed".
-        setImportResult({ kind: mode, sent: docs.length, serverManaged: true, ok: false, cancelled: true, failedBatches: [] });
+        setImportResult({
+          kind: mode,
+          sent: docs.length,
+          serverManaged: true,
+          ok: false,
+          cancelled: true,
+          failedBatches: [],
+        });
         setStage(STAGE.DONE);
       } else {
         setErrorMsg(`Import failed: ${err.message}`);
@@ -294,23 +388,53 @@ export default function ImportWizard(
     <ModalBody class="import-wizard">
       {stage === STAGE.PICK && (
         <Fragment>
-          <Segmented value={source} options={SOURCE_SEG} onChange={switchSource} ariaLabel="Import source" testid="import-source" tabs />
+          <Segmented
+            value={source}
+            options={SOURCE_SEG}
+            onChange={switchSource}
+            ariaLabel="Import source"
+            testid="import-source"
+            tabs
+          />
           {source === 'file' ? (
-            <FileDropArea accept={ALL_ACCEPT} onFile={handleFile} onReject={setErrorMsg} inputTestid="import-file-input">
+            <FileDropArea
+              accept={ALL_ACCEPT}
+              onFile={handleFile}
+              onReject={setErrorMsg}
+              inputTestid="import-file-input"
+            >
               <div class="file-input-label">Drop a file here or click to choose</div>
-              <div class="file-input-info" style="margin-top:4px">JSON {'·'} JSONL {'·'} CSV {'·'} Excel {'·'} XML</div>
+              <div class="file-input-info" style="margin-top:4px">
+                JSON {'·'} JSONL {'·'} CSV {'·'} Excel {'·'} XML
+              </div>
             </FileDropArea>
           ) : (
             <Fragment>
-              <ModalFieldLabel style="margin-top:10px">Paste JSON {'—'} array, object, or JSON-lines</ModalFieldLabel>
-              <JsonEditor value={clipboardText ?? '[\n  \n]'} minHeight="200px" fields={fieldsFn} editorRef={editorRef} jsonLines />
+              <ModalFieldLabel style="margin-top:10px">
+                Paste JSON {'—'} array, object, or JSON-lines
+              </ModalFieldLabel>
+              <JsonEditor
+                value={clipboardText ?? '[\n  \n]'}
+                minHeight="200px"
+                fields={fieldsFn}
+                editorRef={editorRef}
+                jsonLines
+              />
             </Fragment>
           )}
-          {errorMsg && <div class="input-hint" style="color:var(--danger)">{errorMsg}</div>}
+          {errorMsg && (
+            <div class="input-hint" style="color:var(--danger)">
+              {errorMsg}
+            </div>
+          )}
           <ModalActions>
-            <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>
+            <button class="btn btn-secondary" onClick={closeModal}>
+              Cancel
+            </button>
             {source === 'clipboard' && (
-              <button class="btn btn-primary" data-testid="clipboard-next" onClick={clipboardNext}>Next {'→'}</button>
+              <button class="btn btn-primary" data-testid="clipboard-next" onClick={clipboardNext}>
+                Next {'→'}
+              </button>
             )}
           </ModalActions>
         </Fragment>
@@ -323,32 +447,57 @@ export default function ImportWizard(
               <fmt.ConfigureControls opts={opts} setOpt={setOpt} parsed={parsed} />
             </div>
           )}
-          {(parsed.error || (parsed.columns || []).length > 0)
-            ? (
-              <CsvPreview
-                parsed={{ ...parsed, docs: importDocs, warnings: [...(parsed.warnings || []), ...(restored?.summary?.warnings || [])] }}
-                nested={!!opts.restoreValues}
-              />
-            )
-            : <JsonPreview docs={importDocs} />}
-          {(parsed.error || !importDocs.length) ? (
+          {parsed.error || (parsed.columns || []).length > 0 ? (
+            <CsvPreview
+              parsed={{
+                ...parsed,
+                docs: importDocs,
+                warnings: [...(parsed.warnings || []), ...(restored?.summary?.warnings || [])],
+              }}
+              nested={!!opts.restoreValues}
+            />
+          ) : (
+            <JsonPreview docs={importDocs} />
+          )}
+          {parsed.error || !importDocs.length ? (
             <ModalActions>
-              <button class="btn btn-secondary" style="margin-right:auto" data-testid="import-back" onClick={decideBack}>{'←'} Back</button>
-              <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>
+              <button
+                class="btn btn-secondary"
+                style="margin-right:auto"
+                data-testid="import-back"
+                onClick={decideBack}
+              >
+                {'←'} Back
+              </button>
+              <button class="btn btn-secondary" onClick={closeModal}>
+                Cancel
+              </button>
             </ModalActions>
           ) : (
             <ImportConfirm
               docs={importDocs}
-              mode={mode} setMode={setMode}
-              keys={keys} setKeys={setKeys}
-              shapeOverride={shapeOverride} setShapeOverride={setShapeOverride}
-              shape={shape} shapeLoading={shapeLoading} shapeError={shapeError}
-              shapeCount={shapeCount} shapeCoversAll={shapeCoversAll}
+              mode={mode}
+              setMode={setMode}
+              keys={keys}
+              setKeys={setKeys}
+              shapeOverride={shapeOverride}
+              setShapeOverride={setShapeOverride}
+              shape={shape}
+              shapeLoading={shapeLoading}
+              shapeError={shapeError}
+              shapeCount={shapeCount}
+              shapeCoversAll={shapeCoversAll}
               restoreSummary={restoreSummary}
-              onImport={startImport} onCancel={closeModal} onBack={decideBack}
+              onImport={startImport}
+              onCancel={closeModal}
+              onBack={decideBack}
             />
           )}
-          {errorMsg && <div class="input-hint" style="color:var(--danger)">{errorMsg}</div>}
+          {errorMsg && (
+            <div class="input-hint" style="color:var(--danger)">
+              {errorMsg}
+            </div>
+          )}
         </Fragment>
       )}
 

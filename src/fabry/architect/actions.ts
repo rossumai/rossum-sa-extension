@@ -16,7 +16,13 @@ import { summaryLine, headingTitle } from './format.js';
 import * as plan from './plan.js';
 import { runImplement } from './implementLoop.js';
 import * as audit from './audit.js';
-import { shouldSnapshot, openSession, touchSession, prunePlan, type EditSession } from './revisionPolicy.js';
+import {
+  shouldSnapshot,
+  openSession,
+  touchSession,
+  prunePlan,
+  type EditSession,
+} from './revisionPolicy.js';
 import type { Deliverable } from './collectionPlan.js';
 import type { RevisionSource } from './api.js';
 
@@ -25,18 +31,27 @@ let runId = 0;
 let loading = false;
 
 function newId() {
-  try { if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID(); } catch { /* fall through */ }
+  try {
+    if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  } catch {
+    /* fall through */
+  }
   return 'r' + Date.now() + Math.random().toString(36).slice(2, 8);
 }
 // Flip every dangling `running` flag off in a { [id]: entry } signal (both the
 // check results and the implement state share this shape).
 function clearRunningFlags(sig: { value: Record<string, any> }) {
   const cleaned: Record<string, any> = {};
-  for (const [k, v] of Object.entries<any>(sig.value)) cleaned[k] = v?.running ? { ...v, running: false } : v;
+  for (const [k, v] of Object.entries<any>(sig.value))
+    cleaned[k] = v?.running ? { ...v, running: false } : v;
   sig.value = cleaned;
 }
-function clearSpinners() { clearRunningFlags(store.results); }
-function clearImplementSpinners() { clearRunningFlags(store.implement); }
+function clearSpinners() {
+  clearRunningFlags(store.results);
+}
+function clearImplementSpinners() {
+  clearRunningFlags(store.implement);
+}
 
 export async function loadArchitect() {
   if (store.loaded.value || loading) return;
@@ -49,7 +64,8 @@ export async function loadArchitect() {
     resetSession();
     const plan = await api.resolveCollection();
     const { deliverables, results, implement, legacyCount } = await api.loadDeliverables();
-    store.legacyNotice.value = legacyCount > 0 ? { count: legacyCount, collection: plan.legacy } : null;
+    store.legacyNotice.value =
+      legacyCount > 0 ? { count: legacyCount, collection: plan.legacy } : null;
     store.deliverables.value = deliverables;
     store.results.value = results;
     // Rehydrate persisted implement-loop state (status / task list / write audit)
@@ -90,7 +106,9 @@ export async function addDeliverable(text = '') {
   }
 }
 
-export function openDeliverable(id: string | null) { store.setActive(id); }
+export function openDeliverable(id: string | null) {
+  store.setActive(id);
+}
 
 // Pure: move the item at fromIndex to toIndex (returns a new array).
 export function reorder<T>(arr: T[], fromIndex: number, toIndex: number): T[] {
@@ -111,7 +129,11 @@ export async function moveDeliverable(id: string, toIndex: number) {
   for (const d of next) {
     const prev = ds.find((x) => x.id === d.id);
     if (!prev || prev.order !== d.order) {
-      try { await api.setOrder(d.id, d.order); } catch (err) { store.loadError.value = (err as any)?.message || 'Could not save order.'; }
+      try {
+        await api.setOrder(d.id, d.order);
+      } catch (err) {
+        store.loadError.value = (err as any)?.message || 'Could not save order.';
+      }
     }
   }
 }
@@ -119,19 +141,25 @@ export async function moveDeliverable(id: string, toIndex: number) {
 // `source` describes the CHANGE being made ('edit' | 'refine' | 'restore'), which is what
 // the version it supersedes is labelled with — the entry reads "at 11:07 a Refine
 // acceptance changed this; here is what it looked like before".
-export async function updateDeliverable(id: string, text: unknown, source: RevisionSource = 'edit') {
+export async function updateDeliverable(
+  id: string,
+  text: unknown,
+  source: RevisionSource = 'edit',
+) {
   const t = String(text ?? '');
   const prev = store.deliverables.value.find((d) => d.id === id);
   if (!prev || prev.text === t) return;
   const now = Date.now();
   // Decided BEFORE the store is mutated, because the version stores the text as it WAS.
   if (shouldSnapshot({ session, deliverableId: id, source, now })) {
-    captureRevision(id, prev.text, now, source);   // deliberately not awaited — see below
+    captureRevision(id, prev.text, now, source); // deliberately not awaited — see below
     session = openSession({ deliverableId: id, source, now });
   } else {
     session = touchSession(session!, now);
   }
-  store.deliverables.value = store.deliverables.value.map((d) => (d.id === id ? { ...d, text: t, editedAt: now } : d));
+  store.deliverables.value = store.deliverables.value.map((d) =>
+    d.id === id ? { ...d, text: t, editedAt: now } : d,
+  );
   const r = store.results.value[id];
   if (r && !r.running && !r.stale) store.setResult(id, { ...r, stale: true });
   try {
@@ -148,14 +176,20 @@ const titleInFlight = new Set();
 // beat a generated title while still losing to a deliberate rename (format.js).
 async function setTitle(id: string, newTitle: unknown, source: 'manual' | 'ai') {
   const clean = String(newTitle ?? '').trim();
-  store.deliverables.value = store.deliverables.value.map((d) => (d.id === id ? { ...d, title: clean, titleSource: source } : d));
-  try { await api.saveTitle(id, clean, source); }
-  catch (err) { store.loadError.value = (err as any)?.message || 'Could not save title.'; }
+  store.deliverables.value = store.deliverables.value.map((d) =>
+    d.id === id ? { ...d, title: clean, titleSource: source } : d,
+  );
+  try {
+    await api.saveTitle(id, clean, source);
+  } catch (err) {
+    store.loadError.value = (err as any)?.message || 'Could not save title.';
+  }
 }
 
 // Manual rename (persists the explicit title) — the one title that outranks a heading.
-export function renameDeliverable(id: string, newTitle: unknown) { return setTitle(id, newTitle, 'manual'); }
-
+export function renameDeliverable(id: string, newTitle: unknown) {
+  return setTitle(id, newTitle, 'manual');
+}
 
 // Read-only AI title generation — only when the deliverable has meaningful text,
 // no title yet, and DECLARES NO HEADING OF ITS OWN (the heading already wins in
@@ -163,23 +197,41 @@ export function renameDeliverable(id: string, newTitle: unknown) { return setTit
 // silently keep the derived fallback. Guarded against duplicate in-flight calls.
 export async function generateTitle(id: string) {
   const d = store.deliverables.value.find((x) => x.id === id);
-  if (!d || (d.title && d.title.trim()) || d.text.trim().length < 8 || headingTitle(d.text) || titleInFlight.has(id)) return;
+  if (
+    !d ||
+    (d.title && d.title.trim()) ||
+    d.text.trim().length < 8 ||
+    headingTitle(d.text) ||
+    titleInFlight.has(id)
+  )
+    return;
   titleInFlight.add(id);
   try {
     const chatId = await agentApi.createChat();
     const acc = newAcc();
-    await agentApi.streamMessage(chatId, title.buildTitlePrompt(d.text), { onEvent: (e: unknown) => foldEvents(acc, [e]) });
+    await agentApi.streamMessage(chatId, title.buildTitlePrompt(d.text), {
+      onEvent: (e: unknown) => foldEvents(acc, [e]),
+    });
     const t = title.parseTitle(replyText(acc));
     if (t && !store.deliverables.value.find((x) => x.id === id)?.title) await setTitle(id, t, 'ai');
-  } catch { /* offline / error → keep the derived fallback */ }
-  finally { titleInFlight.delete(id); }
+  } catch {
+    /* offline / error → keep the derived fallback */
+  } finally {
+    titleInFlight.delete(id);
+  }
 }
 
 // Backfill titles for all untitled, headingless-with-text deliverables (bounded
 // concurrency 3). The heading filter mirrors generateTitle's own guard.
 export async function backfillTitles() {
-  const q = store.deliverables.value.filter((d) => !(d.title && d.title.trim()) && d.text.trim().length >= 8 && !headingTitle(d.text)).map((d) => d.id);
-  const worker = async () => { while (q.length) await generateTitle(q.shift()!); };
+  const q = store.deliverables.value
+    .filter(
+      (d) => !(d.title && d.title.trim()) && d.text.trim().length >= 8 && !headingTitle(d.text),
+    )
+    .map((d) => d.id);
+  const worker = async () => {
+    while (q.length) await generateTitle(q.shift()!);
+  };
   await Promise.all([worker(), worker(), worker()]);
 }
 
@@ -192,7 +244,9 @@ let session: EditSession | null = null;
 // Boot reset (and the seam tests use): a fresh load means a fresh org, tab or reconnect, and
 // a session carried across it would fold the first edit into a version that belongs to the
 // previous one. Cheap to be strict about — the cost of an extra version is one document.
-export function resetSession() { session = null; }
+export function resetSession() {
+  session = null;
+}
 
 function newRevisionId() {
   const uuid = globalThis.crypto?.randomUUID?.();
@@ -202,13 +256,22 @@ function newRevisionId() {
 async function fetchRevisions(deliverableId: string) {
   const res = await api.listRevisions(deliverableId);
   return ((res && res.result) || [])
-    .map((d: any) => ({ id: d._id, at: typeof d.at === 'number' ? d.at : 0, source: d.source || 'edit' }))
+    .map((d: any) => ({
+      id: d._id,
+      at: typeof d.at === 'number' ? d.at : 0,
+      source: d.source || 'edit',
+    }))
     .sort((a: any, b: any) => b.at - a.at);
 }
 
 // Best-effort and deliberately NOT awaited by the save path: a user's text must never wait
 // on its history, and a failed insert costs one missing entry rather than an unsaved edit.
-async function captureRevision(deliverableId: string, text: string, at: number, source: RevisionSource) {
+async function captureRevision(
+  deliverableId: string,
+  text: string,
+  at: number,
+  source: RevisionSource,
+) {
   try {
     await api.addRevision({ id: newRevisionId(), deliverableId, text, at, source });
     const items = await fetchRevisions(deliverableId);
@@ -216,18 +279,31 @@ async function captureRevision(deliverableId: string, text: string, at: number, 
     if (drop.length) await api.deleteRevisions(deliverableId, drop);
     const kept = drop.length ? items.filter((i: any) => !drop.includes(i.id)) : items;
     // Only repaint a list the user actually has open.
-    if (store.revisions.value[deliverableId]) store.setRevisions(deliverableId, { loading: false, items: kept, error: null });
-  } catch { /* history is secondary to saving the text */ }
+    if (store.revisions.value[deliverableId])
+      store.setRevisions(deliverableId, { loading: false, items: kept, error: null });
+  } catch {
+    /* history is secondary to saving the text */
+  }
 }
 
-export async function loadRevisions(deliverableId: string, { force = false }: { force?: boolean } = {}) {
+export async function loadRevisions(
+  deliverableId: string,
+  { force = false }: { force?: boolean } = {},
+) {
   const have = store.revisions.value[deliverableId];
   if (have && !force && (have.loading || have.items)) return;
   store.setRevisions(deliverableId, { loading: true, error: null, items: have?.items || null });
   try {
-    store.setRevisions(deliverableId, { loading: false, items: await fetchRevisions(deliverableId), error: null });
+    store.setRevisions(deliverableId, {
+      loading: false,
+      items: await fetchRevisions(deliverableId),
+      error: null,
+    });
   } catch (err) {
-    store.setRevisions(deliverableId, { loading: false, error: (err as any)?.message || 'Could not load versions.' });
+    store.setRevisions(deliverableId, {
+      loading: false,
+      error: (err as any)?.message || 'Could not load versions.',
+    });
   }
 }
 
@@ -261,9 +337,16 @@ export async function openRevision(deliverableId: string, revisionId: string) {
 // makes restore undoable and why it needs no confirmation dialog.
 export async function restoreRevision(deliverableId: string, revisionId: string) {
   let text: string | null = null;
-  try { text = await ensureRevisionText(deliverableId, revisionId); }
-  catch (err) { store.loadError.value = (err as any)?.message || 'Could not read that version.'; return; }
-  if (text == null) { store.loadError.value = 'That version is no longer stored.'; return; }
+  try {
+    text = await ensureRevisionText(deliverableId, revisionId);
+  } catch (err) {
+    store.loadError.value = (err as any)?.message || 'Could not read that version.';
+    return;
+  }
+  if (text == null) {
+    store.loadError.value = 'That version is no longer stored.';
+    return;
+  }
   await updateDeliverable(deliverableId, text, 'restore');
   store.selectedRevision.value = null;
 }
@@ -278,7 +361,11 @@ export async function deleteDeliverable(id: string) {
     // History first, while colFor(id) can still resolve where the document lives. Its own
     // try/catch: orphaned revisions are tidier to leave behind than a deliverable that
     // refuses to delete.
-    try { await api.deleteRevisionsFor(id); } catch { /* orphans are harmless */ }
+    try {
+      await api.deleteRevisionsFor(id);
+    } catch {
+      /* orphans are harmless */
+    }
     await api.deleteDeliverable(id);
   } catch (err) {
     store.loadError.value = (err as any)?.message || 'Could not delete deliverable.';
@@ -288,7 +375,10 @@ export async function deleteDeliverable(id: string) {
 // Fold one refine turn's stream into an accumulator (reasoning/text/questions).
 async function foldRefine(id: string, content: string, signal?: AbortSignal) {
   const acc = newAcc();
-  await agentApi.streamMessage(id, content, { signal, onEvent: (e: unknown) => foldEvents(acc, [e]) });
+  await agentApi.streamMessage(id, content, {
+    signal,
+    onEvent: (e: unknown) => foldEvents(acc, [e]),
+  });
   return acc;
 }
 
@@ -305,10 +395,17 @@ function refineResult(id: string, acc: any) {
 // the chat so Fabry builds on its last proposal (chat memory). Returns
 // { chatId, proposal } OR { chatId, questions } (agent asked), or null if the caller
 // aborted. The caller (RefineDock) owns the AbortController; nothing is written here.
-export async function refineTurn(
-  { chatId, deliverableText, instruction, signal }:
-  { chatId?: string | null; deliverableText: string; instruction: string; signal?: AbortSignal },
-) {
+export async function refineTurn({
+  chatId,
+  deliverableText,
+  instruction,
+  signal,
+}: {
+  chatId?: string | null;
+  deliverableText: string;
+  instruction: string;
+  signal?: AbortSignal;
+}) {
   try {
     let id = chatId;
     if (!id) {
@@ -316,7 +413,11 @@ export async function refineTurn(
       if (signal?.aborted) return null;
       await foldRefine(id, '/persona cautious', signal);
       if (signal?.aborted) return null;
-      const acc = await foldRefine(id, refine.buildRefineFirst(deliverableText, instruction), signal);
+      const acc = await foldRefine(
+        id,
+        refine.buildRefineFirst(deliverableText, instruction),
+        signal,
+      );
       if (signal?.aborted) return null;
       return refineResult(id, acc);
     }
@@ -332,10 +433,15 @@ export async function refineTurn(
 // Answer the agent's clarifying questions (interactive elements) as the next message
 // in the SAME refine chat — a plain message IS the answer. Returns the same shape as
 // refineTurn (a proposal, or a further round of questions), or null if aborted.
-export async function answerRefine(
-  { chatId, answers, signal }:
-  { chatId: string; answers: { question: string; answer: string }[]; signal?: AbortSignal },
-) {
+export async function answerRefine({
+  chatId,
+  answers,
+  signal,
+}: {
+  chatId: string;
+  answers: { question: string; answer: string }[];
+  signal?: AbortSignal;
+}) {
   try {
     const acc = await foldRefine(chatId, formatAnswers(answers), signal);
     if (signal?.aborted) return null;
@@ -351,7 +457,10 @@ async function runOne(d: Deliverable, signal?: AbortSignal) {
   if (signal?.aborted) return null;
   const fold = async (content: string) => {
     const acc = newAcc();
-    await agentApi.streamMessage(chatId, content, { signal, onEvent: (e: unknown) => foldEvents(acc, [e]) });
+    await agentApi.streamMessage(chatId, content, {
+      signal,
+      onEvent: (e: unknown) => foldEvents(acc, [e]),
+    });
     return replyText(acc);
   };
   await fold('/persona cautious');
@@ -374,7 +483,9 @@ function persist(id: string, r: any) {
   }
   const ranAt = Date.now();
   store.setResult(id, { ...r, ranAt, stale: false, running: false });
-  api.saveResult(id, { verdict: r.verdict, evidence: r.evidence, chatId: r.chatId, ranAt }).catch(() => {});
+  api
+    .saveResult(id, { verdict: r.verdict, evidence: r.evidence, chatId: r.chatId, ranAt })
+    .catch(() => {});
 }
 
 export async function runAll() {
@@ -395,17 +506,27 @@ export async function runAll() {
   const signal = controller.signal;
   store.running.value = true;
   const pending = { ...store.results.value };
-  for (const d of ds) pending[d.id] = { ...(pending[d.id] || { verdict: null, evidence: '', chatId: null }), running: true };
+  for (const d of ds)
+    pending[d.id] = {
+      ...(pending[d.id] || { verdict: null, evidence: '', chatId: null }),
+      running: true,
+    };
   store.results.value = pending;
   try {
     await runChecks(ds, {
       concurrency: 3,
       signal,
       runOne: (d) => runOne(d, signal),
-      onResult: (rid, result) => { if (id === runId) persist(rid, result); },
+      onResult: (rid, result) => {
+        if (id === runId) persist(rid, result);
+      },
     });
   } finally {
-    if (id === runId) { clearSpinners(); store.running.value = false; controller = null; }
+    if (id === runId) {
+      clearSpinners();
+      store.running.value = false;
+      controller = null;
+    }
   }
 }
 
@@ -417,13 +538,23 @@ export async function reRun(id: string) {
   if (store.implementRunning.value) return;
   track('sa_fabry_architect_check');
   const ctrl = new AbortController();
-  store.setResult(id, { ...(store.results.value[id] || { verdict: null, evidence: '', chatId: null }), running: true });
+  store.setResult(id, {
+    ...(store.results.value[id] || { verdict: null, evidence: '', chatId: null }),
+    running: true,
+  });
   try {
     const result = await runOne(d, ctrl.signal);
     if (result) persist(id, result);
     else store.setResult(id, { ...(store.results.value[id] || {}), running: false });
   } catch (err) {
-    store.setResult(id, { verdict: 'uncertain', evidence: `Check could not complete: ${(err as any)?.message || err}`, chatId: null, ranAt: Date.now(), stale: false, error: true });
+    store.setResult(id, {
+      verdict: 'uncertain',
+      evidence: `Check could not complete: ${(err as any)?.message || err}`,
+      chatId: null,
+      ranAt: Date.now(),
+      stale: false,
+      error: true,
+    });
   }
 }
 
@@ -444,7 +575,10 @@ async function planOne(d: Deliverable, signal?: AbortSignal) {
   const chatId = await agentApi.createChat();
   if (signal?.aborted) return null;
   const acc = newAcc();
-  await agentApi.streamMessage(chatId, plan.buildPlanPrompt(d.text), { signal, onEvent: (e: unknown) => foldEvents(acc, [e]) });
+  await agentApi.streamMessage(chatId, plan.buildPlanPrompt(d.text), {
+    signal,
+    onEvent: (e: unknown) => foldEvents(acc, [e]),
+  });
   if (signal?.aborted) return null;
   return plan.parsePlan(replyText(acc));
 }
@@ -461,9 +595,18 @@ async function implementTaskOne(
   const acc = newAcc();
   const folder = audit.makeAuditFolder();
   try {
-    await agentApi.streamMessage(chatId, plan.buildTaskPrompt(d.text, task, { journal, doneTasks }), {
-      signal, mcpMode: 'read-write', onEvent: (e: unknown) => { foldEvents(acc, [e]); folder.feed(e); },
-    });
+    await agentApi.streamMessage(
+      chatId,
+      plan.buildTaskPrompt(d.text, task, { journal, doneTasks }),
+      {
+        signal,
+        mcpMode: 'read-write',
+        onEvent: (e: unknown) => {
+          foldEvents(acc, [e]);
+          folder.feed(e);
+        },
+      },
+    );
   } catch (err) {
     // The stream threw (Stop / idle timeout / transport error) AFTER the agent may
     // have already executed writes against the live org. Attach what was audited so
@@ -477,14 +620,26 @@ async function implementTaskOne(
   // the loop count + record them before it honors the abort (its own post-write abort
   // check stops the run). Discarding them here would silently lose audited prod writes.
   const text = replyText(acc);
-  return { writes: folder.writes, summary: summaryLine(text) || '(no summary)', discovered: plan.parseDiscovered(text), chatId };
+  return {
+    writes: folder.writes,
+    summary: summaryLine(text) || '(no summary)',
+    discovered: plan.parseDiscovered(text),
+    chatId,
+  };
 }
 
 // READ-ONLY per-task check (fresh cautious chat).
 async function checkTaskOne(d: Deliverable, task: any, signal?: AbortSignal) {
   const chatId = await agentApi.createChat();
   if (signal?.aborted) return null;
-  const fold = async (content: string) => { const acc = newAcc(); await agentApi.streamMessage(chatId, content, { signal, onEvent: (e: unknown) => foldEvents(acc, [e]) }); return replyText(acc); };
+  const fold = async (content: string) => {
+    const acc = newAcc();
+    await agentApi.streamMessage(chatId, content, {
+      signal,
+      onEvent: (e: unknown) => foldEvents(acc, [e]),
+    });
+    return replyText(acc);
+  };
   await fold('/persona cautious');
   if (signal?.aborted) return null;
   const text = await fold(plan.buildTaskCheckPrompt(task.text, task.acceptance));
@@ -500,26 +655,46 @@ function applyImplementPatch(id: string, patch: any) {
   if (patch.writes) next.writes = [...(cur.writes || []), ...patch.writes];
   if (patch.tasks) next.tasks = patch.tasks; // full replace each time — never concatenated
   if (patch.journal) next.journal = patch.journal; // full replace (loop sends the accumulated journal)
-  if (patch.note) { next.notes = [...(cur.notes || []), patch.note]; delete next.note; }
+  if (patch.note) {
+    next.notes = [...(cur.notes || []), patch.note];
+    delete next.note;
+  }
   store.implement.value = { ...store.implement.value, [id]: next };
   if (patch.verdict) {
     const v = patch.verdict;
     const ranAt = Date.now();
-    store.setResult(id, { verdict: v.verdict, evidence: v.evidence, chatId: v.chatId, ranAt, stale: false, running: false });
+    store.setResult(id, {
+      verdict: v.verdict,
+      evidence: v.evidence,
+      chatId: v.chatId,
+      ranAt,
+      stale: false,
+      running: false,
+    });
     // Persist the roll-up as the deliverable's Check result so the post-implementation
     // verdict survives reload (mirrors the standalone check's persist()). Disjoint $set
     // from the implement fields, so it never clobbers saveImplementResult. A transport-
     // errored roll-up is shown but NOT persisted — preserve last-known-good, like persist().
-    if (!patch.verdictErrored) api.saveResult(id, { verdict: v.verdict, evidence: v.evidence, chatId: v.chatId, ranAt }).catch(() => {});
+    if (!patch.verdictErrored)
+      api
+        .saveResult(id, { verdict: v.verdict, evidence: v.evidence, chatId: v.chatId, ranAt })
+        .catch(() => {});
   }
   if (patch.done) {
     const ranAt = Date.now();
     const tasks = next.tasks || [];
-    api.saveImplementResult(id, {
-      status: next.status, attempts: tasks.reduce((s: number, t: any) => s + (t.attempts || 0), 0), writes: next.writes || [],
-      summary: next.summary || '', chatId: next.chatId || (store.results.value[id]?.chatId) || null,
-      ranAt, journal: next.journal || [], tasks,
-    }).catch(() => {});
+    api
+      .saveImplementResult(id, {
+        status: next.status,
+        attempts: tasks.reduce((s: number, t: any) => s + (t.attempts || 0), 0),
+        writes: next.writes || [],
+        summary: next.summary || '',
+        chatId: next.chatId || store.results.value[id]?.chatId || null,
+        ranAt,
+        journal: next.journal || [],
+        tasks,
+      })
+      .catch(() => {});
   }
 }
 
@@ -533,25 +708,49 @@ async function runImplementList(ds: Deliverable[]) {
   // Tracked here rather than in reImplement: this is the point past every
   // refusal, so a blocked click is no longer counted as a run.
   track('sa_fabry_architect_implement');
-  implRunId += 1; const rid = implRunId;
-  const ctrl = new AbortController(); implController = ctrl;
+  implRunId += 1;
+  const rid = implRunId;
+  const ctrl = new AbortController();
+  implController = ctrl;
   store.implementRunning.value = true;
   // Reset the FULL prior-run state (tasks/notes/summary/journal too — not just
   // writes/status), so a re-implement whose planning turn fails can't leave the
   // previous run's task list + notes showing under a fresh status. See finding
   // actions.js:377.
-  for (const d of ds) store.setImplement(d.id, { status: 'running', running: true, writes: [], tasks: [], notes: [], summary: '', journal: [], error: null });
+  for (const d of ds)
+    store.setImplement(d.id, {
+      status: 'running',
+      running: true,
+      writes: [],
+      tasks: [],
+      notes: [],
+      summary: '',
+      journal: [],
+      error: null,
+    });
   try {
     await runImplement(ds, {
-      maxAttemptsPerTask: 5, maxPlanTasks: 12, maxTotalTasks: 20, maxTotalWrites: 50, maxRollupRounds: 3,
+      maxAttemptsPerTask: 5,
+      maxPlanTasks: 12,
+      maxTotalTasks: 20,
+      maxTotalWrites: 50,
+      maxRollupRounds: 3,
       signal: ctrl.signal,
       planOne: (dd) => planOne(dd, ctrl.signal),
       implementTaskOne: (dd, task, cx) => implementTaskOne(dd, task, cx, ctrl.signal),
       checkTaskOne: (dd, task) => checkTaskOne(dd, task, ctrl.signal),
       checkDeliverable: (dd) => runOne(dd, ctrl.signal),
-      onEvent: (eid, patch) => { if (rid === implRunId) applyImplementPatch(eid, patch); },
+      onEvent: (eid, patch) => {
+        if (rid === implRunId) applyImplementPatch(eid, patch);
+      },
     });
-  } finally { if (rid === implRunId) { clearImplementSpinners(); store.implementRunning.value = false; implController = null; } }
+  } finally {
+    if (rid === implRunId) {
+      clearImplementSpinners();
+      store.implementRunning.value = false;
+      implController = null;
+    }
+  }
 }
 
 export function reImplement(id: string) {

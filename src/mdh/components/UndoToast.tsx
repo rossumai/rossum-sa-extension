@@ -28,10 +28,13 @@ export default function UndoToast() {
     >
       <div class="undo-toast-row">
         <span class="undo-toast-message">
-          {u.status === 'error' ? `Undo failed: ${u.error}`
-            : u.status === 'done' ? 'Undone'
-            : u.status === 'running' ? `Undoing…`
-            : u.message}
+          {u.status === 'error'
+            ? `Undo failed: ${u.error}`
+            : u.status === 'done'
+              ? 'Undone'
+              : u.status === 'running'
+                ? `Undoing…`
+                : u.message}
         </span>
         {u.status === 'pending' && (
           <button class="undo-toast-action" onClick={triggerUndo}>
@@ -43,7 +46,9 @@ export default function UndoToast() {
           title="Dismiss"
           onClick={dismissUndo}
           aria-label="Dismiss"
-        >{'×'}</button>
+        >
+          {'×'}
+        </button>
       </div>
       {u.status === 'pending' && (
         <div class="undo-toast-progress" style={`transform: scaleX(${progress})`} />

@@ -6,7 +6,9 @@ export default function ErrorBanner() {
   return (
     <div class="error-banner">
       <span>{error.value}</span>
-      <button class="dismiss" onClick={() => (error.value = null)}>{'×'}</button>
+      <button class="dismiss" onClick={() => (error.value = null)}>
+        {'×'}
+      </button>
     </div>
   );
 }

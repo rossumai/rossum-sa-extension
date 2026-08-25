@@ -6,8 +6,14 @@
 export type AppId = 'mdh' | 'audit' | 'galaxy' | 'inspector' | 'fabry' | 'academy';
 
 export function isValidApp(v: unknown): v is AppId {
-  return v === 'mdh' || v === 'audit' || v === 'galaxy' || v === 'inspector'
-    || v === 'fabry' || v === 'academy';
+  return (
+    v === 'mdh' ||
+    v === 'audit' ||
+    v === 'galaxy' ||
+    v === 'inspector' ||
+    v === 'fabry' ||
+    v === 'academy'
+  );
 }
 
 // Which app to show on boot. Precedence: staging entry (a popup button click)
@@ -15,10 +21,11 @@ export function isValidApp(v: unknown): v is AppId {
 // is the ONE gated app — everything else, Mr. Fabry included, is always
 // available. `unlocked` defaults to locked so a caller that forgets the flag
 // hides the Academy rather than revealing it.
-export function pickInitialApp(
-  { stagingApp, persistedApp, unlocked = false }:
-    { stagingApp?: unknown; persistedApp?: unknown; unlocked?: boolean } = {},
-): AppId {
+export function pickInitialApp({
+  stagingApp,
+  persistedApp,
+  unlocked = false,
+}: { stagingApp?: unknown; persistedApp?: unknown; unlocked?: boolean } = {}): AppId {
   const ok = (v: unknown): v is AppId => isValidApp(v) && (v !== 'academy' || unlocked);
   if (ok(stagingApp)) return stagingApp;
   if (ok(persistedApp)) return persistedApp;
@@ -47,10 +54,13 @@ export type StagingEntry = {
   pendingVariableTypes?: unknown;
 };
 
-export function resolveBootAuth(
-  { entry, session }:
-  { entry?: StagingEntry | null; session: { token?: string | null; domain?: string | null } },
-) {
+export function resolveBootAuth({
+  entry,
+  session,
+}: {
+  entry?: StagingEntry | null;
+  session: { token?: string | null; domain?: string | null };
+}) {
   if (entry?.token && entry?.domain) {
     return {
       token: entry.token,

@@ -6,7 +6,10 @@
 import { inferValue } from './csv.js';
 import { getEjsonType, formatEjsonValue } from './displayValue.js';
 
-const local = (name: string) => { const i = name.indexOf(':'); return i >= 0 ? name.slice(i + 1) : name; };
+const local = (name: string) => {
+  const i = name.indexOf(':');
+  return i >= 0 ? name.slice(i + 1) : name;
+};
 const childElements = (el: Element) => [...el.children];
 
 function parseDoc(str: string): Document {
@@ -33,7 +36,8 @@ export function detectRecords(doc: Document, recordKey?: string | null) {
     for (const [tag, els] of byTag) {
       if (els.length >= 2) groupsAt.push({ key: `${path}/${tag}`, tag, count: els.length, els });
     }
-    for (const c of childElements(el)) visit(c, path ? `${path}/${local(c.tagName)}` : local(c.tagName));
+    for (const c of childElements(el))
+      visit(c, path ? `${path}/${local(c.tagName)}` : local(c.tagName));
   };
   visit(root, '');
 
@@ -42,15 +46,28 @@ export function detectRecords(doc: Document, recordKey?: string | null) {
   // (e.g. <root><rec/><rec/></root>, where the <rec> group already covers it);
   // otherwise it would be a redundant twin that resolves to the same records.
   const rootChildren = childElements(root);
-  const sameEls = (a: Element[], b: Element[]) => a.length === b.length && a.every((x, i) => x === b[i]);
+  const sameEls = (a: Element[], b: Element[]) =>
+    a.length === b.length && a.every((x, i) => x === b[i]);
   const all: Group[] = [...groupsAt];
   if (rootChildren.length && !groupsAt.some((g) => sameEls(g.els, rootChildren))) {
-    all.push({ key: '(top-level)', tag: 'Top-level elements', count: rootChildren.length, els: rootChildren });
+    all.push({
+      key: '(top-level)',
+      tag: 'Top-level elements',
+      count: rootChildren.length,
+      els: rootChildren,
+    });
   }
 
-  let chosen: Partial<Group> | null | undefined = recordKey ? all.find((c) => c.key === recordKey) : null;
+  let chosen: Partial<Group> | null | undefined = recordKey
+    ? all.find((c) => c.key === recordKey)
+    : null;
   if (!chosen) chosen = groupsAt.slice().sort((a, b) => b.count - a.count)[0];
-  if (!chosen) chosen = all[0] || (rootChildren.length ? { key: '(top-level)', els: rootChildren } : { key: '(document)', els: [root] });
+  if (!chosen)
+    chosen =
+      all[0] ||
+      (rootChildren.length
+        ? { key: '(top-level)', els: rootChildren }
+        : { key: '(document)', els: [root] });
 
   return {
     records: chosen.els as Element[],
@@ -86,11 +103,15 @@ export function elementToValue(
     const t = local(c.tagName);
     if (!byTag.has(t)) byTag.set(t, { els: [], raw: new Set() });
     const g = byTag.get(t)!;
-    g.els.push(c); g.raw.add(c.tagName);
+    g.els.push(c);
+    g.raw.add(c.tagName);
     structured = true;
   }
   for (const [tag, g] of byTag) {
-    if (warnings && g.raw.size > 1) warnings.push(`Elements ${[...g.raw].join(', ')} merged into "${tag}" after stripping namespace prefixes.`);
+    if (warnings && g.raw.size > 1)
+      warnings.push(
+        `Elements ${[...g.raw].join(', ')} merged into "${tag}" after stripping namespace prefixes.`,
+      );
     const vals = g.els.map((c) => elementToValue(c, { inferTypes, warnings }));
     obj[tag] = g.els.length > 1 ? vals : vals[0];
   }
@@ -106,10 +127,14 @@ export function toDocs(records: Element[], { inferTypes = false }: { inferTypes?
   let wrapped = 0;
   const docs = records.map((el) => {
     let v = elementToValue(el, { inferTypes, warnings });
-    if (v === null || typeof v !== 'object' || Array.isArray(v)) { v = { '#text': v }; wrapped++; }
+    if (v === null || typeof v !== 'object' || Array.isArray(v)) {
+      v = { '#text': v };
+      wrapped++;
+    }
     return v;
   });
-  if (wrapped) warnings.push(`${wrapped} record(s) had no fields; their text was stored under "#text".`);
+  if (wrapped)
+    warnings.push(`${wrapped} record(s) had no fields; their text was stored under "#text".`);
   const columns: string[] = [];
   for (const d of docs) for (const k of Object.keys(d)) if (!columns.includes(k)) columns.push(k);
   return { docs, columns, warnings: [...new Set(warnings)] };
@@ -124,22 +149,38 @@ export function parseXml(
     const doc = parseDoc(str);
     const { records, candidates, selectedKey } = detectRecords(doc, recordKey);
     const { docs, columns, warnings } = toDocs(records, { inferTypes });
-    return { docs, columns, warnings, error: null, recordCandidates: candidates, recordKey: selectedKey };
+    return {
+      docs,
+      columns,
+      warnings,
+      error: null,
+      recordCandidates: candidates,
+      recordKey: selectedKey,
+    };
   } catch (err) {
-    return { docs: [], columns: [], warnings: [], error: { message: (err as Error).message }, recordCandidates: [], recordKey: null };
+    return {
+      docs: [],
+      columns: [],
+      warnings: [],
+      error: { message: (err as Error).message },
+      recordCandidates: [],
+      recordKey: null,
+    };
   }
 }
 
 // --- export (object → XML) -------------------------------------------------
 const XML_ESC: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;' };
-export function escapeXml(s: unknown) { return String(s).replace(/[&<>]/g, (c) => XML_ESC[c]); }
+export function escapeXml(s: unknown) {
+  return String(s).replace(/[&<>]/g, (c) => XML_ESC[c]);
+}
 
 // Map any JSON key to a valid XML element Name (W3C XML 1.0). '_id' stays as-is.
 export function toXmlName(key: unknown): string {
   let s = String(key).replace(/[^A-Za-z0-9_.\-]/g, '_'); // disallowed chars → _
   if (s === '') s = '_';
-  if (!/^[A-Za-z_]/.test(s)) s = '_' + s;                // must start with a letter or _
-  if (/^xml/i.test(s)) s = '_' + s;                      // reserved 'xml' prefix
+  if (!/^[A-Za-z_]/.test(s)) s = '_' + s; // must start with a letter or _
+  if (/^xml/i.test(s)) s = '_' + s; // reserved 'xml' prefix
   return s;
 }
 
@@ -153,12 +194,16 @@ export function valueToXml(name: string, value: unknown): string {
   if (typeof value === 'object') {
     const ejson = getEjsonType(value);
     if (ejson) return `<${tag}>${escapeXml(formatEjsonValue(value, ejson))}</${tag}>`;
-    return `<${tag}>${Object.entries(value).map(([k, v]) => valueToXml(k, v)).join('')}</${tag}>`;
+    return `<${tag}>${Object.entries(value)
+      .map(([k, v]) => valueToXml(k, v))
+      .join('')}</${tag}>`;
   }
   return `<${tag}>${escapeXml(value)}</${tag}>`;
 }
 
 export function docToXml(doc: Record<string, unknown>, recordName = 'record') {
   const tag = toXmlName(recordName);
-  return `<${tag}>${Object.entries(doc).map(([k, v]) => valueToXml(k, v)).join('')}</${tag}>`;
+  return `<${tag}>${Object.entries(doc)
+    .map(([k, v]) => valueToXml(k, v))
+    .join('')}</${tag}>`;
 }

@@ -1,8 +1,21 @@
 import { describe, it, expect, vi } from 'vitest';
-import { messageKey, blockerKey, fieldKey, computeFindings, orchestrateAttributions } from '../src/inspector/orchestrate.js';
+import {
+  messageKey,
+  blockerKey,
+  fieldKey,
+  computeFindings,
+  orchestrateAttributions,
+} from '../src/inspector/orchestrate.js';
 
 function storeWith(data: any, enrichment = {}) {
-  return { data: { value: data }, enrichment: { value: { hookLogs: [], ruleLogs: [], notes: [], workflow: [], ...enrichment } }, aiAvailable: { value: true }, attributions: { value: {} }, annotationId: { value: String(data?.annotation?.id) }, setAttribution() {} };
+  return {
+    data: { value: data },
+    enrichment: { value: { hookLogs: [], ruleLogs: [], notes: [], workflow: [], ...enrichment } },
+    aiAvailable: { value: true },
+    attributions: { value: {} },
+    annotationId: { value: String(data?.annotation?.id) },
+    setAttribution() {},
+  };
 }
 
 // A store whose setAttribution actually mutates, for the orchestrator tests.
@@ -13,20 +26,40 @@ function orchStore(data: any, enrichment = {}, aiAvailable = true) {
     aiAvailable: { value: aiAvailable },
     attributions: { value: {} },
     annotationId: { value: String(data?.annotation?.id) },
-    setAttribution(k: any, v: any) { s.attributions.value = { ...s.attributions.value, [k]: v }; },
+    setAttribution(k: any, v: any) {
+      s.attributions.value = { ...s.attributions.value, [k]: v };
+    },
   };
   return s;
 }
 
 function waitFor(fn: any, { timeout = 1000, step = 5 } = {}) {
-  return new Promise<void>((res, rej) => { const t0 = Date.now(); (function p() { let ok = false; try { ok = fn(); } catch { /* ignore */ } if (ok) return res(); if (Date.now() - t0 > timeout) return rej(new Error('timeout')); setTimeout(p, step); })(); });
+  return new Promise<void>((res, rej) => {
+    const t0 = Date.now();
+    (function p() {
+      let ok = false;
+      try {
+        ok = fn();
+      } catch {
+        /* ignore */
+      }
+      if (ok) return res();
+      if (Date.now() - t0 > timeout) return rej(new Error('timeout'));
+      setTimeout(p, step);
+    })();
+  });
 }
 
-function fakeAgent(reply = '{"culprit":{"kind":"hook","id":9,"name":"AI"},"confidence":"medium","explanation":"e"}') {
+function fakeAgent(
+  reply = '{"culprit":{"kind":"hook","id":9,"name":"AI"},"confidence":"medium","explanation":"e"}',
+) {
   const calls = { createChat: 0, prompts: [] as any[] };
   return {
     calls,
-    createChat: vi.fn(async () => { calls.createChat++; return 'c1'; }),
+    createChat: vi.fn(async () => {
+      calls.createChat++;
+      return 'c1';
+    }),
     streamMessage: vi.fn(async (_id, content, { onEvent }) => {
       calls.prompts.push(content);
       if (content === '/persona cautious') return;
@@ -36,7 +69,12 @@ function fakeAgent(reply = '{"culprit":{"kind":"hook","id":9,"name":"AI"},"confi
   };
 }
 const fakeApi = { listHooks: async () => [], getHook: async () => null };
-const msgAnn = (messages: any, resolved = {}) => ({ annotation: { id: 1, status: 'to_review', messages, labels: [] }, blocker: { content: [] }, content: { content: [] }, resolved: { queue: null, hooksById: {}, labelsById: undefined, ...resolved } });
+const msgAnn = (messages: any, resolved = {}) => ({
+  annotation: { id: 1, status: 'to_review', messages, labels: [] },
+  blocker: { content: [] },
+  content: { content: [] },
+  resolved: { queue: null, hooksById: {}, labelsById: undefined, ...resolved },
+});
 
 describe('key helpers', () => {
   it('are stable strings', () => {
@@ -49,11 +87,18 @@ describe('key helpers', () => {
 describe('computeFindings', () => {
   it('finds an unattributed message but not a self-attributed one', () => {
     const store = storeWith({
-      annotation: { id: 1, status: 'to_review', messages: [
-        { type: 'error', content: 'A', detail: { hook_id: 5 } },   // self-attributed → skip
-        { type: 'error', content: 'B', detail: { request_id: 'r1' } }, // unattributed → finding
-      ], labels: [] },
-      blocker: { content: [] }, content: { content: [] }, resolved: { queue: null, hooksById: {}, labelsById: undefined },
+      annotation: {
+        id: 1,
+        status: 'to_review',
+        messages: [
+          { type: 'error', content: 'A', detail: { hook_id: 5 } }, // self-attributed → skip
+          { type: 'error', content: 'B', detail: { request_id: 'r1' } }, // unattributed → finding
+        ],
+        labels: [],
+      },
+      blocker: { content: [] },
+      content: { content: [] },
+      resolved: { queue: null, hooksById: {}, labelsById: undefined },
     });
     const f = computeFindings(store);
     const msgs = f.filter((x) => x.kind === 'message');
@@ -61,10 +106,17 @@ describe('computeFindings', () => {
     expect(msgs[0].key).toBe(messageKey(1));
   });
   it('finds a non-standard blocker but not low_score/automation_disabled/error_message', () => {
-    const store = storeWith({ annotation: { id: 1, status: 'to_review', messages: [], labels: [] }, blocker: { content: [
-      { type: 'low_score', samples: [{ details: { score: 0.1, threshold: 0.9 } }] },
-      { type: 'weird_custom_blocker' },
-    ] }, content: { content: [] }, resolved: { queue: null, hooksById: {}, labelsById: undefined } });
+    const store = storeWith({
+      annotation: { id: 1, status: 'to_review', messages: [], labels: [] },
+      blocker: {
+        content: [
+          { type: 'low_score', samples: [{ details: { score: 0.1, threshold: 0.9 } }] },
+          { type: 'weird_custom_blocker' },
+        ],
+      },
+      content: { content: [] },
+      resolved: { queue: null, hooksById: {}, labelsById: undefined },
+    });
     const b = computeFindings(store).filter((x) => x.kind === 'blocker');
     expect(b).toHaveLength(1);
     expect(b[0].payload.type).toBe('weird_custom_blocker');
@@ -73,7 +125,12 @@ describe('computeFindings', () => {
 
 describe('orchestrateAttributions', () => {
   it('resolves a message programmatically (request_id → hook log) with NO agent call', async () => {
-    const store = orchStore(msgAnn([{ type: 'error', content: 'B', detail: { request_id: 'r1' } }], { hooksById: { 5: { id: 5, name: 'Rejector' } } }), { hookLogs: [{ hook_id: 5, request_id: 'r1' }] });
+    const store = orchStore(
+      msgAnn([{ type: 'error', content: 'B', detail: { request_id: 'r1' } }], {
+        hooksById: { 5: { id: 5, name: 'Rejector' } },
+      }),
+      { hookLogs: [{ hook_id: 5, request_id: 'r1' }] },
+    );
     const agentApi = fakeAgent();
     await orchestrateAttributions({ store, api: fakeApi, agentApi });
     const a = (store.attributions.value as any)[messageKey(0)];
@@ -90,12 +147,18 @@ describe('orchestrateAttributions', () => {
     const a = (store.attributions.value as any)[messageKey(0)];
     expect(a.source).toBe('ai');
     expect(a.verdict.culprit).toEqual({ kind: 'hook', id: 9, name: 'AI' });
-    expect(agentApi.calls.prompts.some((p) => /which extension produced this .*message/i.test(p))).toBe(true);
+    expect(
+      agentApi.calls.prompts.some((p) => /which extension produced this .*message/i.test(p)),
+    ).toBe(true);
   });
 
   it('skips a finding whose key is already attributed (once-per-key guard)', async () => {
     const store = orchStore(msgAnn([{ type: 'error', content: 'M', detail: {} }]));
-    store.setAttribution(messageKey(0), { status: 'done', verdict: { culprit: null }, source: 'ai' });
+    store.setAttribution(messageKey(0), {
+      status: 'done',
+      verdict: { culprit: null },
+      source: 'ai',
+    });
     const agentApi = fakeAgent();
     await orchestrateAttributions({ store, api: fakeApi, agentApi });
     expect(agentApi.calls.createChat).toBe(0);
@@ -120,7 +183,11 @@ describe('orchestrateAttributions', () => {
       streamMessage: async (_id: any, content: any, { signal }: any = {}) => {
         if (content === '/persona cautious') return;
         return new Promise((resolve, reject) => {
-          const onAbort = () => { const e = new Error('aborted'); e.name = 'AbortError'; reject(e); };
+          const onAbort = () => {
+            const e = new Error('aborted');
+            e.name = 'AbortError';
+            reject(e);
+          };
           if (signal?.aborted) return onAbort();
           signal?.addEventListener('abort', onAbort, { once: true });
         });
@@ -141,16 +208,24 @@ describe('orchestrateAttributions', () => {
     // run before the real prompt goes out; eagerly resolving on the wrong call would
     // deadlock this test waiting for a "start" signal that already fired).
     let signalStreamStarted: any;
-    const streamStarted = new Promise((res) => { signalStreamStarted = res; });
+    const streamStarted = new Promise((res) => {
+      signalStreamStarted = res;
+    });
     let finishStream: any;
-    const gate = new Promise((res) => { finishStream = res; });
+    const gate = new Promise((res) => {
+      finishStream = res;
+    });
     const agentApi: any = {
       createChat: async () => 'c1',
       streamMessage: async (_id: any, content: any, { onEvent }: any = {}) => {
         if (content === '/persona cautious') return;
         signalStreamStarted();
         await gate; // held open until the test explicitly releases it (after abort)
-        onEvent({ type: 'text-delta', delta: '{"culprit":{"kind":"hook","id":9,"name":"AI"},"confidence":"medium","explanation":"e"}' });
+        onEvent({
+          type: 'text-delta',
+          delta:
+            '{"culprit":{"kind":"hook","id":9,"name":"AI"},"confidence":"medium","explanation":"e"}',
+        });
         onEvent({ type: 'finish' });
       },
     };
@@ -173,14 +248,34 @@ describe('orchestrateAttributions', () => {
   });
 
   it('batches all residual ambiguous fields into ONE agent call', async () => {
-    const dp = (schema_id: any) => ({ category: 'datapoint', schema_id, content: { value: 'v' }, validation_sources: ['connector'] });
-    const data = { annotation: { id: 1, status: 'to_review', messages: [], labels: [] }, blocker: { content: [] }, content: { content: [dp('a'), dp('b')] }, resolved: { queue: null, hooksById: {}, labelsById: undefined } };
+    const dp = (schema_id: any) => ({
+      category: 'datapoint',
+      schema_id,
+      content: { value: 'v' },
+      validation_sources: ['connector'],
+    });
+    const data = {
+      annotation: { id: 1, status: 'to_review', messages: [], labels: [] },
+      blocker: { content: [] },
+      content: { content: [dp('a'), dp('b')] },
+      resolved: { queue: null, hooksById: {}, labelsById: undefined },
+    };
     const store = orchStore(data);
-    const agentApi = fakeAgent('{"fields":[{"schema_id":"a","culprit":{"kind":"connector","id":1,"name":"C"},"confidence":"low","explanation":"e"},{"schema_id":"b","culprit":null,"confidence":"low","explanation":"e2"}]}');
+    const agentApi = fakeAgent(
+      '{"fields":[{"schema_id":"a","culprit":{"kind":"connector","id":1,"name":"C"},"confidence":"low","explanation":"e"},{"schema_id":"b","culprit":null,"confidence":"low","explanation":"e2"}]}',
+    );
     await orchestrateAttributions({ store, api: fakeApi, agentApi });
-    await waitFor(() => (store.attributions.value as any)[fieldKey('a')]?.status === 'done' && (store.attributions.value as any)[fieldKey('b')]?.status === 'done');
+    await waitFor(
+      () =>
+        (store.attributions.value as any)[fieldKey('a')]?.status === 'done' &&
+        (store.attributions.value as any)[fieldKey('b')]?.status === 'done',
+    );
     expect(agentApi.calls.createChat).toBe(1); // one batched call for both fields
-    expect((store.attributions.value as any)[fieldKey('a')].verdict.culprit).toEqual({ kind: 'connector', id: 1, name: 'C' });
+    expect((store.attributions.value as any)[fieldKey('a')].verdict.culprit).toEqual({
+      kind: 'connector',
+      id: 1,
+      name: 'C',
+    });
     expect((store.attributions.value as any)[fieldKey('b')].verdict.culprit).toBeNull();
   });
 });

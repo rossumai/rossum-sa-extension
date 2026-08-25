@@ -29,9 +29,18 @@ export default function Report() {
   const attrs = Object.values(store.attributions.value);
   const attributing = attrs.some((x) => x.status === 'loading');
   const logs = store.enrichment.value.hookLogs;
-  const pipelineStatus = logs === null || !d.resolved?._hooksLoaded ? 'pending' : (logs === 'unavailable' ? 'unavailable' : 'sparse');
-  const labelsStatus = d.resolved?.labelsById === undefined ? 'pending' : (attributing ? 'attributing' : 'loaded');
-  const rejectionStatus = (store.enrichment.value.workflow === null || store.enrichment.value.notes === null) ? 'pending' : sectionStatus('rejection');
+  const pipelineStatus =
+    logs === null || !d.resolved?._hooksLoaded
+      ? 'pending'
+      : logs === 'unavailable'
+        ? 'unavailable'
+        : 'sparse';
+  const labelsStatus =
+    d.resolved?.labelsById === undefined ? 'pending' : attributing ? 'attributing' : 'loaded';
+  const rejectionStatus =
+    store.enrichment.value.workflow === null || store.enrichment.value.notes === null
+      ? 'pending'
+      : sectionStatus('rejection');
   return (
     <div class="inspector-report">
       <ReportHeader />
@@ -39,7 +48,12 @@ export default function Report() {
       <VerdictCard />
       <DiagnosisPanel />
       <IntakeSection />
-      <EvidenceSection id="blockers" title="Blockers & messages" count={`${(d.blocker?.content || []).length} blocker(s) · ${(a.messages || []).length} message(s)`} status={attributing ? 'attributing' : 'loaded'}>
+      <EvidenceSection
+        id="blockers"
+        title="Blockers & messages"
+        count={`${(d.blocker?.content || []).length} blocker(s) · ${(a.messages || []).length} message(s)`}
+        status={attributing ? 'attributing' : 'loaded'}
+      >
         <BlockedPanel />
       </EvidenceSection>
       <EvidenceSection id="fields" title="Fields" status="loaded">
@@ -48,7 +62,12 @@ export default function Report() {
       <EvidenceSection id="pipeline" title="Extension runs" status={pipelineStatus}>
         <PipelinePanel />
       </EvidenceSection>
-      <EvidenceSection id="labels" title="Labels" count={`${(a.labels || []).length} applied`} status={labelsStatus}>
+      <EvidenceSection
+        id="labels"
+        title="Labels"
+        count={`${(a.labels || []).length} applied`}
+        status={labelsStatus}
+      >
         <LabelsPanel />
       </EvidenceSection>
       <EvidenceSection id="rejection" title="Rejection" status={rejectionStatus}>

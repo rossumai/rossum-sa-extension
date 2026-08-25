@@ -14,7 +14,13 @@ export function viewedRows(stored: any, origin: string, max = MAX_RECENTS): any[
   return (Array.isArray(stored) ? stored : [])
     .filter((e) => e && e.id != null && (!origin || e.origin === origin))
     .slice(0, max)
-    .map((e) => ({ id: String(e.id), fileName: null, queue: null, status: null, at: typeof e.at === 'number' ? e.at : null }));
+    .map((e) => ({
+      id: String(e.id),
+      fileName: null,
+      queue: null,
+      status: null,
+      at: typeof e.at === 'number' ? e.at : null,
+    }));
 }
 
 // Pure: join a sideloaded /annotations payload ({results, documents, queues})
@@ -65,7 +71,9 @@ export async function loadRecents() {
     if (!hasStorage()) return;
     const got = await chrome.storage.local.get(VIEWED_KEY);
     store.recents.value = viewedRows(got && got[VIEWED_KEY], store.domain.value);
-  } catch { /* recents are a convenience, never fatal */ }
+  } catch {
+    /* recents are a convenience, never fatal */
+  }
 }
 
 // Async: resolve file/queue/status for the current rows in ONE sideloaded call
@@ -77,7 +85,9 @@ export async function enrichRecents(api: any) {
   try {
     const payload = await api.listAnnotationsByIds(rows.map((r) => r.id));
     if (payload) store.recents.value = enrichRows(store.recents.value, payload);
-  } catch { /* keep id-only rows */ }
+  } catch {
+    /* keep id-only rows */
+  }
 }
 
 // Clear only the CURRENT org's viewed entries (other orgs' traces stay).
@@ -85,9 +95,18 @@ export function clearRecents() {
   store.recents.value = [];
   try {
     if (!hasStorage()) return;
-    chrome.storage.local.get(VIEWED_KEY).then((got) => {
-      const rest = (got && Array.isArray(got[VIEWED_KEY]) ? got[VIEWED_KEY] : []).filter((e) => e && e.origin !== store.domain.value);
-      chrome.storage.local.set({ [VIEWED_KEY]: rest });
-    }).catch(() => { /* ignore */ });
-  } catch { /* ignore */ }
+    chrome.storage.local
+      .get(VIEWED_KEY)
+      .then((got) => {
+        const rest = (got && Array.isArray(got[VIEWED_KEY]) ? got[VIEWED_KEY] : []).filter(
+          (e) => e && e.origin !== store.domain.value,
+        );
+        chrome.storage.local.set({ [VIEWED_KEY]: rest });
+      })
+      .catch(() => {
+        /* ignore */
+      });
+  } catch {
+    /* ignore */
+  }
 }

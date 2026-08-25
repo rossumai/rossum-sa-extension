@@ -1,9 +1,17 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import JSON5 from 'json5';
 import { orgId, domain, scopeSuffix } from '../src/mdh/store.js';
-import { saveQuery, isSaved, unsaveQuery, addToHistory } from '../src/mdh/components/QueryHistory.jsx';
+import {
+  saveQuery,
+  isSaved,
+  unsaveQuery,
+  addToHistory,
+} from '../src/mdh/components/QueryHistory.jsx';
 
-beforeEach(() => { orgId.value = null; domain.value = ''; });
+beforeEach(() => {
+  orgId.value = null;
+  domain.value = '';
+});
 
 describe('scopeSuffix', () => {
   it('prefers the org id when resolved', () => {
@@ -19,23 +27,30 @@ describe('scopeSuffix', () => {
 
 function stubStorage() {
   const data = {};
-  globalThis.chrome = ({
+  globalThis.chrome = {
     storage: {
       local: {
         get: (key: any) => Promise.resolve(key in data ? { [key]: (data as any)[key] } : {}),
-        set: (obj: any) => { Object.assign(data, obj); return Promise.resolve(); },
-        remove: (key: any) => { delete (data as any)[key]; return Promise.resolve(); },
+        set: (obj: any) => {
+          Object.assign(data, obj);
+          return Promise.resolve();
+        },
+        remove: (key: any) => {
+          delete (data as any)[key];
+          return Promise.resolve();
+        },
       },
       sync: { get: () => Promise.resolve({}), remove: () => Promise.resolve() },
     } as any,
-  } as any);
+  } as any;
   return data;
 }
 
 describe('QueryHistory per-org scoping', () => {
   it('writes Saved/Recent under the org-scoped key and keeps orgs separate', async () => {
     const data = stubStorage();
-    orgId.value = '1'; domain.value = 'https://x.rossum.app';
+    orgId.value = '1';
+    domain.value = 'https://x.rossum.app';
     await saveQuery('vendors', '[{"$limit":5}]', 'q1', {});
     await addToHistory('vendors', '[{"$limit":5}]', {});
     expect((data as any)['savedQueries::org:1']).toHaveLength(1);
@@ -51,7 +66,8 @@ describe('QueryHistory per-org scoping', () => {
 
   it('falls back to a domain-scoped key when org id is null', async () => {
     const data = stubStorage();
-    orgId.value = null; domain.value = 'https://acme.rossum.app';
+    orgId.value = null;
+    domain.value = 'https://acme.rossum.app';
     await saveQuery('vendors', '[]', 'q', {});
     expect((data as any)['savedQueries::domain:https://acme.rossum.app']).toHaveLength(1);
   });
@@ -64,10 +80,12 @@ describe('QueryHistory dedup is disable-aware', () => {
   // This test fails without the disable-aware dedupKey fix (1 saved, not 2).
   it('treats a pipeline and the same pipeline + an extra disabled stage as distinct saves', async () => {
     const data = stubStorage();
-    orgId.value = '1'; domain.value = 'https://x.rossum.app';
+    orgId.value = '1';
+    domain.value = 'https://x.rossum.app';
 
     const active = '[\n  { "$match": {} }\n]';
-    const withDisabled = '[\n  { "$match": {} },\n  /* @disabled-stage\n  { "$sort": { "a": -1 } } */\n]';
+    const withDisabled =
+      '[\n  { "$match": {} },\n  /* @disabled-stage\n  { "$sort": { "a": -1 } } */\n]';
 
     // Both reduce to the SAME effective pipeline once comments are dropped —
     // that is exactly the collision the fix must distinguish.
@@ -85,19 +103,38 @@ describe('QueryHistory dedup is disable-aware', () => {
 describe('QueryHistory write serialization', () => {
   function stubSlowStorage() {
     const data = {};
-    globalThis.chrome = ({
-      storage: { local: {
-        get: (key: any) => new Promise((r) => setTimeout(() => r(key in data ? { [key]: (data as any)[key] } : {}), 5)),
-        set: (obj: any) => new Promise<void>((r) => setTimeout(() => { Object.assign(data, obj); r(); }, 5)),
-        remove: (key: any) => new Promise<void>((r) => setTimeout(() => { delete (data as any)[key]; r(); }, 5)),
-      }, sync: { get: () => Promise.resolve({}), remove: () => Promise.resolve() } } as any,
-    } as any);
+    globalThis.chrome = {
+      storage: {
+        local: {
+          get: (key: any) =>
+            new Promise((r) =>
+              setTimeout(() => r(key in data ? { [key]: (data as any)[key] } : {}), 5),
+            ),
+          set: (obj: any) =>
+            new Promise<void>((r) =>
+              setTimeout(() => {
+                Object.assign(data, obj);
+                r();
+              }, 5),
+            ),
+          remove: (key: any) =>
+            new Promise<void>((r) =>
+              setTimeout(() => {
+                delete (data as any)[key];
+                r();
+              }, 5),
+            ),
+        },
+        sync: { get: () => Promise.resolve({}), remove: () => Promise.resolve() },
+      } as any,
+    } as any;
     return data;
   }
 
   it('does not lose entries when two addToHistory calls overlap', async () => {
     const data = stubSlowStorage();
-    orgId.value = '1'; domain.value = 'https://x.rossum.app';
+    orgId.value = '1';
+    domain.value = 'https://x.rossum.app';
     await Promise.all([
       addToHistory('vendors', '[{"$limit":1}]', {}),
       addToHistory('vendors', '[{"$limit":2}]', {}),

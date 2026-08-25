@@ -64,33 +64,45 @@ describe('buildTaskPrompt', () => {
   });
 
   it('includes "ALREADY DONE" section when doneTasks provided', () => {
-    const prompt = buildTaskPrompt('Add VAT validation', {
-      text: 'create the VAT rule',
-      acceptance: 'a rule named VAT exists',
-    }, {
-      doneTasks: ['created queue'],
-    });
+    const prompt = buildTaskPrompt(
+      'Add VAT validation',
+      {
+        text: 'create the VAT rule',
+        acceptance: 'a rule named VAT exists',
+      },
+      {
+        doneTasks: ['created queue'],
+      },
+    );
     expect(prompt).toContain('ALREADY DONE');
     expect(prompt).toContain('created queue');
   });
 
   it('omits "ALREADY DONE" section when doneTasks is empty', () => {
-    const prompt = buildTaskPrompt('Add VAT validation', {
-      text: 'create the VAT rule',
-      acceptance: 'a rule named VAT exists',
-    }, {
-      doneTasks: [],
-    });
+    const prompt = buildTaskPrompt(
+      'Add VAT validation',
+      {
+        text: 'create the VAT rule',
+        acceptance: 'a rule named VAT exists',
+      },
+      {
+        doneTasks: [],
+      },
+    );
     expect(prompt).not.toContain('ALREADY DONE');
   });
 
   it('includes journal attempts with summary, verdict, and learnings', () => {
-    const prompt = buildTaskPrompt('Add VAT validation', {
-      text: 'create the VAT rule',
-      acceptance: 'a rule named VAT exists',
-    }, {
-      journal: [{ attempt: 1, summary: 'tried X', verdict: 'fail', learnings: 'no fire' }],
-    });
+    const prompt = buildTaskPrompt(
+      'Add VAT validation',
+      {
+        text: 'create the VAT rule',
+        acceptance: 'a rule named VAT exists',
+      },
+      {
+        journal: [{ attempt: 1, summary: 'tried X', verdict: 'fail', learnings: 'no fire' }],
+      },
+    );
     expect(prompt).toContain('PREVIOUS ATTEMPTS');
     expect(prompt).toContain('attempt 1');
     expect(prompt).toContain('tried X');
@@ -173,7 +185,8 @@ describe('buildTaskCheckPrompt', () => {
 
 describe('parsePlan', () => {
   it('parses raw JSON array with {text, acceptance} objects', () => {
-    const json = '[{"text":"task 1","acceptance":"check 1"},{"text":"task 2","acceptance":"check 2"}]';
+    const json =
+      '[{"text":"task 1","acceptance":"check 1"},{"text":"task 2","acceptance":"check 2"}]';
     const result = parsePlan(json);
     expect(result).toEqual([
       { text: 'task 1', acceptance: 'check 1' },
@@ -223,7 +236,9 @@ describe('parsePlan', () => {
   });
 
   it('caps results at MAX_PLAN_TASKS (12)', () => {
-    const items = Array(15).fill(0).map((_, i) => ({ text: `task ${i}`, acceptance: '' }));
+    const items = Array(15)
+      .fill(0)
+      .map((_, i) => ({ text: `task ${i}`, acceptance: '' }));
     const json = JSON.stringify(items);
     const result = parsePlan(json);
     expect(result).toHaveLength(MAX_PLAN_TASKS);
@@ -286,7 +301,8 @@ describe('parseDiscovered', () => {
   });
 
   it('respects custom cap parameter', () => {
-    const text = 'NEW TASKS:\n- task 1 :: check 1\n- task 2 :: check 2\n- task 3 :: check 3\n- task 4 :: check 4\n- task 5 :: check 5';
+    const text =
+      'NEW TASKS:\n- task 1 :: check 1\n- task 2 :: check 2\n- task 3 :: check 3\n- task 4 :: check 4\n- task 5 :: check 5';
     const result = parseDiscovered(text, 3);
     expect(result).toHaveLength(3);
   });
@@ -341,9 +357,13 @@ describe('parseDiscovered', () => {
   it('does NOT turn free-form "no tasks" prose into a phantom task', () => {
     // The model commonly ends a write turn with prose, not a bullet list. Prose
     // (no bullet) must never become a write-enabled task against the live org.
-    expect(parseDiscovered('NEW TASKS: none required — the queue was already configured.')).toEqual([]);
+    expect(parseDiscovered('NEW TASKS: none required — the queue was already configured.')).toEqual(
+      [],
+    );
     expect(parseDiscovered('NEW TASKS:\nnone needed, everything is already in place')).toEqual([]);
-    expect(parseDiscovered('NEW TASKS:\nI do not think any further tasks are needed here.')).toEqual([]);
+    expect(
+      parseDiscovered('NEW TASKS:\nI do not think any further tasks are needed here.'),
+    ).toEqual([]);
   });
 
   it('ignores a bulleted whole-line no-op marker', () => {
@@ -353,7 +373,9 @@ describe('parseDiscovered', () => {
   });
 
   it('accepts numbered-list markers ("1." / "2)") as tasks, still rejecting prose', () => {
-    const result = parseDiscovered('NEW TASKS:\n1. create the MDH dataset :: dataset exists\n2) add the lookup rule');
+    const result = parseDiscovered(
+      'NEW TASKS:\n1. create the MDH dataset :: dataset exists\n2) add the lookup rule',
+    );
     expect(result).toEqual([
       { text: 'create the MDH dataset', acceptance: 'dataset exists' },
       { text: 'add the lookup rule', acceptance: '' },
@@ -363,7 +385,11 @@ describe('parseDiscovered', () => {
   });
   it('still keeps a genuine bulleted task even when it happens to start with "No"', () => {
     // Only WHOLE-line no-op markers are skipped; a real task with a "::" is kept.
-    const result = parseDiscovered('NEW TASKS:\n- No VAT rule exists yet, so create one :: a VAT rule exists');
-    expect(result).toEqual([{ text: 'No VAT rule exists yet, so create one', acceptance: 'a VAT rule exists' }]);
+    const result = parseDiscovered(
+      'NEW TASKS:\n- No VAT rule exists yet, so create one :: a VAT rule exists',
+    );
+    expect(result).toEqual([
+      { text: 'No VAT rule exists yet, so create one', acceptance: 'a VAT rule exists' },
+    ]);
   });
 });

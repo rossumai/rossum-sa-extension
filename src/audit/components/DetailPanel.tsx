@@ -15,9 +15,7 @@ export default function DetailPanel() {
     <aside class="audit-detail">
       <div class="audit-detail-head">
         <span>Detail</span>
-        {row && (
-          <ModalClose onClick={() => (selectedRow.value = null)} />
-        )}
+        {row && <ModalClose onClick={() => (selectedRow.value = null)} />}
       </div>
       <div class="audit-detail-body">
         {sections ? (

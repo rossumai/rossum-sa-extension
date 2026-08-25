@@ -37,7 +37,9 @@ function combinedSignal(externalSignal?: AbortSignal | null) {
     if (externalSignal.aborted) clearTimeout(timer);
     else externalSignal.addEventListener('abort', () => clearTimeout(timer), { once: true });
   }
-  const signal = externalSignal ? AbortSignal.any([externalSignal, controller.signal]) : controller.signal;
+  const signal = externalSignal
+    ? AbortSignal.any([externalSignal, controller.signal])
+    : controller.signal;
   return { signal, timer, externalSignal };
 }
 
@@ -53,7 +55,10 @@ function toUrl(pathOrUrl: string): string {
   return /^https?:\/\//.test(pathOrUrl) ? pathOrUrl : `${baseDomain}${pathOrUrl}`;
 }
 
-export async function get(pathOrUrl: string, { signal: externalSignal }: RequestOpts = {}): Promise<any> {
+export async function get(
+  pathOrUrl: string,
+  { signal: externalSignal }: RequestOpts = {},
+): Promise<any> {
   const { signal, timer, externalSignal: ext } = combinedSignal(externalSignal);
   let res: Response;
   try {
@@ -92,7 +97,10 @@ export function buildQuery(params: Record<string, unknown>): string {
 }
 
 // Fully enumerate a Rossum collection by following pagination.next.
-export async function listAll(pathOrUrl: string, { signal, onPage }: ListOpts = {}): Promise<RawResource[]> {
+export async function listAll(
+  pathOrUrl: string,
+  { signal, onPage }: ListOpts = {},
+): Promise<RawResource[]> {
   const out: RawResource[] = [];
   let next: string | null = pathOrUrl;
   while (next) {
@@ -118,12 +126,16 @@ async function safeListAll(pathOrUrl: string, opts?: ListOpts): Promise<RawResou
 }
 
 // Fetch the raw resource bundle the graph builder needs.
-export async function fetchOrgResources(
-  { signal, onProgress }: RequestOpts & { onProgress?: (total: number) => void } = {},
-): Promise<RawBundle> {
+export async function fetchOrgResources({
+  signal,
+  onProgress,
+}: RequestOpts & { onProgress?: (total: number) => void } = {}): Promise<RawBundle> {
   const q = buildQuery({ page_size: 100 });
   let total = 0;
-  const onPage = (n: number) => { total += n; if (onProgress) onProgress(total); };
+  const onPage = (n: number) => {
+    total += n;
+    if (onProgress) onProgress(total);
+  };
   const [orgs, workspaces, queues, hooks, engines] = await Promise.all([
     safeListAll(`/api/v1/organizations/?${q}`, { signal, onPage }),
     safeListAll(`/api/v1/workspaces/?${q}`, { signal, onPage }),

@@ -5,10 +5,10 @@
 import { displayValue, getEjsonType } from './displayValue.js';
 
 // Width-packing constants. Exported so tests can override without mocking.
-export const RESERVED_PX = 180;    // chevron (~20) + actions (~130) + padding (~30)
-export const CHAR_WIDTH_PX = 6.6;  // empirical for 11px monospace (.record-summary)
+export const RESERVED_PX = 180; // chevron (~20) + actions (~130) + padding (~30)
+export const CHAR_WIDTH_PX = 6.6; // empirical for 11px monospace (.record-summary)
 export const MIN_CHAR_BUDGET = 30;
-export const SUFFIX_RESERVE = 14;  // covers " · +99 fields" with one char of slack
+export const SUFFIX_RESERVE = 14; // covers " · +99 fields" with one char of slack
 export const EMPTY_SENTINEL = '(empty record)';
 
 const NAME_PATTERN_EXACT = /^(name|title|code|label|key|description|summary)$/i;
@@ -71,7 +71,8 @@ function oidString(value: any): string | null {
   // Returns the raw hex for an EJSON $oid, or null if not an ObjectId.
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     const keys = Object.keys(value);
-    if (keys.length === 1 && keys[0] === '$oid' && typeof value.$oid === 'string') return value.$oid;
+    if (keys.length === 1 && keys[0] === '$oid' && typeof value.$oid === 'string')
+      return value.$oid;
   }
   return null;
 }

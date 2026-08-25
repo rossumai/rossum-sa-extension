@@ -15,7 +15,11 @@ vi.mock('../src/agent/agentApi.js', () => ({
 // Stub RecordCard: assert the readOnly prop without depending on its internals
 // (covered by tests/mdh-record-card.test.js).
 vi.mock('../src/mdh/components/RecordCard.jsx', () => ({
-  default: (props: any) => <div class="rc-stub" data-readonly={String(!!props.readOnly)}>{JSON.stringify(props.record)}</div>,
+  default: (props: any) => (
+    <div class="rc-stub" data-readonly={String(!!props.readOnly)}>
+      {JSON.stringify(props.record)}
+    </div>
+  ),
 }));
 
 import * as api from '../src/mdh/api.js';
@@ -28,9 +32,14 @@ async function waitFor(condition: any, description = 'condition', timeoutMs = 20
   const start = Date.now();
   for (;;) {
     let ok = false;
-    try { ok = condition(); } catch { ok = false; }
+    try {
+      ok = condition();
+    } catch {
+      ok = false;
+    }
     if (ok) return;
-    if (Date.now() - start > timeoutMs) throw new Error(`Timeout waiting for ${description} after ${timeoutMs}ms`);
+    if (Date.now() - start > timeoutMs)
+      throw new Error(`Timeout waiting for ${description} after ${timeoutMs}ms`);
     await new Promise((r) => setTimeout(r, 5));
   }
 }
@@ -58,7 +67,10 @@ const previewCalls = () =>
   });
 
 afterEach(() => {
-  if (currentRoot) { render(null, currentRoot); currentRoot = null; }
+  if (currentRoot) {
+    render(null, currentRoot);
+    currentRoot = null;
+  }
   document.body.innerHTML = '';
   hoveredStage.value = null;
   stagesShowDef.value = false;
@@ -83,10 +95,13 @@ describe('StagesView', () => {
     ];
     vi.mocked(api.aggregate).mockResolvedValue({ result: [{ _id: 'a' }] });
     const root = mount({ collection: 'vendors', entries });
-    await waitFor(() => root.querySelectorAll('.pipeline-inspect-section').length === 3, '3 sections');
+    await waitFor(
+      () => root.querySelectorAll('.pipeline-inspect-section').length === 3,
+      '3 sections',
+    );
     const text = root.textContent;
     expect(text).toContain('source');
-    expect(text).toContain('vendors');   // named, not "input"
+    expect(text).toContain('vendors'); // named, not "input"
     expect(text).toContain('$match');
     expect(text).toContain('$limit');
     // It must NOT read as stage zero: no number badge on the source card.
@@ -105,7 +120,9 @@ describe('StagesView', () => {
     vi.mocked(api.aggregate).mockResolvedValue({ result: [] });
     const root = mount({ collection: 'vendors', entries });
     await waitFor(() => root.querySelector('.pipeline-inspect-start'), 'divider rendered');
-    expect(root.querySelector('.pipeline-inspect-start').textContent).toBe('pipeline starts here \u00b7 2 of 3 stages run');
+    expect(root.querySelector('.pipeline-inspect-start').textContent).toBe(
+      'pipeline starts here \u00b7 2 of 3 stages run',
+    );
   });
 
   it('omits the divider when there are no stages at all', async () => {
@@ -117,13 +134,18 @@ describe('StagesView', () => {
 
   it('fires one 10-doc preview per active stage, $search first (none for the collapsed source)', async () => {
     const search = { $search: { index: 'default', text: { query: 'foo', path: 'name' } } };
-    const entries = [{ disabled: false, stage: search }, { disabled: false, stage: { $match: { x: 1 } } }];
+    const entries = [
+      { disabled: false, stage: search },
+      { disabled: false, stage: { $match: { x: 1 } } },
+    ];
     vi.mocked(api.aggregate).mockResolvedValue({ result: [] });
     mount({ collection: 'vendors', entries });
     await waitFor(() => previewCalls().length >= 2, '2 stage previews');
     const calls = previewCalls();
     // The bare [{ $limit }] source sample is NOT fetched while the card is collapsed.
-    expect(calls.some((c) => JSON.stringify(c[1]) === JSON.stringify([{ $limit: 10 }]))).toBe(false);
+    expect(calls.some((c) => JSON.stringify(c[1]) === JSON.stringify([{ $limit: 10 }]))).toBe(
+      false,
+    );
     const stagePreviews = calls.filter((c) => c[1].length > 1);
     expect(stagePreviews.length).toBe(2);
     for (const [, pl] of stagePreviews) {
@@ -133,7 +155,10 @@ describe('StagesView', () => {
   });
 
   it('strips $out/$merge from every request', async () => {
-    const entries = [{ disabled: false, stage: { $match: {} } }, { disabled: false, stage: { $out: 'archive' } }];
+    const entries = [
+      { disabled: false, stage: { $match: {} } },
+      { disabled: false, stage: { $out: 'archive' } },
+    ];
     vi.mocked(api.aggregate).mockResolvedValue({ result: [] });
     mount({ collection: 'vendors', entries });
     await waitFor(() => previewCalls().length >= 2, 'previews issued');
@@ -151,14 +176,20 @@ describe('StagesView', () => {
     vi.mocked(api.aggregate).mockResolvedValue({ result: [{ _id: '1', name: 'ACME' }] });
     const root = mount({ collection: 'vendors', entries });
     await waitFor(() => root.querySelectorAll('.rc-stub').length > 0, 'doc cards rendered');
-    for (const stub of root.querySelectorAll('.rc-stub')) expect(stub.getAttribute('data-readonly')).toBe('true');
+    for (const stub of root.querySelectorAll('.rc-stub'))
+      expect(stub.getAttribute('data-readonly')).toBe('true');
   });
 
   it('surfaces a per-stage preview error independently', async () => {
-    const entries = [{ disabled: false, stage: { $match: {} } }, { disabled: false, stage: { $sort: { _id: 1 } } }];
+    const entries = [
+      { disabled: false, stage: { $match: {} } },
+      { disabled: false, stage: { $sort: { _id: 1 } } },
+    ];
     vi.mocked(api.aggregate).mockImplementation((col, pl) => {
-      if (JSON.stringify(pl) === JSON.stringify([{ $limit: 10 }])) return Promise.resolve({ result: [{ _id: 'i' }] });
-      if (JSON.stringify(pl).includes('$sort')) return Promise.reject(Object.assign(new Error('boom'), { status: 400 }));
+      if (JSON.stringify(pl) === JSON.stringify([{ $limit: 10 }]))
+        return Promise.resolve({ result: [{ _id: 'i' }] });
+      if (JSON.stringify(pl).includes('$sort'))
+        return Promise.reject(Object.assign(new Error('boom'), { status: 400 }));
       return Promise.resolve({ result: [{ _id: '1' }] });
     });
     const root = mount({ collection: 'vendors', entries });
@@ -170,12 +201,16 @@ describe('StagesView', () => {
   });
 
   it('renders disabled stages greyed and issues no preview for them', async () => {
-    const entries = [{ disabled: false, stage: { $match: {} } }, { disabled: true, stage: { $sort: { a: -1 } } }];
+    const entries = [
+      { disabled: false, stage: { $match: {} } },
+      { disabled: true, stage: { $sort: { a: -1 } } },
+    ];
     vi.mocked(api.aggregate).mockResolvedValue({ result: [] });
     const root = mount({ collection: 'vendors', entries });
     await waitFor(() => previewCalls().length >= 1, '1 active preview');
     expect(root.querySelector('.pipeline-inspect-disabled')).not.toBeNull();
-    for (const [, pl] of vi.mocked(api.aggregate).mock.calls) expect(JSON.stringify(pl)).not.toContain('$sort');
+    for (const [, pl] of vi.mocked(api.aggregate).mock.calls)
+      expect(JSON.stringify(pl)).not.toContain('$sort');
   });
 
   it('fetches and shows a count delta in the stage header', async () => {
@@ -186,32 +221,59 @@ describe('StagesView', () => {
       return Promise.resolve({ result: [] });
     });
     const root = mount({ collection: 'vendors', entries });
-    await waitFor(() => root.textContent.includes('1,240') && root.textContent.includes('420'), 'counts rendered');
+    await waitFor(
+      () => root.textContent.includes('1,240') && root.textContent.includes('420'),
+      'counts rendered',
+    );
     expect(root.textContent).toContain('1,240');
     expect(root.textContent).toContain('420');
   });
 
   it('calls onToggleStage with the entry index when a stage toggle is clicked', async () => {
-    const entries = [{ disabled: false, stage: { $match: {} } }, { disabled: false, stage: { $limit: 50 } }];
+    const entries = [
+      { disabled: false, stage: { $match: {} } },
+      { disabled: false, stage: { $limit: 50 } },
+    ];
     vi.mocked(api.aggregate).mockResolvedValue({ result: [] });
     const toggled: any = [];
-    const root = mount({ collection: 'vendors', entries, onToggleStage: (i: any) => toggled.push(i) });
-    await waitFor(() => root.querySelectorAll('.pipeline-stage-toggle').length === 2, 'two stage toggles');
+    const root = mount({
+      collection: 'vendors',
+      entries,
+      onToggleStage: (i: any) => toggled.push(i),
+    });
+    await waitFor(
+      () => root.querySelectorAll('.pipeline-stage-toggle').length === 2,
+      'two stage toggles',
+    );
     root.querySelectorAll('.pipeline-stage-toggle')[1].click();
     expect(toggled).toEqual([1]);
   });
 
   it('reflects a disabled stage when entries prop changes (live, no local copy)', async () => {
-    const entries = [{ disabled: false, stage: { $match: {} } }, { disabled: false, stage: { $sort: { _id: 1 } } }];
+    const entries = [
+      { disabled: false, stage: { $match: {} } },
+      { disabled: false, stage: { $sort: { _id: 1 } } },
+    ];
     vi.mocked(api.aggregate).mockResolvedValue({ result: [] });
     const root = mount({ collection: 'vendors', entries });
-    await waitFor(() => vi.mocked(api.aggregate).mock.calls.some((c) => JSON.stringify(c[1]).includes('$sort')), '$sort referenced');
+    await waitFor(
+      () => vi.mocked(api.aggregate).mock.calls.some((c) => JSON.stringify(c[1]).includes('$sort')),
+      '$sort referenced',
+    );
     vi.clearAllMocks();
     vi.mocked(api.aggregate).mockResolvedValue({ result: [] });
-    rerender({ collection: 'vendors', entries: [{ disabled: false, stage: { $match: {} } }, { disabled: true, stage: { $sort: { _id: 1 } } }] });
+    rerender({
+      collection: 'vendors',
+      entries: [
+        { disabled: false, stage: { $match: {} } },
+        { disabled: true, stage: { $sort: { _id: 1 } } },
+      ],
+    });
     await waitFor(() => root.querySelector('.pipeline-inspect-disabled'), 'stage greyed via prop');
     await waitFor(() => vi.mocked(api.aggregate).mock.calls.length > 0, 'requests re-issued');
-    expect(vi.mocked(api.aggregate).mock.calls.every((c) => !JSON.stringify(c[1]).includes('$sort'))).toBe(true);
+    expect(
+      vi.mocked(api.aggregate).mock.calls.every((c) => !JSON.stringify(c[1]).includes('$sort')),
+    ).toBe(true);
   });
 
   it('no longer renders the per-stage query box (records are full-width)', async () => {
@@ -223,7 +285,7 @@ describe('StagesView', () => {
     expect(root.querySelector('.pipeline-inspect-output')).not.toBeNull();
   });
 
-  it('renders each active stage\'s substituted definition when Definitions is on', async () => {
+  it("renders each active stage's substituted definition when Definitions is on", async () => {
     stagesShowDef.value = true;
     const entries = [
       { disabled: false, stage: { $match: { code: 'AB-12', qty: 100 } } },
@@ -231,8 +293,13 @@ describe('StagesView', () => {
     ];
     vi.mocked(api.aggregate).mockResolvedValue({ result: [] });
     const root = mount({ collection: 'vendors', entries });
-    await waitFor(() => root.querySelectorAll('.pipeline-inspect-stagedef').length === 2, 'two definition blocks');
-    const defs = [...root.querySelectorAll('.pipeline-inspect-stagedef')].map((el) => el.textContent);
+    await waitFor(
+      () => root.querySelectorAll('.pipeline-inspect-stagedef').length === 2,
+      'two definition blocks',
+    );
+    const defs = [...root.querySelectorAll('.pipeline-inspect-stagedef')].map(
+      (el) => el.textContent,
+    );
     // Faithful pretty-printed substituted stage object (values already resolved upstream).
     expect(defs[0]).toBe(JSON.stringify({ $match: { code: 'AB-12', qty: 100 } }, null, 2));
     expect(defs[0]).toContain('"code": "AB-12"');
@@ -256,7 +323,10 @@ describe('StagesView', () => {
     ];
     vi.mocked(api.aggregate).mockResolvedValue({ result: [] });
     const root = mount({ collection: 'vendors', entries });
-    await waitFor(() => root.querySelectorAll('.pipeline-inspect-stagedef').length === 1, 'exactly one def block');
+    await waitFor(
+      () => root.querySelectorAll('.pipeline-inspect-stagedef').length === 1,
+      'exactly one def block',
+    );
     // Only the single active $match stage has a block: input (data-idx="-1") and the
     // disabled $sort do not.
     const inputSection = root.querySelector('.pipeline-inspect-section[data-idx="-1"]');
@@ -271,7 +341,10 @@ describe('StagesView', () => {
     ];
     vi.mocked(api.aggregate).mockResolvedValue({ result: [] });
     const root = mount({ collection: 'vendors', entries });
-    await waitFor(() => root.querySelectorAll('.pipeline-inspect-section[data-idx]').length >= 3, 'sections rendered');
+    await waitFor(
+      () => root.querySelectorAll('.pipeline-inspect-section[data-idx]').length >= 3,
+      'sections rendered',
+    );
 
     // The 2nd stage section is entry index 1 (input section has data-idx="-1").
     const sortSection = root.querySelector('.pipeline-inspect-section[data-idx="1"]');
@@ -287,7 +360,10 @@ describe('StagesView', () => {
 
   it('scrolls to and highlights the inspectTarget stage', async () => {
     Element.prototype.scrollIntoView = vi.fn();
-    const entries = [{ disabled: false, stage: { $match: {} } }, { disabled: false, stage: { $limit: 50 } }];
+    const entries = [
+      { disabled: false, stage: { $match: {} } },
+      { disabled: false, stage: { $limit: 50 } },
+    ];
     vi.mocked(api.aggregate).mockResolvedValue({ result: [] });
     const root = mount({ collection: 'vendors', entries, inspectTarget: { index: 1 } });
     await waitFor(() => root.querySelector('.pipeline-inspect-highlight'), 'highlighted section');
@@ -300,19 +376,29 @@ describe('StagesView', () => {
     vi.mocked(api.aggregate).mockResolvedValue({ result: [{ _id: 'a' }] });
     const root = mount({ collection: 'vendors', entries });
     await waitFor(() => previewCalls().length >= 1, 'stage preview issued');
-    const bare = () => previewCalls().filter((c) => JSON.stringify(c[1]) === JSON.stringify([{ $limit: 10 }]));
-    expect(bare().length).toBe(0);        // collapsed: one fewer aggregate per open
+    const bare = () =>
+      previewCalls().filter((c) => JSON.stringify(c[1]) === JSON.stringify([{ $limit: 10 }]));
+    expect(bare().length).toBe(0); // collapsed: one fewer aggregate per open
     expect(root.querySelector('.pipeline-inspect-source .pipeline-inspect-body')).toBeNull();
 
     root.querySelector('.pipeline-inspect-source-head').click();
     await waitFor(() => bare().length === 1, 'source sample fetched on expand');
-    await waitFor(() => root.querySelector('.pipeline-inspect-source .pipeline-inspect-body'), 'records shown');
+    await waitFor(
+      () => root.querySelector('.pipeline-inspect-source .pipeline-inspect-body'),
+      'records shown',
+    );
   });
 
-  it('reports the source card\'s expanded state for assistive tech', async () => {
+  it("reports the source card's expanded state for assistive tech", async () => {
     vi.mocked(api.aggregate).mockResolvedValue({ result: [] });
-    const root = mount({ collection: 'vendors', entries: [{ disabled: false, stage: { $match: {} } }] });
-    await waitFor(() => root.querySelector('.pipeline-inspect-source-head'), 'source head rendered');
+    const root = mount({
+      collection: 'vendors',
+      entries: [{ disabled: false, stage: { $match: {} } }],
+    });
+    await waitFor(
+      () => root.querySelector('.pipeline-inspect-source-head'),
+      'source head rendered',
+    );
     const head = root.querySelector('.pipeline-inspect-source-head');
     expect(head.getAttribute('aria-expanded')).toBe('false');
     head.click();
@@ -327,10 +413,16 @@ describe('StagesView', () => {
     ];
     vi.mocked(api.aggregate).mockResolvedValue({ result: [] });
     const root = mount({ collection: 'vendors', entries });
-    await waitFor(() => root.querySelectorAll('[data-entry]').length === 3, 'all entries addressable');
-    expect([...root.querySelectorAll('[data-entry]')].map((el) => el.getAttribute('data-entry')))
-      .toEqual(['0', '1', '2']);
-    expect(root.querySelector('[data-entry="1"]').classList.contains('pipeline-inspect-disabled')).toBe(true);
+    await waitFor(
+      () => root.querySelectorAll('[data-entry]').length === 3,
+      'all entries addressable',
+    );
+    expect(
+      [...root.querySelectorAll('[data-entry]')].map((el) => el.getAttribute('data-entry')),
+    ).toEqual(['0', '1', '2']);
+    expect(
+      root.querySelector('[data-entry="1"]').classList.contains('pipeline-inspect-disabled'),
+    ).toBe(true);
   });
 });
 
@@ -393,8 +485,9 @@ describe('empty-stage explanation — placement and reuse', () => {
     // It is a section child, after the body — i.e. under the message, full width.
     const section = root.querySelector('[data-idx="0"]');
     const kids = [...section.children];
-    expect(kids.indexOf(section.querySelector('.stage-explain')))
-      .toBeGreaterThan(kids.indexOf(section.querySelector('.pipeline-inspect-body')));
+    expect(kids.indexOf(section.querySelector('.stage-explain'))).toBeGreaterThan(
+      kids.indexOf(section.querySelector('.pipeline-inspect-body')),
+    );
   });
 
   it('lets an empty stage hug its content instead of holding a 324px records band', async () => {
@@ -419,10 +512,16 @@ describe('empty-stage explanation — placement and reuse', () => {
     await waitFor(() => root.textContent.includes('DEU'), 'explanation arrived');
     const asked = vi.mocked(agentApi.createChat).mock.calls.length;
 
-    root.querySelector('.pipeline-inspect-source-head').click();   // expand
-    await waitFor(() => root.querySelector('.pipeline-inspect-source .pipeline-inspect-body'), 'source expanded');
-    root.querySelector('.pipeline-inspect-source-head').click();   // collapse
-    await waitFor(() => !root.querySelector('.pipeline-inspect-source .pipeline-inspect-body'), 'source collapsed');
+    root.querySelector('.pipeline-inspect-source-head').click(); // expand
+    await waitFor(
+      () => root.querySelector('.pipeline-inspect-source .pipeline-inspect-body'),
+      'source expanded',
+    );
+    root.querySelector('.pipeline-inspect-source-head').click(); // collapse
+    await waitFor(
+      () => !root.querySelector('.pipeline-inspect-source .pipeline-inspect-body'),
+      'source collapsed',
+    );
 
     // The toggle used to clear every stage preview, unmounting the panel and
     // starting a fresh investigation each time.
@@ -445,20 +544,32 @@ describe('empty-stage explanation — placement and reuse', () => {
 describe('the empty-stage message is hard to miss', () => {
   it('renders as a warning band with an icon, not muted body text', async () => {
     vi.mocked(api.aggregate).mockResolvedValue({ result: [] });
-    const root = mount({ collection: 'vendors', entries: [{ disabled: false, stage: { $match: {} } }] });
+    const root = mount({
+      collection: 'vendors',
+      entries: [{ disabled: false, stage: { $match: {} } }],
+    });
     await waitFor(() => root.querySelector('.pipeline-inspect-empty'), 'empty band rendered');
     const band = root.querySelector('.pipeline-inspect-empty');
     expect(band.textContent).toContain('No documents at this stage');
     expect(band.querySelector('.pipeline-inspect-empty-icon')).toBeTruthy();
     // Decorative: the sentence beside it already carries the meaning.
-    expect(band.querySelector('.pipeline-inspect-empty-icon').getAttribute('aria-hidden')).toBe('true');
+    expect(band.querySelector('.pipeline-inspect-empty-icon').getAttribute('aria-hidden')).toBe(
+      'true',
+    );
   });
 
   it('does not give the still-loading state the warning treatment', async () => {
     // A stage that has not resolved is not a warning — it is just not done.
     let resolve: any;
-    vi.mocked(api.aggregate).mockReturnValue(new Promise((r) => { resolve = r; }));
-    const root = mount({ collection: 'vendors', entries: [{ disabled: false, stage: { $match: {} } }] });
+    vi.mocked(api.aggregate).mockReturnValue(
+      new Promise((r) => {
+        resolve = r;
+      }),
+    );
+    const root = mount({
+      collection: 'vendors',
+      entries: [{ disabled: false, stage: { $match: {} } }],
+    });
     await waitFor(() => root.querySelector('.pipeline-inspect-loading'), 'loading shown');
     expect(root.querySelector('.pipeline-inspect-empty')).toBeNull();
     resolve({ result: [] });

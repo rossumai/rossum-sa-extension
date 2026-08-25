@@ -28,10 +28,17 @@ function urlFor(apiPath: string): string | null {
 export function getJson(apiPath: string): Promise<any> {
   const url = urlFor(apiPath);
   if (!url) return Promise.reject(new Error(`Invalid API path: ${apiPath}`));
-  return fetch(url, { headers: authHeader ? { Authorization: authHeader } : {} }).then(async (r) => {
-    if (!r.ok) { const e = new Error(`API ${r.status}`) as DevtoolsError; e.status = r.status; e.body = await r.text().catch(() => ''); throw e; }
-    return r.json();
-  });
+  return fetch(url, { headers: authHeader ? { Authorization: authHeader } : {} }).then(
+    async (r) => {
+      if (!r.ok) {
+        const e = new Error(`API ${r.status}`) as DevtoolsError;
+        e.status = r.status;
+        e.body = await r.text().catch(() => '');
+        throw e;
+      }
+      return r.json();
+    },
+  );
 }
 
 // Fetch a resource, branching on content-type: JSON → parsed data (editor path);
@@ -39,19 +46,26 @@ export function getJson(apiPath: string): Promise<any> {
 export function getResource(apiPath: string): Promise<any> {
   const url = urlFor(apiPath);
   if (!url) return Promise.reject(new Error(`Invalid API path: ${apiPath}`));
-  return fetch(url, { headers: authHeader ? { Authorization: authHeader } : {} }).then(async (r) => {
-    if (!r.ok) { const e = new Error(`API ${r.status}`) as DevtoolsError; e.status = r.status; e.body = await r.text().catch(() => ''); throw e; }
-    const contentType = r.headers.get('Content-Type') || '';
-    if (/\bjson\b/i.test(contentType)) return { kind: 'json', data: await r.json() };
-    const blob = await r.blob();
-    return {
-      kind: 'blob',
-      contentType,
-      size: blob.size,
-      filename: filenameFrom(r.headers.get('Content-Disposition'), apiPath, contentType),
-      blob,
-    };
-  });
+  return fetch(url, { headers: authHeader ? { Authorization: authHeader } : {} }).then(
+    async (r) => {
+      if (!r.ok) {
+        const e = new Error(`API ${r.status}`) as DevtoolsError;
+        e.status = r.status;
+        e.body = await r.text().catch(() => '');
+        throw e;
+      }
+      const contentType = r.headers.get('Content-Type') || '';
+      if (/\bjson\b/i.test(contentType)) return { kind: 'json', data: await r.json() };
+      const blob = await r.blob();
+      return {
+        kind: 'blob',
+        contentType,
+        size: blob.size,
+        filename: filenameFrom(r.headers.get('Content-Disposition'), apiPath, contentType),
+        blob,
+      };
+    },
+  );
 }
 
 export function patch(apiPath: string, body: any): Promise<any> {
@@ -59,10 +73,18 @@ export function patch(apiPath: string, body: any): Promise<any> {
   if (!url) return Promise.reject(new Error(`Invalid API path: ${apiPath}`));
   return fetch(url, {
     method: 'PATCH',
-    headers: { ...(authHeader ? { Authorization: authHeader } : {}), 'Content-Type': 'application/json' },
+    headers: {
+      ...(authHeader ? { Authorization: authHeader } : {}),
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify(body ?? {}),
   }).then(async (r) => {
-    if (!r.ok) { const e = new Error(`API ${r.status}`) as DevtoolsError; e.status = r.status; e.body = await r.text().catch(() => ''); throw e; }
+    if (!r.ok) {
+      const e = new Error(`API ${r.status}`) as DevtoolsError;
+      e.status = r.status;
+      e.body = await r.text().catch(() => '');
+      throw e;
+    }
     if (r.status === 204) return {};
     return r.json().catch(() => ({}));
   });

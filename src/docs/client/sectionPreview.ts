@@ -27,14 +27,16 @@ export type SectionPreviewOptions = {
 };
 
 export function initSectionPreview(
-  root: HTMLElement, scroller: HTMLElement | null, opts?: SectionPreviewOptions,
+  root: HTMLElement,
+  scroller: HTMLElement | null,
+  opts?: SectionPreviewOptions,
 ): () => void {
   var options = opts || {};
   var resolveExternal = options.resolveExternal || null;
   var onOpenExternal = options.onOpenExternal || null;
   var HOVER_DELAY_MS = 280;
-  var HIDE_DELAY_MS  = 160;
-  var MAX_BLOCKS     = 8;
+  var HIDE_DELAY_MS = 160;
+  var MAX_BLOCKS = 8;
 
   var doc = root.ownerDocument || document;
   var win = doc.defaultView || window;
@@ -53,10 +55,13 @@ export function initSectionPreview(
     if (card) return card;
     card = doc.createElement('div');
     card.className = 'section-preview markdown-body';
-    card.innerHTML = '<div class="section-preview-from" hidden></div>' +
-                     '<div class="section-preview-body"><div class="section-preview-inner"></div></div>' +
-                     '<a class="section-preview-jump" href="#">Jump to section ↗</a>';
-    card.addEventListener('mouseenter', function() { clearTimeout(hideTimer!); });
+    card.innerHTML =
+      '<div class="section-preview-from" hidden></div>' +
+      '<div class="section-preview-body"><div class="section-preview-inner"></div></div>' +
+      '<a class="section-preview-jump" href="#">Jump to section ↗</a>';
+    card.addEventListener('mouseenter', function () {
+      clearTimeout(hideTimer!);
+    });
     card.addEventListener('mouseleave', scheduleHide);
     card.querySelector('.section-preview-jump')!.addEventListener('click', onJump);
     doc.body.appendChild(card);
@@ -87,17 +92,23 @@ export function initSectionPreview(
     var parts = [];
     var el = bodyEl.firstElementChild;
     var n = 0;
-    while (el && n < MAX_BLOCKS) { parts.push(el.cloneNode(true)); n++; el = el.nextElementSibling; }
+    while (el && n < MAX_BLOCKS) {
+      parts.push(el.cloneNode(true));
+      n++;
+      el = el.nextElementSibling;
+    }
     return parts;
   }
 
   function populate(c: HTMLElement, parts: Node[], href: string, from: string | null) {
     var inner = c.querySelector('.section-preview-inner');
     inner!.innerHTML = '';
-    parts.forEach(function(p: any) {
+    parts.forEach(function (p: any) {
       // Strip anchor permalinks from cloned headings so they don't render as
       // orphaned "#" marks inside the popup.
-      p.querySelectorAll('.anchor').forEach(function(a: Element) { a.remove(); });
+      p.querySelectorAll('.anchor').forEach(function (a: Element) {
+        a.remove();
+      });
       inner!.appendChild(p);
     });
     var fromEl = c.querySelector('.section-preview-from') as HTMLElement | null;
@@ -134,7 +145,7 @@ export function initSectionPreview(
       top = lr.top - cr.height - margin;
     }
     c.style.left = Math.round(left) + 'px';
-    c.style.top  = Math.round(top) + 'px';
+    c.style.top = Math.round(top) + 'px';
   }
 
   // Scoped to the rendered root (a Console-page id must never answer a document's fragment) and
@@ -170,12 +181,14 @@ export function initSectionPreview(
   function scheduleShow(link: HTMLElement) {
     clearTimeout(showTimer!);
     clearTimeout(hideTimer!);
-    showTimer = setTimeout(function() { showFor(link); }, HOVER_DELAY_MS);
+    showTimer = setTimeout(function () {
+      showFor(link);
+    }, HOVER_DELAY_MS);
   }
   function scheduleHide() {
     clearTimeout(showTimer!);
     clearTimeout(hideTimer!);
-    hideTimer = setTimeout(function() {
+    hideTimer = setTimeout(function () {
       if (card) card.classList.remove('open');
       activeLink = null;
     }, HIDE_DELAY_MS);
@@ -259,6 +272,9 @@ export function initSectionPreview(
     doc.removeEventListener('keydown', onKey);
     scrollTarget!.removeEventListener('scroll', onScroll);
     hideNow();
-    if (card) { card.remove(); card = null; }
+    if (card) {
+      card.remove();
+      card = null;
+    }
   };
 }

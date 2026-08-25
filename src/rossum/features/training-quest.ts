@@ -6,11 +6,22 @@
 // extension never writes to the org.
 import { TRACK } from '../../training/track.js';
 import {
-  markStep, startMission, missionStatus, stepState,
-  xpFor, levelFor, badges, isMissionComplete, migrate,
+  markStep,
+  startMission,
+  missionStatus,
+  stepState,
+  xpFor,
+  levelFor,
+  badges,
+  isMissionComplete,
+  migrate,
 } from '../../training/progress.js';
 import {
-  CHECKS, evaluateVisit, evaluateApi, signatureFor, collectResponses,
+  CHECKS,
+  evaluateVisit,
+  evaluateApi,
+  signatureFor,
+  collectResponses,
 } from '../../training/steps.js';
 import { readProgress, writeProgress, PROGRESS_KEY } from '../../training/storage.js';
 import { isUnlocked, onUnlockChange } from '../../training/gate.js';
@@ -76,7 +87,9 @@ function injectStyle() {
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(
-  tag: K, cls?: string | null, text?: string | null,
+  tag: K,
+  cls?: string | null,
+  text?: string | null,
 ): HTMLElementTagNameMap[K] {
   const n = document.createElement(tag);
   if (cls) n.className = cls;
@@ -97,7 +110,11 @@ function renderCard(progress: Progress, active: { mission: Mission; step: TrackS
   close.type = 'button';
   close.setAttribute('aria-label', 'Dismiss for this session');
   close.addEventListener('click', () => {
-    try { window.sessionStorage.setItem(DISMISS_KEY, '1'); } catch { /* ignore */ }
+    try {
+      window.sessionStorage.setItem(DISMISS_KEY, '1');
+    } catch {
+      /* ignore */
+    }
     hideTether();
     card.remove();
   });
@@ -106,8 +123,9 @@ function renderCard(progress: Progress, active: { mission: Mission; step: TrackS
 
   card.appendChild(el('div', 'rossum-sa-extension-tq-mission', active.mission.title));
 
-  const done = active.mission.steps.filter(
-    (s) => ['passed', 'self'].includes(stepState(progress, active.mission.id, s.id) as string)).length;
+  const done = active.mission.steps.filter((s) =>
+    ['passed', 'self'].includes(stepState(progress, active.mission.id, s.id) as string),
+  ).length;
   const bar = el('div', 'rossum-sa-extension-tq-bar');
   const fill = el('i');
   fill.style.width = `${Math.round((done / active.mission.steps.length) * 100)}%`;
@@ -117,8 +135,14 @@ function renderCard(progress: Progress, active: { mission: Mission; step: TrackS
   const list = el('ul');
   for (const s of active.mission.steps) {
     const st = stepState(progress, active.mission.id, s.id);
-    const li = el('li', st ? 'rossum-sa-extension-tq-done'
-      : s.id === active.step.id ? 'rossum-sa-extension-tq-now' : null);
+    const li = el(
+      'li',
+      st
+        ? 'rossum-sa-extension-tq-done'
+        : s.id === active.step.id
+          ? 'rossum-sa-extension-tq-now'
+          : null,
+    );
     li.appendChild(el('span', null, st ? '✓' : '○'));
     li.appendChild(el('span', null, s.hint));
     list.appendChild(li);
@@ -128,13 +152,15 @@ function renderCard(progress: Progress, active: { mission: Mission; step: TrackS
   const foot = el('div', 'rossum-sa-extension-tq-foot');
   const xp = xpFor(TRACK, progress);
   foot.appendChild(el('span', null, `${xp} XP · Level ${levelFor(xp)}`));
-  foot.appendChild(el('span', null, `★ ${badges(TRACK, progress).length}/${TRACK.missions.length}`));
+  foot.appendChild(
+    el('span', null, `★ ${badges(TRACK, progress).length}/${TRACK.missions.length}`),
+  );
   card.appendChild(foot);
 
   document.body.appendChild(card);
 }
 
-let started = false;            // a loop is RUNNING
+let started = false; // a loop is RUNNING
 // DEFENSIVE, and honestly labelled as such: `started` was checked and set on
 // two ADJACENT synchronous lines after a single `await isUnlocked()`, which no
 // interleaving can split — probed, two concurrent inits always produced one
@@ -144,7 +170,7 @@ let started = false;            // a loop is RUNNING
 // loops, each with its own interval and only one handle stored. Set
 // SYNCHRONOUSLY at function entry, released at the commit point (see start()).
 let starting = false;
-let gateListenerOn = false;     // never stack a second unlock listener
+let gateListenerOn = false; // never stack a second unlock listener
 let progressListenerOn = false; // never stack a second progress listener
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
 // Bumped by every stop(). A tick that was awaiting the network or a storage
@@ -180,7 +206,10 @@ function watchProgress(deps: QuestDeps) {
   progressListenerOn = true;
   chrome.storage.onChanged?.addListener((changes, area) => {
     if (area !== 'local' || !changes[PROGRESS_KEY]) return;
-    const record = (changes[PROGRESS_KEY].newValue as Record<string, any> | undefined)?.[window.location.origin] ?? null;
+    const record =
+      (changes[PROGRESS_KEY].newValue as Record<string, any> | undefined)?.[
+        window.location.origin
+      ] ?? null;
     if (!started) {
       // A track appeared while nothing was running: start now. init() re-checks
       // the gate and its synchronous `starting` sentinel, so however many
@@ -188,7 +217,7 @@ function watchProgress(deps: QuestDeps) {
       if (record) init(deps);
       return;
     }
-    onExternalProgress?.(record ? migrate(TRACK, record) as Progress : null);
+    onExternalProgress?.(record ? (migrate(TRACK, record) as Progress) : null);
   });
 }
 
@@ -225,7 +254,9 @@ async function start(deps: QuestDeps) {
     // re-enters init.
     if (!gateListenerOn) {
       gateListenerOn = true;
-      onUnlockChange((on) => { if (on) init(deps); });
+      onUnlockChange((on) => {
+        if (on) init(deps);
+      });
     }
     return;
   }
@@ -243,8 +274,11 @@ async function start(deps: QuestDeps) {
   starting = false;
 
   const origin = window.location.origin;
-  let progress = await readProgress(origin, TRACK) as Progress;
-  if (!progress) { started = false; return; } // the track is started from the Academy
+  let progress = (await readProgress(origin, TRACK)) as Progress;
+  if (!progress) {
+    started = false;
+    return;
+  } // the track is started from the Academy
   let lastApiAt = 0;
   let onFocus: (() => void) | null = null; // this init() call's own focus handler, so stop() removes exactly it
 
@@ -298,9 +332,15 @@ async function start(deps: QuestDeps) {
 
   function stop() {
     if (!isCurrent()) return; // a successor loop owns the module-level state now
-    generation++;             // invalidate any tick of THIS loop still in flight
-    if (intervalHandle !== null) { clearInterval(intervalHandle); intervalHandle = null; }
-    if (onFocus) { window.removeEventListener('focus', onFocus); onFocus = null; }
+    generation++; // invalidate any tick of THIS loop still in flight
+    if (intervalHandle !== null) {
+      clearInterval(intervalHandle);
+      intervalHandle = null;
+    }
+    if (onFocus) {
+      window.removeEventListener('focus', onFocus);
+      onFocus = null;
+    }
     started = false;
     onExternalProgress = null;
     hideTether();
@@ -311,7 +351,11 @@ async function start(deps: QuestDeps) {
   // ticking on — and leave `started` false so the listener starts a fresh loop
   // if the track is started again.
   onExternalProgress = (next: Progress | null) => {
-    if (!next) { document.getElementById(CARD_ID)?.remove(); stop(); return; }
+    if (!next) {
+      document.getElementById(CARD_ID)?.remove();
+      stop();
+      return;
+    }
     progress = next;
   };
 
@@ -321,20 +365,36 @@ async function start(deps: QuestDeps) {
     // pointer, and — the part that matters — no further network calls. The
     // trainee asked to be left alone; polling their org invisibly is not that.
     let dismissed = false;
-    try { dismissed = !!window.sessionStorage.getItem(DISMISS_KEY); } catch { /* ignore */ }
-    if (dismissed) { renderCard(progress, null); stop(); return; }
+    try {
+      dismissed = !!window.sessionStorage.getItem(DISMISS_KEY);
+    } catch {
+      /* ignore */
+    }
+    if (dismissed) {
+      renderCard(progress, null);
+      stop();
+      return;
+    }
 
     let active = nextStep(TRACK, progress);
-    if (!active) { renderCard(progress, null); hideTether(); return; }
+    if (!active) {
+      renderCard(progress, null);
+      hideTether();
+      return;
+    }
 
     if (progress.missions[active.mission.id]?.baseline == null) {
-      const checks = active.mission.steps.filter((s) => s.kind === 'api').map((s) => CHECKS[s.check!]);
+      const checks = active.mission.steps
+        .filter((s) => s.kind === 'api')
+        .map((s) => CHECKS[s.check!]);
       const baseline: Record<string, unknown> = {};
       let captured = true;
       for (const c of checks) {
         try {
           baseline[c.id] = signatureFor(c.id, await collectResponses(c, get));
-        } catch { captured = false; }
+        } catch {
+          captured = false;
+        }
       }
       // Persist ONLY a complete baseline. A missing entry is permanent —
       // evaluateApi returns false forever for a check with no baseline — so
@@ -350,7 +410,11 @@ async function start(deps: QuestDeps) {
       }
       if (!isCurrent()) return;
       active = nextStep(TRACK, progress);
-      if (!active) { renderCard(progress, null); hideTether(); return; }
+      if (!active) {
+        renderCard(progress, null);
+        hideTether();
+        return;
+      }
     }
 
     if (active.step.kind === 'visit' && evaluateVisit(active.step, getLocation())) {
@@ -365,7 +429,9 @@ async function start(deps: QuestDeps) {
           await markStepAndTrack(active.mission.id, active.step.id, 'passed');
           active = nextStep(TRACK, progress);
         }
-      } catch { /* transient — retry next tick */ }
+      } catch {
+        /* transient — retry next tick */
+      }
     }
 
     // The single DOM write of a tick, and the last thing it does. Guarded
@@ -375,7 +441,8 @@ async function start(deps: QuestDeps) {
     // producing.
     if (!isCurrent()) return;
     renderCard(progress, active);
-    if (active) showTether(active.step.anchor, { cardEl: document.getElementById(CARD_ID) }); else hideTether();
+    if (active) showTether(active.step.anchor, { cardEl: document.getElementById(CARD_ID) });
+    else hideTether();
   }
 
   await tick();
@@ -386,6 +453,9 @@ async function start(deps: QuestDeps) {
   // in which case `started` is true again but belongs to someone else.
   if (!started || !isCurrent()) return;
   if (intervalMs > 0) intervalHandle = setInterval(tick, intervalMs);
-  onFocus = () => { lastApiAt = 0; tick(); };
+  onFocus = () => {
+    lastApiAt = 0;
+    tick();
+  };
   window.addEventListener('focus', onFocus);
 }

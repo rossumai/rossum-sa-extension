@@ -1,20 +1,38 @@
 // PURE: map a Rossum API URL (…/api/v1/<collection>/<id>) to a resource descriptor.
 const READONLY_COLLECTIONS = new Set(['organization_groups']);
 const LABELS = {
-  queues: 'Queue', schemas: 'Schema', hooks: 'Hook', workspaces: 'Workspace',
-  engines: 'Engine', rules: 'Rule', annotations: 'Annotation', users: 'User',
-  organizations: 'Organization', organization_groups: 'Organization group', inboxes: 'Inbox',
+  queues: 'Queue',
+  schemas: 'Schema',
+  hooks: 'Hook',
+  workspaces: 'Workspace',
+  engines: 'Engine',
+  rules: 'Rule',
+  annotations: 'Annotation',
+  users: 'User',
+  organizations: 'Organization',
+  organization_groups: 'Organization group',
+  inboxes: 'Inbox',
 };
 const TYPE = {
-  queues: 'queue', schemas: 'schema', hooks: 'hook', workspaces: 'workspace',
-  engines: 'engine', rules: 'rule', annotations: 'annotation', users: 'user',
-  organizations: 'organization', organization_groups: 'organization_group', inboxes: 'inbox',
+  queues: 'queue',
+  schemas: 'schema',
+  hooks: 'hook',
+  workspaces: 'workspace',
+  engines: 'engine',
+  rules: 'rule',
+  annotations: 'annotation',
+  users: 'user',
+  organizations: 'organization',
+  organization_groups: 'organization_group',
+  inboxes: 'inbox',
 };
 function titleSingular(collection: string): string {
   let s = collection;
-  if (/(?:s|x|z|ch|sh)es$/.test(s)) s = s.slice(0, -2);   // boxes→box, inboxes→inbox, batches→batch
-  else if (/ies$/.test(s)) s = s.slice(0, -3) + 'y';       // policies→policy
-  else if (/s$/.test(s)) s = s.slice(0, -1);               // pages→page, templates→template, queues→queue
+  if (/(?:s|x|z|ch|sh)es$/.test(s))
+    s = s.slice(0, -2); // boxes→box, inboxes→inbox, batches→batch
+  else if (/ies$/.test(s))
+    s = s.slice(0, -3) + 'y'; // policies→policy
+  else if (/s$/.test(s)) s = s.slice(0, -1); // pages→page, templates→template, queues→queue
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 /** A resource descriptor: what to fetch, what to call it, and whether it can be saved. */
@@ -52,7 +70,10 @@ export function resourceFromApiUrl(url: unknown): ResourceDescriptor | null {
     const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
     // A trailing numeric segment is a sub-resource id — label it "<Preceding> <id>"
     // (e.g. "Content 19453284337") so it reads clearly and multiples stay distinct.
-    const label = /^\d+$/.test(last) && parts.length >= 2 ? `${cap(parts[parts.length - 2])} ${last}` : cap(last);
+    const label =
+      /^\d+$/.test(last) && parts.length >= 2
+        ? `${cap(parts[parts.length - 2])} ${last}`
+        : cap(last);
     return { type: collection, id, apiPath, label, readOnly: true };
   }
   const base: ResourceDescriptor = {

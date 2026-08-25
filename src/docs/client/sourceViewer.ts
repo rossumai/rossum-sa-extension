@@ -39,16 +39,32 @@ export function initSourceViewer(root: HTMLElement, opts?: SourceViewerOptions):
   var doc = root.ownerDocument || document;
   // `isSourceLink` and `keyFor` are injected so the predicate can differ between the
   // pane (org origin known) and the exported page (origin baked into the hrefs).
-  var isSourceLink = options.isSourceLink || function () { return false; };
-  var keyFor = options.keyFor || function (href: string) { return href; };
+  var isSourceLink =
+    options.isSourceLink ||
+    function () {
+      return false;
+    };
+  var keyFor =
+    options.keyFor ||
+    function (href: string) {
+      return href;
+    };
   // resolve: (key) => Promise<string | { text, language, note }>. The object form is what
   // lets a hook's implementation arrive as Python while a schema arrives as JSON.
   var resolve = options.resolve || null;
-  var highlight = options.highlight || null;  // (text, language) => html string
+  var highlight = options.highlight || null; // (text, language) => html string
   // Injected from resources.js so this file stays import-free (it is inlined into exported
   // pages). Defaults make the switcher inert rather than broken when they are absent.
-  var splitView = options.splitView || function (k: string) { return { path: k, view: null }; };
-  var withView = options.withView || function (k: string) { return k; };
+  var splitView =
+    options.splitView ||
+    function (k: string) {
+      return { path: k, view: null };
+    };
+  var withView =
+    options.withView ||
+    function (k: string) {
+      return k;
+    };
   var VIEW_LABEL: Record<string, string> = { code: 'Code', json: 'Definition' };
 
   // The modal markup ships with the page, so these resolve. `overlay`/`codeEl` are still
@@ -69,7 +85,7 @@ export function initSourceViewer(root: HTMLElement, opts?: SourceViewerOptions):
     copyBtn.classList.add(state);
     copyBtn.textContent = label;
     if (copyResetTimer) clearTimeout(copyResetTimer);
-    copyResetTimer = setTimeout(function() {
+    copyResetTimer = setTimeout(function () {
       copyBtn.classList.remove('copied', 'failed');
       copyBtn.textContent = 'Copy';
     }, 1500);
@@ -85,18 +101,30 @@ export function initSourceViewer(root: HTMLElement, opts?: SourceViewerOptions):
     doc.body.appendChild(ta);
     ta.select();
     var ok = false;
-    try { ok = doc.execCommand('copy'); } catch (err) { ok = false; }
+    try {
+      ok = doc.execCommand('copy');
+    } catch (err) {
+      ok = false;
+    }
     doc.body.removeChild(ta);
     flashCopyBtn(ok ? 'copied' : 'failed', ok ? 'Copied!' : 'Failed');
   }
   function onCopy(e: Event) {
     e.preventDefault();
     var text = codeEl.textContent || '';
-    if (!text) { flashCopyBtn('failed', 'Empty'); return; }
+    if (!text) {
+      flashCopyBtn('failed', 'Empty');
+      return;
+    }
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text)
-        .then(function() { flashCopyBtn('copied', 'Copied!'); })
-        .catch(function() { fallbackCopy(text); });
+      navigator.clipboard
+        .writeText(text)
+        .then(function () {
+          flashCopyBtn('copied', 'Copied!');
+        })
+        .catch(function () {
+          fallbackCopy(text);
+        });
     } else {
       fallbackCopy(text);
     }
@@ -108,7 +136,10 @@ export function initSourceViewer(root: HTMLElement, opts?: SourceViewerOptions):
   function renderViews(path: string, current: string | null, views: string[] | null) {
     if (!viewsEl) return;
     while (viewsEl.firstChild) viewsEl.removeChild(viewsEl.firstChild);
-    if (!views || views.length < 2) { viewsEl.hidden = true; return; }
+    if (!views || views.length < 2) {
+      viewsEl.hidden = true;
+      return;
+    }
     viewsEl.hidden = false;
     views.forEach(function (v: string) {
       var btn = doc.createElement('button');
@@ -116,14 +147,16 @@ export function initSourceViewer(root: HTMLElement, opts?: SourceViewerOptions):
       btn.className = 'source-view-btn';
       btn.setAttribute('aria-pressed', v === current ? 'true' : 'false');
       btn.textContent = VIEW_LABEL[v] || v;
-      btn.addEventListener('click', function () { if (v !== current) openModal(withView(path, v)); });
+      btn.addEventListener('click', function () {
+        if (v !== current) openModal(withView(path, v));
+      });
       viewsEl.appendChild(btn);
     });
   }
 
   function openModal(key: string) {
     var split = splitView(key);
-    var display = split.path;                       // never show our own view marker
+    var display = split.path; // never show our own view marker
     var seg = String(display).split('/');
     titleEl.textContent = seg[seg.length - 1] || display;
     pathEl.textContent = display;
@@ -132,12 +165,16 @@ export function initSourceViewer(root: HTMLElement, opts?: SourceViewerOptions):
     renderViews(display, null, null);
     // Defensive: DocView always passes a resolver, but calling a null one would throw
     // inside a click handler and take the modal down silently.
-    if (!resolve) { codeEl.textContent = 'No resolver — cannot load this resource.'; return; }
+    if (!resolve) {
+      codeEl.textContent = 'No resolver — cannot load this resource.';
+      return;
+    }
     // Live mode — fetch it.
     codeEl.textContent = 'Loading…';
     resolve(key)
-      .then(function(result) {
-        var payload = (result && typeof result === 'object') ? result : { text: result, language: '', note: '' };
+      .then(function (result) {
+        var payload =
+          result && typeof result === 'object' ? result : { text: result, language: '', note: '' };
         // Say WHICH part of the resource is on screen, so nobody mistakes a hook's code
         // for the whole object.
         if (payload.note) pathEl.textContent = display + ' · ' + payload.note;
@@ -145,18 +182,25 @@ export function initSourceViewer(root: HTMLElement, opts?: SourceViewerOptions):
         else codeEl.textContent = payload.text;
         renderViews(display, payload.view || split.view || null, payload.views);
       })
-      .catch(function(err) { codeEl.textContent = 'Failed to load: ' + (err && err.message ? err.message : err); });
+      .catch(function (err) {
+        codeEl.textContent = 'Failed to load: ' + (err && err.message ? err.message : err);
+      });
   }
 
   function closeModal() {
     overlay.classList.remove('open');
     doc.body.style.overflow = '';
-    if (copyResetTimer) { clearTimeout(copyResetTimer); copyResetTimer = null; }
+    if (copyResetTimer) {
+      clearTimeout(copyResetTimer);
+      copyResetTimer = null;
+    }
     copyBtn.classList.remove('copied', 'failed');
     copyBtn.textContent = 'Copy';
   }
 
-  function onOverlayClick(e: Event) { if (e.target === overlay) closeModal(); }
+  function onOverlayClick(e: Event) {
+    if (e.target === overlay) closeModal();
+  }
   function onKey(e: KeyboardEvent) {
     if (e.key === 'Escape' && overlay.classList.contains('open')) closeModal();
   }
@@ -168,7 +212,10 @@ export function initSourceViewer(root: HTMLElement, opts?: SourceViewerOptions):
   // listeners bind at the root and events bubble up from whichever section they happened in. With a
   // single body this is identical to what it replaced, and DocView is the only caller.
   var body = root;
-  if (!body) return function () { closeModal(); };
+  if (!body)
+    return function () {
+      closeModal();
+    };
 
   function onClick(e: Event) {
     var link = (e.target as Element).closest('a');
@@ -176,12 +223,12 @@ export function initSourceViewer(root: HTMLElement, opts?: SourceViewerOptions):
     var href = link.getAttribute('href');
     if (!isSourceLink(href)) return;
     e.preventDefault();
-    openModal(keyFor(href as string) as string);   // isSourceLink already rejected empty
+    openModal(keyFor(href as string) as string); // isSourceLink already rejected empty
   }
   body.addEventListener('click', onClick);
 
   // Mark eligible links with a visual cue.
-  body.querySelectorAll('a').forEach(function(link: HTMLAnchorElement) {
+  body.querySelectorAll('a').forEach(function (link: HTMLAnchorElement) {
     if (isSourceLink(link.getAttribute('href'))) {
       link.classList.add('source-link');
       link.title = 'Click to preview this resource';

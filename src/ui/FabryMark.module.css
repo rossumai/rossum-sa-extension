@@ -17,18 +17,37 @@
    and journeys through a wide cool→purple→magenta range (cyan · blue · indigo ·
    violet · purple · fuchsia). ~12s keeps it gentle despite the extra stops. Kept
    off warm hues (no yellow/orange/red/green) so it still reads as "Fabry". */
-.animated { animation: hue 12s ease-in-out infinite; }
+.animated {
+  animation: hue 12s ease-in-out infinite;
+}
 
 @keyframes hue {
-  0%, 100% { color: #4270db; } /* brand blue (start/end) */
-  14%      { color: #22d3ee; } /* cyan */
-  28%      { color: #3b82f6; } /* blue */
-  43%      { color: #6366f1; } /* indigo */
-  57%      { color: #8b5cf6; } /* violet */
-  71%      { color: #a855f7; } /* purple */
-  86%      { color: #d946ef; } /* fuchsia */
+  0%,
+  100% {
+    color: #4270db;
+  } /* brand blue (start/end) */
+  14% {
+    color: #22d3ee;
+  } /* cyan */
+  28% {
+    color: #3b82f6;
+  } /* blue */
+  43% {
+    color: #6366f1;
+  } /* indigo */
+  57% {
+    color: #8b5cf6;
+  } /* violet */
+  71% {
+    color: #a855f7;
+  } /* purple */
+  86% {
+    color: #d946ef;
+  } /* fuchsia */
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animated { animation: none; } /* static; shows the inherited (in-band) color */
+  .animated {
+    animation: none;
+  } /* static; shows the inherited (in-band) color */
 }

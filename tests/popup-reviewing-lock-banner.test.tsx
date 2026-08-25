@@ -125,11 +125,9 @@ describe('ReviewingLockBanner', () => {
     await waitFor(() => root.querySelector('.rlb-release'));
     root.querySelector<HTMLElement>('.rlb-release')!.click();
     await waitFor(() => deps.reloadTab.mock.calls.length > 0);
-    expect(deps.patch).toHaveBeenCalledWith(
-      `${DOMAIN}/api/v1/annotations/138328520`,
-      'tok',
-      { status: 'to_review' },
-    );
+    expect(deps.patch).toHaveBeenCalledWith(`${DOMAIN}/api/v1/annotations/138328520`, 'tok', {
+      status: 'to_review',
+    });
     expect(deps.reloadTab).toHaveBeenCalledWith(42);
     expect(deps.closePopup).toHaveBeenCalled();
   });
@@ -140,8 +138,9 @@ describe('ReviewingLockBanner', () => {
     await waitFor(() => root.querySelector('.rlb-release'));
     root.querySelector<HTMLElement>('.rlb-release')!.click();
     await waitFor(() => root.querySelector('.rlb-error'));
-    expect(root.querySelector('.rlb-error')!.textContent)
-      .toBe("You don't have permission to release this document.");
+    expect(root.querySelector('.rlb-error')!.textContent).toBe(
+      "You don't have permission to release this document.",
+    );
     expect(root.querySelector<HTMLButtonElement>('.rlb-release')!.disabled).toBe(false);
     expect(deps.reloadTab).not.toHaveBeenCalled();
   });
@@ -152,6 +151,8 @@ describe('ReviewingLockBanner', () => {
     await waitFor(() => root.querySelector('.rlb-release'));
     root.querySelector<HTMLElement>('.rlb-release')!.click();
     await waitFor(() => root.querySelector('.rlb-error'));
-    expect(root.querySelector('.rlb-error')!.textContent).toBe('Sign in to Rossum in this tab first.');
+    expect(root.querySelector('.rlb-error')!.textContent).toBe(
+      'Sign in to Rossum in this tab first.',
+    );
   });
 });

@@ -28,8 +28,16 @@ describe('initGalaxy', () => {
     apiMock.whoami.mockResolvedValue({ id: 1 });
     apiMock.fetchOrgResources.mockResolvedValue({
       organization: { id: 1, url: 'https://x/api/v1/organizations/1', name: 'Acme' },
-      workspaces: [{ id: 10, url: 'https://x/api/v1/workspaces/10', name: 'WS', organization: 'https://x/api/v1/organizations/1' }],
-      queues: [], hooks: [],
+      workspaces: [
+        {
+          id: 10,
+          url: 'https://x/api/v1/workspaces/10',
+          name: 'WS',
+          organization: 'https://x/api/v1/organizations/1',
+        },
+      ],
+      queues: [],
+      hooks: [],
     });
     await initGalaxy();
     // connected is set right after the probe (before the async graph load), so the

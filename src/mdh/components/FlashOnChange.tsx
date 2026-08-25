@@ -19,5 +19,9 @@ export default function FlashOnChange({ value }: { value: ComponentChildren }) {
     }
   }, [value]);
   if (tick === 0) return <span>{value}</span>;
-  return <span key={tick} class="flash-value">{value}</span>;
+  return (
+    <span key={tick} class="flash-value">
+      {value}
+    </span>
+  );
 }

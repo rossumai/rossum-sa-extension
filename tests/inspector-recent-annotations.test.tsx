@@ -5,8 +5,15 @@ import RecentAnnotations from '../src/inspector/components/RecentAnnotations.jsx
 import * as store from '../src/inspector/store.js';
 
 let root: any;
-beforeEach(() => { store.recents.value = []; root = document.createElement('div'); document.body.appendChild(root); });
-afterEach(() => { render(null, root); root.remove(); });
+beforeEach(() => {
+  store.recents.value = [];
+  root = document.createElement('div');
+  document.body.appendChild(root);
+});
+afterEach(() => {
+  render(null, root);
+  root.remove();
+});
 
 describe('RecentAnnotations', () => {
   it('renders the empty-state callout when there are no recents', () => {
@@ -19,7 +26,13 @@ describe('RecentAnnotations', () => {
 
   it('renders a row per recent with filename, queue, status, and #id, plus a Clear control', () => {
     store.recents.value = [
-      { id: '133641827', fileName: 'invoice_4471.pdf', queue: 'Vendor US', status: 'rejected', at: 2 },
+      {
+        id: '133641827',
+        fileName: 'invoice_4471.pdf',
+        queue: 'Vendor US',
+        status: 'rejected',
+        at: 2,
+      },
       { id: '133640012', fileName: 'PO-99.pdf', queue: 'AP Queue', status: 'exported', at: 1 },
     ];
     render(<RecentAnnotations onSelect={() => {}} />, root);
@@ -30,7 +43,9 @@ describe('RecentAnnotations', () => {
     expect(root.textContent).toContain('#133641827');
     expect(root.querySelector('.inspector-recents-clear')).toBeTruthy();
     expect(root.querySelector('.inspector-rectable')).toBeTruthy();
-    expect(root.querySelector('.inspector-recent-status').className).toContain('inspector-pill-rejected');
+    expect(root.querySelector('.inspector-recent-status').className).toContain(
+      'inspector-pill-rejected',
+    );
   });
 
   it('falls back to #id and omits missing queue/status', () => {

@@ -6,11 +6,18 @@
 // the assertion is about.
 import type { Track, Mission, TrackStep } from '../../src/training/track.js';
 
-export const step = (p: Partial<TrackStep> & Pick<TrackStep, 'id' | 'kind'>): TrackStep =>
-  ({ hint: '', ...p });
+export const step = (p: Partial<TrackStep> & Pick<TrackStep, 'id' | 'kind'>): TrackStep => ({
+  hint: '',
+  ...p,
+});
 
-export const mission = (p: Partial<Mission> & Pick<Mission, 'id' | 'steps'>): Mission =>
-  ({ title: '', blurb: '', ...p });
+export const mission = (p: Partial<Mission> & Pick<Mission, 'id' | 'steps'>): Mission => ({
+  title: '',
+  blurb: '',
+  ...p,
+});
 
-export const track = (p: Partial<Track> & Pick<Track, 'id' | 'version' | 'missions'>): Track =>
-  ({ title: '', ...p });
+export const track = (p: Partial<Track> & Pick<Track, 'id' | 'version' | 'missions'>): Track => ({
+  title: '',
+  ...p,
+});

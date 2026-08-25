@@ -8,14 +8,17 @@ import { getCachedSchemaTypes, setCachedSchemaTypes } from '../src/popup/cache.j
 
 function stubSessionStorage() {
   const data = {};
-  globalThis.chrome = ({
+  globalThis.chrome = {
     storage: {
       session: {
         get: (key: any) => Promise.resolve(key in data ? { [key]: (data as any)[key] } : {}),
-        set: (obj: any) => { Object.assign(data, obj); return Promise.resolve(); },
+        set: (obj: any) => {
+          Object.assign(data, obj);
+          return Promise.resolve();
+        },
       },
     } as any,
-  } as any);
+  } as any;
   return data;
 }
 

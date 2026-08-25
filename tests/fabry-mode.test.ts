@@ -3,7 +3,9 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import * as store from '../src/fabry/store.js';
 import { TAB_SCOPED_KEYS } from '../src/console/tabState.js';
 
-beforeEach(() => { store.fabryMode.value = 'chat'; });
+beforeEach(() => {
+  store.fabryMode.value = 'chat';
+});
 
 describe('fabryMode', () => {
   it('defaults to chat', () => {

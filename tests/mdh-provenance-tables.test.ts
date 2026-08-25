@@ -34,9 +34,7 @@ const twoTableContent = () => ({
           category: 'multivalue',
           schema_id: 'tax_details',
           id: 20026521847,
-          children: [
-            tuple([dp('tax_detail_rate', '21'), dp('tax_code_matched', 'S1')]),
-          ],
+          children: [tuple([dp('tax_detail_rate', '21'), dp('tax_code_matched', 'S1')])],
         },
       ],
     },
@@ -48,10 +46,9 @@ const twoTableContent = () => ({
           category: 'multivalue',
           schema_id: 'line_items',
           id: 20026521848,
-          children: Array.from({ length: 5 }, (_, i) => tuple([
-            dp('item_description', `ITEM-${i}`),
-            dp('item_tax_code_match', ''),
-          ])),
+          children: Array.from({ length: 5 }, (_, i) =>
+            tuple([dp('item_description', `ITEM-${i}`), dp('item_tax_code_match', '')]),
+          ),
         },
       ],
     },

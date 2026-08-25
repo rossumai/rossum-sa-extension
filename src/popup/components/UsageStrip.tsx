@@ -59,17 +59,19 @@ export function stripVisible({ consent, reviewing }: UsageProps) {
   return consent === null || reviewing === true;
 }
 
-export default function UsageStrip(
-  { consent, reviewing, onAnswer }: UsageProps & { onAnswer: (yes: boolean) => void },
-) {
+export default function UsageStrip({
+  consent,
+  reviewing,
+  onAnswer,
+}: UsageProps & { onAnswer: (yes: boolean) => void }) {
   if (!stripVisible({ consent, reviewing })) return null;
 
   return (
     <section class="usage-strip" aria-labelledby="usage-strip-lead">
       <p class="usage-strip-text">
-        <b id="usage-strip-lead">Help decide what gets built.</b>{' '}
-        Sharing usage data shows which features people actually use, so effort goes
-        where it helps — never your documents or customer data.
+        <b id="usage-strip-lead">Help decide what gets built.</b> Sharing usage data shows which
+        features people actually use, so effort goes where it helps — never your documents or
+        customer data.
       </p>
 
       <div class="usage-strip-actions">
@@ -102,10 +104,15 @@ export default function UsageStrip(
 // to the explanation rather than as a silent state flip — and, since the strip
 // carries no close button, this is also how a reader who changed nothing gets
 // back out.
-export function UsageFooterButton(
-  { asked, consent, onToggle }:
-  { asked?: boolean; consent?: boolean | null; onToggle: () => void },
-) {
+export function UsageFooterButton({
+  asked,
+  consent,
+  onToggle,
+}: {
+  asked?: boolean;
+  consent?: boolean | null;
+  onToggle: () => void;
+}) {
   // Renders as soon as the ask has been shown once — including when it was never
   // answered, otherwise there would be no way back to it.
   if (asked !== true) return null;
@@ -115,9 +122,11 @@ export function UsageFooterButton(
       type="button"
       class={`footer-usage${on ? ' on' : ''}`}
       data-testid="usage-footer-button"
-      title={on
-        ? "Usage data is on. Click to see what's sent, or turn it off."
-        : 'Usage data is off. Click to see what it does.'}
+      title={
+        on
+          ? "Usage data is on. Click to see what's sent, or turn it off."
+          : 'Usage data is off. Click to see what it does.'
+      }
       onClick={onToggle}
     >
       <span class="footer-usage-dot" aria-hidden="true"></span>

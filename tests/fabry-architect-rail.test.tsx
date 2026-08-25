@@ -4,10 +4,18 @@ import { h, render } from 'preact';
 import { act } from 'preact/test-utils';
 
 vi.mock('../src/fabry/architect/actions.js', () => ({
-  reRun: vi.fn(), stopRun: vi.fn(), reImplement: vi.fn(), stopImplement: vi.fn(),
-  refineTurn: vi.fn(), answerRefine: vi.fn(), updateDeliverable: vi.fn(), setDeliverableState: vi.fn(),
-  loadRevisions: vi.fn().mockResolvedValue(undefined), openRevision: vi.fn().mockResolvedValue(undefined),
-  ensureRevisionText: vi.fn().mockResolvedValue(''), restoreRevision: vi.fn().mockResolvedValue(undefined),
+  reRun: vi.fn(),
+  stopRun: vi.fn(),
+  reImplement: vi.fn(),
+  stopImplement: vi.fn(),
+  refineTurn: vi.fn(),
+  answerRefine: vi.fn(),
+  updateDeliverable: vi.fn(),
+  setDeliverableState: vi.fn(),
+  loadRevisions: vi.fn().mockResolvedValue(undefined),
+  openRevision: vi.fn().mockResolvedValue(undefined),
+  ensureRevisionText: vi.fn().mockResolvedValue(''),
+  restoreRevision: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('../src/fabry/chat.js', () => ({ openChat: vi.fn() }));
 vi.mock('../src/fabry/architect/components/ArmDialog.jsx', () => ({ openArmDialog: vi.fn() }));
@@ -24,7 +32,9 @@ const D = [
 function mount() {
   const root = document.createElement('div');
   document.body.appendChild(root);
-  act(() => { render(<InspectorRail />, root); });
+  act(() => {
+    render(<InspectorRail />, root);
+  });
   return root;
 }
 beforeEach(() => {
@@ -51,26 +61,38 @@ describe('InspectorRail', () => {
     expect(root.querySelector('.fabry-rail-name')!.textContent).toMatch(/One/);
     // The rail follows the SETTLED target, not the live one — a fast scroll must not re-render this
     // panel on every frame (store.setSettledTarget explains the measurement behind that).
-    act(() => { store.setSpyTarget('d2'); });
+    act(() => {
+      store.setSpyTarget('d2');
+    });
     expect(root.querySelector('.fabry-rail-name')!.textContent).toMatch(/One/);
-    act(() => { store.setSettledTarget('d2', { immediate: true }); });
+    act(() => {
+      store.setSettledTarget('d2', { immediate: true });
+    });
     expect(root.querySelector('.fabry-rail-name')!.textContent).toMatch(/Two/);
     expect(root.querySelector('.fabry-rail-for')!.textContent).toMatch(/Inspecting/);
   });
 
   it('pinning stops it following, and says so', () => {
     const root = mount();
-    act(() => { root.querySelector<HTMLElement>('.fabry-rail-pin')!.click(); });
+    act(() => {
+      root.querySelector<HTMLElement>('.fabry-rail-pin')!.click();
+    });
     expect(store.pinnedTarget.value).toBe('d1');
-    act(() => { store.setSettledTarget('d2', { immediate: true }); });
+    act(() => {
+      store.setSettledTarget('d2', { immediate: true });
+    });
     expect(root.querySelector('.fabry-rail-name')!.textContent).toMatch(/One/);
     expect(root.querySelector('.fabry-rail-for')!.textContent).toMatch(/Pinned/i);
   });
 
   it('HOLDS the target while a check runs for the shown deliverable', () => {
     const root = mount();
-    act(() => { store.setResult('d1', { verdict: null, evidence: '', chatId: null, running: true }); });
-    act(() => { store.setSettledTarget('d2', { immediate: true }); });
+    act(() => {
+      store.setResult('d1', { verdict: null, evidence: '', chatId: null, running: true });
+    });
+    act(() => {
+      store.setSettledTarget('d2', { immediate: true });
+    });
     expect(root.querySelector('.fabry-rail-name')!.textContent).toMatch(/One/);
     expect(root.querySelector('.fabry-rail-held')).toBeTruthy();
   });
@@ -90,9 +112,17 @@ describe('InspectorRail', () => {
 
   it('offers to open a diff at document width, for the panels that need the room', () => {
     const root = mount();
-    expect(root.querySelector('.fabry-rail-wide')).toBe(null);      // Check needs no extra width
-    act(() => { ([...root.querySelectorAll('.fabry-rail-tab')].find((t) => /History/.test(t.textContent)) as HTMLElement).click(); });
-    act(() => { root.querySelector<HTMLElement>('.fabry-rail-wide')!.click(); });
+    expect(root.querySelector('.fabry-rail-wide')).toBe(null); // Check needs no extra width
+    act(() => {
+      (
+        [...root.querySelectorAll('.fabry-rail-tab')].find((t) =>
+          /History/.test(t.textContent),
+        ) as HTMLElement
+      ).click();
+    });
+    act(() => {
+      root.querySelector<HTMLElement>('.fabry-rail-wide')!.click();
+    });
     expect(store.reviewTarget.value).toEqual({ id: 'd1', kind: 'history' });
   });
 

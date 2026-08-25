@@ -9,20 +9,43 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createMarkdownRenderer } from '../src/docs/render.js';
 import { buildPrintDocument, DEFAULT_OPTIONS } from '../src/docs/printDoc.js';
-import { buildPrintRequest, openPrintTab, PRINT_PREFIX } from '../src/fabry/architect/printAction.js';
+import {
+  buildPrintRequest,
+  openPrintTab,
+  PRINT_PREFIX,
+} from '../src/fabry/architect/printAction.js';
 
 const md = () => createMarkdownRenderer();
 const displayTitle = (d: any) => d.title;
 const DELIVERABLES = [
-  { id: '1', order: 1, title: 'Scope', text: '# Scope\n\nWhat we will do.\n', state: 'verified', stateDate: '2026-08-17' },
-  { id: '2', order: 2, title: 'Architecture', text: '## Queues\n\nQueue detail.\n', state: 'stale', stateDate: '2026-08-01' },
+  {
+    id: '1',
+    order: 1,
+    title: 'Scope',
+    text: '# Scope\n\nWhat we will do.\n',
+    state: 'verified',
+    stateDate: '2026-08-17',
+  },
+  {
+    id: '2',
+    order: 2,
+    title: 'Architecture',
+    text: '## Queues\n\nQueue detail.\n',
+    state: 'stale',
+    stateDate: '2026-08-01',
+  },
   { id: '3', order: 3, title: 'Untouched', text: 'No heading here.\n' },
 ];
 const RESULTS = { 1: { verdict: 'pass' }, 2: { verdict: 'fail' } };
 
-const build = (over = {}) => buildPrintDocument({
-  deliverables: DELIVERABLES, displayTitle, results: RESULTS, md: md(), ...over,
-});
+const build = (over = {}) =>
+  buildPrintDocument({
+    deliverables: DELIVERABLES,
+    displayTitle,
+    results: RESULTS,
+    md: md(),
+    ...over,
+  });
 
 describe('buildPrintDocument', () => {
   it('emits one section per deliverable, in the order given', () => {
@@ -37,10 +60,13 @@ describe('buildPrintDocument', () => {
   it('does not repeat a title the document already declares', () => {
     // 'Scope' opens with `# Scope`, which is how a deliverable names itself — printing the
     // stored title above it would show the same words twice.
-    const { html } = build({ deliverables: [DELIVERABLES[0]], options: { contents: false, verdicts: true } });
+    const { html } = build({
+      deliverables: [DELIVERABLES[0]],
+      options: { contents: false, verdicts: true },
+    });
     expect(html).not.toMatch(/print-doc-title/);
-    expect(html).toMatch(/<h1 id="scope"[^>]*>.*Scope<\/h1>/s);   // the author's own heading survives
-    expect(html).toMatch(/print-doc-head meta-only/);              // the verdict chip still has a home
+    expect(html).toMatch(/<h1 id="scope"[^>]*>.*Scope<\/h1>/s); // the author's own heading survives
+    expect(html).toMatch(/print-doc-head meta-only/); // the verdict chip still has a home
   });
 
   it('supplies a title only for a document that has no heading of its own', () => {
@@ -51,7 +77,8 @@ describe('buildPrintDocument', () => {
 
   it('a headed document with nothing to show beside it gets no header at all', () => {
     const { html } = build({
-      deliverables: [DELIVERABLES[0]], options: { contents: false, verdicts: false },
+      deliverables: [DELIVERABLES[0]],
+      options: { contents: false, verdicts: false },
     });
     expect(html).not.toMatch(/print-doc-head/);
     expect(html).toMatch(/Scope/);
@@ -88,12 +115,17 @@ describe('buildPrintDocument', () => {
   it('no longer prints a manual state badge — status is the check verdict alone', () => {
     // Dropped 2026-08-19 (owner). A deliverable may still carry the old fields; nothing renders them.
     const { html } = buildPrintDocument({
-      deliverables: [{ id: 'a', title: 'A', text: 'body', state: 'verified', stateDate: '2026-08-12' } as any],
-      displayTitle, md: md(), options: { verdicts: true }, results: { a: { verdict: 'pass' } },
+      deliverables: [
+        { id: 'a', title: 'A', text: 'body', state: 'verified', stateDate: '2026-08-12' } as any,
+      ],
+      displayTitle,
+      md: md(),
+      options: { verdicts: true },
+      results: { a: { verdict: 'pass' } },
     });
     expect(html).not.toMatch(/state-label/);
     expect(html).not.toMatch(/Verified/);
-    expect(html).toMatch(/print-verdict/);        // the verdict chip is still offered
+    expect(html).toMatch(/print-verdict/); // the verdict chip is still offered
   });
 
   it('includes the check verdict only when asked (default off)', () => {
@@ -113,7 +145,14 @@ describe('buildPrintDocument', () => {
 
   it('sanitizes each document, so a printed page cannot carry injected markup', () => {
     const { html } = build({
-      deliverables: [{ id: 'x', order: 1, title: 'Hostile', text: 'Text\n\n<script>alert(1)</script>\n\n<iframe src="https://x.test"></iframe>\n' }],
+      deliverables: [
+        {
+          id: 'x',
+          order: 1,
+          title: 'Hostile',
+          text: 'Text\n\n<script>alert(1)</script>\n\n<iframe src="https://x.test"></iframe>\n',
+        },
+      ],
       options: { contents: false },
     });
     expect(html).not.toMatch(/<script>/);
@@ -122,14 +161,19 @@ describe('buildPrintDocument', () => {
   });
 
   it('escapes a title that contains markup', () => {
-    const { html } = build({ deliverables: [{ id: 'x', order: 1, title: '<img onerror=alert(1)>', text: 'x' }], options: { contents: false } });
+    const { html } = build({
+      deliverables: [{ id: 'x', order: 1, title: '<img onerror=alert(1)>', text: 'x' }],
+      options: { contents: false },
+    });
     expect(html).toMatch(/&lt;img onerror=alert\(1\)&gt;/);
     expect(html).not.toMatch(/<img onerror/);
   });
 
   it('collects document diagnostics rather than dropping them', () => {
     const { warnings } = build({
-      deliverables: [{ id: 'x', order: 1, title: 'D', text: '## S\n\n<state-label state="ready" />\n' }],
+      deliverables: [
+        { id: 'x', order: 1, title: 'D', text: '## S\n\n<state-label state="ready" />\n' },
+      ],
       options: { contents: false },
     });
     expect(warnings.join('\n')).toMatch(/renders as nothing/);
@@ -146,7 +190,8 @@ describe('print staging', () => {
 
   it('stages in SESSION storage and opens the page next to the current tab', async () => {
     const deps = {
-      uuid: () => 'u1', now: () => 7,
+      uuid: () => 'u1',
+      now: () => 7,
       getURL: (p: any) => 'chrome-extension://id/' + p,
       sessionSet: vi.fn().mockResolvedValue(undefined),
       getCurrentTab: vi.fn().mockResolvedValue({ index: 3, windowId: 9 }),
@@ -155,15 +200,20 @@ describe('print staging', () => {
     const key = await openPrintTab({ html: '<p>doc</p>', title: 'Spec' }, deps);
     expect(key).toBe('docPrint_u1');
     // Session, not local: deliverable text must not land at rest on disk.
-    expect(deps.sessionSet).toHaveBeenCalledWith({ docPrint_u1: { html: '<p>doc</p>', title: 'Spec', createdAt: 7 } });
+    expect(deps.sessionSet).toHaveBeenCalledWith({
+      docPrint_u1: { html: '<p>doc</p>', title: 'Spec', createdAt: 7 },
+    });
     expect(deps.tabsCreate).toHaveBeenCalledWith({
-      url: 'chrome-extension://id/console/print.html?printId=u1', index: 4, windowId: 9,
+      url: 'chrome-extension://id/console/print.html?printId=u1',
+      index: 4,
+      windowId: 9,
     });
   });
 
   it('still opens when the current tab cannot be resolved', async () => {
     const deps = {
-      uuid: () => 'u2', now: () => 1,
+      uuid: () => 'u2',
+      now: () => 1,
       getURL: (p: any) => '/' + p,
       sessionSet: vi.fn().mockResolvedValue(undefined),
       getCurrentTab: vi.fn().mockRejectedValue(new Error('no tab')),
@@ -174,7 +224,14 @@ describe('print staging', () => {
   });
 
   it('does nothing without a document', async () => {
-    const deps = { sessionSet: vi.fn(), tabsCreate: vi.fn(), uuid: () => 'x', now: () => 0, getURL: (p: any) => p, getCurrentTab: vi.fn() };
+    const deps = {
+      sessionSet: vi.fn(),
+      tabsCreate: vi.fn(),
+      uuid: () => 'x',
+      now: () => 0,
+      getURL: (p: any) => p,
+      getCurrentTab: vi.fn(),
+    };
     expect(await openPrintTab({ html: '' }, deps)).toBeNull();
     expect(deps.sessionSet).not.toHaveBeenCalled();
     expect(deps.tabsCreate).not.toHaveBeenCalled();

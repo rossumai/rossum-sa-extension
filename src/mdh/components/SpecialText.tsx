@@ -9,10 +9,17 @@ import { hasSpecial, tokenizeSpecial, cpLabel } from '../specialChars.js';
 // (for short field names) additionally marks leading/trailing ordinary spaces
 // (U+0020) as "·" chips; it is not combined with `limit` — when the edge branch
 // fires, `limit` is ignored.
-export default function SpecialText(
-  { value, quote = false, limit, markEdgeSpaces = false }:
-  { value: any; quote?: boolean; limit?: number; markEdgeSpaces?: boolean },
-) {
+export default function SpecialText({
+  value,
+  quote = false,
+  limit,
+  markEdgeSpaces = false,
+}: {
+  value: any;
+  quote?: boolean;
+  limit?: number;
+  markEdgeSpaces?: boolean;
+}) {
   if (typeof value !== 'string') return value;
   const q = quote ? '"' : '';
 
@@ -22,9 +29,12 @@ export default function SpecialText(
     const trail = (rest.match(/ +$/) || [''])[0];
     if (lead || trail) {
       const core = rest.slice(0, rest.length - trail.length);
-      const marks = (run: string, keyBase: string) => [...run].map((_, i) => (
-        <span key={keyBase + i} class="mdh-special mdh-special-space" title="U+0020 SPACE">{'·'}</span>
-      ));
+      const marks = (run: string, keyBase: string) =>
+        [...run].map((_, i) => (
+          <span key={keyBase + i} class="mdh-special mdh-special-space" title="U+0020 SPACE">
+            {'·'}
+          </span>
+        ));
       return (
         <Fragment>
           {q}
@@ -38,19 +48,33 @@ export default function SpecialText(
   }
 
   if (!hasSpecial(value)) {
-    const s = (limit != null && value.length > limit) ? value.slice(0, limit) + '...' : value;
-    return <Fragment>{q}{s}{q}</Fragment>;
+    const s = limit != null && value.length > limit ? value.slice(0, limit) + '...' : value;
+    return (
+      <Fragment>
+        {q}
+        {s}
+        {q}
+      </Fragment>
+    );
   }
 
   const { tokens, truncated } = tokenizeSpecial(value, limit != null ? { limit } : {});
   return (
     <Fragment>
       {q}
-      {tokens.map((t, i) => (
-        t.type === 'text'
-          ? t.value
-          : <span key={i} class={'mdh-special mdh-special-' + t.category} title={cpLabel(t.cp) + ' ' + t.name}>{t.abbr}</span>
-      ))}
+      {tokens.map((t, i) =>
+        t.type === 'text' ? (
+          t.value
+        ) : (
+          <span
+            key={i}
+            class={'mdh-special mdh-special-' + t.category}
+            title={cpLabel(t.cp) + ' ' + t.name}
+          >
+            {t.abbr}
+          </span>
+        ),
+      )}
       {truncated ? '...' : ''}
       {q}
     </Fragment>

@@ -93,10 +93,14 @@ export function parseReceipt(text: unknown): ParsedReceipt | null {
   if (!trackM || !userM || missions == null || self == null || !issued || !host) return null;
   return {
     fields: {
-      trackId: trackM[1], trackVersion: Number(trackM[2]),
-      host, userId: Number(userM[2]), username: userM[1],
+      trackId: trackM[1],
+      trackVersion: Number(trackM[2]),
+      host,
+      userId: Number(userM[2]),
+      username: userM[1],
       missionsPassed: missions.split(',').filter(Boolean),
-      selfCount: Number(self), dateUtc: issued,
+      selfCount: Number(self),
+      dateUtc: issued,
     },
     code,
   };

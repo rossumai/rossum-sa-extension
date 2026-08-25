@@ -29,7 +29,9 @@ describe('isWriteTool', () => {
 });
 describe('summarizeArgs', () => {
   it('redacts to a short name/#id, never a full payload', () => {
-    expect(summarizeArgs({ name: 'VAT rule', id: 42, secret: 'x'.repeat(500) })).toBe('VAT rule #42');
+    expect(summarizeArgs({ name: 'VAT rule', id: 42, secret: 'x'.repeat(500) })).toBe(
+      'VAT rule #42',
+    );
   });
 });
 describe('makeAuditFolder', () => {

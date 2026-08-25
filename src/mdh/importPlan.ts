@@ -1,10 +1,23 @@
 import { isEjsonWrapper } from './flatten.js';
 
-function walkPaths(obj: any, prefix: string, depth: number, maxDepth: number, out: Set<string>): void {
+function walkPaths(
+  obj: any,
+  prefix: string,
+  depth: number,
+  maxDepth: number,
+  out: Set<string>,
+): void {
   for (const k of Object.keys(obj)) {
     const path = prefix ? `${prefix}.${k}` : k;
     const v = obj[k];
-    if (depth < maxDepth && v !== null && typeof v === 'object' && !Array.isArray(v) && !isEjsonWrapper(v) && Object.keys(v).length > 0) {
+    if (
+      depth < maxDepth &&
+      v !== null &&
+      typeof v === 'object' &&
+      !Array.isArray(v) &&
+      !isEjsonWrapper(v) &&
+      Object.keys(v).length > 0
+    ) {
       walkPaths(v, path, depth + 1, maxDepth, out);
     } else {
       out.add(path);
@@ -14,7 +27,8 @@ function walkPaths(obj: any, prefix: string, depth: number, maxDepth: number, ou
 
 // Sorted union of dotted leaf paths across a sample of docs; _id first.
 export function collectFieldPaths(
-  docs: any[], { sampleSize = 50, maxDepth = 5 }: { sampleSize?: number; maxDepth?: number } = {},
+  docs: any[],
+  { sampleSize = 50, maxDepth = 5 }: { sampleSize?: number; maxDepth?: number } = {},
 ): string[] {
   const out = new Set<string>();
   const n = Math.min(docs.length, sampleSize);
@@ -24,7 +38,10 @@ export function collectFieldPaths(
   }
   const arr = [...out].sort();
   const idx = arr.indexOf('_id');
-  if (idx > 0) { arr.splice(idx, 1); arr.unshift('_id'); }
+  if (idx > 0) {
+    arr.splice(idx, 1);
+    arr.unshift('_id');
+  }
   return arr;
 }
 
@@ -32,7 +49,13 @@ export function collectFieldPaths(
 function hasPath(doc: any, path: string): boolean {
   let cur = doc;
   for (const seg of String(path).split('.')) {
-    if (cur === null || typeof cur !== 'object' || Array.isArray(cur) || !Object.prototype.hasOwnProperty.call(cur, seg)) return false;
+    if (
+      cur === null ||
+      typeof cur !== 'object' ||
+      Array.isArray(cur) ||
+      !Object.prototype.hasOwnProperty.call(cur, seg)
+    )
+      return false;
     cur = cur[seg];
   }
   return true;
@@ -46,7 +69,7 @@ export function countRowsMissingKeys(docs: any[], keys: string[]): number {
   if (!Array.isArray(docs) || !Array.isArray(keys) || keys.length === 0) return 0;
   let n = 0;
   for (const d of docs) {
-    const obj = (d && typeof d === 'object' && !Array.isArray(d)) ? d : null;
+    const obj = d && typeof d === 'object' && !Array.isArray(d) ? d : null;
     if (!obj || !keys.every((k) => hasPath(obj, k))) n++;
   }
   return n;

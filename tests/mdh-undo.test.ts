@@ -46,7 +46,9 @@ describe('undo', () => {
   it('triggerUndo runs the action, transitions running -> done, then auto-dismisses', async () => {
     vi.useFakeTimers();
     let resolved = false;
-    const action = vi.fn(async () => { resolved = true; });
+    const action = vi.fn(async () => {
+      resolved = true;
+    });
     showUndo({ message: 'm', action, ttlMs: 10_000 });
 
     const p = triggerUndo();
@@ -62,7 +64,9 @@ describe('undo', () => {
 
   it('triggerUndo error transitions to error status with message', async () => {
     vi.useFakeTimers();
-    const action = vi.fn(async () => { throw new Error('boom'); });
+    const action = vi.fn(async () => {
+      throw new Error('boom');
+    });
     showUndo({ message: 'm', action, ttlMs: 10_000 });
 
     await triggerUndo();

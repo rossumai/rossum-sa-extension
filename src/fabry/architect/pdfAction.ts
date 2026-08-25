@@ -21,23 +21,33 @@ import { openPdfDialog } from './components/PdfDialog.jsx';
 // dialog. `onNote` reports outcome text for the document bar; `onWarnings` the document warnings.
 type PdfFlowOpts = { onNote?: (note: string) => void; onWarnings?: (w: string[]) => void };
 
-export function openPdfFlow(current: Deliverable | null, { onNote = () => {}, onWarnings = () => {} }: PdfFlowOpts = {}) {
+export function openPdfFlow(
+  current: Deliverable | null,
+  { onNote = () => {}, onWarnings = () => {} }: PdfFlowOpts = {},
+) {
   const all = store.deliverables.value;
   openPdfDialog(
     { deliverableTitle: current ? displayTitle(current) : 'this deliverable', count: all.length },
-    ({ scope, options }: { scope: string; options: any }) => runPdf({ current, scope, options, onNote, onWarnings }),
+    ({ scope, options }: { scope: string; options: any }) =>
+      runPdf({ current, scope, options, onNote, onWarnings }),
   );
 }
 
-export async function runPdf(
-  { current, scope, options, onNote = () => {}, onWarnings = () => {} }:
-  { current: Deliverable | null; scope: string; options?: any } & PdfFlowOpts,
-) {
+export async function runPdf({
+  current,
+  scope,
+  options,
+  onNote = () => {},
+  onWarnings = () => {},
+}: { current: Deliverable | null; scope: string; options?: any } & PdfFlowOpts) {
   onNote('busy');
   try {
     await loadMermaidRenderer().catch(() => null);
     // Paper is white, so diagrams are baked light regardless of the Console's theme.
-    const md = createMarkdownRenderer({ mermaid: getMermaidRenderer(), mermaidTheme: MERMAID_LIGHT });
+    const md = createMarkdownRenderer({
+      mermaid: getMermaidRenderer(),
+      mermaidTheme: MERMAID_LIGHT,
+    });
     const all = store.deliverables.value;
     const chosen = scope === 'all' || !current ? all : all.filter((d) => d.id === current.id);
     const { html, title, warnings } = buildPrintDocument({
@@ -52,6 +62,8 @@ export async function runPdf(
     onNote(`print view opened${chosen.length > 1 ? ` \u00b7 ${chosen.length} documents` : ''}`);
     if (warnings.length) onWarnings(warnings);
   } catch (err) {
-    onNote(`could not open the print view: ${err && (err as any).message ? (err as any).message : err}`);
+    onNote(
+      `could not open the print view: ${err && (err as any).message ? (err as any).message : err}`,
+    );
   }
 }

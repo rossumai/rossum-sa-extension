@@ -2,12 +2,18 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import * as api from '../src/devtools/api.js';
 
 function stubFetch(status: any, jsonBody: any, textBody?: any) {
-  globalThis.fetch = (vi.fn(() => Promise.resolve({
-    ok: status >= 200 && status < 300, status,
-    json: () => Promise.resolve(jsonBody), text: () => Promise.resolve(textBody ?? ''),
-  })) as any);
+  globalThis.fetch = vi.fn(() =>
+    Promise.resolve({
+      ok: status >= 200 && status < 300,
+      status,
+      json: () => Promise.resolve(jsonBody),
+      text: () => Promise.resolve(textBody ?? ''),
+    }),
+  ) as any;
 }
-afterEach(() => { delete (globalThis as any).fetch; });
+afterEach(() => {
+  delete (globalThis as any).fetch;
+});
 
 describe('devtools api', () => {
   it('getJson builds an absolute URL with Token auth', async () => {
@@ -50,7 +56,14 @@ describe('devtools api', () => {
 
   it('patch returns {} on 204', async () => {
     api.init('https://acme.rossum.app', 'TKN');
-    globalThis.fetch = (vi.fn(() => Promise.resolve({ ok: true, status: 204, json: () => Promise.reject(new Error('no body')), text: () => Promise.resolve('') })) as any);
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        status: 204,
+        json: () => Promise.reject(new Error('no body')),
+        text: () => Promise.resolve(''),
+      }),
+    ) as any;
     expect(await api.patch('/api/v1/queues/1', {})).toEqual({});
   });
 
@@ -68,10 +81,16 @@ describe('getResource', () => {
     const headers = new Map();
     if (contentType) headers.set('Content-Type', contentType);
     if (disposition) headers.set('Content-Disposition', disposition);
-    globalThis.fetch = (vi.fn(() => Promise.resolve({
-      ok: status >= 200 && status < 300, status, headers,
-      json: () => Promise.resolve(json), blob: () => Promise.resolve(blob), text: () => Promise.resolve(text ?? ''),
-    })) as any);
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: status >= 200 && status < 300,
+        status,
+        headers,
+        json: () => Promise.resolve(json),
+        blob: () => Promise.resolve(blob),
+        text: () => Promise.resolve(text ?? ''),
+      }),
+    ) as any;
   }
 
   it('returns parsed JSON when the content-type is JSON', async () => {
@@ -83,9 +102,18 @@ describe('getResource', () => {
   it('returns a blob descriptor for a non-JSON content-type (Content-Disposition filename)', async () => {
     api.init('https://acme.rossum.app', 'TKN');
     const blob = { size: 2048, type: 'application/pdf' };
-    mockRes({ contentType: 'application/pdf', disposition: 'attachment; filename="doc.pdf"', blob });
-    expect(await api.getResource('/api/v1/documents/5/content'))
-      .toEqual({ kind: 'blob', contentType: 'application/pdf', size: 2048, filename: 'doc.pdf', blob });
+    mockRes({
+      contentType: 'application/pdf',
+      disposition: 'attachment; filename="doc.pdf"',
+      blob,
+    });
+    expect(await api.getResource('/api/v1/documents/5/content')).toEqual({
+      kind: 'blob',
+      contentType: 'application/pdf',
+      size: 2048,
+      filename: 'doc.pdf',
+      blob,
+    });
   });
 
   it('derives a filename from the path + content-type when Content-Disposition is absent', async () => {

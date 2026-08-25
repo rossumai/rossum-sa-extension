@@ -17,7 +17,14 @@ describe('audit sources registry', () => {
     const d = SOURCES.audit;
     expect(d.paginationMode).toBe('cursor');
     expect(d.supportsServerSearch).toBe(false);
-    const params = d.buildParams({ object_type: 'user', action: 'app_load', object_id: '', username: 'a@b.c', timestamp_after: '', timestamp_before: '' });
+    const params = d.buildParams({
+      object_type: 'user',
+      action: 'app_load',
+      object_id: '',
+      username: 'a@b.c',
+      timestamp_after: '',
+      timestamp_before: '',
+    });
     expect(params).toMatchObject({ object_type: 'user', action: 'app_load', username: 'a@b.c' });
   });
 });

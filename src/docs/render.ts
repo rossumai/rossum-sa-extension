@@ -27,12 +27,20 @@ import docWarnings from './docWarnings.js';
 // equivalence test reproduces upstream byte-for-byte; the app passes a dark variant
 // when the console is dark (D3, the one place this port adds a theme upstream lacks).
 export const MERMAID_LIGHT = {
-  bg: '#ffffff', fg: '#1f2328', accent: '#0969da',
-  muted: '#656d76', surface: '#f6f8fa', border: '#d0d7de',
+  bg: '#ffffff',
+  fg: '#1f2328',
+  accent: '#0969da',
+  muted: '#656d76',
+  surface: '#f6f8fa',
+  border: '#d0d7de',
 };
 export const MERMAID_DARK = {
-  bg: '#0d1117', fg: '#f0f6fc', accent: '#4493f8',
-  muted: '#9198a1', surface: '#151b23', border: '#3d444d',
+  bg: '#0d1117',
+  fg: '#f0f6fc',
+  accent: '#4493f8',
+  muted: '#9198a1',
+  surface: '#151b23',
+  border: '#3d444d',
 };
 
 // JSON5 fenced blocks (JSON-with-comments) are highlighted with the JS grammar
@@ -44,7 +52,9 @@ function highlight(str: string, lang?: string): string {
     try {
       const { value } = hljs.highlight(str, { language: effective, ignoreIllegals: true });
       return `<pre><code class="hljs language-${lang}">${value}</code></pre>`;
-    } catch { /* fall through */ }
+    } catch {
+      /* fall through */
+    }
   }
   return '';
 }
@@ -81,10 +91,10 @@ export function wrapStandaloneImages(html: string): string {
   );
 }
 
-export function createMarkdownRenderer(
-  { mermaid = null, mermaidTheme = MERMAID_LIGHT }:
-  { mermaid?: ((text: string, themeOpts?: any) => string) | null; mermaidTheme?: any } = {},
-) {
+export function createMarkdownRenderer({
+  mermaid = null,
+  mermaidTheme = MERMAID_LIGHT,
+}: { mermaid?: ((text: string, themeOpts?: any) => string) | null; mermaidTheme?: any } = {}) {
   const md = new MarkdownIt({
     html: true,
     linkify: true,
@@ -99,10 +109,12 @@ export function createMarkdownRenderer(
         ariaHidden: true,
         class: 'anchor',
       }),
-      slugify: (s) => s.toLowerCase()
-        .replace(/[^\w\s-]/g, '')
-        .trim()
-        .replace(/\s+/g, '-'),
+      slugify: (s) =>
+        s
+          .toLowerCase()
+          .replace(/[^\w\s-]/g, '')
+          .trim()
+          .replace(/\s+/g, '-'),
     })
     // DELTA 5 (owner, 2026-08-17): upstream's `<state-label>` plugin is NOT in this
     // pipeline. Section states are a property of the DELIVERABLE, set in the Architect
@@ -158,8 +170,9 @@ export function createMarkdownRenderer(
 
   // Rewrite relative `*.md` links to `*.html` for static-export rendering.
   // Invoked via md.render(src, { forExport: true }).
-  const defaultLinkOpen = md.renderer.rules.link_open
-    || ((tokens, idx, opts, env, self) => self.renderToken(tokens, idx, opts));
+  const defaultLinkOpen =
+    md.renderer.rules.link_open ||
+    ((tokens, idx, opts, env, self) => self.renderToken(tokens, idx, opts));
   md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
     if (env && env.forExport) {
       const token = tokens[idx];

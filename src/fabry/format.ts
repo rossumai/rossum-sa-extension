@@ -11,6 +11,7 @@ export function sanitizeTitle(s: unknown): string {
 export function chatTitle(
   summary?: { summary?: string; preview?: string; first_message?: string } | null,
 ): string {
-  return sanitizeTitle(summary?.summary || summary?.preview || summary?.first_message) || '(empty chat)';
+  return (
+    sanitizeTitle(summary?.summary || summary?.preview || summary?.first_message) || '(empty chat)'
+  );
 }
-

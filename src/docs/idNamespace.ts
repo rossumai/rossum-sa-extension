@@ -19,7 +19,7 @@ export function namespaceSection(sectionEl: Element | null, prefix: string): Map
   if (!sectionEl || !prefix) return map;
   for (const el of sectionEl.querySelectorAll('[id]')) {
     const id = el.getAttribute('id');
-    if (!id || id.startsWith(prefix)) continue;   // idempotent: adopting twice must not double up
+    if (!id || id.startsWith(prefix)) continue; // idempotent: adopting twice must not double up
     map.set(id, prefix + id);
     el.setAttribute('id', prefix + id);
   }
@@ -27,17 +27,23 @@ export function namespaceSection(sectionEl: Element | null, prefix: string): Map
 }
 
 function headingsIn(scope: ParentNode, prefix: string) {
-  return [...scope.querySelectorAll('h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]')].map((el) => ({
-    el,
-    // resolveHeadingId matches on the id AS AUTHORED, so hand it the un-prefixed form.
-    id: prefix && el.id.startsWith(prefix) ? el.id.slice(prefix.length) : el.id,
-    text: el.textContent || '',
-  }));
+  return [...scope.querySelectorAll('h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]')].map(
+    (el) => ({
+      el,
+      // resolveHeadingId matches on the id AS AUTHORED, so hand it the un-prefixed form.
+      id: prefix && el.id.startsWith(prefix) ? el.id.slice(prefix.length) : el.id,
+      text: el.textContent || '',
+    }),
+  );
 }
 
 // The reader's own section wins first: with a colliding id, "the one I am looking at" is what a
 // fragment written in that document means.
-export function resolveInPage(root: ParentNode | null, fragment: string, currentPrefix = ''): Element | null {
+export function resolveInPage(
+  root: ParentNode | null,
+  fragment: string,
+  currentPrefix = '',
+): Element | null {
   if (!root || !fragment) return null;
   const sections = [...root.querySelectorAll('[data-slug]')] as HTMLElement[];
   const scopes: [ParentNode, string][] = [];

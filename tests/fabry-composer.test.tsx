@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { h, render } from 'preact';
 
 vi.mock('../src/fabry/chat.js', () => ({
-  sendMessage: vi.fn().mockResolvedValue(true), stopStreaming: vi.fn(),
+  sendMessage: vi.fn().mockResolvedValue(true),
+  stopStreaming: vi.fn(),
 }));
 
 import * as chat from '../src/fabry/chat.js';
@@ -29,7 +30,11 @@ beforeEach(() => {
   store.deepVerifyAllowed.value = true;
   store.deepMode.value = false;
   store.commands.value = [
-    { name: '/persona', description: 'switch persona', argument_suggestions: [{ value: 'cautious', description: 'safe' }] },
+    {
+      name: '/persona',
+      description: 'switch persona',
+      argument_suggestions: [{ value: 'cautious', description: 'safe' }],
+    },
     { name: '/list-skills', description: 'skills', argument_suggestions: [] },
   ];
 });
@@ -46,7 +51,8 @@ describe('Composer', () => {
   it('Enter sends and clears; Shift+Enter does not send', async () => {
     const root = mount(Composer, {});
     const ta = root.querySelector('textarea')!;
-    ta.value = 'hello'; ta.dispatchEvent(new Event('input', { bubbles: true }));
+    ta.value = 'hello';
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
     ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true }));
     expect(chat.sendMessage).not.toHaveBeenCalled();
     ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
@@ -58,19 +64,27 @@ describe('Composer', () => {
     const root = mount(Composer, {});
     expect(root.querySelector<HTMLButtonElement>('.fabry-send')!.disabled).toBe(true);
     const ta = root.querySelector('textarea')!;
-    ta.value = 'hi'; ta.dispatchEvent(new Event('input', { bubbles: true }));
+    ta.value = 'hi';
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
     await flush();
     expect(root.querySelector<HTMLButtonElement>('.fabry-send')!.disabled).toBe(false);
   });
   it('Stop does not clobber a newer draft typed while streaming', async () => {
     let resolveSend: any;
-    vi.mocked(chat.sendMessage).mockImplementation(() => new Promise((r) => { resolveSend = r; }));
+    vi.mocked(chat.sendMessage).mockImplementation(
+      () =>
+        new Promise((r) => {
+          resolveSend = r;
+        }),
+    );
     const root = mount(Composer, {});
     const ta = root.querySelector('textarea')!;
-    ta.value = 'first question'; ta.dispatchEvent(new Event('input', { bubbles: true }));
+    ta.value = 'first question';
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
     ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await flush();
-    ta.value = 'my NEXT question'; ta.dispatchEvent(new Event('input', { bubbles: true }));
+    ta.value = 'my NEXT question';
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
     await flush();
     resolveSend(false); // the user hit Stop → send resolves false
     await flush();
@@ -80,7 +94,8 @@ describe('Composer', () => {
     vi.mocked(chat.sendMessage).mockResolvedValue(false);
     const root = mount(Composer, {});
     const ta = root.querySelector('textarea')!;
-    ta.value = 'draft'; ta.dispatchEvent(new Event('input', { bubbles: true }));
+    ta.value = 'draft';
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
     ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await flush();
     expect(root.querySelector('textarea')!.value).toBe('draft');
@@ -137,7 +152,8 @@ describe('Composer', () => {
   it('typing / opens the command menu; inline send error renders', async () => {
     const root = mount(Composer, {});
     const ta = root.querySelector('textarea')!;
-    ta.value = '/li'; ta.dispatchEvent(new Event('input', { bubbles: true }));
+    ta.value = '/li';
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
     await flush();
     expect(root.querySelector('.fabry-cmdmenu')!.textContent).toContain('/list-skills');
     store.sendError.value = 'Rate-limited by the agent — try again shortly.';

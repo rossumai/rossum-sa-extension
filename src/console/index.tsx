@@ -131,7 +131,13 @@ async function boot() {
 
   purgeStaleAuthEntries().catch(() => {});
 
-  const { token, domain, stagingApp, consumeKey, pendingCtx: ctx } = resolveBootAuth({
+  const {
+    token,
+    domain,
+    stagingApp,
+    consumeKey,
+    pendingCtx: ctx,
+  } = resolveBootAuth({
     entry: entry as any,
     session: {
       token: sessionStorage.getItem('consoleToken'),
@@ -218,7 +224,9 @@ async function boot() {
   // lazily the first time it's activated.
   await ensureInited(initial);
   render(<Console />, document.getElementById('app')!);
-  effect(() => { ensureInited(activeApp.value); });
+  effect(() => {
+    ensureInited(activeApp.value);
+  });
 }
 
 boot();

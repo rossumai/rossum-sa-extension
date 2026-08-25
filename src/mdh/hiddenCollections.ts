@@ -23,7 +23,10 @@ export function isHiddenCollection(name: unknown): boolean {
 }
 
 // `showHidden` comes from the sidebar toggle. Order is preserved — the caller sorts.
-export function visibleCollections(names: string[] | null | undefined, showHidden = false): string[] {
+export function visibleCollections(
+  names: string[] | null | undefined,
+  showHidden = false,
+): string[] {
   const list = Array.isArray(names) ? names : [];
   return showHidden ? [...list] : list.filter((n) => !isHiddenCollection(n));
 }

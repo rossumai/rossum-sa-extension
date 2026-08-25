@@ -1,12 +1,24 @@
 /* Self-contained styles for the shared Tip popup (promoted from MDH). Fixed-position
    dark popup; theme-independent by design (a tooltip reads on any surface). */
-.trigger { display: inline-flex; align-items: center; }
-.trigger.block { display: block; }
+.trigger {
+  display: inline-flex;
+  align-items: center;
+}
+.trigger.block {
+  display: block;
+}
 .pop {
-  position: fixed; z-index: 1000; pointer-events: none;
-  max-width: 280px; white-space: normal; text-align: left;
-  background: #0f172a; color: #fff;
-  border-radius: 6px; padding: 7px 9px;
-  font-size: 11px; line-height: 1.45;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  max-width: 280px;
+  white-space: normal;
+  text-align: left;
+  background: #0f172a;
+  color: #fff;
+  border-radius: 6px;
+  padding: 7px 9px;
+  font-size: 11px;
+  line-height: 1.45;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }

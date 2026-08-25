@@ -34,9 +34,14 @@ async function waitFor(condition: any, description = 'condition', timeoutMs = 20
   const start = Date.now();
   for (;;) {
     let ok = false;
-    try { ok = condition(); } catch { ok = false; }
+    try {
+      ok = condition();
+    } catch {
+      ok = false;
+    }
     if (ok) return;
-    if (Date.now() - start > timeoutMs) throw new Error(`Timeout waiting for ${description} after ${timeoutMs}ms`);
+    if (Date.now() - start > timeoutMs)
+      throw new Error(`Timeout waiting for ${description} after ${timeoutMs}ms`);
     await new Promise((r) => setTimeout(r, 5));
   }
 }
@@ -77,7 +82,14 @@ describe('useEditorSnapshot', () => {
 
   it('debounces rapid recompute() calls into a single editor read', async () => {
     let reads = 0;
-    const editorRef = { current: { getValue: () => { reads++; return '[]'; } } };
+    const editorRef = {
+      current: {
+        getValue: () => {
+          reads++;
+          return '[]';
+        },
+      },
+    };
     const get = setup(editorRef, () => ({ placeholders: [], parsed: [] }));
 
     get().recompute();

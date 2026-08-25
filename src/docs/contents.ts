@@ -27,7 +27,12 @@ export type ContentsEntry = { title?: string; slug: string; verdict?: string | n
 
 export function buildContentsMarkdown(
   entries: ContentsEntry[],
-  { heading = 'Deliverables', columns = {}, intro = null, note = null }: {
+  {
+    heading = 'Deliverables',
+    columns = {},
+    intro = null,
+    note = null,
+  }: {
     heading?: string;
     columns?: { verdict?: boolean };
     intro?: string | null;

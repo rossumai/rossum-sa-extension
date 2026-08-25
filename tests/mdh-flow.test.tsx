@@ -26,10 +26,7 @@ function renderAllHooks(): any {
     };
     return null;
   };
-  render(
-    <Probe />,
-    document.createElement('div'),
-  );
+  render(<Probe />, document.createElement('div'));
   return result;
 }
 
@@ -53,12 +50,8 @@ describe('full data exploration flow', () => {
     { _id: '2', name: 'Beta', category: 'B', price: 20 },
     { _id: '1', name: 'Alpha', category: 'A', price: 10 },
   ];
-  const page1Filtered = [
-    { _id: '1', name: 'Alpha', category: 'A', price: 10 },
-  ];
-  const page2 = [
-    { _id: '3', name: 'Gamma', category: 'A', price: 30 },
-  ];
+  const page1Filtered = [{ _id: '1', name: 'Alpha', category: 'A', price: 10 }];
+  const page2 = [{ _id: '3', name: 'Gamma', category: 'A', price: 30 }];
 
   it('query → sort → filter → paginate → reset', async () => {
     const hooks = renderAllHooks();
@@ -68,7 +61,9 @@ describe('full data exploration flow', () => {
     await hooks.query.runQuery('products', '[{"$match": {}}]');
 
     expect(store.records.value).toEqual(page1);
-    expect(api.aggregate).toHaveBeenCalledWith('products', [{ $match: {} }], { signal: expect.any(AbortSignal) });
+    expect(api.aggregate).toHaveBeenCalledWith('products', [{ $match: {} }], {
+      signal: expect.any(AbortSignal),
+    });
 
     // ── Step 2: sort by price descending (two toggles: asc → desc) ──
     hooks.pipeline.toggleSort('price');
@@ -169,9 +164,7 @@ describe('full data exploration flow', () => {
     const hooks = renderAllHooks();
 
     let resolvers: any = [];
-    vi.mocked(api.aggregate).mockImplementation(
-      () => new Promise((r) => resolvers.push(r)),
-    );
+    vi.mocked(api.aggregate).mockImplementation(() => new Promise((r) => resolvers.push(r)));
 
     // Fire 3 rapid queries
     const p1 = hooks.query.runQuery('col', '[{"$match": {"v": 1}}]');

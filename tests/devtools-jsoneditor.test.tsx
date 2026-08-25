@@ -8,9 +8,16 @@ import * as cache from '../src/devtools/resourceCache.js';
 
 const RES = { type: 'queue', id: '1', apiPath: '/api/v1/queues/1', label: 'Queue' };
 
-function mount(tabId: any) { const root = document.createElement('div'); render(<JsonCodeEditor tabId={tabId} />, root); return root; }
+function mount(tabId: any) {
+  const root = document.createElement('div');
+  render(<JsonCodeEditor tabId={tabId} />, root);
+  return root;
+}
 async function waitFor(fn: any, tries = 100) {
-  for (let i = 0; i < tries; i++) { if (fn()) return; await new Promise((r) => setTimeout(r, 0)); }
+  for (let i = 0; i < tries; i++) {
+    if (fn()) return;
+    await new Promise((r) => setTimeout(r, 0));
+  }
   throw new Error('waitFor timed out');
 }
 
@@ -76,7 +83,9 @@ describe('JsonCodeEditor', () => {
   it('shows an inline dimmed name for a resolved reference in the buffer', async () => {
     cache.clear();
     cache.put('/api/v1/schemas/9', { name: 'Sales schema' }); // pre-warm: nameFor is a cache read, no fetch
-    store.patchTab(tab.id, { buffer: '{\n  "schema": "https://acme.rossum.app/api/v1/schemas/9"\n}' });
+    store.patchTab(tab.id, {
+      buffer: '{\n  "schema": "https://acme.rossum.app/api/v1/schemas/9"\n}',
+    });
     const root: any = mount(tab.id);
     await waitFor(() => root.querySelector('.rawjson-name'));
     expect(root.querySelector('.rawjson-name').textContent).toBe('Sales schema');

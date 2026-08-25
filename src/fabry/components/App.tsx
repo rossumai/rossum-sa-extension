@@ -25,10 +25,20 @@ export default function App({ connected }: { connected: boolean | null }) {
   }, []);
 
   if (!connected) {
-    return <div class="app-root"><div class="empty-state">Not connected. Open a Rossum page and launch the Console again.</div></div>;
+    return (
+      <div class="app-root">
+        <div class="empty-state">
+          Not connected. Open a Rossum page and launch the Console again.
+        </div>
+      </div>
+    );
   }
   if (store.agentAvailable.value === false) {
-    return <div class="app-root"><div class="empty-state">Mr. Fabry is offline (agent unreachable). Try again later.</div></div>;
+    return (
+      <div class="app-root">
+        <div class="empty-state">Mr. Fabry is offline (agent unreachable). Try again later.</div>
+      </div>
+    );
   }
   return (
     <div class="app-root fabry-root">
@@ -41,7 +51,9 @@ export default function App({ connected }: { connected: boolean | null }) {
         <main class="fabry-main">
           {store.fabryMode.value === 'architect' ? (
             <ArchitectApp />
-          ) : (!store.activeChatId.value && store.thread.value.length === 0 && !store.liveTurn.value) ? (
+          ) : !store.activeChatId.value &&
+            store.thread.value.length === 0 &&
+            !store.liveTurn.value ? (
             // Empty new chat → centered welcome (the composer is the hero). Not gated
             // on `streaming` so a failed first send keeps the draft; the layout flips
             // to the thread stack the moment activeChatId/thread/liveTurn appears.

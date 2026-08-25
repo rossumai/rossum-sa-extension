@@ -36,9 +36,21 @@ type BulkOpen = {
 };
 
 export function openBulkUpdate({ collection, mode, ids, filter, onSuccess, fieldsFn }: BulkOpen) {
-  openModal(mode === 'selection' ? `Update ${ids!.length} record${ids!.length !== 1 ? 's' : ''}` : 'Update by filter', () => (
-    <Body collection={collection} mode={mode} ids={ids} initialFilter={filter} onSuccess={onSuccess} fieldsFn={fieldsFn} />
-  ));
+  openModal(
+    mode === 'selection'
+      ? `Update ${ids!.length} record${ids!.length !== 1 ? 's' : ''}`
+      : 'Update by filter',
+    () => (
+      <Body
+        collection={collection}
+        mode={mode}
+        ids={ids}
+        initialFilter={filter}
+        onSuccess={onSuccess}
+        fieldsFn={fieldsFn}
+      />
+    ),
+  );
 }
 
 // Renders the document as pretty-printed JSON, with any field listed in
@@ -66,7 +78,9 @@ export function diffJsonContent(doc: any, diff: any) {
         out.push(
           <span class="sample-card-line-removed" key={`r-${k}`}>
             {`  ${JSON.stringify(k)}: `}
-            <span class="sample-card-diff-from sample-card-diff-strike">{JSON.stringify(entry.from)}</span>
+            <span class="sample-card-diff-from sample-card-diff-strike">
+              {JSON.stringify(entry.from)}
+            </span>
             {trail}
           </span>,
         );
@@ -103,10 +117,14 @@ export function diffJsonContent(doc: any, diff: any) {
   return out;
 }
 
-function Body(
-  { collection, mode, ids, initialFilter, onSuccess, fieldsFn }:
-  Omit<BulkOpen, 'filter'> & { initialFilter?: any },
-) {
+function Body({
+  collection,
+  mode,
+  ids,
+  initialFilter,
+  onSuccess,
+  fieldsFn,
+}: Omit<BulkOpen, 'filter'> & { initialFilter?: any }) {
   const rootRef = useRef<HTMLElement | null>(null);
   const filterEditorRef = useRef<JsonEditorHandle | null>(null);
   const updateEditorRef = useRef<JsonEditorHandle | null>(null);
@@ -132,13 +150,28 @@ function Body(
     setPreviewError(null);
     const ac = new AbortController();
     if (isSelection) {
-      api.aggregate(collection, [{ $match: filt }, { $limit: 5 }], { signal: ac.signal })
-        .then((res) => { setSample(res.result || []); setCount(ids!.length); setPreviewing(false); })
-        .catch((err) => { setPreviewError(err.message); setPreviewing(false); });
+      api
+        .aggregate(collection, [{ $match: filt }, { $limit: 5 }], { signal: ac.signal })
+        .then((res) => {
+          setSample(res.result || []);
+          setCount(ids!.length);
+          setPreviewing(false);
+        })
+        .catch((err) => {
+          setPreviewError(err.message);
+          setPreviewing(false);
+        });
     } else {
       previewMatch(collection, filt, { signal: ac.signal })
-        .then(({ count: c, sample: s }) => { setCount(c); setSample(s); setPreviewing(false); })
-        .catch((err) => { setPreviewError(err.message); setPreviewing(false); });
+        .then(({ count: c, sample: s }) => {
+          setCount(c);
+          setSample(s);
+          setPreviewing(false);
+        })
+        .catch((err) => {
+          setPreviewError(err.message);
+          setPreviewing(false);
+        });
     }
     return () => ac.abort();
   }
@@ -204,9 +237,10 @@ function Body(
     }
   }
 
-  const undoNote = (count as number) > UNDO_LIMIT
-    ? `Undo is unavailable above ${UNDO_LIMIT.toLocaleString()} records.`
-    : 'You’ll have a few seconds to undo.';
+  const undoNote =
+    (count as number) > UNDO_LIMIT
+      ? `Undo is unavailable above ${UNDO_LIMIT.toLocaleString()} records.`
+      : 'You’ll have a few seconds to undo.';
 
   return (
     <ModalBody rootRef={rootRef}>
@@ -244,7 +278,9 @@ function Body(
         )}
         {sample.length > 0 && sample.length < (count as number) && (
           <div class="bulk-preview-sample-note">
-            Preview shows a sample of the first {sample.length} {sample.length === 1 ? 'record' : 'records'} below — the operation will apply to all {count!.toLocaleString()}.
+            Preview shows a sample of the first {sample.length}{' '}
+            {sample.length === 1 ? 'record' : 'records'} below — the operation will apply to all{' '}
+            {count!.toLocaleString()}.
           </div>
         )}
         {sample.length > 0 && (
@@ -257,7 +293,9 @@ function Body(
                   <div class="sample-card-header">
                     Document {i + 1}
                     {!diff && (
-                      <span class="sample-card-header-meta sample-card-diff-opaque">will apply update expression</span>
+                      <span class="sample-card-header-meta sample-card-diff-opaque">
+                        will apply update expression
+                      </span>
                     )}
                   </div>
                   <pre class="sample-card-body">

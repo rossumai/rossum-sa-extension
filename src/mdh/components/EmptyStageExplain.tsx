@@ -3,7 +3,12 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 import * as api from '../api.js';
 import * as agentApi from '../../agent/agentApi.js';
 import { getSchemaHints } from '../agent/aiContext.js';
-import { buildEmptyStagePrompt, runExplainEmpty, cachedExplanation, cacheExplanation } from '../agent/explainEmpty.js';
+import {
+  buildEmptyStagePrompt,
+  runExplainEmpty,
+  cachedExplanation,
+  cacheExplanation,
+} from '../agent/explainEmpty.js';
 import FabryMarkdown from '../../ui/fabry/FabryMarkdown.jsx';
 import FabryMark from '../../ui/FabryMark.jsx';
 
@@ -27,7 +32,15 @@ const GERUNDS = [
 // the stream in flight rather than racing it. StagesView only mounts this for
 // the FIRST empty stage, and only while `aiAvailable`.
 export default function EmptyStageExplain({
-  signature, collection, stages, rawStages, variables, emptyIndex, counts, inputCount, sampleRecords,
+  signature,
+  collection,
+  stages,
+  rawStages,
+  variables,
+  emptyIndex,
+  counts,
+  inputCount,
+  sampleRecords,
 }: {
   signature: string | null;
   collection: string;
@@ -56,21 +69,40 @@ export default function EmptyStageExplain({
     setState('running');
 
     const hit = cachedExplanation(signature);
-    if (hit) { setText(hit); setState('done'); return () => controller.abort(); }
+    if (hit) {
+      setText(hit);
+      setState('done');
+      return () => controller.abort();
+    }
 
     (async () => {
       try {
         // Hints are derived in the BROWSER from records already loaded; the
         // documents themselves never reach the agent, only the summary.
         let hints = null;
-        try { hints = await getSchemaHints(api, collection, sampleRecords || []); } catch { /* hints are best-effort */ }
+        try {
+          hints = await getSchemaHints(api, collection, sampleRecords || []);
+        } catch {
+          /* hints are best-effort */
+        }
         if (signal.aborted) return;
-        const prompt = buildEmptyStagePrompt({ collection, stages, rawStages, variables, emptyIndex, counts, inputCount, hints });
+        const prompt = buildEmptyStagePrompt({
+          collection,
+          stages,
+          rawStages,
+          variables,
+          emptyIndex,
+          counts,
+          inputCount,
+          hints,
+        });
         const res = await runExplainEmpty({
           agentApi,
           prompt,
           signal,
-          onText: (t) => { if (!signal.aborted) setText(t); },
+          onText: (t) => {
+            if (!signal.aborted) setText(t);
+          },
         });
         if (signal.aborted) return;
         setText(res.text);
@@ -109,7 +141,12 @@ export default function EmptyStageExplain({
       <div class="stage-explain-hd">
         <FabryMark size={13} />
         <span>Why this stage is empty</span>
-        {waiting && <span class="stage-explain-load">{GERUNDS[gerund]}{'…'}</span>}
+        {waiting && (
+          <span class="stage-explain-load">
+            {GERUNDS[gerund]}
+            {'…'}
+          </span>
+        )}
       </div>
       {/* Inspector's diagnosis treatment: two shimmer bars while the agent
           works, replaced in place by the streaming narrative. */}

@@ -25,24 +25,33 @@ function stubChrome() {
       query: vi.fn(async () => (activeTab ? [activeTab] : [])),
       onActivated: {
         addListener: (fn: any) => listeners.activated.push(fn),
-        removeListener: (fn: any) => { listeners.activated = listeners.activated.filter((f: any) => f !== fn); },
+        removeListener: (fn: any) => {
+          listeners.activated = listeners.activated.filter((f: any) => f !== fn);
+        },
       },
       onUpdated: {
         addListener: (fn: any) => listeners.updated.push(fn),
-        removeListener: (fn: any) => { listeners.updated = listeners.updated.filter((f: any) => f !== fn); },
+        removeListener: (fn: any) => {
+          listeners.updated = listeners.updated.filter((f: any) => f !== fn);
+        },
       },
     },
     // A token-less context makes the card resolve to a message with no network.
     scripting: {
-      executeScript: vi.fn(async () => [{
-        result: { token: null, domain: R, annotationId: null, queueId: null },
-      }]),
+      executeScript: vi.fn(async () => [
+        {
+          result: { token: null, domain: R, annotationId: null, queueId: null },
+        },
+      ]),
     },
     storage: {
       local: { get: vi.fn(async () => ({})), set: vi.fn(async () => {}) },
       session: { get: vi.fn(async () => ({})), set: vi.fn(async () => {}) },
     },
-    runtime: { sendMessage: vi.fn(), getManifest: () => ({ version: '1.0', version_name: 'test' }) },
+    runtime: {
+      sendMessage: vi.fn(),
+      getManifest: () => ({ version: '1.0', version_name: 'test' }),
+    },
   };
 }
 
@@ -87,8 +96,10 @@ describe('side panel App', () => {
     // Counted on a CARD-only signal: reading mdhProvenanceFilter is the card's
     // mount effect and nothing else does it, so a second read proves a remount.
     // (executeScript would not — the strip's context read also calls it.)
-    const mounts = () => vi.mocked(chrome.storage.local.get).mock.calls
-      .filter(([key]) => key === 'mdhProvenanceFilter').length;
+    const mounts = () =>
+      vi
+        .mocked(chrome.storage.local.get)
+        .mock.calls.filter(([key]) => key === 'mdhProvenanceFilter').length;
     // The strip paints the id before the card's mount effect lands, so wait for
     // the FIRST mount — otherwise the baseline is 0 and the initial mount alone
     // would satisfy the assertion.
@@ -104,8 +115,10 @@ describe('side panel App', () => {
   it('does not remount the card for a URL change within the same document', async () => {
     render(<App />, root);
     await waitFor(() => root.textContent.includes('#1250417'));
-    const mounts = () => vi.mocked(chrome.storage.local.get).mock.calls
-      .filter(([key]) => key === 'mdhProvenanceFilter').length;
+    const mounts = () =>
+      vi
+        .mocked(chrome.storage.local.get)
+        .mock.calls.filter(([key]) => key === 'mdhProvenanceFilter').length;
     await waitFor(() => mounts() === 1);
 
     activeTab = { id: 1, windowId: 7, url: `${R}/document/1250417?sidebar=open` };
@@ -167,7 +180,9 @@ describe('side panel App', () => {
   });
 
   it('falls back to the focused window when windows.getCurrent fails', async () => {
-    chrome.windows.getCurrent = vi.fn(async () => { throw new Error('no window'); });
+    chrome.windows.getCurrent = vi.fn(async () => {
+      throw new Error('no window');
+    });
     render(<App />, root);
     await waitFor(() => !!root.querySelector('.mdh-card'));
     expect(chrome.tabs.query).toHaveBeenCalledWith({ active: true, lastFocusedWindow: true });
@@ -196,8 +211,9 @@ describe('side panel App', () => {
   it('reports the open exactly once', async () => {
     render(<App />, root);
     await waitFor(() => !!root.querySelector('.mdh-card'));
-    const opens = vi.mocked(chrome.runtime.sendMessage).mock.calls
-      .filter(([msg]: any) => msg?.name === 'sa_sidepanel_open');
+    const opens = vi
+      .mocked(chrome.runtime.sendMessage)
+      .mock.calls.filter(([msg]: any) => msg?.name === 'sa_sidepanel_open');
     expect(opens.length).toBe(1);
   });
 });

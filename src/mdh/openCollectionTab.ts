@@ -10,10 +10,19 @@
 import { token, domain } from './store.js';
 
 // Pure + testable: the staging entry and target URL for opening `collection`.
-export function buildOpenTabRequest(
-  { token, domain, collection, uuid, now }:
-  { token: string; domain: string; collection: string; uuid: string; now: number },
-) {
+export function buildOpenTabRequest({
+  token,
+  domain,
+  collection,
+  uuid,
+  now,
+}: {
+  token: string;
+  domain: string;
+  collection: string;
+  uuid: string;
+  now: number;
+}) {
   return {
     authKey: `consoleAuth_${uuid}`,
     authEntry: { token, domain, app: 'mdh', pendingCollection: collection, createdAt: now },
@@ -29,7 +38,8 @@ const realDeps = {
   getURL: (p: string) => chrome.runtime.getURL(p),
   storageSet: (obj: Record<string, unknown>) => chrome.storage.local.set(obj),
   // Only index and windowId are read (both guarded), so that is what the seam promises.
-  getCurrentTab: (): Promise<{ index?: number; windowId?: number } | undefined> => chrome.tabs.getCurrent(),
+  getCurrentTab: (): Promise<{ index?: number; windowId?: number } | undefined> =>
+    chrome.tabs.getCurrent(),
   tabsCreate: (opts: chrome.tabs.CreateProperties) => chrome.tabs.create(opts),
 };
 
@@ -39,8 +49,11 @@ const realDeps = {
 export async function openCollectionTab(collection: string, deps = realDeps): Promise<void> {
   if (!collection || !token.value || !domain.value) return;
   const req = buildOpenTabRequest({
-    token: token.value, domain: domain.value, collection,
-    uuid: deps.uuid(), now: deps.now(),
+    token: token.value,
+    domain: domain.value,
+    collection,
+    uuid: deps.uuid(),
+    now: deps.now(),
   });
   await deps.storageSet({ [req.authKey]: req.authEntry });
   const opts: chrome.tabs.CreateProperties = { url: deps.getURL(req.url) };
@@ -50,6 +63,8 @@ export async function openCollectionTab(collection: string, deps = realDeps): Pr
       opts.index = cur.index + 1;
       opts.windowId = cur.windowId;
     }
-  } catch { /* positioning is optional */ }
+  } catch {
+    /* positioning is optional */
+  }
   deps.tabsCreate(opts);
 }

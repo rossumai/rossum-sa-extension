@@ -10,7 +10,9 @@ function mount(props: any) {
   return root;
 }
 
-afterEach(() => { document.body.innerHTML = ''; });
+afterEach(() => {
+  document.body.innerHTML = '';
+});
 
 describe('SpecialText', () => {
   it('renders a clean string as plain text with no marker spans', () => {
@@ -80,7 +82,9 @@ describe('SpecialText markEdgeSpaces', () => {
     expect(el.textContent).toContain('NBSP');
     // Only the leading U+0020 gets an edge marker; the interior NBSP marker
     // shares .mdh-special-space (category "space"), so filter by title.
-    const edgeMarks = [...el.querySelectorAll('.mdh-special-space')].filter((m) => m.getAttribute('title') === 'U+0020 SPACE');
+    const edgeMarks = [...el.querySelectorAll('.mdh-special-space')].filter(
+      (m) => m.getAttribute('title') === 'U+0020 SPACE',
+    );
     expect(edgeMarks.length).toBe(1);
   });
 

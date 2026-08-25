@@ -9,6 +9,13 @@ export function buildTitlePrompt(text: string): string {
   ].join('\n');
 }
 export function parseTitle(reply: unknown): string | null {
-  const line = String(reply ?? '').split('\n').map((l) => l.trim()).find((l) => l.length) || '';
-  return line.replace(/^["'`*#\s]+/, '').replace(/["'`*.\s]+$/, '').slice(0, 80);
+  const line =
+    String(reply ?? '')
+      .split('\n')
+      .map((l) => l.trim())
+      .find((l) => l.length) || '';
+  return line
+    .replace(/^["'`*#\s]+/, '')
+    .replace(/["'`*.\s]+$/, '')
+    .slice(0, 80);
 }

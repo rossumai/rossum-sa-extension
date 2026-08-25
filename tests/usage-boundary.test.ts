@@ -91,13 +91,19 @@ describe('PRIVACY.md', () => {
   it('sends exactly the fields PRIVACY.md promises, for every event', () => {
     for (const name of EVENT_NAMES) {
       const body = buildPayload({
-        name, clientId: 'c1', sessionId: 's1', version: 'abc1234',
+        name,
+        clientId: 'c1',
+        sessionId: 's1',
+        version: 'abc1234',
       });
       expect(Object.keys(body).sort()).toEqual(['client_id', 'events']);
       expect(body.events).toHaveLength(1);
       expect(Object.keys(body.events[0]).sort()).toEqual(['name', 'params']);
-      expect(Object.keys(body.events[0].params).sort())
-        .toEqual(['engagement_time_msec', 'ext_ver', 'session_id']);
+      expect(Object.keys(body.events[0].params).sort()).toEqual([
+        'engagement_time_msec',
+        'ext_ver',
+        'session_id',
+      ]);
     }
   });
 });

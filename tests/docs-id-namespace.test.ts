@@ -19,12 +19,18 @@ function page() {
 describe('namespaceSection', () => {
   it('prefixes ids so two deliverables can hold the same heading', () => {
     expect([...page().querySelectorAll('[id]')].map((e) => e.id)).toEqual([
-      'data-model--data-model', 'data-model--21-entities', 'intake--intake', 'intake--21-entities',
+      'data-model--data-model',
+      'data-model--21-entities',
+      'intake--intake',
+      'intake--21-entities',
     ]);
   });
 
   it('leaves authored hrefs untouched, so the text stays round-trippable', () => {
-    expect([...page().querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual(['#21-entities', '#2.1']);
+    expect([...page().querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual([
+      '#21-entities',
+      '#2.1',
+    ]);
   });
 
   it('reports the mapping it applied', () => {
@@ -49,8 +55,12 @@ describe('namespaceSection', () => {
 
 describe('resolveInPage', () => {
   it('resolves within the reader current section FIRST when ids collide', () => {
-    expect(resolveInPage(page(), '21-entities', 'intake--')!.closest('section')!.dataset.deliverable).toBe('d2');
-    expect(resolveInPage(page(), '21-entities', 'data-model--')!.closest('section')!.dataset.deliverable).toBe('d1');
+    expect(
+      resolveInPage(page(), '21-entities', 'intake--')!.closest('section')!.dataset.deliverable,
+    ).toBe('d2');
+    expect(
+      resolveInPage(page(), '21-entities', 'data-model--')!.closest('section')!.dataset.deliverable,
+    ).toBe('d1');
   });
 
   it('falls back to document order when the current section has no such heading', () => {
@@ -59,7 +69,9 @@ describe('resolveInPage', () => {
 
   it('stays forgiving about the form the author wrote', () => {
     expect(resolveInPage(page(), '2.1', 'data-model--')!.id).toBe('data-model--21-entities');
-    expect(resolveInPage(page(), '2.1 Entities', 'data-model--')!.id).toBe('data-model--21-entities');
+    expect(resolveInPage(page(), '2.1 Entities', 'data-model--')!.id).toBe(
+      'data-model--21-entities',
+    );
   });
 
   it('returns null rather than guessing', () => {

@@ -7,7 +7,10 @@ import Report from './Report.jsx';
 import PageRail from './PageRail.jsx';
 
 export default function App({ connected }: { connected: boolean | null }) {
-  const inspect = (id: any) => { store.setAnnotationId(id); loadAnnotation(id); };
+  const inspect = (id: any) => {
+    store.setAnnotationId(id);
+    loadAnnotation(id);
+  };
 
   if (connected === false) {
     return (
@@ -15,8 +18,11 @@ export default function App({ connected }: { connected: boolean | null }) {
         <main class="main">
           <div class="inspector-root">
             <div class="inspector-empty">
-              Not connected. Open a Rossum annotation and click <b>Inspect this annotation</b>, or paste an id below.
-              <div style="margin-top:12px"><IdInput onSubmit={inspect} /></div>
+              Not connected. Open a Rossum annotation and click <b>Inspect this annotation</b>, or
+              paste an id below.
+              <div style="margin-top:12px">
+                <IdInput onSubmit={inspect} />
+              </div>
               <RecentAnnotations onSelect={inspect} />
             </div>
           </div>
@@ -35,7 +41,9 @@ export default function App({ connected }: { connected: boolean | null }) {
           {store.error.value && <div class="error-banner">{store.error.value}</div>}
           {!d && !store.loading.value && <RecentAnnotations onSelect={inspect} />}
           {d && (
-            <button type="button" class="inspector-back" onClick={closeAnnotation}>{'←'} All annotations</button>
+            <button type="button" class="inspector-back" onClick={closeAnnotation}>
+              {'←'} All annotations
+            </button>
           )}
           {d && (
             <div class="inspector-layout">

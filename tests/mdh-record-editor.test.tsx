@@ -20,7 +20,9 @@ function mountModal() {
   mountedRoot = root;
   return root;
 }
-function rerender(root: any) { render(<Modal />, root); }
+function rerender(root: any) {
+  render(<Modal />, root);
+}
 async function flush() {
   await new Promise((r) => setTimeout(r, 0));
   await new Promise((r) => setTimeout(r, 0));
@@ -58,7 +60,12 @@ describe('openRecordEditor — edit mode', () => {
     const record = { _id: 'r1', name: 'Acme', taxId: '123', legacy: true };
 
     const root = mountModal();
-    openRecordEditor('edit', record, () => {}, () => []);
+    openRecordEditor(
+      'edit',
+      record,
+      () => {},
+      () => [],
+    );
     rerender(root);
     await flushUntilEditorReady(root);
 
@@ -78,7 +85,9 @@ describe('openRecordEditor — edit mode', () => {
 
   it('submits unmodified default → updateOne sees $set with full record (empty $unset stripped)', async () => {
     const record = { _id: 'r1', name: 'Acme', taxId: '123' };
-    vi.mocked(api.updateOne).mockResolvedValueOnce({ result: { matched_count: 1, modified_count: 0 } });
+    vi.mocked(api.updateOne).mockResolvedValueOnce({
+      result: { matched_count: 1, modified_count: 0 },
+    });
     const onSuccess = vi.fn();
 
     const root = mountModal();
@@ -86,7 +95,9 @@ describe('openRecordEditor — edit mode', () => {
     rerender(root);
     await flushUntilEditorReady(root);
 
-    const submitBtn = [...root.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Update');
+    const submitBtn = [...root.querySelectorAll('button')].find(
+      (b) => b.textContent.trim() === 'Update',
+    );
     expect(submitBtn).toBeTruthy();
     submitBtn!.click();
     await flush();
@@ -103,10 +114,17 @@ describe('openRecordEditor — edit mode', () => {
 
   it('submits with a filled $unset → updateOne sees both $set and $unset', async () => {
     const record = { _id: 'r1', name: 'Acme', legacy: true };
-    vi.mocked(api.updateOne).mockResolvedValueOnce({ result: { matched_count: 1, modified_count: 1 } });
+    vi.mocked(api.updateOne).mockResolvedValueOnce({
+      result: { matched_count: 1, modified_count: 1 },
+    });
 
     const root = mountModal();
-    openRecordEditor('edit', record, () => {}, () => []);
+    openRecordEditor(
+      'edit',
+      record,
+      () => {},
+      () => [],
+    );
     rerender(root);
     await flushUntilEditorReady(root);
 
@@ -116,11 +134,17 @@ describe('openRecordEditor — edit mode', () => {
     const view = EditorView.findFromDOM(cm as HTMLElement)!;
     expect(view).toBeTruthy();
     view.dispatch({
-      changes: { from: 0, to: view.state.doc.length, insert: '{ "$set": { "name": "Beta" }, "$unset": { "legacy": "" } }' },
+      changes: {
+        from: 0,
+        to: view.state.doc.length,
+        insert: '{ "$set": { "name": "Beta" }, "$unset": { "legacy": "" } }',
+      },
     });
     await flush();
 
-    const submitBtn = [...root.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Update');
+    const submitBtn = [...root.querySelectorAll('button')].find(
+      (b) => b.textContent.trim() === 'Update',
+    );
     submitBtn!.click();
     await flush();
 

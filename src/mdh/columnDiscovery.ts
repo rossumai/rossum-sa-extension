@@ -27,7 +27,11 @@ export function buildLevelPipeline(filterStages: any[], parents: string[]): any[
     facet[`f${i}`] = [
       // $objectToArray errors on a non-document, and a path can hold an array or
       // a scalar in some records — the guard is required, not defensive.
-      { $project: { kv: { $cond: [{ $eq: [{ $type: expr }, 'object'] }, { $objectToArray: expr }, []] } } },
+      {
+        $project: {
+          kv: { $cond: [{ $eq: [{ $type: expr }, 'object'] }, { $objectToArray: expr }, []] },
+        },
+      },
       { $unwind: '$kv' },
       { $group: { _id: '$kv.k', types: { $addToSet: { $type: '$kv.v' } } } },
     ];
@@ -38,7 +42,11 @@ export function buildLevelPipeline(filterStages: any[], parents: string[]): any[
 export async function discoverLeafPaths(
   collectionName: string,
   filterStages: any[],
-  { aggregate, maxDepth = MAX_DISCOVERY_DEPTH, signal }: {
+  {
+    aggregate,
+    maxDepth = MAX_DISCOVERY_DEPTH,
+    signal,
+  }: {
     aggregate: (c: string, p: any[], o?: any) => Promise<any>;
     maxDepth?: number;
     signal?: AbortSignal;
@@ -48,7 +56,9 @@ export async function discoverLeafPaths(
   let parents = [''];
 
   for (let depth = 1; depth <= maxDepth && parents.length > 0; depth++) {
-    const res = await aggregate(collectionName, buildLevelPipeline(filterStages, parents), { signal });
+    const res = await aggregate(collectionName, buildLevelPipeline(filterStages, parents), {
+      signal,
+    });
     const facet = res?.result?.[0] || {};
     const next: string[] = [];
 

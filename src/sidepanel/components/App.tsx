@@ -16,7 +16,9 @@ export default function App() {
   // Counted here rather than at the popup's pin button: the popup can be
   // destroyed before a sendMessage reaches the worker, and this also counts
   // opens that came from Chrome's own side-panel dropdown.
-  useEffect(() => { track('sa_sidepanel_open'); }, []);
+  useEffect(() => {
+    track('sa_sidepanel_open');
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,9 +35,8 @@ export default function App() {
       // windowId is null only if windows.getCurrent() failed. Falling back to the
       // focused window keeps the panel usable instead of leaving it permanently
       // stuck on its empty state with no way to recover.
-      const scope = windowId == null
-        ? { active: true, lastFocusedWindow: true }
-        : { active: true, windowId };
+      const scope =
+        windowId == null ? { active: true, lastFocusedWindow: true } : { active: true, windowId };
       try {
         const [found] = await chrome.tabs.query(scope);
         apply(found || null);
@@ -100,7 +101,9 @@ export default function App() {
     runInTab(tab.id, readCurrentContext).then((next) => {
       if (!cancelled) setCtx(next);
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [state, tab?.id, annotationId]);
 
   if (state !== 'ready') {
@@ -108,8 +111,8 @@ export default function App() {
       <div class="sp-empty">
         <p class="sp-empty-title">No Rossum tab here</p>
         <p class="sp-empty-text">
-          Open a Rossum tab in this window to see the Master Data Hub lookups behind the
-          document you have open.
+          Open a Rossum tab in this window to see the Master Data Hub lookups behind the document
+          you have open.
         </p>
       </div>
     );

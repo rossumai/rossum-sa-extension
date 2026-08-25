@@ -47,9 +47,10 @@ export function explainSignature(
   // The written form is part of the identity: replacing a literal with a
   // variable that holds the same value leaves the substituted stages identical
   // while changing what the correct advice is.
-  const written = Array.isArray(rawStages) && rawStages.length === stages.length
-    ? JSON.stringify(rawStages.slice(0, emptyIndex + 1))
-    : '';
+  const written =
+    Array.isArray(rawStages) && rawStages.length === stages.length
+      ? JSON.stringify(rawStages.slice(0, emptyIndex + 1))
+      : '';
   return `${collection}::${emptyIndex}::${run}::${written}`;
 }
 
@@ -72,7 +73,10 @@ export function cachedExplanation(signature: string | null | undefined) {
   return cache.get(signature) || null;
 }
 
-export function cacheExplanation(signature: string | null | undefined, text: string | null | undefined) {
+export function cacheExplanation(
+  signature: string | null | undefined,
+  text: string | null | undefined,
+) {
   if (!signature || !text) return;
   // Re-insert so the Map's insertion order is a true recency order.
   cache.delete(signature);
@@ -80,13 +84,21 @@ export function cacheExplanation(signature: string | null | undefined, text: str
   while (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value!);
 }
 
-export function _resetExplanationCache() { cache.clear(); }
+export function _resetExplanationCache() {
+  cache.clear();
+}
 
 // Pure: the prompt. Kept separate from the transport so its content is
 // assertable without a network layer.
 export function buildEmptyStagePrompt({
-  collection, stages, rawStages = null, variables = null,
-  emptyIndex, counts = [], inputCount = null, hints = null,
+  collection,
+  stages,
+  rawStages = null,
+  variables = null,
+  emptyIndex,
+  counts = [],
+  inputCount = null,
+  hints = null,
 }: {
   collection: string;
   stages: any[];
@@ -107,8 +119,8 @@ export function buildEmptyStagePrompt({
   parts.push(
     'You are helping debug a Master Data Hub query in Rossum.',
     '',
-    'Context: Master Data Hub stores a customer\'s master data — vendors, items, cost centres,',
-    'GL accounts and so on — as collections in Rossum\'s Data Storage. Rossum MDH matching hooks',
+    "Context: Master Data Hub stores a customer's master data — vendors, items, cost centres,",
+    "GL accounts and so on — as collections in Rossum's Data Storage. Rossum MDH matching hooks",
     'query those collections with MongoDB aggregation pipelines to look values up while a',
     'document is being extracted. A Rossum solution architect is debugging one of those',
     'pipelines right now, in the Dataset Management console of the Rossum SA extension.',
@@ -125,9 +137,10 @@ export function buildEmptyStagePrompt({
   // unfilled variable — which is the single most common cause of an empty
   // result and needs the opposite fix ("fill the variable", not "loosen the
   // filter").
-  const rawUpTo = Array.isArray(rawStages) && rawStages.length === stages.length
-    ? rawStages.slice(0, emptyIndex + 1)
-    : null;
+  const rawUpTo =
+    Array.isArray(rawStages) && rawStages.length === stages.length
+      ? rawStages.slice(0, emptyIndex + 1)
+      : null;
   if (rawUpTo) {
     parts.push(
       'The pipeline AS WRITTEN by the user, with {variable} placeholders intact:',
@@ -149,9 +162,11 @@ export function buildEmptyStagePrompt({
     parts.push('Variables in this pipeline:');
     for (const v of variables) {
       const type = v.type && v.type !== 'auto' ? v.type : 'auto';
-      parts.push(v.isSet
-        ? `  {${v.name}} = ${JSON.stringify(v.value)}  (type: ${type})`
-        : `  {${v.name}} = NOT SET  (type: ${type})`);
+      parts.push(
+        v.isSet
+          ? `  {${v.name}} = ${JSON.stringify(v.value)}  (type: ${type})`
+          : `  {${v.name}} = NOT SET  (type: ${type})`,
+      );
     }
     parts.push(
       '',
@@ -185,7 +200,7 @@ export function buildEmptyStagePrompt({
     'architect who already knows their own pipeline — they want the cause, not a lesson.',
     '',
     'This IS a Rossum question. Master Data Hub is a Rossum feature, these collections live in',
-    'Rossum\'s Data Storage, and this pipeline is what a Rossum MDH hook runs to match data on a',
+    "Rossum's Data Storage, and this pipeline is what a Rossum MDH hook runs to match data on a",
     'Rossum document. Do NOT question whether the topic is in scope, do not describe what you',
     'are or are not a specialist in, and do not offer to help with something else instead.',
     'Answer the diagnostic question.',
@@ -211,7 +226,12 @@ export function buildEmptyStagePrompt({
 
 // Runs one turn in a fresh chat, primed read-only. Streams text through
 // `onText`; resolves with the final text.
-export async function runExplainEmpty({ agentApi, prompt, signal, onText = () => {} }: {
+export async function runExplainEmpty({
+  agentApi,
+  prompt,
+  signal,
+  onText = () => {},
+}: {
   agentApi: any;
   prompt: string;
   signal?: AbortSignal;

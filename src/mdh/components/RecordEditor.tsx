@@ -46,21 +46,30 @@ export function openRecordEditor(mode: any, record: any, onSuccess: any, fieldsF
   ));
 }
 
-function Body(
-  { mode, record, onSuccess, fieldsFn }:
-  { mode: string; record?: any; onSuccess?: () => unknown; fieldsFn?: () => any },
-) {
+function Body({
+  mode,
+  record,
+  onSuccess,
+  fieldsFn,
+}: {
+  mode: string;
+  record?: any;
+  onSuccess?: () => unknown;
+  fieldsFn?: () => any;
+}) {
   const editorRef = useRef<JsonEditorHandle | null>(null);
   const hintRef = useRef<HTMLDivElement | null>(null);
 
   const initialValue = mode === 'edit' ? buildEditPrefill(record) : buildReplacePrefill(record);
-  const label = mode === 'edit'
-    ? 'Update expression (MongoDB update syntax):'
-    : 'Replacement document (full document, excluding _id):';
+  const label =
+    mode === 'edit'
+      ? 'Update expression (MongoDB update syntax):'
+      : 'Replacement document (full document, excluding _id):';
 
   async function handleSubmit() {
     if (!editorRef.current?.isValid()) {
-      if (hintRef.current) hintRef.current.textContent = 'Invalid JSON: ' + (editorRef.current?.getError() || '');
+      if (hintRef.current)
+        hintRef.current.textContent = 'Invalid JSON: ' + (editorRef.current?.getError() || '');
       return;
     }
     const parsed = editorRef.current.getParsed();
@@ -68,7 +77,8 @@ function Body(
     try {
       loading.value = true;
       error.value = null;
-      if (mode === 'edit') await api.updateOne(collection as string, { _id: record._id }, stripEmptyOperators(parsed));
+      if (mode === 'edit')
+        await api.updateOne(collection as string, { _id: record._id }, stripEmptyOperators(parsed));
       else await api.replaceOne(collection as string, { _id: record._id }, parsed);
       loading.value = false;
       closeModal();
@@ -85,8 +95,12 @@ function Body(
       <JsonEditor value={initialValue} minHeight="200px" fields={fieldsFn} editorRef={editorRef} />
       <div ref={hintRef} class="input-hint"></div>
       <ModalActions>
-        <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>
-        <button class="btn btn-primary" onClick={handleSubmit}>{mode === 'edit' ? 'Update' : 'Replace'}</button>
+        <button class="btn btn-secondary" onClick={closeModal}>
+          Cancel
+        </button>
+        <button class="btn btn-primary" onClick={handleSubmit}>
+          {mode === 'edit' ? 'Update' : 'Replace'}
+        </button>
       </ModalActions>
     </ModalBody>
   );

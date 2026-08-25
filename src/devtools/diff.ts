@@ -5,12 +5,22 @@
 function stableStringify(v: any): string {
   if (v === null || typeof v !== 'object') return JSON.stringify(v);
   if (Array.isArray(v)) return '[' + v.map(stableStringify).join(',') + ']';
-  return '{' + Object.keys(v).sort().map((k) => JSON.stringify(k) + ':' + stableStringify(v[k])).join(',') + '}';
+  return (
+    '{' +
+    Object.keys(v)
+      .sort()
+      .map((k) => JSON.stringify(k) + ':' + stableStringify(v[k]))
+      .join(',') +
+    '}'
+  );
 }
-function deepEqual(a: unknown, b: unknown) { return stableStringify(a) === stableStringify(b); }
+function deepEqual(a: unknown, b: unknown) {
+  return stableStringify(a) === stableStringify(b);
+}
 
 export function buildPatchBody(original: any, edited: any): Record<string, any> {
-  const o = original || {}, e = edited || {};
+  const o = original || {},
+    e = edited || {};
   const body: Record<string, any> = {};
   const removed: string[] = [];
   for (const k of Object.keys(e)) {
@@ -23,11 +33,22 @@ export function buildPatchBody(original: any, edited: any): Record<string, any> 
 }
 
 /** One changed leaf, for the diff overlay. */
-export type DiffLeaf = { path: string; before: any; after: any; kind: 'added' | 'removed' | 'changed' };
+export type DiffLeaf = {
+  path: string;
+  before: any;
+  after: any;
+  kind: 'added' | 'removed' | 'changed';
+};
 
-export function diffObjects(original: any, edited: any): { changed: string[]; added: string[]; removed: string[]; leaves: DiffLeaf[] } {
-  const o = original || {}, e = edited || {};
-  const changed = [], added = [], removed = [];
+export function diffObjects(
+  original: any,
+  edited: any,
+): { changed: string[]; added: string[]; removed: string[]; leaves: DiffLeaf[] } {
+  const o = original || {},
+    e = edited || {};
+  const changed = [],
+    added = [],
+    removed = [];
   for (const k of Object.keys(e)) {
     if (!(k in o)) added.push(k);
     else if (!deepEqual(o[k], e[k])) changed.push(k);
@@ -40,7 +61,12 @@ export function diffObjects(original: any, edited: any): { changed: string[]; ad
     if (isObj(before) && isObj(after)) {
       const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
       for (const k of keys) {
-        const child = Array.isArray(before) || Array.isArray(after) ? `${path}[${k}]` : path ? `${path}.${k}` : k;
+        const child =
+          Array.isArray(before) || Array.isArray(after)
+            ? `${path}[${k}]`
+            : path
+              ? `${path}.${k}`
+              : k;
         walk(child, (before as any)[k], (after as any)[k]);
       }
     } else if (!deepEqual(before, after)) {

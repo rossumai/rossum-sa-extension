@@ -5,7 +5,11 @@
 // "### 2.1 Entities" is `21-entities` (markdown-it-anchor strips the dot), so the fragment a
 // human writes — `#2.1` — matched no element at all.
 import { describe, it, expect } from 'vitest';
-import { resolveHeadingId, resolveHeadingElement, normalizeAnchor } from '../src/docs/anchorResolve.js';
+import {
+  resolveHeadingId,
+  resolveHeadingElement,
+  normalizeAnchor,
+} from '../src/docs/anchorResolve.js';
 import { createMarkdownRenderer } from '../src/docs/render.js';
 
 const HEADINGS = [
@@ -38,7 +42,7 @@ describe('resolveHeadingId', () => {
     expect(resolveHeadingId(HEADINGS, '2.1 Entities')).toBe('21-entities');
     expect(resolveHeadingId(HEADINGS, '2-1-entities')).toBe('21-entities');
     expect(resolveHeadingId(HEADINGS, 'DATA MODEL')).toBe('data-model');
-    expect(resolveHeadingId(HEADINGS, 'data%20model')).toBe('data-model');   // percent-encoded
+    expect(resolveHeadingId(HEADINGS, 'data%20model')).toBe('data-model'); // percent-encoded
   });
 
   it('returns null rather than guessing', () => {
@@ -63,7 +67,9 @@ describe('against a really rendered document', () => {
   };
 
   it('finds the heading for every form of the same reference', () => {
-    const root = render('# Data model\n\n## 2. Model\n\n### 2.1 Entities\n\nBody.\n\n### 2.2 Fields\n\nMore.\n');
+    const root = render(
+      '# Data model\n\n## 2. Model\n\n### 2.1 Entities\n\nBody.\n\n### 2.2 Fields\n\nMore.\n',
+    );
     // What the renderer actually produced, so the test cannot drift from it.
     expect([...root.querySelectorAll('h3')].map((h) => h.id)).toEqual(['21-entities', '22-fields']);
     for (const frag of ['21-entities', '2.1', '2.1 Entities', '2-1-entities']) {

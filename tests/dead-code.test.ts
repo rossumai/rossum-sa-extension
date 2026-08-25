@@ -64,7 +64,7 @@ function entryPoints() {
 }
 
 function resolveSpec(fromFile: any, spec: any) {
-  if (!spec.startsWith('.')) return null;                     // npm package
+  if (!spec.startsWith('.')) return null; // npm package
   // join+normalize, never resolve: `resolve` would anchor to process.cwd() and hand back
   // an absolute path that never matches a repo-relative entry in ALL_SRC.
   const base = path.posix.normalize(path.posix.join(path.posix.dirname(fromFile), spec));
@@ -73,10 +73,18 @@ function resolveSpec(fromFile: any, spec: any) {
   // no importer edits.
   const swapped = base.replace(/\.jsx?$/, '');
   const cands = [
-    base, `${base}.js`, `${base}.jsx`, `${base}.ts`, `${base}.tsx`, `${base}.css`,
-    `${swapped}.ts`, `${swapped}.tsx`,
-    path.posix.join(base, 'index.js'), path.posix.join(base, 'index.jsx'),
-    path.posix.join(base, 'index.ts'), path.posix.join(base, 'index.tsx'),
+    base,
+    `${base}.js`,
+    `${base}.jsx`,
+    `${base}.ts`,
+    `${base}.tsx`,
+    `${base}.css`,
+    `${swapped}.ts`,
+    `${swapped}.tsx`,
+    path.posix.join(base, 'index.js'),
+    path.posix.join(base, 'index.jsx'),
+    path.posix.join(base, 'index.ts'),
+    path.posix.join(base, 'index.tsx'),
   ];
   return cands.find((c) => ALL_SRC.includes(c)) || null;
 }
@@ -84,10 +92,13 @@ function resolveSpec(fromFile: any, spec: any) {
 function specifiers(text: any) {
   const out = [];
   for (const re of [
-    /(?:^|\n)\s*(?:import|export)\s[^;]*?from\s*['"]([^'"]+)['"]/g,   // import/export … from
-    /(?:^|\n)\s*import\s*['"]([^'"]+)['"]/g,                          // side-effect import
-    /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g,                         // dynamic import
-  ]) { let m: any; while ((m = re.exec(text))) out.push(m[1]); }
+    /(?:^|\n)\s*(?:import|export)\s[^;]*?from\s*['"]([^'"]+)['"]/g, // import/export … from
+    /(?:^|\n)\s*import\s*['"]([^'"]+)['"]/g, // side-effect import
+    /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g, // dynamic import
+  ]) {
+    let m: any;
+    while ((m = re.exec(text))) out.push(m[1]);
+  }
   return out;
 }
 
@@ -106,15 +117,19 @@ function importGraph(files: any) {
     while ((m = re.exec(text))) {
       const target = resolveSpec(f, m[2]);
       if (!target) continue;
-      const clause = m[1].trim().replace(/^type\s+/, '');   // `import type {…}` is not a default import
+      const clause = m[1].trim().replace(/^type\s+/, ''); // `import type {…}` is not a default import
       const braced = clause.match(/\{([^}]*)\}/);
-      const bare = clause.replace(/\{[^}]*\}/, '').replace(/,/g, ' ').trim();
+      const bare = clause
+        .replace(/\{[^}]*\}/, '')
+        .replace(/,/g, ' ')
+        .trim();
       if (bare.startsWith('*')) add(target, '*');
       else if (bare) add(target, 'default');
-      if (braced) for (const part of braced[1].split(',')) {
-        const t = part.trim();
-        if (t) add(target, t.split(/\s+as\s+/)[0].trim());
-      }
+      if (braced)
+        for (const part of braced[1].split(',')) {
+          const t = part.trim();
+          if (t) add(target, t.split(/\s+as\s+/)[0].trim());
+        }
     }
     const reExport = /\bexport\s*\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g;
     while ((m = reExport.exec(text))) {
@@ -140,24 +155,32 @@ function exportedNames(text: any) {
   const decl = /\bexport\s+(?:async\s+)?(?:function|const|let|var|class)\s+([A-Za-z_$][\w$]*)/g;
   while ((m = decl.exec(text))) names.add(m[1]);
   for (const re of [/\bexport\s*\{([^}]*)\}\s*from/g, /\bexport\s*\{([^}]*)\}(?!\s*from)/g]) {
-    while ((m = re.exec(text))) for (const part of m[1].split(',')) {
-      const t = part.trim();
-      if (!t) continue;
-      const as = t.split(/\s+as\s+/);
-      const name = (as[1] || as[0]).trim();
-      if (/^[A-Za-z_$][\w$]*$/.test(name)) names.add(name);
-    }
+    while ((m = re.exec(text)))
+      for (const part of m[1].split(',')) {
+        const t = part.trim();
+        if (!t) continue;
+        const as = t.split(/\s+as\s+/);
+        const name = (as[1] || as[0]).trim();
+        if (/^[A-Za-z_$][\w$]*$/.test(name)) names.add(name);
+      }
   }
   return names;
 }
 
-// Occurrences of a bare identifier, ignoring import/export statement lines (a declaration
-// is not a use) and property access (`obj.name`). `...` is stripped first, because
-// `...defaultDeps` IS a use and would otherwise read as property access.
+// Occurrences of a bare identifier, ignoring import/export statements (a declaration is not
+// a use) and property access (`obj.name`). `...` is stripped first, because `...defaultDeps`
+// IS a use and would otherwise read as property access.
+//
+// Whole STATEMENTS are stripped, not lines. A wrapped import puts its member names on
+// continuation lines that no line filter can see, so the declaration itself would be counted
+// as a use and every unused import in a wrapped statement would go unnoticed — silently, and
+// silence here is indistinguishable from passing. Mutation-tested both ways (2026-08-25):
+// with the line filter, an unused member of a wrapped import was missed and the same member
+// unused in a single-line import was caught; with this, both are caught.
 function bodyUses(text: any, name: any) {
-  const body = text.split('\n')
-    .filter((l: any) => !/^\s*import\s/.test(l) && !/^\s*export\s*\{/.test(l))
-    .join('\n')
+  const body = text
+    .replace(/\bimport\s+[^'";]+?\s+from\s*['"][^'"]+['"]\s*;?/g, ' ')
+    .replace(/\bexport\s*\{[^}]*\}\s*(?:from\s*['"][^'"]+['"])?\s*;?/g, ' ')
     .replace(/\.\.\./g, ' ');
   const re = new RegExp(`(?<![\\w$.])${name.replace(/\$/g, '\\$')}(?![\\w$])`, 'g');
   return (body.match(re) || []).length;
@@ -169,9 +192,14 @@ describe('every file under src/ is reachable from a build entry point', () => {
     expect(entries.length).toBeGreaterThan(0);
     for (const e of entries) expect(ALL_SRC, `build.js entry ${e} does not exist`).toContain(e);
 
-    const graph = new Map(CODE.map((f) => [
-      f, specifiers(read(f)).map((s) => resolveSpec(f, s)).filter(Boolean),
-    ]));
+    const graph = new Map(
+      CODE.map((f) => [
+        f,
+        specifiers(read(f))
+          .map((s) => resolveSpec(f, s))
+          .filter(Boolean),
+      ]),
+    );
     const seen = new Set();
     const stack = [...entries];
     while (stack.length) {
@@ -222,7 +250,7 @@ describe('no unused local declaration or import', () => {
       const decl = /^(?:async\s+)?(?:function|const|let|var|class)\s+([A-Za-z_$][\w$]*)/gm;
       while ((m = decl.exec(text))) {
         const name = m[1];
-        if (exported.has(name)) continue;                     // covered by the check above
+        if (exported.has(name)) continue; // covered by the check above
         if (bodyUses(text, name) <= 1) dead.push(`${f} :: local ${name}`);
       }
 
@@ -230,18 +258,22 @@ describe('no unused local declaration or import', () => {
       while ((m = imp.exec(text))) {
         const clause = m[1].trim().replace(/^type\s+/, '');
         const braced = clause.match(/\{([^}]*)\}/);
-        const bare = clause.replace(/\{[^}]*\}/, '').replace(/,/g, ' ').trim();
+        const bare = clause
+          .replace(/\{[^}]*\}/, '')
+          .replace(/,/g, ' ')
+          .trim();
         const bound = [];
         if (bare && !bare.startsWith('*')) bound.push(bare);
         if (bare.startsWith('*')) bound.push(bare.replace(/\*\s*as\s*/, '').trim());
-        if (braced) for (const part of braced[1].split(',')) {
-          const t = part.trim();
-          if (t) bound.push((t.split(/\s+as\s+/)[1] || t).trim());
-        }
+        if (braced)
+          for (const part of braced[1].split(',')) {
+            const t = part.trim();
+            if (t) bound.push((t.split(/\s+as\s+/)[1] || t).trim());
+          }
         for (const name of bound) {
           if (!/^[A-Za-z_$][\w$]*$/.test(name)) continue;
           if (JSX_PRAGMA.has(name) && /\.(jsx|tsx)$/.test(f)) continue;
-          if (exported.has(name)) continue;                    // imported purely to re-export
+          if (exported.has(name)) continue; // imported purely to re-export
           if (bodyUses(text, name) === 0) dead.push(`${f} :: import ${name} <- ${m[2]}`);
         }
       }

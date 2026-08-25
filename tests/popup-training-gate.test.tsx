@@ -39,9 +39,16 @@ beforeEach(() => {
     // Token-less context: on the Rossum tab below, readAuthInfo/readPageFlag/
     // readCurrentContext all resolve via this one generic stub with no network.
     scripting: {
-      executeScript: vi.fn(async () => [{
-        result: { token: null, domain: 'https://org.rossum.app', annotationId: null, queueId: null },
-      }]),
+      executeScript: vi.fn(async () => [
+        {
+          result: {
+            token: null,
+            domain: 'https://org.rossum.app',
+            annotationId: null,
+            queueId: null,
+          },
+        },
+      ]),
     },
   } as any;
   document.body.innerHTML = '';
@@ -122,7 +129,9 @@ describe('unified unlock gate — popup App integration', () => {
     expect(unlockedText).not.toMatch(/training/i);
 
     clickVersion(5);
-    await waitFor(() => document.body.querySelector('.unlock-notice')?.textContent !== unlockedText);
+    await waitFor(
+      () => document.body.querySelector('.unlock-notice')?.textContent !== unlockedText,
+    );
     const hiddenText = document.body.querySelector('.unlock-notice')!.textContent;
     expect(hiddenText).toMatch(/hid/i);
     expect(hiddenText).not.toBe(unlockedText);

@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { serialToDate, dateToSerial, isDateFormat, BUILTIN_DATE_FMT_IDS } from '../src/mdh/xlsxDates.js';
+import {
+  serialToDate,
+  dateToSerial,
+  isDateFormat,
+  BUILTIN_DATE_FMT_IDS,
+} from '../src/mdh/xlsxDates.js';
 
 describe('serial <-> date (1900 system)', () => {
   it('maps 45292 to 2024-01-01 UTC', () => {
@@ -17,8 +22,12 @@ describe('serial <-> date (1900 system)', () => {
 
 describe('serial <-> date (1904 system)', () => {
   it('is offset by 1462 days', () => {
-    expect(serialToDate(45292 - 1462, { date1904: true }).toISOString()).toBe('2024-01-01T00:00:00.000Z');
-    expect(dateToSerial(new Date('2024-01-01T00:00:00.000Z'), { date1904: true })).toBe(45292 - 1462);
+    expect(serialToDate(45292 - 1462, { date1904: true }).toISOString()).toBe(
+      '2024-01-01T00:00:00.000Z',
+    );
+    expect(dateToSerial(new Date('2024-01-01T00:00:00.000Z'), { date1904: true })).toBe(
+      45292 - 1462,
+    );
   });
 });
 

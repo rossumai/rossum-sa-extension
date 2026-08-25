@@ -13,7 +13,13 @@ import { statsSummary } from './store.js';
 // Five 0-100 health sub-scores. Extracted from computeHealthScore so the Stats
 // dashboard can render the breakdown and the score stays a single source of truth.
 export function healthComponents(
-  coverage: any[], empties: any[] | null, types: any[] | null, strings: any[] | null, schemaShapes: any[] | null, fields: any[], sentinels: any[] | null = null,
+  coverage: any[],
+  empties: any[] | null,
+  types: any[] | null,
+  strings: any[] | null,
+  schemaShapes: any[] | null,
+  fields: any[],
+  sentinels: any[] | null = null,
 ) {
   const n = fields.length;
 
@@ -22,8 +28,8 @@ export function healthComponents(
 
   // Value completeness: share of fields with no null/empty/missing AND no sentinel strings.
   const affected = new Set<string>();
-  for (const e of (empties || [])) affected.add(e.field);
-  for (const s of (sentinels || [])) affected.add(s.field);
+  for (const e of empties || []) affected.add(e.field);
+  for (const s of sentinels || []) affected.add(s.field);
   const valueCompleteness = ((n - affected.size) / n) * 100;
 
   // Type consistency: share of fields with a single type.
@@ -48,16 +54,22 @@ export function healthComponents(
 }
 
 export function computeHealthScore(
-  coverage: any[] | null, empties: any[] | null, types: any[] | null, strings: any[] | null, schemaShapes: any[] | null, fields: any[], sentinels: any[] | null = null,
+  coverage: any[] | null,
+  empties: any[] | null,
+  types: any[] | null,
+  strings: any[] | null,
+  schemaShapes: any[] | null,
+  fields: any[],
+  sentinels: any[] | null = null,
 ) {
   if (!coverage || !fields.length) return null;
   const c = healthComponents(coverage, empties, types, strings, schemaShapes, fields, sentinels);
   return Math.round(
     c.fieldCoverage * 0.25 +
-    c.typeConsistency * 0.20 +
-    c.valueCompleteness * 0.15 +
-    c.whitespace * 0.20 +
-    c.schema * 0.20,
+      c.typeConsistency * 0.2 +
+      c.valueCompleteness * 0.15 +
+      c.whitespace * 0.2 +
+      c.schema * 0.2,
   );
 }
 
@@ -118,15 +130,17 @@ function transformEmpties(raw: any, fields: any[]) {
 
 function transformTypes(raw: any, fields: any[]) {
   const r = raw.result?.[0] || {};
-  return fields
-    .map((f) => ({
-      field: f,
-      types: (r[encKey(f)] || []).filter((e: any) => e._id !== 'missing'),
-    }))
-    // Count DISTINCT LOGICAL types: int/long/double/decimal all collapse to
-    // "number", so a field with mixed BSON numeric subtypes is not flagged as
-    // type-inconsistent (consistent with fieldTypeSummary and the card chip).
-    .filter((x) => new Set(x.types.map((e: any) => friendlyType(e._id))).size > 1);
+  return (
+    fields
+      .map((f) => ({
+        field: f,
+        types: (r[encKey(f)] || []).filter((e: any) => e._id !== 'missing'),
+      }))
+      // Count DISTINCT LOGICAL types: int/long/double/decimal all collapse to
+      // "number", so a field with mixed BSON numeric subtypes is not flagged as
+      // type-inconsistent (consistent with fieldTypeSummary and the card chip).
+      .filter((x) => new Set(x.types.map((e: any) => friendlyType(e._id))).size > 1)
+  );
 }
 
 function transformStrings(raw: any, fields: any[]) {
@@ -188,13 +202,24 @@ export function updateStatsSummary(collection: string) {
     sentinels: cache.get(collection, 'stats_sentinels'), // optional — penalty only when present
   };
   const t = transformStatsResults(rawCache, fields);
-  if (t.coverage === null || t.empties === null || t.types === null
-      || t.strings === null || t.schemaShapes === null) {
+  if (
+    t.coverage === null ||
+    t.empties === null ||
+    t.types === null ||
+    t.strings === null ||
+    t.schemaShapes === null
+  ) {
     statsSummary.value = null;
     return;
   }
   const health = computeHealthScore(
-    t.coverage, t.empties, t.types, t.strings, t.schemaShapes, fields, t.sentinels,
+    t.coverage,
+    t.empties,
+    t.types,
+    t.strings,
+    t.schemaShapes,
+    fields,
+    t.sentinels,
   );
   if (health === null) {
     statsSummary.value = null;

@@ -1,18 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
-  PROGRESS_KEY, UNLOCK_KEY, MAX_ORGS, pruneOrgs, readProgress, writeProgress, clearProgress,
+  PROGRESS_KEY,
+  UNLOCK_KEY,
+  MAX_ORGS,
+  pruneOrgs,
+  readProgress,
+  writeProgress,
+  clearProgress,
 } from '../src/training/storage.js';
 import { isUnlocked, onUnlockChange } from '../src/training/gate.js';
 import { track, mission, step } from './support/training.js';
 
-const TRACK = track({ id: 't', version: 2, missions: [mission({ id: 'm1', steps: [step({ id: 'm1.s1', kind: 'visit' })] })] });
+const TRACK = track({
+  id: 't',
+  version: 2,
+  missions: [mission({ id: 'm1', steps: [step({ id: 'm1.s1', kind: 'visit' })] })],
+});
 let state: any;
 let listeners: any;
 
 beforeEach(() => {
   state = {};
   listeners = [];
-  globalThis.chrome = ({
+  globalThis.chrome = {
     storage: {
       local: {
         get: vi.fn(async (keys) => {
@@ -21,20 +31,27 @@ beforeEach(() => {
           for (const k of wanted) if (k in state) (out as any)[k] = state[k];
           return out;
         }),
-        set: vi.fn(async (obj) => { Object.assign(state, obj); }),
+        set: vi.fn(async (obj) => {
+          Object.assign(state, obj);
+        }),
       },
       onChanged: {
         addListener: vi.fn((fn) => listeners.push(fn)),
-        removeListener: vi.fn((fn) => { listeners = listeners.filter((l: any) => l !== fn); }),
+        removeListener: vi.fn((fn) => {
+          listeners = listeners.filter((l: any) => l !== fn);
+        }),
       },
     } as any,
-  } as any);
+  } as any;
 });
 
 describe('pruneOrgs', () => {
   it('keeps the newest MAX_ORGS entries and always the active one', () => {
     const all = {
-      a: { startedAt: 1 }, b: { startedAt: 2 }, c: { startedAt: 3 }, d: { startedAt: 4 },
+      a: { startedAt: 1 },
+      b: { startedAt: 2 },
+      c: { startedAt: 3 },
+      d: { startedAt: 4 },
     };
     const kept = pruneOrgs(all, 'a', 3);
     expect(Object.keys(kept).sort()).toEqual(['a', 'c', 'd']);
@@ -46,7 +63,12 @@ describe('pruneOrgs', () => {
   });
 
   it('never returns more than max entries, even when the active org is the oldest', () => {
-    const all = { a: { startedAt: 1 }, b: { startedAt: 2 }, c: { startedAt: 3 }, d: { startedAt: 4 } };
+    const all = {
+      a: { startedAt: 1 },
+      b: { startedAt: 2 },
+      c: { startedAt: 3 },
+      d: { startedAt: 4 },
+    };
     expect(Object.keys(pruneOrgs(all, 'a', 3))).toHaveLength(3);
     expect(Object.keys(pruneOrgs(all, 'a', 3))).toContain('a');
   });
@@ -65,7 +87,12 @@ describe('pruneOrgs', () => {
   });
 
   it('over the cap, a keepOrigin absent from all is NOT added, and the reserved slot is simply wasted (prune branch fails open)', () => {
-    const all = { a: { startedAt: 1 }, b: { startedAt: 2 }, c: { startedAt: 3 }, d: { startedAt: 4 } };
+    const all = {
+      a: { startedAt: 1 },
+      b: { startedAt: 2 },
+      c: { startedAt: 3 },
+      d: { startedAt: 4 },
+    };
     const kept = pruneOrgs(all, 'missing', 3);
     // `max - 1` (2) newest real entries are kept, reserving a 3rd slot for
     // 'missing' — which is never in `all` to begin with, so the output ends up
@@ -81,11 +108,13 @@ describe('pruneOrgs', () => {
   it('never evicts a record carrying an issued receipt', () => {
     const all = {
       a: { startedAt: 1, receipt: { text: 'ROSSUM PARTNER ONBOARDING…' } },
-      b: { startedAt: 2 }, c: { startedAt: 3 }, d: { startedAt: 4 },
+      b: { startedAt: 2 },
+      c: { startedAt: 3 },
+      d: { startedAt: 4 },
     };
     const kept = pruneOrgs(all, 'd', 3);
-    expect(kept.a).toBe(all.a);   // oldest by startedAt, kept anyway
-    expect(kept.d).toBe(all.d);   // active origin, always kept
+    expect(kept.a).toBe(all.a); // oldest by startedAt, kept anyway
+    expect(kept.d).toBe(all.d); // active origin, always kept
     expect(kept.b).toBeUndefined(); // receiptless and oldest of the rest
   });
 
@@ -103,15 +132,25 @@ describe('readProgress / writeProgress', () => {
   });
 
   it('round-trips progress for one org', async () => {
-    await writeProgress('https://x.rossum.app', { trackId: 't', trackVersion: 2, startedAt: 0, missions: {} });
+    await writeProgress('https://x.rossum.app', {
+      trackId: 't',
+      trackVersion: 2,
+      startedAt: 0,
+      missions: {},
+    });
     const got = await readProgress('https://x.rossum.app', TRACK);
     expect(got!.trackId).toBe('t');
     expect(state[PROGRESS_KEY]['https://x.rossum.app']).toBeTruthy();
   });
 
   it('migrates on read when the stored track version is older', async () => {
-    state[PROGRESS_KEY] = { 'https://x.rossum.app': {
-      trackId: 't', trackVersion: 1, missions: { m1: { steps: { GONE: { state: 'passed' } } } } } };
+    state[PROGRESS_KEY] = {
+      'https://x.rossum.app': {
+        trackId: 't',
+        trackVersion: 1,
+        missions: { m1: { steps: { GONE: { state: 'passed' } } } },
+      },
+    };
     const got = (await readProgress('https://x.rossum.app', TRACK))!;
     expect(got.trackVersion).toBe(2);
     expect(got.missions.m1.steps.GONE).toBeUndefined();
@@ -119,8 +158,16 @@ describe('readProgress / writeProgress', () => {
 
   it('keeps other orgs untouched on write', async () => {
     state[PROGRESS_KEY] = { 'https://a.rossum.app': { trackId: 't', startedAt: 1 } };
-    await writeProgress('https://b.rossum.app', { trackId: 't', trackVersion: 1, startedAt: 2, missions: {} });
-    expect(Object.keys(state[PROGRESS_KEY]).sort()).toEqual(['https://a.rossum.app', 'https://b.rossum.app']);
+    await writeProgress('https://b.rossum.app', {
+      trackId: 't',
+      trackVersion: 1,
+      startedAt: 2,
+      missions: {},
+    });
+    expect(Object.keys(state[PROGRESS_KEY]).sort()).toEqual([
+      'https://a.rossum.app',
+      'https://b.rossum.app',
+    ]);
   });
 
   it('clearProgress removes only the given org', async () => {

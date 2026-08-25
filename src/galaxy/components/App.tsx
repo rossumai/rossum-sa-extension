@@ -1,6 +1,14 @@
 import { h } from 'preact';
 import { useRef, useEffect, useLayoutEffect } from 'preact/hooks';
-import { graph, loading, loadedCount, error, selectedNodeId, hoveredNodeId, visibleTypes } from '../store.js';
+import {
+  graph,
+  loading,
+  loadedCount,
+  error,
+  selectedNodeId,
+  hoveredNodeId,
+  visibleTypes,
+} from '../store.js';
 import { createScene } from '../scene.js';
 import Legend from './Legend.jsx';
 import NavGuide from './NavGuide.jsx';
@@ -15,11 +23,18 @@ export default function App({ connected }: { connected: boolean | null }) {
     if (!connected || !hostRef.current) return undefined;
     const scene = createScene(hostRef.current);
     sceneRef.current = scene;
-    scene.onHover((id) => { hoveredNodeId.value = id; });
-    scene.onClick((id) => { selectedNodeId.value = id; });
+    scene.onHover((id) => {
+      hoveredNodeId.value = id;
+    });
+    scene.onClick((id) => {
+      selectedNodeId.value = id;
+    });
     scene.setData(graph.value);
     scene.setVisibleTypes(visibleTypes.value);
-    return () => { scene.destroy(); sceneRef.current = null; };
+    return () => {
+      scene.destroy();
+      sceneRef.current = null;
+    };
   }, [connected]);
 
   // Push graph updates into the live scene.
@@ -35,7 +50,9 @@ export default function App({ connected }: { connected: boolean | null }) {
   if (!connected) {
     return (
       <div class="app-root">
-        <div class="empty-state">Not connected — open a Rossum page and click Galaxy in the extension popup.</div>
+        <div class="empty-state">
+          Not connected — open a Rossum page and click Galaxy in the extension popup.
+        </div>
       </div>
     );
   }

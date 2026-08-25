@@ -9,7 +9,12 @@ globalThis.chrome = globalThis.chrome || {
   runtime: { onMessage: { addListener: () => {} } },
 };
 
-import Modal, { openModal, closeModal, confirmModal, promptModal } from '../src/mdh/components/Modal.jsx';
+import Modal, {
+  openModal,
+  closeModal,
+  confirmModal,
+  promptModal,
+} from '../src/mdh/components/Modal.jsx';
 import mstyles from '../src/ui/Modal.module.css';
 import { modalContent } from '../src/mdh/store.js';
 
@@ -52,7 +57,7 @@ describe('Modal component', () => {
 
   it('renders nothing when modalContent is null', () => {
     const root = mount();
-    expect(root.querySelector(('.' + mstyles.overlay))).toBeNull();
+    expect(root.querySelector('.' + mstyles.overlay)).toBeNull();
   });
 
   it('renders title and body when a modal is open', () => {
@@ -60,7 +65,7 @@ describe('Modal component', () => {
     openModal('My Modal', () => <div class="modal-body">body-text</div>);
     rerender(root);
 
-    expect(root.querySelector(('.' + mstyles.title))!.textContent).toBe('My Modal');
+    expect(root.querySelector('.' + mstyles.title)!.textContent).toBe('My Modal');
     expect(root.querySelector('.modal-body')!.textContent).toBe('body-text');
   });
 
@@ -69,7 +74,7 @@ describe('Modal component', () => {
     openModal('Close Me', () => <div />);
     rerender(root);
 
-    root.querySelector<HTMLElement>(('.' + mstyles.close))!.click();
+    root.querySelector<HTMLElement>('.' + mstyles.close)!.click();
     expect(modalContent.value).toBeNull();
   });
 
@@ -78,7 +83,7 @@ describe('Modal component', () => {
     openModal('Overlay', () => <div />);
     rerender(root);
 
-    const overlay = root.querySelector(('.' + mstyles.overlay));
+    const overlay = root.querySelector('.' + mstyles.overlay);
     overlay!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(modalContent.value).toBeNull();
   });
@@ -115,7 +120,7 @@ describe('Modal component', () => {
     openModal('My Modal', () => <div />);
     rerender(root);
 
-    const card = root.querySelector(('.' + mstyles.card))!;
+    const card = root.querySelector('.' + mstyles.card)!;
     expect(card.getAttribute('role')).toBe('dialog');
     expect(card.getAttribute('aria-modal')).toBe('true');
     expect(card.getAttribute('aria-labelledby')).toBe('modal-title');
@@ -126,7 +131,7 @@ describe('Modal component', () => {
     const root = mount();
     openModal('X', () => <div />);
     rerender(root);
-    expect(root.querySelector(('.' + mstyles.close))!.getAttribute('aria-label')).toBe('Close');
+    expect(root.querySelector('.' + mstyles.close)!.getAttribute('aria-label')).toBe('Close');
   });
 
   it('restores focus to the previously-focused element on close', () => {
@@ -157,9 +162,9 @@ describe('confirmModal', () => {
     confirmModal('Delete?', 'Are you sure?', () => {});
     rerender(root);
 
-    expect(root.querySelector(('.' + mstyles.title))!.textContent).toBe('Delete?');
-    expect(root.querySelector(('.' + mstyles.message))!.textContent).toBe('Are you sure?');
-    const btns = root.querySelectorAll(('.' + mstyles.actions + ' button'));
+    expect(root.querySelector('.' + mstyles.title)!.textContent).toBe('Delete?');
+    expect(root.querySelector('.' + mstyles.message)!.textContent).toBe('Are you sure?');
+    const btns = root.querySelectorAll('.' + mstyles.actions + ' button');
     expect(btns).toHaveLength(2);
     expect(btns[0].textContent).toBe('Cancel');
     expect(btns[1].textContent).toBe('Confirm');
@@ -171,7 +176,7 @@ describe('confirmModal', () => {
     confirmModal('T', 'M', spy);
     rerender(root);
 
-    root.querySelectorAll<HTMLElement>(('.' + mstyles.actions + ' button'))[0].click();
+    root.querySelectorAll<HTMLElement>('.' + mstyles.actions + ' button')[0].click();
     expect(spy).not.toHaveBeenCalled();
     expect(modalContent.value).toBeNull();
   });
@@ -182,7 +187,7 @@ describe('confirmModal', () => {
     confirmModal('T', 'M', spy);
     rerender(root);
 
-    root.querySelectorAll<HTMLElement>(('.' + mstyles.actions + ' button'))[1].click();
+    root.querySelectorAll<HTMLElement>('.' + mstyles.actions + ' button')[1].click();
     expect(spy).toHaveBeenCalledOnce();
     expect(modalContent.value).toBeNull();
   });
@@ -191,7 +196,7 @@ describe('confirmModal', () => {
     const root = mount();
     const p = confirmModal('T', 'M');
     rerender(root);
-    root.querySelectorAll<HTMLElement>(('.' + mstyles.actions + ' button'))[1].click();
+    root.querySelectorAll<HTMLElement>('.' + mstyles.actions + ' button')[1].click();
     await expect(p).resolves.toBe(true);
   });
 
@@ -199,7 +204,7 @@ describe('confirmModal', () => {
     const root = mount();
     const p = confirmModal('T', 'M');
     rerender(root);
-    root.querySelectorAll<HTMLElement>(('.' + mstyles.actions + ' button'))[0].click();
+    root.querySelectorAll<HTMLElement>('.' + mstyles.actions + ' button')[0].click();
     await expect(p).resolves.toBe(false);
   });
 
@@ -220,13 +225,17 @@ describe('promptModal', () => {
 
   it('renders an input with the initial value and custom submit label', () => {
     const root = mount();
-    promptModal('Rename', { placeholder: 'new name', initialValue: 'foo', submitLabel: 'Save' }, () => {});
+    promptModal(
+      'Rename',
+      { placeholder: 'new name', initialValue: 'foo', submitLabel: 'Save' },
+      () => {},
+    );
     rerender(root);
 
     const input = root.querySelector<HTMLInputElement>('input.input')!;
     expect(input.value).toBe('foo');
     expect(input.placeholder).toBe('new name');
-    const submitBtn = root.querySelectorAll(('.' + mstyles.actions + ' button'))[1];
+    const submitBtn = root.querySelectorAll('.' + mstyles.actions + ' button')[1];
     expect(submitBtn.textContent).toBe('Save');
   });
 
@@ -234,7 +243,7 @@ describe('promptModal', () => {
     const root = mount();
     promptModal('X', { submitClass: 'btn-danger' }, () => {});
     rerender(root);
-    const submit = root.querySelectorAll(('.' + mstyles.actions + ' button'))[1];
+    const submit = root.querySelectorAll('.' + mstyles.actions + ' button')[1];
     expect(submit.className).toContain('btn-danger');
   });
 
@@ -246,7 +255,7 @@ describe('promptModal', () => {
 
     const input = root.querySelector<HTMLInputElement>('input.input');
     input!.value = '  new-value  ';
-    root.querySelectorAll<HTMLElement>(('.' + mstyles.actions + ' button'))[1].click();
+    root.querySelectorAll<HTMLElement>('.' + mstyles.actions + ' button')[1].click();
 
     expect(spy).toHaveBeenCalledWith('new-value', expect.any(Object));
   });
@@ -257,7 +266,7 @@ describe('promptModal', () => {
     promptModal('T', { initialValue: 'same' }, spy);
     rerender(root);
 
-    root.querySelectorAll<HTMLElement>(('.' + mstyles.actions + ' button'))[1].click();
+    root.querySelectorAll<HTMLElement>('.' + mstyles.actions + ' button')[1].click();
     expect(spy).not.toHaveBeenCalled();
     expect(modalContent.value).toBeNull();
   });
@@ -269,7 +278,7 @@ describe('promptModal', () => {
     rerender(root);
 
     root.querySelector<HTMLInputElement>('input.input')!.value = '   ';
-    root.querySelectorAll<HTMLElement>(('.' + mstyles.actions + ' button'))[1].click();
+    root.querySelectorAll<HTMLElement>('.' + mstyles.actions + ' button')[1].click();
     expect(spy).not.toHaveBeenCalled();
     expect(modalContent.value).not.toBeNull();
     expect(root.querySelector('.input-hint')!.textContent).toBe('Please enter a value');
@@ -294,7 +303,7 @@ describe('promptModal', () => {
     promptModal('T', {}, spy);
     rerender(root);
 
-    root.querySelectorAll<HTMLElement>(('.' + mstyles.actions + ' button'))[0].click();
+    root.querySelectorAll<HTMLElement>('.' + mstyles.actions + ' button')[0].click();
     expect(spy).not.toHaveBeenCalled();
     expect(modalContent.value).toBeNull();
   });
@@ -303,7 +312,7 @@ describe('promptModal', () => {
     const root = mount();
     promptModal('T', { message: 'Heads up — read me.' }, () => {});
     rerender(root);
-    expect(root.querySelector(('.' + mstyles.message))!.textContent).toBe('Heads up — read me.');
+    expect(root.querySelector('.' + mstyles.message)!.textContent).toBe('Heads up — read me.');
   });
 
   it('Promise resolves to the submitted value when caller closes the modal', async () => {
@@ -315,7 +324,7 @@ describe('promptModal', () => {
     rerender(root);
     const input = root.querySelector<HTMLInputElement>('input.input');
     input!.value = 'ok';
-    root.querySelectorAll<HTMLElement>(('.' + mstyles.actions + ' button'))[1].click();
+    root.querySelectorAll<HTMLElement>('.' + mstyles.actions + ' button')[1].click();
     await expect(p).resolves.toBe('ok');
   });
 
@@ -323,7 +332,7 @@ describe('promptModal', () => {
     const root = mount();
     const p = promptModal('T', {}, () => {});
     rerender(root);
-    root.querySelectorAll<HTMLElement>(('.' + mstyles.actions + ' button'))[0].click();
+    root.querySelectorAll<HTMLElement>('.' + mstyles.actions + ' button')[0].click();
     await expect(p).resolves.toBeNull();
   });
 });

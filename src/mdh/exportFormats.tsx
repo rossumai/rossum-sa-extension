@@ -1,6 +1,12 @@
 import { h, Fragment } from 'preact';
 import { Segmented, Toggle } from './components/ImportControls.jsx';
-import { buildJsonSerializer, buildNdjsonSerializer, buildCsvSerializer, buildXmlSerializer, buildXlsxSerializer } from './downloadCollection.js';
+import {
+  buildJsonSerializer,
+  buildNdjsonSerializer,
+  buildCsvSerializer,
+  buildXmlSerializer,
+  buildXlsxSerializer,
+} from './downloadCollection.js';
 import { csvHeader, csvRow } from './csv.js';
 import { docToXml, toXmlName } from './xml.js';
 import * as api from './api.js';
@@ -28,16 +34,37 @@ function CsvControls({ opts, setOpt }: ControlsProps) {
   return (
     <Fragment>
       <span class="csv-tb-item">
-        <span class="csv-tb-k" title="Character between fields.">Delimiter</span>
-        <Segmented value={opts.delimiter} options={DELIM_SEG} onChange={(v) => setOpt('delimiter', v)} ariaLabel="Delimiter" />
+        <span class="csv-tb-k" title="Character between fields.">
+          Delimiter
+        </span>
+        <Segmented
+          value={opts.delimiter}
+          options={DELIM_SEG}
+          onChange={(v) => setOpt('delimiter', v)}
+          ariaLabel="Delimiter"
+        />
       </span>
       <span class="csv-tb-item">
-        <span class="csv-tb-k" title="Write a first row with the field names.">Header row</span>
-        <Toggle checked={opts.header} onChange={(v) => setOpt('header', v)} testid="export-csv-header" title="Write a header row." />
+        <span class="csv-tb-k" title="Write a first row with the field names.">
+          Header row
+        </span>
+        <Toggle
+          checked={opts.header}
+          onChange={(v) => setOpt('header', v)}
+          testid="export-csv-header"
+          title="Write a header row."
+        />
       </span>
       <span class="csv-tb-item">
-        <span class="csv-tb-k" title="Byte-order mark; helps Excel open UTF-8 CSVs.">Excel-compatible (BOM)</span>
-        <Toggle checked={opts.bom} onChange={(v) => setOpt('bom', v)} testid="export-csv-bom" title="Prefix the file with a UTF-8 BOM." />
+        <span class="csv-tb-k" title="Byte-order mark; helps Excel open UTF-8 CSVs.">
+          Excel-compatible (BOM)
+        </span>
+        <Toggle
+          checked={opts.bom}
+          onChange={(v) => setOpt('bom', v)}
+          testid="export-csv-bom"
+          title="Prefix the file with a UTF-8 BOM."
+        />
       </span>
     </Fragment>
   );
@@ -47,12 +74,26 @@ function XlsxControls({ opts, setOpt }: ControlsProps) {
   return (
     <Fragment>
       <span class="csv-tb-item">
-        <span class="csv-tb-k" title="Worksheet tab name.">Sheet name</span>
-        <input class="xlsx-sheet-select" data-testid="export-xlsx-sheet" value={opts.sheetName} onInput={(e: any) => setOpt('sheetName', e.target.value)} />
+        <span class="csv-tb-k" title="Worksheet tab name.">
+          Sheet name
+        </span>
+        <input
+          class="xlsx-sheet-select"
+          data-testid="export-xlsx-sheet"
+          value={opts.sheetName}
+          onInput={(e: any) => setOpt('sheetName', e.target.value)}
+        />
       </span>
       <span class="csv-tb-item">
-        <span class="csv-tb-k" title="Write a first row with the field names.">Header row</span>
-        <Toggle checked={opts.header} onChange={(v) => setOpt('header', v)} testid="export-xlsx-header" title="Write a header row." />
+        <span class="csv-tb-k" title="Write a first row with the field names.">
+          Header row
+        </span>
+        <Toggle
+          checked={opts.header}
+          onChange={(v) => setOpt('header', v)}
+          testid="export-xlsx-header"
+          title="Write a header row."
+        />
       </span>
     </Fragment>
   );
@@ -62,12 +103,26 @@ function XmlControls({ opts, setOpt }: ControlsProps) {
   return (
     <Fragment>
       <span class="csv-tb-item">
-        <span class="csv-tb-k" title="Top-level wrapper element.">Root element</span>
-        <input class="xlsx-sheet-select" data-testid="export-xml-root" value={opts.rootName} onInput={(e: any) => setOpt('rootName', e.target.value)} />
+        <span class="csv-tb-k" title="Top-level wrapper element.">
+          Root element
+        </span>
+        <input
+          class="xlsx-sheet-select"
+          data-testid="export-xml-root"
+          value={opts.rootName}
+          onInput={(e: any) => setOpt('rootName', e.target.value)}
+        />
       </span>
       <span class="csv-tb-item">
-        <span class="csv-tb-k" title="Element wrapping each document.">Record element</span>
-        <input class="xlsx-sheet-select" data-testid="export-xml-record" value={opts.recordName} onInput={(e: any) => setOpt('recordName', e.target.value)} />
+        <span class="csv-tb-k" title="Element wrapping each document.">
+          Record element
+        </span>
+        <input
+          class="xlsx-sheet-select"
+          data-testid="export-xml-record"
+          value={opts.recordName}
+          onInput={(e: any) => setOpt('recordName', e.target.value)}
+        />
       </span>
     </Fragment>
   );
@@ -92,41 +147,78 @@ export type ExportFormat = {
 
 export const EXPORT_FORMATS: ExportFormat[] = [
   {
-    id: 'json', label: 'JSON', ext: 'json', needsColumns: false, defaultOpts: {},
-    OptionsControls: null, previewKind: 'text',
+    id: 'json',
+    label: 'JSON',
+    ext: 'json',
+    needsColumns: false,
+    defaultOpts: {},
+    OptionsControls: null,
+    previewKind: 'text',
     buildSerializer: () => buildJsonSerializer(),
     buildPreviewText: (sample) => '[\n' + sample.map(formatJsonDoc).join(',\n') + '\n]',
   },
   {
-    id: 'jsonl', label: 'JSON Lines', ext: 'jsonl', needsColumns: false, defaultOpts: {},
-    OptionsControls: null, previewKind: 'text',
+    id: 'jsonl',
+    label: 'JSON Lines',
+    ext: 'jsonl',
+    needsColumns: false,
+    defaultOpts: {},
+    OptionsControls: null,
+    previewKind: 'text',
     buildSerializer: () => buildNdjsonSerializer(),
     buildPreviewText: (sample) => sample.map((d: any) => JSON.stringify(d)).join('\n'),
   },
   {
-    id: 'csv', label: 'CSV', ext: 'csv', needsColumns: true,
+    id: 'csv',
+    label: 'CSV',
+    ext: 'csv',
+    needsColumns: true,
     defaultOpts: { delimiter: ',', header: true, bom: false },
-    OptionsControls: CsvControls, previewKind: 'text',
-    buildSerializer: (opts, columns) => buildCsvSerializer({ dialect: { delimiter: opts.delimiter }, header: opts.header, bom: opts.bom, columns }),
+    OptionsControls: CsvControls,
+    previewKind: 'text',
+    buildSerializer: (opts, columns) =>
+      buildCsvSerializer({
+        dialect: { delimiter: opts.delimiter },
+        header: opts.header,
+        bom: opts.bom,
+        columns,
+      }),
     buildPreviewText: (sample, columns, opts) => {
       const dialect = { delimiter: opts.delimiter };
-      return (opts.header ? csvHeader(columns, dialect) + '\n' : '') + sample.map((d: any) => csvRow(d, columns, dialect)).join('\n');
+      return (
+        (opts.header ? csvHeader(columns, dialect) + '\n' : '') +
+        sample.map((d: any) => csvRow(d, columns, dialect)).join('\n')
+      );
     },
   },
   {
-    id: 'xlsx', label: 'Excel', ext: 'xlsx', needsColumns: true,
+    id: 'xlsx',
+    label: 'Excel',
+    ext: 'xlsx',
+    needsColumns: true,
     defaultOpts: { sheetName: 'Sheet1', header: true },
-    OptionsControls: XlsxControls, previewKind: 'grid',
-    buildSerializer: (opts, columns) => buildXlsxSerializer({ sheetName: opts.sheetName, header: opts.header, columns }),
+    OptionsControls: XlsxControls,
+    previewKind: 'grid',
+    buildSerializer: (opts, columns) =>
+      buildXlsxSerializer({ sheetName: opts.sheetName, header: opts.header, columns }),
   },
   {
-    id: 'xml', label: 'XML', ext: 'xml', needsColumns: false,
+    id: 'xml',
+    label: 'XML',
+    ext: 'xml',
+    needsColumns: false,
     defaultOpts: { rootName: 'records', recordName: 'record' },
-    OptionsControls: XmlControls, previewKind: 'text',
-    buildSerializer: (opts) => buildXmlSerializer({ rootName: opts.rootName, recordName: opts.recordName }),
+    OptionsControls: XmlControls,
+    previewKind: 'text',
+    buildSerializer: (opts) =>
+      buildXmlSerializer({ rootName: opts.rootName, recordName: opts.recordName }),
     buildPreviewText: (sample, _columns, opts) => {
       const root = toXmlName(opts.rootName);
-      return `<?xml version="1.0" encoding="UTF-8"?>\n<${root}>\n` + sample.map((d: any) => '  ' + docToXml(d, opts.recordName)).join('\n') + `\n</${root}>\n`;
+      return (
+        `<?xml version="1.0" encoding="UTF-8"?>\n<${root}>\n` +
+        sample.map((d: any) => '  ' + docToXml(d, opts.recordName)).join('\n') +
+        `\n</${root}>\n`
+      );
     },
   },
 ];

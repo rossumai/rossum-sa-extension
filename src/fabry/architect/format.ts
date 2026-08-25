@@ -1,8 +1,17 @@
 // Pure display helpers for the deliverable list.
 export function deliverableTitle(text: unknown): string {
-  const line = String(text || '').split('\n').map((l) => l.trim()).find((l) => l.length);
+  const line = String(text || '')
+    .split('\n')
+    .map((l) => l.trim())
+    .find((l) => l.length);
   if (!line) return 'Untitled';
-  return line.replace(/^#+\s*/, '').replace(/[*_`>]/g, '').trim().slice(0, 80) || 'Untitled';
+  return (
+    line
+      .replace(/^#+\s*/, '')
+      .replace(/[*_`>]/g, '')
+      .trim()
+      .slice(0, 80) || 'Untitled'
+  );
 }
 
 // The name a deliverable declares for ITSELF: a Markdown heading on the first
@@ -11,7 +20,9 @@ export function deliverableTitle(text: unknown): string {
 // (`#`–`####`, a space after the hashes, column 0, untrimmed), so a deliverable
 // is never named after a line the user sees as plain text.
 export function headingTitle(text: unknown): string | null {
-  const line = String(text || '').split('\n').find((l) => l.trim());
+  const line = String(text || '')
+    .split('\n')
+    .find((l) => l.trim());
   const m = line && line.match(/^(#{1,4})\s+(.*)$/);
   if (!m) return '';
   return m[2].replace(/[*_`]/g, '').trim().slice(0, 80);
@@ -33,8 +44,16 @@ export function displayTitle(d: any): string {
 // One-line plain-text summary of Markdown evidence for the collapsed verdict
 // banner: first non-empty, non-fence line, stripped of markdown marks + capped.
 export function summaryLine(text: unknown, max = 120): string {
-  const line = String(text || '').split('\n').map((l) => l.trim()).find((l) => l && !l.startsWith('```')) || '';
-  const clean = line.replace(/^#+\s*/, '').replace(/^[-*>]\s+/, '').replace(/[*_`]/g, '').trim();
+  const line =
+    String(text || '')
+      .split('\n')
+      .map((l) => l.trim())
+      .find((l) => l && !l.startsWith('```')) || '';
+  const clean = line
+    .replace(/^#+\s*/, '')
+    .replace(/^[-*>]\s+/, '')
+    .replace(/[*_`]/g, '')
+    .trim();
   return clean.length > max ? clean.slice(0, max - 1) + '…' : clean;
 }
 

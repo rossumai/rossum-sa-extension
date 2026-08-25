@@ -3,12 +3,22 @@ import { describe, it, expect } from 'vitest';
 import { h, render } from 'preact';
 import PlanSummary from '../src/mdh/components/PlanSummary.jsx';
 
-function mount(vnode: any) { const el = document.createElement('div'); document.body.appendChild(el); render(vnode, el); return el; }
+function mount(vnode: any) {
+  const el = document.createElement('div');
+  document.body.appendChild(el);
+  render(vnode, el);
+  return el;
+}
 function waitFor(fn: any, { timeout = 2000 } = {}) {
   return new Promise((resolve, reject) => {
     const t0 = Date.now();
     (function poll() {
-      let v: any; try { v = fn(); } catch { v = null; }
+      let v: any;
+      try {
+        v = fn();
+      } catch {
+        v = null;
+      }
       if (v) return resolve(v);
       if (Date.now() - t0 > timeout) return reject(new Error('waitFor timeout'));
       setTimeout(poll, 10);
@@ -18,7 +28,13 @@ function waitFor(fn: any, { timeout = 2000 } = {}) {
 
 describe('PlanSummary', () => {
   it('shows the summary sentence and hides details by default', () => {
-    const root = mount(<PlanSummary summary="Adds 3 new records." summaryTestid="sum"><ul><li>bullet one</li></ul></PlanSummary>);
+    const root = mount(
+      <PlanSummary summary="Adds 3 new records." summaryTestid="sum">
+        <ul>
+          <li>bullet one</li>
+        </ul>
+      </PlanSummary>,
+    );
     expect(root.querySelector('[data-testid="sum"]')!.textContent).toBe('Adds 3 new records.');
     expect(root.textContent).not.toContain('bullet one');
     const toggle = root.querySelector('[data-testid="sum-toggle"]')!;
@@ -27,12 +43,13 @@ describe('PlanSummary', () => {
   });
 
   it('expands and collapses the bullets via the toggle', async () => {
-    const root = mount(<PlanSummary
-      summary="s"
-      summaryTestid="sum"
-    >
-      <ul data-testid="bullets"><li>bullet one</li></ul>
-    </PlanSummary>);
+    const root = mount(
+      <PlanSummary summary="s" summaryTestid="sum">
+        <ul data-testid="bullets">
+          <li>bullet one</li>
+        </ul>
+      </PlanSummary>,
+    );
     root.querySelector<HTMLElement>('[data-testid="sum-toggle"]')!.click();
     await waitFor(() => root.querySelector('[data-testid="bullets"]'));
     expect(root.textContent).toContain('bullet one');

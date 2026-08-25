@@ -46,11 +46,12 @@ export function stripEmptyOperators(expr: any): any {
   const out: Record<string, any> = {};
   for (const key of Object.keys(expr)) {
     const val = expr[key];
-    const isEmptyOperator = key.startsWith('$')
-      && val
-      && typeof val === 'object'
-      && !Array.isArray(val)
-      && Object.keys(val).length === 0;
+    const isEmptyOperator =
+      key.startsWith('$') &&
+      val &&
+      typeof val === 'object' &&
+      !Array.isArray(val) &&
+      Object.keys(val).length === 0;
     if (!isEmptyOperator) out[key] = val;
   }
   return out;

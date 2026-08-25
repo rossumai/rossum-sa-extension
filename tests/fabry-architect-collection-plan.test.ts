@@ -1,12 +1,21 @@
 import { describe, it, expect } from 'vitest';
 import { COLLECTION, LEGACY_COLLECTION } from '../src/fabry/architect/collectionNames.js';
-import { planCollection, isRaceLostError, mergeDeliverables, legacyOnlyIds } from '../src/fabry/architect/collectionPlan.js';
+import {
+  planCollection,
+  isRaceLostError,
+  mergeDeliverables,
+  legacyOnlyIds,
+} from '../src/fabry/architect/collectionPlan.js';
 import { deliverable } from './support/architect.js';
 
 describe('planCollection', () => {
   it('uses the new collection when only it exists', () => {
-    expect(planCollection({ hasNew: true, hasOld: false }))
-      .toEqual({ use: COLLECTION, legacy: null, action: 'none', fallback: null });
+    expect(planCollection({ hasNew: true, hasOld: false })).toEqual({
+      use: COLLECTION,
+      legacy: null,
+      action: 'none',
+      fallback: null,
+    });
   });
 
   it('creates the new collection for a fresh org', () => {
@@ -75,8 +84,12 @@ describe('mergeDeliverables', () => {
   });
 
   it('orders by order, not by which collection the doc came from', () => {
-    expect(mergeDeliverables([deliverable({ id: 'z', order: 9 })], [deliverable({ id: 'y', order: 0 })]).map((d) => d.id))
-      .toEqual(['y', 'z']);
+    expect(
+      mergeDeliverables(
+        [deliverable({ id: 'z', order: 9 })],
+        [deliverable({ id: 'y', order: 0 })],
+      ).map((d) => d.id),
+    ).toEqual(['y', 'z']);
   });
 
   it('tolerates absent lists and unidentified docs', () => {
@@ -89,7 +102,12 @@ describe('mergeDeliverables', () => {
 
 describe('legacyOnlyIds', () => {
   it('reports which deliverables still live only in the legacy collection', () => {
-    expect(legacyOnlyIds([deliverable({ id: 'a' })], [deliverable({ id: 'a' }), deliverable({ id: 'b' })])).toEqual(['b']);
+    expect(
+      legacyOnlyIds(
+        [deliverable({ id: 'a' })],
+        [deliverable({ id: 'a' }), deliverable({ id: 'b' })],
+      ),
+    ).toEqual(['b']);
     expect(legacyOnlyIds([deliverable({ id: 'a' })], [deliverable({ id: 'a' })])).toEqual([]);
     expect(legacyOnlyIds(null, null)).toEqual([]);
   });

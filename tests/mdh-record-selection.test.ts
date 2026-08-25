@@ -1,6 +1,10 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { recordIdKey, isRecordSelected, toggleRecordSelection } from '../src/mdh/recordSelection.js';
+import {
+  recordIdKey,
+  isRecordSelected,
+  toggleRecordSelection,
+} from '../src/mdh/recordSelection.js';
 import { selectedIds } from '../src/mdh/store.js';
 
 beforeEach(() => {

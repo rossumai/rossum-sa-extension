@@ -13,7 +13,10 @@ describe('buildPatchBody', () => {
     const o = { settings: { a: 1, b: { c: 2, d: 3 } } };
     const e = { settings: { a: 1, b: { c: 99, d: 3 } } };
     // The whole `settings` object must be sent so `a` and `d` are not dropped.
-    expect(buildPatchBody(o, e)).toEqual({ body: { settings: { a: 1, b: { c: 99, d: 3 } } }, removed: [] });
+    expect(buildPatchBody(o, e)).toEqual({
+      body: { settings: { a: 1, b: { c: 99, d: 3 } } },
+      removed: [],
+    });
   });
 
   it('does not send unchanged read-only meta keys', () => {

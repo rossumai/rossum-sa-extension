@@ -8,21 +8,55 @@ beforeEach(() => {
   store.domain.value = 'https://acme.rossum.app';
   store.graph.value = {
     nodes: [
-      { val: 1,
-        id: 'queue:100', type: 'queue', rawId: '100', name: 'Invoices', color: '#29d4c5',
-        detail: [['Status', 'importing'], ['Hooks', '2'], ['Schema', '42']],
+      {
+        val: 1,
+        id: 'queue:100',
+        type: 'queue',
+        rawId: '100',
+        name: 'Invoices',
+        color: '#29d4c5',
+        detail: [
+          ['Status', 'importing'],
+          ['Hooks', '2'],
+          ['Schema', '42'],
+        ],
       },
-      { val: 1,
-        id: 'workspace:10', type: 'workspace', rawId: '10', name: 'WS A', color: '#5b9bff',
-        detail: [['Queues', '3'], ['Autopilot', 'On']],
+      {
+        val: 1,
+        id: 'workspace:10',
+        type: 'workspace',
+        rawId: '10',
+        name: 'WS A',
+        color: '#5b9bff',
+        detail: [
+          ['Queues', '3'],
+          ['Autopilot', 'On'],
+        ],
       },
-      { val: 1,
-        id: 'hook:200', type: 'hook', rawId: '200', name: 'Validate', color: '#b48cff',
-        detail: [['Type', 'webhook'], ['Active', 'Yes'], ['Events', 'annotation.created']],
+      {
+        val: 1,
+        id: 'hook:200',
+        type: 'hook',
+        rawId: '200',
+        name: 'Validate',
+        color: '#b48cff',
+        detail: [
+          ['Type', 'webhook'],
+          ['Active', 'Yes'],
+          ['Events', 'annotation.created'],
+        ],
       },
-      { val: 1,
-        id: 'engine:7', type: 'engine', rawId: '7', name: 'My Engine', color: '#9333ea',
-        detail: [['Type', 'extractor'], ['Learning', 'On']],
+      {
+        val: 1,
+        id: 'engine:7',
+        type: 'engine',
+        rawId: '7',
+        name: 'My Engine',
+        color: '#9333ea',
+        detail: [
+          ['Type', 'extractor'],
+          ['Learning', 'On'],
+        ],
       },
     ],
     links: [],
@@ -57,7 +91,10 @@ describe('DetailCard', () => {
     store.selectedNodeId.value = 'queue:100';
     const facts = mount().querySelector('.galaxy-detail-facts');
     expect(facts).not.toBe(null);
-    const pairs = [...facts!.querySelectorAll('div')].map((d) => [d.querySelector('dt')!.textContent, d.querySelector('dd')!.textContent]);
+    const pairs = [...facts!.querySelectorAll('div')].map((d) => [
+      d.querySelector('dt')!.textContent,
+      d.querySelector('dd')!.textContent,
+    ]);
     expect(pairs).toContainEqual(['Status', 'importing']);
     expect(pairs).toContainEqual(['Hooks', '2']);
     expect(pairs).toContainEqual(['Schema', '42']);
@@ -66,7 +103,10 @@ describe('DetailCard', () => {
     store.selectedNodeId.value = 'engine:7';
     const facts = mount().querySelector('.galaxy-detail-facts');
     expect(facts).not.toBe(null);
-    const pairs = [...facts!.querySelectorAll('div')].map((d) => [d.querySelector('dt')!.textContent, d.querySelector('dd')!.textContent]);
+    const pairs = [...facts!.querySelectorAll('div')].map((d) => [
+      d.querySelector('dt')!.textContent,
+      d.querySelector('dd')!.textContent,
+    ]);
     expect(pairs).toContainEqual(['Type', 'extractor']);
     expect(pairs).toContainEqual(['Learning', 'On']);
   });
@@ -74,13 +114,26 @@ describe('DetailCard', () => {
     store.selectedNodeId.value = 'workspace:10';
     const facts = mount().querySelector('.galaxy-detail-facts');
     expect(facts).not.toBe(null);
-    const pairs = [...facts!.querySelectorAll('div')].map((d) => [d.querySelector('dt')!.textContent, d.querySelector('dd')!.textContent]);
+    const pairs = [...facts!.querySelectorAll('div')].map((d) => [
+      d.querySelector('dt')!.textContent,
+      d.querySelector('dd')!.textContent,
+    ]);
     expect(pairs).toContainEqual(['Queues', '3']);
     expect(pairs).toContainEqual(['Autopilot', 'On']);
   });
   it('omits .galaxy-detail-facts when node.detail is empty', () => {
     store.graph.value = {
-      nodes: [{ val: 1, id: 'queue:99', type: 'queue', rawId: '99', name: 'Empty', color: '#aaa', detail: [] }],
+      nodes: [
+        {
+          val: 1,
+          id: 'queue:99',
+          type: 'queue',
+          rawId: '99',
+          name: 'Empty',
+          color: '#aaa',
+          detail: [],
+        },
+      ],
       links: [],
     };
     store.selectedNodeId.value = 'queue:99';
@@ -88,7 +141,17 @@ describe('DetailCard', () => {
   });
   it('omits .galaxy-detail-facts when node has no detail property', () => {
     store.graph.value = {
-      nodes: [{ val: 1, detail: [], id: 'queue:99', type: 'queue', rawId: '99', name: 'Legacy', color: '#aaa' }],
+      nodes: [
+        {
+          val: 1,
+          detail: [],
+          id: 'queue:99',
+          type: 'queue',
+          rawId: '99',
+          name: 'Legacy',
+          color: '#aaa',
+        },
+      ],
       links: [],
     };
     store.selectedNodeId.value = 'queue:99';

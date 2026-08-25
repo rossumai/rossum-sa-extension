@@ -13,7 +13,8 @@ export default function VerdictCard() {
       <div class="inspector-verdict-h">{v.headline}</div>
       {v.reasons.map((r: any) => (
         <div class="inspector-verdict-why">
-          {r.fact} {r.culprit ? <CulpritChip culprit={r.culprit} /> : null} <ReliabilityBadge level={r.reliability} />
+          {r.fact} {r.culprit ? <CulpritChip culprit={r.culprit} /> : null}{' '}
+          <ReliabilityBadge level={r.reliability} />
         </div>
       ))}
     </div>

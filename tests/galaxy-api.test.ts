@@ -27,14 +27,22 @@ describe('get headers + 401/403', () => {
   });
   it('marks 403 as featureUnavailable', async () => {
     fetchMock.mockResolvedValue(jsonRes({ detail: 'no' }, { ok: false, status: 403 }));
-    await expect(api.get('/api/v1/queues/')).rejects.toMatchObject({ status: 403, featureUnavailable: true });
+    await expect(api.get('/api/v1/queues/')).rejects.toMatchObject({
+      status: 403,
+      featureUnavailable: true,
+    });
   });
 });
 
 describe('listAll', () => {
   it('concatenates results across pagination.next pages', async () => {
     fetchMock
-      .mockResolvedValueOnce(jsonRes({ results: [{ id: 1 }, { id: 2 }], pagination: { next: 'https://x.rossum.ai/api/v1/queues/?page=2' } }))
+      .mockResolvedValueOnce(
+        jsonRes({
+          results: [{ id: 1 }, { id: 2 }],
+          pagination: { next: 'https://x.rossum.ai/api/v1/queues/?page=2' },
+        }),
+      )
       .mockResolvedValueOnce(jsonRes({ results: [{ id: 3 }], pagination: { next: null } }));
     const all = await api.listAll('/api/v1/queues/?page_size=2');
     expect(all.map((r) => r.id)).toEqual([1, 2, 3]);
@@ -44,9 +52,14 @@ describe('listAll', () => {
     fetchMock.mockResolvedValue(jsonRes({ results: [], pagination: { next: null } }));
     expect(await api.listAll('/api/v1/connectors/')).toEqual([]);
   });
-  it('calls onPage once per page with that page\'s result count', async () => {
+  it("calls onPage once per page with that page's result count", async () => {
     fetchMock
-      .mockResolvedValueOnce(jsonRes({ results: [{ id: 1 }, { id: 2 }], pagination: { next: 'https://x.rossum.ai/api/v1/queues/?page=2' } }))
+      .mockResolvedValueOnce(
+        jsonRes({
+          results: [{ id: 1 }, { id: 2 }],
+          pagination: { next: 'https://x.rossum.ai/api/v1/queues/?page=2' },
+        }),
+      )
       .mockResolvedValueOnce(jsonRes({ results: [{ id: 3 }], pagination: { next: null } }));
     const pageCounts: any = [];
     await api.listAll('/api/v1/queues/?page_size=2', { onPage: (n) => pageCounts.push(n) });
@@ -57,11 +70,26 @@ describe('listAll', () => {
 describe('fetchOrgResources', () => {
   it('assembles the raw bundle including engines and tolerates a 403 on one collection', async () => {
     fetchMock.mockImplementation((url: any) => {
-      if (url.includes('/organizations/')) return Promise.resolve(jsonRes({ results: [{ id: 1, url: 'https://x/api/v1/organizations/1', name: 'Acme' }], pagination: { next: null } }));
-      if (url.includes('/workspaces/')) return Promise.resolve(jsonRes({ results: [{ id: 10 }], pagination: { next: null } }));
-      if (url.includes('/queues/')) return Promise.resolve(jsonRes({ results: [{ id: 100 }], pagination: { next: null } }));
-      if (url.includes('/hooks/')) return Promise.resolve(jsonRes({ detail: 'forbidden' }, { ok: false, status: 403 }));
-      if (url.includes('/engines/')) return Promise.resolve(jsonRes({ results: [{ id: 7, name: 'My Engine', type: 'extractor' }], pagination: { next: null } }));
+      if (url.includes('/organizations/'))
+        return Promise.resolve(
+          jsonRes({
+            results: [{ id: 1, url: 'https://x/api/v1/organizations/1', name: 'Acme' }],
+            pagination: { next: null },
+          }),
+        );
+      if (url.includes('/workspaces/'))
+        return Promise.resolve(jsonRes({ results: [{ id: 10 }], pagination: { next: null } }));
+      if (url.includes('/queues/'))
+        return Promise.resolve(jsonRes({ results: [{ id: 100 }], pagination: { next: null } }));
+      if (url.includes('/hooks/'))
+        return Promise.resolve(jsonRes({ detail: 'forbidden' }, { ok: false, status: 403 }));
+      if (url.includes('/engines/'))
+        return Promise.resolve(
+          jsonRes({
+            results: [{ id: 7, name: 'My Engine', type: 'extractor' }],
+            pagination: { next: null },
+          }),
+        );
       return Promise.resolve(jsonRes({ results: [], pagination: { next: null } }));
     });
     const raw = await api.fetchOrgResources({});
@@ -78,11 +106,20 @@ describe('fetchOrgResources', () => {
   it('reports cumulative progress via onProgress as pages arrive (engines count too)', async () => {
     // organizations: 1, workspaces: 2, queues: 3, hooks: 0 (403 → []), engines: 1
     fetchMock.mockImplementation((url: any) => {
-      if (url.includes('/organizations/')) return Promise.resolve(jsonRes({ results: [{ id: 1 }], pagination: { next: null } }));
-      if (url.includes('/workspaces/')) return Promise.resolve(jsonRes({ results: [{ id: 10 }, { id: 11 }], pagination: { next: null } }));
-      if (url.includes('/queues/')) return Promise.resolve(jsonRes({ results: [{ id: 100 }, { id: 101 }, { id: 102 }], pagination: { next: null } }));
-      if (url.includes('/hooks/')) return Promise.resolve(jsonRes({ detail: 'forbidden' }, { ok: false, status: 403 }));
-      if (url.includes('/engines/')) return Promise.resolve(jsonRes({ results: [{ id: 7 }], pagination: { next: null } }));
+      if (url.includes('/organizations/'))
+        return Promise.resolve(jsonRes({ results: [{ id: 1 }], pagination: { next: null } }));
+      if (url.includes('/workspaces/'))
+        return Promise.resolve(
+          jsonRes({ results: [{ id: 10 }, { id: 11 }], pagination: { next: null } }),
+        );
+      if (url.includes('/queues/'))
+        return Promise.resolve(
+          jsonRes({ results: [{ id: 100 }, { id: 101 }, { id: 102 }], pagination: { next: null } }),
+        );
+      if (url.includes('/hooks/'))
+        return Promise.resolve(jsonRes({ detail: 'forbidden' }, { ok: false, status: 403 }));
+      if (url.includes('/engines/'))
+        return Promise.resolve(jsonRes({ results: [{ id: 7 }], pagination: { next: null } }));
       return Promise.resolve(jsonRes({ results: [], pagination: { next: null } }));
     });
     const progressValues: any = [];
@@ -98,11 +135,16 @@ describe('fetchOrgResources', () => {
   });
   it('tolerates a 403 on engines (degrades to empty engines array)', async () => {
     fetchMock.mockImplementation((url: any) => {
-      if (url.includes('/organizations/')) return Promise.resolve(jsonRes({ results: [{ id: 1 }], pagination: { next: null } }));
-      if (url.includes('/workspaces/')) return Promise.resolve(jsonRes({ results: [], pagination: { next: null } }));
-      if (url.includes('/queues/')) return Promise.resolve(jsonRes({ results: [], pagination: { next: null } }));
-      if (url.includes('/hooks/')) return Promise.resolve(jsonRes({ results: [], pagination: { next: null } }));
-      if (url.includes('/engines/')) return Promise.resolve(jsonRes({ detail: 'forbidden' }, { ok: false, status: 403 }));
+      if (url.includes('/organizations/'))
+        return Promise.resolve(jsonRes({ results: [{ id: 1 }], pagination: { next: null } }));
+      if (url.includes('/workspaces/'))
+        return Promise.resolve(jsonRes({ results: [], pagination: { next: null } }));
+      if (url.includes('/queues/'))
+        return Promise.resolve(jsonRes({ results: [], pagination: { next: null } }));
+      if (url.includes('/hooks/'))
+        return Promise.resolve(jsonRes({ results: [], pagination: { next: null } }));
+      if (url.includes('/engines/'))
+        return Promise.resolve(jsonRes({ detail: 'forbidden' }, { ok: false, status: 403 }));
       return Promise.resolve(jsonRes({ results: [], pagination: { next: null } }));
     });
     const raw = await api.fetchOrgResources({});

@@ -20,7 +20,15 @@ const START_GAP = 8; // start the line a bit further right of the '{', not right
 // for its own pane check), but it no longer decides whether to draw: the link is
 // clamped to the pane instead — see EDGE_INSET below.
 // `hEnd` is the x of the operator's colon — the editor-side rect carries it, other rects do not.
-type Box = { left: number; top: number; right: number; bottom: number; width?: number; height?: number; hEnd?: number };
+type Box = {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  width?: number;
+  height?: number;
+  hEnd?: number;
+};
 
 export function sectionInPane(sectionRect: Box, paneRect: Box): boolean {
   if (!sectionRect || !paneRect) return false;
@@ -65,7 +73,7 @@ function clampToBox(y: number, boxRect: Box | null | undefined) {
   let hi = boxRect.bottom - EDGE_INSET;
   if (lo > hi) lo = hi = (boxRect.top + boxRect.bottom) / 2;
   const clamped = Math.min(Math.max(y, lo), hi);
-  return { y: clamped, edge: clamped === y ? null : (clamped > y ? 'up' : 'down') };
+  return { y: clamped, edge: clamped === y ? null : clamped > y ? 'up' : 'down' };
 }
 
 // `paneRect` (the Stages scroller) and `clipRect` (the editor's visible box) are
@@ -80,8 +88,10 @@ function clampToBox(y: number, boxRect: Box | null | undefined) {
 export function computeStageLink(
   // All five are measured from live DOM/CodeMirror and any of them can be absent — the
   // guard below is the contract, so the signature says so rather than the callers casting.
-  editorLineRect: Box | null | undefined, sectionRect: Box | null | undefined,
-  panelRect: Box | null | undefined, paneRect?: Box | null,
+  editorLineRect: Box | null | undefined,
+  sectionRect: Box | null | undefined,
+  panelRect: Box | null | undefined,
+  paneRect?: Box | null,
   clipRect?: Box | null,
 ) {
   if (!editorLineRect || !sectionRect || !panelRect) return null;
@@ -91,13 +101,16 @@ export function computeStageLink(
 
   const startAnchor = (editorLineRect.top + editorLineRect.bottom) / 2; // the '{' line's middle
   const start = clampToBox(startAnchor, clipRect);
-  const endAnchor = sectionRect.top + 16;                               // near the section header
+  const endAnchor = sectionRect.top + 16; // near the section header
   const end = clampToBox(endAnchor, paneRect);
 
   const y1 = start.y - panelRect.top;
   const y2 = end.y - panelRect.top;
   return {
-    x1, y1, x2, y2,
+    x1,
+    y1,
+    x2,
+    y2,
     edge: end.edge,
     startEdge: start.edge,
     d: connectorPath(x1, y1, hx, x2, y2, end.edge as string, start.edge as string),
@@ -121,11 +134,14 @@ export function edgeArrowPath(x: number, y: number, edge: string | null): string
 // before `beforeOffset` (the stage's end). The operator key is the first member
 // of the stage object, so its ':' is the first one — even when the pipeline is
 // pretty-printed and the operator sits on the line BELOW the '{'. -1 if none.
-export function operatorColonOffset(text: string, fromOffset: number, beforeOffset: number): number {
+export function operatorColonOffset(
+  text: string,
+  fromOffset: number,
+  beforeOffset: number,
+): number {
   const i = text.indexOf(':', fromOffset);
-  return (i !== -1 && i < beforeOffset) ? i : -1;
+  return i !== -1 && i < beforeOffset ? i : -1;
 }
-
 
 // A --[leg]-- B ==[bevel diagonal]== C --[leg]-- D, with a small quadratic round
 // at each bend ("small bends"). A is the editor end, D the section end; each LEG
@@ -145,11 +161,17 @@ export function operatorColonOffset(text: string, fromOffset: number, beforeOffs
 // The diagonal covers the bulk of the span and is never strictly vertical when
 // both legs are horizontal (B.x < C.x). Either end may be clamped independently,
 // so all four combinations are just different legs through the same emitter.
-function connectorPath(x1: number, y1: number, hx: number, x2: number, y2: number, endDir: string, startDir: string): string {
+function connectorPath(
+  x1: number,
+  y1: number,
+  hx: number,
+  x2: number,
+  y2: number,
+  endDir: string,
+  startDir: string,
+): string {
   // The END elbow first: an unclamped start leg is clamped against its x.
-  const C = isClamped(endDir)
-    ? shaftElbow(x2, y2, endDir)
-    : { x: x2 - endStubFor(x1, x2), y: y2 };
+  const C = isClamped(endDir) ? shaftElbow(x2, y2, endDir) : { x: x2 - endStubFor(x1, x2), y: y2 };
   const B = isClamped(startDir)
     ? shaftElbow(x1, y1, startDir)
     : { x: Math.max(x1 + 6, Math.min(hx, C.x - 8)), y: y1 };
@@ -178,7 +200,10 @@ const SHAFT = 14;
 // of it — below an up-arrow, above a down-arrow. Both ends share this rule, because
 // the start's line LEAVES its head that way and the end's ARRIVES that way, which
 // are the same segment described from either end.
-const shaftElbow = (x: number, y: number, dir: string) => ({ x, y: y + (dir === 'up' ? SHAFT : -SHAFT) });
+const shaftElbow = (x: number, y: number, dir: string) => ({
+  x,
+  y: y + (dir === 'up' ? SHAFT : -SHAFT),
+});
 
 // bevelPath (and the `unit` helper it is built on) moved to
 // src/ui/connectorPath.js when the training tether became a second consumer of

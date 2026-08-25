@@ -21,7 +21,8 @@ export type Point = { x: number; y: number };
 export const f = (n: number): string => n.toFixed(1);
 
 const unit = (from: Point, to: Point) => {
-  const dx = to.x - from.x, dy = to.y - from.y;
+  const dx = to.x - from.x,
+    dy = to.y - from.y;
   const len = Math.hypot(dx, dy) || 1;
   return { x: dx / len, y: dy / len, len };
 };
@@ -30,15 +31,45 @@ const unit = (from: Point, to: Point) => {
 // at each bend. Two radii, not one: each bend can only give up as much as its own
 // leg has, and tying both to the shorter leg would square off the other corner.
 export function bevelPath(A: Point, B: Point, C: Point, D: Point): string {
-  const ab = unit(A, B), bc = unit(B, C), cd = unit(C, D);
+  const ab = unit(A, B),
+    bc = unit(B, C),
+    cd = unit(C, D);
   const r1 = Math.max(0, Math.min(5, ab.len, bc.len * 0.4));
   const r2 = Math.max(0, Math.min(5, cd.len, bc.len * 0.4));
-  return 'M ' + f(A.x) + ' ' + f(A.y)
-    + ' L ' + f(B.x - r1 * ab.x) + ' ' + f(B.y - r1 * ab.y)                          // first leg
-    + ' Q ' + f(B.x) + ' ' + f(B.y) + ' ' + f(B.x + r1 * bc.x) + ' ' + f(B.y + r1 * bc.y) // round into the diagonal
-    + ' L ' + f(C.x - r2 * bc.x) + ' ' + f(C.y - r2 * bc.y)                          // the bevel diagonal
-    + ' Q ' + f(C.x) + ' ' + f(C.y) + ' ' + f(C.x + r2 * cd.x) + ' ' + f(C.y + r2 * cd.y) // round into the last leg
-    + ' L ' + f(D.x) + ' ' + f(D.y);                                                 // last leg into the end
+  return (
+    'M ' +
+    f(A.x) +
+    ' ' +
+    f(A.y) +
+    ' L ' +
+    f(B.x - r1 * ab.x) +
+    ' ' +
+    f(B.y - r1 * ab.y) + // first leg
+    ' Q ' +
+    f(B.x) +
+    ' ' +
+    f(B.y) +
+    ' ' +
+    f(B.x + r1 * bc.x) +
+    ' ' +
+    f(B.y + r1 * bc.y) + // round into the diagonal
+    ' L ' +
+    f(C.x - r2 * bc.x) +
+    ' ' +
+    f(C.y - r2 * bc.y) + // the bevel diagonal
+    ' Q ' +
+    f(C.x) +
+    ' ' +
+    f(C.y) +
+    ' ' +
+    f(C.x + r2 * cd.x) +
+    ' ' +
+    f(C.y + r2 * cd.y) + // round into the last leg
+    ' L ' +
+    f(D.x) +
+    ' ' +
+    f(D.y)
+  ); // last leg into the end
 }
 
 // A small filled triangle whose apex points `dir`, sitting at (x, y).
@@ -48,23 +79,46 @@ export function bevelPath(A: Point, B: Point, C: Point, D: Point): string {
 // pixel in the Stages view — which is what the 26 stage-link tests assert. The
 // horizontal cases are the plain transpose of that same formula: apex ARROW_H
 // along the pointing axis, base 1px behind it, ±ARROW_W to either side.
-const ARROW_H = 6, ARROW_W = 5;
+const ARROW_H = 6,
+  ARROW_W = 5;
 export type ArrowDir = 'up' | 'down' | 'left' | 'right';
 
 export function arrowHeadPath(x: number, y: number, dir: string | null): string | null {
   if (dir === 'up' || dir === 'down') {
     const d = dir === 'up' ? -1 : 1;
-    return 'M ' + f(x) + ' ' + f(y + d * ARROW_H)
-      + ' L ' + f(x + ARROW_W) + ' ' + f(y - d * 1)
-      + ' L ' + f(x - ARROW_W) + ' ' + f(y - d * 1)
-      + ' Z';
+    return (
+      'M ' +
+      f(x) +
+      ' ' +
+      f(y + d * ARROW_H) +
+      ' L ' +
+      f(x + ARROW_W) +
+      ' ' +
+      f(y - d * 1) +
+      ' L ' +
+      f(x - ARROW_W) +
+      ' ' +
+      f(y - d * 1) +
+      ' Z'
+    );
   }
   if (dir === 'left' || dir === 'right') {
     const d = dir === 'left' ? -1 : 1;
-    return 'M ' + f(x + d * ARROW_H) + ' ' + f(y)
-      + ' L ' + f(x - d * 1) + ' ' + f(y + ARROW_W)
-      + ' L ' + f(x - d * 1) + ' ' + f(y - ARROW_W)
-      + ' Z';
+    return (
+      'M ' +
+      f(x + d * ARROW_H) +
+      ' ' +
+      f(y) +
+      ' L ' +
+      f(x - d * 1) +
+      ' ' +
+      f(y + ARROW_W) +
+      ' L ' +
+      f(x - d * 1) +
+      ' ' +
+      f(y - ARROW_W) +
+      ' Z'
+    );
   }
   return null;
 }

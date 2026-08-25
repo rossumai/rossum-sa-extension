@@ -1,9 +1,38 @@
 /* Self-contained styles for the Fabry fallback notice (spec §6). Design tokens
    (--danger-fg, --font-mono, etc.) stay central in console.css. */
-.notice { margin: 8px 0; padding: 9px 12px; border-radius: 8px; font-size: 12.5px; border: 1px solid var(--border); }
-.error { color: var(--danger-fg); border-color: var(--danger-border); background: var(--danger-bg); white-space: pre-wrap; }
-.warn { color: var(--warning-fg); border-color: var(--warning-border); background: var(--warning-bg); }
-.warn code { font-family: var(--font-mono); }
-.details { margin-top: 6px; }
-.details pre { margin-top: 4px; font-size: 11px; overflow-x: auto; }
-.muted { color: var(--text-secondary); font-style: italic; border: 0; background: none; padding: 0; }
+.notice {
+  margin: 8px 0;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  border: 1px solid var(--border);
+}
+.error {
+  color: var(--danger-fg);
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  white-space: pre-wrap;
+}
+.warn {
+  color: var(--warning-fg);
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+}
+.warn code {
+  font-family: var(--font-mono);
+}
+.details {
+  margin-top: 6px;
+}
+.details pre {
+  margin-top: 4px;
+  font-size: 11px;
+  overflow-x: auto;
+}
+.muted {
+  color: var(--text-secondary);
+  font-style: italic;
+  border: 0;
+  background: none;
+  padding: 0;
+}

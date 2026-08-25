@@ -4,7 +4,10 @@ function stubRuntime() {
   const sent: any = [];
   globalThis.chrome = {
     runtime: {
-      sendMessage: (msg: any) => { sent.push(msg); return Promise.resolve(); },
+      sendMessage: (msg: any) => {
+        sent.push(msg);
+        return Promise.resolve();
+      },
     },
   } as any;
   return sent;
@@ -19,7 +22,9 @@ async function freshTrack() {
 
 describe('track', () => {
   let sent: any;
-  beforeEach(() => { sent = stubRuntime(); });
+  beforeEach(() => {
+    sent = stubRuntime();
+  });
 
   it('posts the message shape the worker expects', async () => {
     const { track } = await freshTrack();
@@ -38,13 +43,15 @@ describe('track', () => {
 
   it('returns undefined and never throws when messaging is unavailable', async () => {
     const { track } = await freshTrack();
-    globalThis.chrome = ({} as any);
+    globalThis.chrome = {} as any;
     expect(track('sa_popup_open')).toBeUndefined();
   });
 
   it('swallows a rejected sendMessage promise', async () => {
     const { track } = await freshTrack();
-    globalThis.chrome = { runtime: { sendMessage: () => Promise.reject(new Error('no receiver')) } } as any;
+    globalThis.chrome = {
+      runtime: { sendMessage: () => Promise.reject(new Error('no receiver')) },
+    } as any;
     expect(() => track('sa_popup_open')).not.toThrow();
     await Promise.resolve();
   });
@@ -56,10 +63,19 @@ describe('consent short-circuit', () => {
     const sent: any = [];
     let onChanged: any = null;
     globalThis.chrome = {
-      runtime: { sendMessage: (m: any) => { sent.push(m); return Promise.resolve(); } },
+      runtime: {
+        sendMessage: (m: any) => {
+          sent.push(m);
+          return Promise.resolve();
+        },
+      },
       storage: {
         local: { get: () => (hang ? new Promise(() => {}) : Promise.resolve(stored || {})) },
-        onChanged: { addListener: (fn: any) => { onChanged = fn; } },
+        onChanged: {
+          addListener: (fn: any) => {
+            onChanged = fn;
+          },
+        },
       } as any,
     } as any;
     return { sent, fire: (v: any) => onChanged({ usageConsent: { newValue: v } }, 'local') };
@@ -106,7 +122,9 @@ describe('consent short-circuit', () => {
 
 describe('trackOnce', () => {
   let sent: any;
-  beforeEach(() => { sent = stubRuntime(); });
+  beforeEach(() => {
+    sent = stubRuntime();
+  });
 
   it('sends the first call and swallows every repeat in this page lifetime', async () => {
     const { trackOnce } = await freshTrack();
@@ -119,6 +137,9 @@ describe('trackOnce', () => {
     trackOnce('sa_rossum_schema_ids');
     trackOnce('sa_rossum_resource_ids');
     trackOnce('sa_rossum_schema_ids');
-    expect(sent.map((m: any) => m.name)).toEqual(['sa_rossum_schema_ids', 'sa_rossum_resource_ids']);
+    expect(sent.map((m: any) => m.name)).toEqual([
+      'sa_rossum_schema_ids',
+      'sa_rossum_resource_ids',
+    ]);
   });
 });

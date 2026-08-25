@@ -12,8 +12,8 @@ describe('csvCell', () => {
     expect(csvCell(undefined, d)).toBe('');
   });
   it('JSON-encodes objects and arrays', () => {
-    expect(csvCell({ a: 1 }, d)).toBe('"{""a"":1}"');     // quoted because it contains a comma? no comma here, but contains "
-    expect(csvCell([1, 2], d)).toBe('"[1,2]"');           // contains the delimiter , -> quoted
+    expect(csvCell({ a: 1 }, d)).toBe('"{""a"":1}"'); // quoted because it contains a comma? no comma here, but contains "
+    expect(csvCell([1, 2], d)).toBe('"[1,2]"'); // contains the delimiter , -> quoted
   });
   it('quotes and doubles quotes when the cell contains delimiter, quote, or newline', () => {
     expect(csvCell('a,b', d)).toBe('"a,b"');
@@ -33,10 +33,10 @@ describe('csvCell', () => {
 describe('csvRow / csvHeader', () => {
   it('joins cells by the delimiter in column order; missing key -> empty', () => {
     const cols = ['_id', 'name', 'active'];
-    expect(csvRow({ _id: 'V1', name: 'Acme', active: true }, cols, { delimiter: ',' }))
-      .toBe('V1,Acme,true');
-    expect(csvRow({ _id: 'V2', name: 'Globex' }, cols, { delimiter: ',' }))
-      .toBe('V2,Globex,');
+    expect(csvRow({ _id: 'V1', name: 'Acme', active: true }, cols, { delimiter: ',' })).toBe(
+      'V1,Acme,true',
+    );
+    expect(csvRow({ _id: 'V2', name: 'Globex' }, cols, { delimiter: ',' })).toBe('V2,Globex,');
   });
   it('quotes header names containing the delimiter', () => {
     expect(csvHeader(['_id', 'full,name'], { delimiter: ',' })).toBe('_id,"full,name"');
@@ -58,8 +58,9 @@ describe('orderColumns', () => {
 describe('csvRow with dotted columns', () => {
   it('reads a nested value by its dotted path', () => {
     const doc = { _id: 'x', address: { city: 'TOWN', line: ['PO BOX 1'] } };
-    expect(csvRow(doc, ['_id', 'address.city', 'address.line'], { delimiter: ',' }))
-      .toBe('x,TOWN,"[""PO BOX 1""]"');
+    expect(csvRow(doc, ['_id', 'address.city', 'address.line'], { delimiter: ',' })).toBe(
+      'x,TOWN,"[""PO BOX 1""]"',
+    );
   });
 
   it('leaves a column the document lacks empty', () => {

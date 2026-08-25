@@ -41,7 +41,10 @@ beforeEach(() => {
 describe('MissionList', () => {
   it('lists every mission with its progress fraction', async () => {
     const p = emptyProgress(TRACK, 1);
-    render(<MissionList track={TRACK} progress={p} activeId="m1" onSelect={() => {}} />, document.body);
+    render(
+      <MissionList track={TRACK} progress={p} activeId="m1" onSelect={() => {}} />,
+      document.body,
+    );
     await waitFor(() => document.body.textContent.includes('Orientation'));
     for (const m of TRACK.missions) expect(document.body.textContent).toContain(m.title);
     expect(document.body.textContent).toContain(`0/${TRACK.missions[0].steps.length}`);
@@ -50,7 +53,10 @@ describe('MissionList', () => {
   it('marks later missions locked and does not select them', async () => {
     const p = emptyProgress(TRACK, 1);
     const onSelect = vi.fn();
-    render(<MissionList track={TRACK} progress={p} activeId="m1" onSelect={onSelect} />, document.body);
+    render(
+      <MissionList track={TRACK} progress={p} activeId="m1" onSelect={onSelect} />,
+      document.body,
+    );
     await waitFor(() => document.querySelectorAll('button').length > 1);
     const locked = [...document.querySelectorAll('button')].find((b) => b.disabled);
     expect(locked).toBeTruthy();
@@ -63,7 +69,10 @@ describe('MissionDetail', () => {
   const mission = TRACK.missions[0];
 
   it('renders every step with a kind chip', async () => {
-    render(<MissionDetail mission={mission} progress={emptyProgress(TRACK, 1)} onAttest={() => {}} />, document.body);
+    render(
+      <MissionDetail mission={mission} progress={emptyProgress(TRACK, 1)} onAttest={() => {}} />,
+      document.body,
+    );
     await waitFor(() => document.body.textContent.includes(mission.steps[0].hint));
     expect(document.body.textContent).toContain('url');
     expect(document.body.textContent).toContain('self');
@@ -71,12 +80,18 @@ describe('MissionDetail', () => {
 
   it('offers a tick button only on self steps', async () => {
     const onAttest = vi.fn();
-    render(<MissionDetail mission={mission} progress={emptyProgress(TRACK, 1)} onAttest={onAttest} />, document.body);
+    render(
+      <MissionDetail mission={mission} progress={emptyProgress(TRACK, 1)} onAttest={onAttest} />,
+      document.body,
+    );
     await waitFor(() => document.querySelectorAll('button').length > 0);
     const buttons = [...document.querySelectorAll('button')];
     expect(buttons).toHaveLength(mission.steps.filter((s) => s.kind === 'self').length);
     buttons[0].click();
-    expect(onAttest).toHaveBeenCalledWith(mission.id, mission.steps.find((s) => s.kind === 'self')!.id);
+    expect(onAttest).toHaveBeenCalledWith(
+      mission.id,
+      mission.steps.find((s) => s.kind === 'self')!.id,
+    );
   });
 
   it('shows a done state for a passed step', async () => {
@@ -94,13 +109,15 @@ describe('AcademyApp — error strip', () => {
     let p = emptyProgress(TRACK, 1);
     for (const m of TRACK.missions) {
       p = { ...p, missions: { ...p.missions, [m.id]: { startedAt: 1, baseline: {}, steps: {} } } };
-      for (const s of m.steps) p = markStep(p, m.id, s.id, s.kind === 'self' ? 'self' : 'passed', 2);
+      for (const s of m.steps)
+        p = markStep(p, m.id, s.id, s.kind === 'self' ? 'self' : 'passed', 2);
     }
     return p;
   }
 
   it('renders the error in the NOT-CONNECTED branch — initAcademy sets it on exactly that path', async () => {
-    store.error.value = "Open the Academy from this extension's popup so it knows which org to track.";
+    store.error.value =
+      "Open the Academy from this extension's popup so it knows which org to track.";
     render(<AcademyApp connected={false} />, document.body);
     await waitFor(() => document.querySelector('[role="alert"]'));
     expect(document.body.textContent).toContain('popup');
@@ -131,12 +148,15 @@ describe('AcademyApp — error strip', () => {
     const p = completeProgress();
     // The revocation mint would have written.
     store.progress.value = markStep(p, 'm2', 'm2.s2', null, 3);
-    store.mintNote.value = 'Not issued — step m2.s2 no longer checks out in your org, so it has been un-ticked. Redo it and issue again.';
+    store.mintNote.value =
+      'Not issued — step m2.s2 no longer checks out in your org, so it has been un-ticked. Redo it and issue again.';
     render(<AcademyApp connected />, document.body);
     await waitFor(() => document.body.textContent.includes('Completion receipt'));
     expect(document.body.textContent).toContain('no longer checks out');
     // …and it must not invite a re-issue while the track is incomplete.
-    const issue = [...document.querySelectorAll('button')].find((b) => /Issue receipt/.test(b.textContent));
+    const issue = [...document.querySelectorAll('button')].find((b) =>
+      /Issue receipt/.test(b.textContent),
+    );
     expect(issue).toBeUndefined();
   });
 });
@@ -146,7 +166,8 @@ describe('AcademyApp — error strip', () => {
 // grid, which squeezed this screen's lone child into the grid's 240px first column.
 describe('AcademyApp — not-connected branch', () => {
   it('uses app-root/empty-state, not the two-column mission grid, and keeps the error strip reachable', async () => {
-    store.error.value = 'Open the Rossum Console from this extension\'s popup on a Rossum tab to access the Academy.';
+    store.error.value =
+      "Open the Rossum Console from this extension's popup on a Rossum tab to access the Academy.";
     render(<AcademyApp connected={false} />, document.body);
     await waitFor(() => document.querySelector('.empty-state-title'));
 
@@ -218,8 +239,9 @@ describe('AcademyApp — entry screen (no-progress)', () => {
     // Not rendered up front.
     expect(document.body.textContent).not.toContain('Check a receipt');
 
-    const toggle = [...document.querySelectorAll(`.${academyCss.trainerToggle}`)]
-      .find((el) => /Check a colleague.s receipt/.test(el.textContent));
+    const toggle = [...document.querySelectorAll(`.${academyCss.trainerToggle}`)].find((el) =>
+      /Check a colleague.s receipt/.test(el.textContent),
+    );
     expect(toggle).toBeTruthy();
     expect(toggle!.tagName).toBe('BUTTON'); // keyboard-accessible, not a div onClick
 
@@ -238,7 +260,7 @@ describe('ReceiptPanel — failure wording', () => {
     expect(unreachable).not.toBe(stale);
     expect(unreachable).toMatch(/couldn't reach/i);
     expect(unreachable).toMatch(/nothing has been un-ticked/i);
-    expect(unreachable).not.toMatch(/redo/i);   // the work is fine — do not send them back
+    expect(unreachable).not.toMatch(/redo/i); // the work is fine — do not send them back
     expect(stale).toMatch(/redo/i);
     expect(stale).toMatch(/un-ticked/i);
   });
@@ -254,7 +276,9 @@ describe('ReceiptPanel — failure wording', () => {
     vi.resetModules();
     // A get that always throws makes mintReceipt return {reason:'unreachable'}.
     vi.doMock('../src/academy/api.js', () => ({
-      fetchAcademyApi: async () => { throw new Error('API 401'); },
+      fetchAcademyApi: async () => {
+        throw new Error('API 401');
+      },
       whoami: async () => ({ id: 42, username: 'j.doe' }),
     }));
     const Panel = (await import('../src/academy/components/ReceiptPanel.jsx')).default;
@@ -262,7 +286,8 @@ describe('ReceiptPanel — failure wording', () => {
     let p = emptyProgress(TRACK, 1);
     for (const m of TRACK.missions) {
       p = { ...p, missions: { ...p.missions, [m.id]: { startedAt: 1, baseline: {}, steps: {} } } };
-      for (const s of m.steps) p = markStep(p, m.id, s.id, s.kind === 'self' ? 'self' : 'passed', 2);
+      for (const s of m.steps)
+        p = markStep(p, m.id, s.id, s.kind === 'self' ? 'self' : 'passed', 2);
     }
     freshStore.progress.value = p;
     freshStore.receiptText.value = null;
@@ -273,7 +298,9 @@ describe('ReceiptPanel — failure wording', () => {
     await waitFor(() => document.querySelector('button'));
     document.querySelector('button')!.click();
     await waitFor(() => /Not issued/.test(document.body.textContent));
-    const btn = [...document.querySelectorAll('button')].find((b) => /Issue receipt|Checking/.test(b.textContent))!;
+    const btn = [...document.querySelectorAll('button')].find((b) =>
+      /Issue receipt|Checking/.test(b.textContent),
+    )!;
     expect(btn.textContent).toContain('Issue receipt'); // not stuck on "Checking…"
     expect(btn.disabled).toBe(false);
     vi.doUnmock('../src/academy/api.js');

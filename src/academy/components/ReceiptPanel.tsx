@@ -65,14 +65,18 @@ export default function ReceiptPanel() {
         </button>
       )}
       {text && (
-        <button type="button" class={css.ghost} onClick={() => navigator.clipboard?.writeText(text as string)}>
+        <button
+          type="button"
+          class={css.ghost}
+          onClick={() => navigator.clipboard?.writeText(text as string)}
+        >
           Copy receipt
         </button>
       )}
       {note && <p class={css.warn}>{note}</p>}
       <p class={css.fine}>
-        The code is tied to this org, your user id and your user name. It is a training receipt, not a
-        credential {'—'} the signing key ships in the extension and can be extracted.
+        The code is tied to this org, your user id and your user name. It is a training receipt, not
+        a credential {'—'} the signing key ships in the extension and can be extracted.
       </p>
     </section>
   );

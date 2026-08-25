@@ -29,7 +29,9 @@ describe('selectionToFilter', () => {
 });
 
 describe('previewMatch', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns count and up to 5 sample docs from two parallel aggregates', async () => {
     vi.mocked(api.aggregate)
@@ -80,7 +82,10 @@ import { _reset as resetUndo, triggerUndo } from '../src/mdh/undo.js';
 import { runBulkDelete } from '../src/mdh/bulkOps.js';
 
 describe('runBulkDelete', () => {
-  beforeEach(() => { vi.clearAllMocks(); resetUndo(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetUndo();
+  });
 
   it('snapshots, deletes, and registers an undo toast when count is within the limit', async () => {
     const docs = [{ _id: '1' }, { _id: '2' }];
@@ -135,7 +140,10 @@ describe('runBulkDelete', () => {
 import { runBulkUpdate } from '../src/mdh/bulkOps.js';
 
 describe('runBulkUpdate', () => {
-  beforeEach(() => { vi.clearAllMocks(); resetUndo(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetUndo();
+  });
 
   it('snapshots, updates, and undo restores via deleteMany + insertMany', async () => {
     const docs = [
@@ -143,7 +151,9 @@ describe('runBulkUpdate', () => {
       { _id: 'b', status: 'old' },
     ];
     vi.mocked(api.aggregate).mockResolvedValueOnce({ result: docs });
-    vi.mocked(api.updateMany).mockResolvedValueOnce({ result: { matched_count: 2, modified_count: 2 } });
+    vi.mocked(api.updateMany).mockResolvedValueOnce({
+      result: { matched_count: 2, modified_count: 2 },
+    });
     vi.mocked(api.deleteMany).mockResolvedValueOnce({ result: { deleted_count: 2 } });
     vi.mocked(api.insertMany).mockResolvedValueOnce({ result: {} });
     const onSuccess = vi.fn();
@@ -164,7 +174,9 @@ describe('runBulkUpdate', () => {
     const oidA = { $oid: '67e8abcd1234567890abcdef' };
     const docs = [{ _id: oidA, n: 1 }];
     vi.mocked(api.aggregate).mockResolvedValueOnce({ result: docs });
-    vi.mocked(api.updateMany).mockResolvedValueOnce({ result: { matched_count: 1, modified_count: 1 } });
+    vi.mocked(api.updateMany).mockResolvedValueOnce({
+      result: { matched_count: 1, modified_count: 1 },
+    });
     vi.mocked(api.deleteMany).mockResolvedValueOnce({ result: { deleted_count: 1 } });
     vi.mocked(api.insertMany).mockResolvedValueOnce({ result: {} });
 
@@ -176,14 +188,18 @@ describe('runBulkUpdate', () => {
   });
 
   it('skips snapshot and undo above UNDO_LIMIT', async () => {
-    vi.mocked(api.updateMany).mockResolvedValueOnce({ result: { matched_count: 5000, modified_count: 5000 } });
+    vi.mocked(api.updateMany).mockResolvedValueOnce({
+      result: { matched_count: 5000, modified_count: 5000 },
+    });
     await runBulkUpdate('c', {}, { $set: { x: 1 } }, { count: 5000 });
     expect(api.aggregate).not.toHaveBeenCalled();
     expect(undoToast.value).toBeNull();
   });
 
   it('skips the undo toast when count is 0', async () => {
-    vi.mocked(api.updateMany).mockResolvedValueOnce({ result: { matched_count: 0, modified_count: 0 } });
+    vi.mocked(api.updateMany).mockResolvedValueOnce({
+      result: { matched_count: 0, modified_count: 0 },
+    });
     await runBulkUpdate('c', {}, { $set: {} }, { count: 0 });
     expect(undoToast.value).toBeNull();
   });

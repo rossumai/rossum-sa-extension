@@ -1,7 +1,10 @@
 import { signal } from '@preact/signals';
 import { TRACK } from '../training/track.js';
 import {
-  emptyProgress, markStep, isMissionComplete, firstActiveMission,
+  emptyProgress,
+  markStep,
+  isMissionComplete,
+  firstActiveMission,
   type Progress,
 } from '../training/progress.js';
 import { readProgress, writeProgress, clearProgress } from '../training/storage.js';
@@ -20,8 +23,12 @@ export const mintNote = signal<string | null>(null);
 // No `busy` signal: the only spinner is ReceiptPanel's, and it is component-local.
 
 let origin = '';
-export function setOrigin(value: string) { origin = value; }
-export function getOrigin() { return origin; }
+export function setOrigin(value: string) {
+  origin = value;
+}
+export function getOrigin() {
+  return origin;
+}
 
 export async function refreshProgress() {
   progress.value = await readProgress(origin, TRACK);
@@ -53,7 +60,9 @@ export async function startTrack(now = Date.now) {
   }
 }
 
-export function setActiveMission(id: string | null) { activeMissionId.value = id; }
+export function setActiveMission(id: string | null) {
+  activeMissionId.value = id;
+}
 
 // Only a `self` step may be attested; everything else is evidence-backed.
 export async function attestStep(missionId: string, stepId: string, now = Date.now) {

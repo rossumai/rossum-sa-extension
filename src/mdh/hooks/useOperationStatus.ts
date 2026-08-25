@@ -26,7 +26,13 @@ export default function useOperationStatus() {
     ownsNoticeRef.current = true;
   }
 
-  useEffect(() => () => { abortRef.current?.abort(); clearOwnNotice(); }, []);
+  useEffect(
+    () => () => {
+      abortRef.current?.abort();
+      clearOwnNotice();
+    },
+    [],
+  );
 
   function track(
     operationId: string | null | undefined,
@@ -37,7 +43,8 @@ export default function useOperationStatus() {
     const controller = new AbortController();
     abortRef.current = controller;
     setNotice({ message: `${label}… (runs in the background)`, kind: 'info' });
-    api.waitForOperation(operationId, { signal: controller.signal })
+    api
+      .waitForOperation(operationId, { signal: controller.signal })
       .then(() => {
         if (controller.signal.aborted) return;
         clearOwnNotice();
@@ -47,7 +54,10 @@ export default function useOperationStatus() {
         if (controller.signal.aborted) return;
         if (err && (err.timedOut || err.pollUnavailable)) {
           // Inconclusive — the build may still be running. Neutral warning, not red.
-          setNotice({ message: `${label}: still running — use Refresh to confirm.`, kind: 'warning' });
+          setNotice({
+            message: `${label}: still running — use Refresh to confirm.`,
+            kind: 'warning',
+          });
         } else {
           clearOwnNotice();
           error.value = { message: `${label} failed: ${err.message}` };

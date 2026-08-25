@@ -54,8 +54,9 @@ describe('describeQuery', () => {
   });
 
   it('falls back to find: <keys> for find-style queries', () => {
-    expect(describeQuery({ find: { vendor_id: '{x}', country: 'US' } }))
-      .toBe('find: vendor_id, country');
+    expect(describeQuery({ find: { vendor_id: '{x}', country: 'US' } })).toBe(
+      'find: vendor_id, country',
+    );
   });
 
   it('handles empty find / aggregate / unknown shapes', () => {
@@ -81,10 +82,7 @@ describe('collectPlaceholders', () => {
 
   it('collects the schema_id name from placeholders that carry modifiers', () => {
     const set = new Set<string>();
-    collectPlaceholders(
-      { a: "{order_id | split(',')}", b: '{name | re}', c: '{ amount }' },
-      set,
-    );
+    collectPlaceholders({ a: "{order_id | split(',')}", b: '{name | re}', c: '{ amount }' }, set);
     expect([...set].sort()).toEqual(['amount', 'name', 'order_id']);
   });
 
@@ -111,10 +109,7 @@ describe('substitutePlaceholders — basic', () => {
   });
 
   it('recurses into nested objects and arrays', () => {
-    const r = substitutePlaceholders(
-      { a: { b: ['{x}', { c: '{y}' }] } },
-      { x: '1', y: '2' },
-    );
+    const r = substitutePlaceholders({ a: { b: ['{x}', { c: '{y}' }] } }, { x: '1', y: '2' });
     expect(r).toEqual({ a: { b: ['1', { c: '2' }] } });
   });
 
@@ -139,27 +134,25 @@ describe('substitutePlaceholders — type-aware (number)', () => {
   });
 
   it('coerces decimal strings to numbers', () => {
-    expect(substitutePlaceholders(['{amount}'], { amount: '5552.14' }, { amount: 'number' }))
-      .toEqual([5552.14]);
+    expect(
+      substitutePlaceholders(['{amount}'], { amount: '5552.14' }, { amount: 'number' }),
+    ).toEqual([5552.14]);
   });
 
   it('keeps the string form when the value is not finite when coerced', () => {
-    expect(substitutePlaceholders(['{x}'], { x: 'not-a-number' }, { x: 'number' }))
-      .toEqual(['not-a-number']);
+    expect(substitutePlaceholders(['{x}'], { x: 'not-a-number' }, { x: 'number' })).toEqual([
+      'not-a-number',
+    ]);
   });
 
   it('uses string substitution when the placeholder is part of a larger string', () => {
-    expect(substitutePlaceholders('prefix-{x}', { x: '221' }, { x: 'number' }))
-      .toBe('prefix-221');
+    expect(substitutePlaceholders('prefix-{x}', { x: '221' }, { x: 'number' })).toBe('prefix-221');
   });
 
   it('does not coerce when types[x] is not "number"', () => {
-    expect(substitutePlaceholders(['{x}'], { x: '221' }, { x: 'string' }))
-      .toEqual(['221']);
-    expect(substitutePlaceholders(['{x}'], { x: '221' }, { x: 'enum' }))
-      .toEqual(['221']);
-    expect(substitutePlaceholders(['{x}'], { x: '221' }, { x: 'date' }))
-      .toEqual(['221']);
+    expect(substitutePlaceholders(['{x}'], { x: '221' }, { x: 'string' })).toEqual(['221']);
+    expect(substitutePlaceholders(['{x}'], { x: '221' }, { x: 'enum' })).toEqual(['221']);
+    expect(substitutePlaceholders(['{x}'], { x: '221' }, { x: 'date' })).toEqual(['221']);
   });
 
   it('falls back to string substitution when no types map is provided', () => {
@@ -208,37 +201,31 @@ describe('substitutePlaceholders — split modifier', () => {
   });
 
   it('overrides type=number coercion when a modifier is present', () => {
-    const r = substitutePlaceholders(
-      ["{x | split(',')}"],
-      { x: '1,2,3' },
-      { x: 'number' },
-    );
+    const r = substitutePlaceholders(["{x | split(',')}"], { x: '1,2,3' }, { x: 'number' });
     expect(r).toEqual([['1', '2', '3']]);
   });
 
   it('tolerates whitespace around the placeholder name and pipe', () => {
-    expect(substitutePlaceholders(["{ x | split(',') }"], { x: 'a,b' }))
-      .toEqual([['a', 'b']]);
+    expect(substitutePlaceholders(["{ x | split(',') }"], { x: 'a,b' })).toEqual([['a', 'b']]);
   });
 });
 
 describe('substitutePlaceholders — re modifier', () => {
   it('escapes regex special characters', () => {
-    expect(substitutePlaceholders(['{x | re}'], { x: 'a.b*c+d' }))
-      .toEqual(['a\\.b\\*c\\+d']);
+    expect(substitutePlaceholders(['{x | re}'], { x: 'a.b*c+d' })).toEqual(['a\\.b\\*c\\+d']);
   });
 
   // The service's `re` value filter is Python re.escape (verified live against
   // /svc/master-data-hub/api/v1/match 2026-07-04): it also escapes `-&~#`,
   // space, and whitespace/control chars — not just the JS regex specials.
   it('escapes the full Python re.escape set of regex specials', () => {
-    expect(substitutePlaceholders(['{x | re}'], { x: '.*+?^${}()|[]\\-&~# \t\n\r\v\f' }))
-      .toEqual(['\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\\\-\\&\\~\\#\\ \\\t\\\n\\\r\\\v\\\f']);
+    expect(substitutePlaceholders(['{x | re}'], { x: '.*+?^${}()|[]\\-&~# \t\n\r\v\f' })).toEqual([
+      '\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\\\-\\&\\~\\#\\ \\\t\\\n\\\r\\\v\\\f',
+    ]);
   });
 
   it('escapes space (verified: "ACME (US)" → "ACME\\ \\(US\\)")', () => {
-    expect(substitutePlaceholders(['{x | re}'], { x: 'ACME (US)' }))
-      .toEqual(['ACME\\ \\(US\\)']);
+    expect(substitutePlaceholders(['{x | re}'], { x: 'ACME (US)' })).toEqual(['ACME\\ \\(US\\)']);
   });
 
   it('leaves non-special printable ASCII untouched (verified live)', () => {
@@ -247,8 +234,7 @@ describe('substitutePlaceholders — re modifier', () => {
   });
 
   it('still produces a string for partial substitutions', () => {
-    expect(substitutePlaceholders(['^{x | re}$'], { x: 'a.b' }))
-      .toEqual(['^a\\.b$']);
+    expect(substitutePlaceholders(['^{x | re}$'], { x: 'a.b' })).toEqual(['^a\\.b$']);
   });
 });
 
@@ -262,10 +248,16 @@ describe('flattenContent', () => {
   it('classifies datapoints with a finite normalized_value as type=number', () => {
     const content = {
       content: [
-        { schema_id: 'amount', category: 'datapoint',
-          content: { value: '5,552.14', normalized_value: '5552.14' } },
-        { schema_id: 'vendor', category: 'datapoint',
-          content: { value: 'ACME', normalized_value: null } },
+        {
+          schema_id: 'amount',
+          category: 'datapoint',
+          content: { value: '5,552.14', normalized_value: '5552.14' },
+        },
+        {
+          schema_id: 'vendor',
+          category: 'datapoint',
+          content: { value: 'ACME', normalized_value: null },
+        },
       ],
     };
     const flat = flattenContent(content);
@@ -276,8 +268,11 @@ describe('flattenContent', () => {
   it('uses normalized_value (canonical) for type=number so Number() coerces correctly', () => {
     const content = {
       content: [
-        { schema_id: 'amount', category: 'datapoint',
-          content: { value: '5,552.14', normalized_value: '5552.14' } },
+        {
+          schema_id: 'amount',
+          category: 'datapoint',
+          content: { value: '5,552.14', normalized_value: '5552.14' },
+        },
       ],
     };
     expect(flattenContent(content).headerValues.amount).toBe('5552.14');
@@ -286,8 +281,11 @@ describe('flattenContent', () => {
   it('does not classify dates as type=number (ISO normalized_value parses to NaN)', () => {
     const content = {
       content: [
-        { schema_id: 'date', category: 'datapoint',
-          content: { value: '01/05/2026', normalized_value: '2026-05-01' } },
+        {
+          schema_id: 'date',
+          category: 'datapoint',
+          content: { value: '01/05/2026', normalized_value: '2026-05-01' },
+        },
       ],
     };
     const flat = flattenContent(content);
@@ -298,8 +296,11 @@ describe('flattenContent', () => {
   it('does not classify string fields with numeric-looking value as type=number when normalized_value is null', () => {
     const content = {
       content: [
-        { schema_id: 'document_id', category: 'datapoint',
-          content: { value: '315610', normalized_value: null } },
+        {
+          schema_id: 'document_id',
+          category: 'datapoint',
+          content: { value: '315610', normalized_value: null },
+        },
       ],
     };
     const flat = flattenContent(content);
@@ -310,8 +311,11 @@ describe('flattenContent', () => {
   it('does not classify empty fields (normalized_value === "") as type=number', () => {
     const content = {
       content: [
-        { schema_id: 'amount', category: 'datapoint',
-          content: { value: '', normalized_value: '' } },
+        {
+          schema_id: 'amount',
+          category: 'datapoint',
+          content: { value: '', normalized_value: '' },
+        },
       ],
     };
     expect(flattenContent(content).types).toEqual({});
@@ -321,24 +325,37 @@ describe('flattenContent', () => {
     const content = {
       content: [
         {
-          schema_id: 'line_items', category: 'multivalue',
+          schema_id: 'line_items',
+          category: 'multivalue',
           children: [
             {
               category: 'tuple',
               children: [
-                { schema_id: 'qty', category: 'datapoint',
-                  content: { value: '3', normalized_value: '3' } },
-                { schema_id: 'sku', category: 'datapoint',
-                  content: { value: 'A1', normalized_value: null } },
+                {
+                  schema_id: 'qty',
+                  category: 'datapoint',
+                  content: { value: '3', normalized_value: '3' },
+                },
+                {
+                  schema_id: 'sku',
+                  category: 'datapoint',
+                  content: { value: 'A1', normalized_value: null },
+                },
               ],
             },
             {
               category: 'tuple',
               children: [
-                { schema_id: 'qty', category: 'datapoint',
-                  content: { value: '7', normalized_value: '7' } },
-                { schema_id: 'sku', category: 'datapoint',
-                  content: { value: 'B2', normalized_value: null } },
+                {
+                  schema_id: 'qty',
+                  category: 'datapoint',
+                  content: { value: '7', normalized_value: '7' },
+                },
+                {
+                  schema_id: 'sku',
+                  category: 'datapoint',
+                  content: { value: 'B2', normalized_value: null },
+                },
               ],
             },
           ],
@@ -355,13 +372,17 @@ describe('flattenContent', () => {
     const content = {
       content: [
         {
-          schema_id: 'line_items', category: 'multivalue',
+          schema_id: 'line_items',
+          category: 'multivalue',
           children: [
             {
               category: 'tuple',
               children: [
-                { schema_id: 'item_amount', category: 'datapoint',
-                  content: { value: '0.65', normalized_value: '0.65' } },
+                {
+                  schema_id: 'item_amount',
+                  category: 'datapoint',
+                  content: { value: '0.65', normalized_value: '0.65' },
+                },
               ],
             },
           ],
@@ -387,9 +408,7 @@ describe('filterHookEntries', () => {
     },
     {
       hook: { id: 2, name: 'B' },
-      cfgs: [
-        { target: 'tax_id', dataset: 'd', queries: [] },
-      ],
+      cfgs: [{ target: 'tax_id', dataset: 'd', queries: [] }],
     },
   ];
 
@@ -526,7 +545,11 @@ describe('extractConfigsFromHook', () => {
       settings: {
         configurations: [
           { mapping: { target_schema_id: 't' }, source: { dataset: 'd', queries: [] } },
-          { mapping: { target_schema_id: 't' }, source: { dataset: 'd', queries: [] }, additional_mappings: 'not-an-array' },
+          {
+            mapping: { target_schema_id: 't' },
+            source: { dataset: 'd', queries: [] },
+            additional_mappings: 'not-an-array',
+          },
         ],
       },
     };
@@ -562,7 +585,9 @@ describe('extractConfigsFromHook', () => {
 
 describe('hookConfigs', () => {
   it('prefers the modern settings.configurations when both keys are present', () => {
-    const hook = { settings: { configs: [{ name: 'legacy' }], configurations: [{ name: 'modern' }] } };
+    const hook = {
+      settings: { configs: [{ name: 'legacy' }], configurations: [{ name: 'modern' }] },
+    };
     expect(hookConfigs(hook)).toEqual([{ name: 'modern' }]);
   });
 
@@ -584,7 +609,7 @@ describe('hookConfigs', () => {
 describe('loadMdhHooksForQueue', () => {
   const withFetch = async (results: any, run: any) => {
     const original = globalThis.fetch;
-    globalThis.fetch = ((async () => ({ ok: true, json: async () => ({ results }) })) as any);
+    globalThis.fetch = (async () => ({ ok: true, json: async () => ({ results }) })) as any;
     try {
       return await run();
     } finally {
@@ -649,21 +674,36 @@ describe('loadMdhHooksForQueue', () => {
 describe('buildSchemaTypes', () => {
   it('maps number and number-enum to number, everything else to string', () => {
     const content = [
-      { category: 'section', children: [
-        { category: 'datapoint', id: 'amount', type: 'number' },
-        { category: 'datapoint', id: 'cust', type: 'enum', enum_value_type: 'string' },
-        { category: 'datapoint', id: 'code', type: 'enum', enum_value_type: 'number' },
-        { category: 'datapoint', id: 'name', type: 'string' },
-        { category: 'datapoint', id: 'when', type: 'date' },
-        { category: 'multivalue', id: 'items', children: { category: 'tuple', children: [
-          { category: 'datapoint', id: 'item_qty', type: 'number' },
-          { category: 'datapoint', id: 'item_desc', type: 'string' },
-        ] } },
-      ] },
+      {
+        category: 'section',
+        children: [
+          { category: 'datapoint', id: 'amount', type: 'number' },
+          { category: 'datapoint', id: 'cust', type: 'enum', enum_value_type: 'string' },
+          { category: 'datapoint', id: 'code', type: 'enum', enum_value_type: 'number' },
+          { category: 'datapoint', id: 'name', type: 'string' },
+          { category: 'datapoint', id: 'when', type: 'date' },
+          {
+            category: 'multivalue',
+            id: 'items',
+            children: {
+              category: 'tuple',
+              children: [
+                { category: 'datapoint', id: 'item_qty', type: 'number' },
+                { category: 'datapoint', id: 'item_desc', type: 'string' },
+              ],
+            },
+          },
+        ],
+      },
     ];
     expect(buildSchemaTypes(content)).toEqual({
-      amount: 'number', cust: 'string', code: 'number', name: 'string',
-      when: 'string', item_qty: 'number', item_desc: 'string',
+      amount: 'number',
+      cust: 'string',
+      code: 'number',
+      name: 'string',
+      when: 'string',
+      item_qty: 'number',
+      item_desc: 'string',
     });
   });
   it('tolerates non-array input', () => {
@@ -673,15 +713,21 @@ describe('buildSchemaTypes', () => {
 
 describe('mergeSchemaTypes', () => {
   it('schema wins; heuristic fills fields the schema does not cover', () => {
-    expect(mergeSchemaTypes({ a: 'number', b: 'number' }, { b: 'string', c: 'number' }))
-      .toEqual({ a: 'number', b: 'string', c: 'number' });
+    expect(mergeSchemaTypes({ a: 'number', b: 'number' }, { b: 'string', c: 'number' })).toEqual({
+      a: 'number',
+      b: 'string',
+      c: 'number',
+    });
   });
 });
 
 describe('buildVariableTypes', () => {
   it('emits explicit number/string per placeholder from the merged types map', () => {
-    expect(buildVariableTypes(['cust', 'amount', 'unknown'], { amount: 'number' }))
-      .toEqual({ cust: 'string', amount: 'number', unknown: 'string' });
+    expect(buildVariableTypes(['cust', 'amount', 'unknown'], { amount: 'number' })).toEqual({
+      cust: 'string',
+      amount: 'number',
+      unknown: 'string',
+    });
   });
 });
 
@@ -692,10 +738,10 @@ describe('loadSchemaTypesForQueue', () => {
   const withSequentialFetch = async (responses: any, run: any) => {
     const original = globalThis.fetch;
     let i = 0;
-    globalThis.fetch = ((async () => {
+    globalThis.fetch = (async () => {
       const r = responses[i++];
       return { ok: true, json: async () => r };
-    }) as any);
+    }) as any;
     try {
       return await run();
     } finally {
@@ -705,10 +751,13 @@ describe('loadSchemaTypesForQueue', () => {
 
   it('fetches the queue schema url then the schema content and classifies types', async () => {
     const content = [
-      { category: 'section', children: [
-        { category: 'datapoint', id: 'amount', type: 'number' },
-        { category: 'datapoint', id: 'name', type: 'string' },
-      ] },
+      {
+        category: 'section',
+        children: [
+          { category: 'datapoint', id: 'amount', type: 'number' },
+          { category: 'datapoint', id: 'name', type: 'string' },
+        ],
+      },
     ];
     const types = await withSequentialFetch(
       [{ schema: 'https://x.rossum.app/api/v1/schemas/77' }, { content }],
@@ -719,7 +768,7 @@ describe('loadSchemaTypesForQueue', () => {
 
   it('returns {} when the queue fetch fails (e.g. 403)', async () => {
     const original = globalThis.fetch;
-    globalThis.fetch = ((async () => ({ ok: false, status: 403 })) as any);
+    globalThis.fetch = (async () => ({ ok: false, status: 403 })) as any;
     try {
       const types = await loadSchemaTypesForQueue('https://x.rossum.app', 'token', 123);
       expect(types).toEqual({});
@@ -729,9 +778,8 @@ describe('loadSchemaTypesForQueue', () => {
   });
 
   it('returns {} when the queue has no schema url', async () => {
-    const types = await withSequentialFetch(
-      [{}],
-      () => loadSchemaTypesForQueue('https://x.rossum.app', 'token', 123),
+    const types = await withSequentialFetch([{}], () =>
+      loadSchemaTypesForQueue('https://x.rossum.app', 'token', 123),
     );
     expect(types).toEqual({});
   });
@@ -805,14 +853,14 @@ describe('replayConfig (gating on action_condition)', () => {
     const cfg = {
       dataset: 'd',
       actionCondition: 'True',
-      queries: [
-        { label: 'q1', raw: { aggregate: [{ $match: {} }] }, placeholders: [] },
-      ],
+      queries: [{ label: 'q1', raw: { aggregate: [{ $match: {} }] }, placeholders: [] }],
     };
     // Stub fetch so replay's HTTP call fails — replay should record an `error`
     // status, proving it got past the gate.
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = async () => { throw new Error('boom'); };
+    globalThis.fetch = async () => {
+      throw new Error('boom');
+    };
     try {
       const result = await replayConfig(
         'https://example.com',

@@ -10,12 +10,18 @@ export const SPY_OFFSET = 64;
 
 // Array.isArray IS the guard, so the parameter admits what it guards against.
 function ordered(list: any[] | null | undefined, key: string) {
-  return (Array.isArray(list) ? list : []).filter((t) => t && t[key] != null)
-    .slice().sort((a, b) => (a.top || 0) - (b.top || 0));
+  return (Array.isArray(list) ? list : [])
+    .filter((t) => t && t[key] != null)
+    .slice()
+    .sort((a, b) => (a.top || 0) - (b.top || 0));
 }
 
 // The guard below is the contract — an absent list scopes to nothing.
-export function currentSection(tops: any[] | null | undefined, scrollTop: number, offset = SPY_OFFSET) {
+export function currentSection(
+  tops: any[] | null | undefined,
+  scrollTop: number,
+  offset = SPY_OFFSET,
+) {
   const list = ordered(tops, 'id');
   if (!list.length) return null;
   const y = Number.isFinite(scrollTop) ? scrollTop : 0;
@@ -27,10 +33,17 @@ export function currentSection(tops: any[] | null | undefined, scrollTop: number
 // `shown` is what the rail is displaying right now; `running` is the deliverable with a check in
 // flight. A run started from the rail must not be scrolled away mid-flight, so a running AND shown
 // deliverable HOLDS the target until it finishes.
-export function railTarget(
-  { spy = null, pinned = null, running = null, shown = null }:
-  { spy?: string | null; pinned?: string | null; running?: string | null; shown?: string | null } = {},
-) {
+export function railTarget({
+  spy = null,
+  pinned = null,
+  running = null,
+  shown = null,
+}: {
+  spy?: string | null;
+  pinned?: string | null;
+  running?: string | null;
+  shown?: string | null;
+} = {}) {
   if (pinned) return pinned;
   if (running && running === shown) return shown;
   return spy || shown || null;

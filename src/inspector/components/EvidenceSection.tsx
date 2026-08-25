@@ -2,19 +2,32 @@ import { h, type ComponentChildren } from 'preact';
 import { useState } from 'preact/hooks';
 
 const STATUS_LABEL: Record<string, string> = {
-  loaded: 'loaded', pending: 'gathering', attributing: 'attributing',
-  unavailable: 'unavailable', na: 'n/a', optin: 'opt-in', sparse: 'logs sparse',
+  loaded: 'loaded',
+  pending: 'gathering',
+  attributing: 'attributing',
+  unavailable: 'unavailable',
+  na: 'n/a',
+  optin: 'opt-in',
+  sparse: 'logs sparse',
 };
 
 // Generic collapsible report section with a per-section investigation status chip.
 // `pending` shows a skeleton instead of children; `na` shows nothing but the header.
-export default function EvidenceSection(
-  { id, title, count = null, status = 'loaded', defaultOpen = true, children }:
-  {
-    id: string; title: string; count?: number | string | null; status?: string;
-    defaultOpen?: boolean; children?: ComponentChildren;
-  },
-) {
+export default function EvidenceSection({
+  id,
+  title,
+  count = null,
+  status = 'loaded',
+  defaultOpen = true,
+  children,
+}: {
+  id: string;
+  title: string;
+  count?: number | string | null;
+  status?: string;
+  defaultOpen?: boolean;
+  children?: ComponentChildren;
+}) {
   const [open, setOpen] = useState(defaultOpen);
   const showBody = open && status !== 'pending' && status !== 'na';
   return (
@@ -25,15 +38,25 @@ export default function EvidenceSection(
         tabIndex={0}
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(!open); } }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setOpen(!open);
+          }
+        }}
       >
         <span class="inspector-esec-tri">{open ? '▾' : '▸'}</span>
         <span class="inspector-esec-nm">{title}</span>
         {count != null ? <span class="inspector-esec-cnt">{count}</span> : null}
-        <span class={`inspector-sst inspector-sst-${status}`}>{STATUS_LABEL[status] || status}</span>
+        <span class={`inspector-sst inspector-sst-${status}`}>
+          {STATUS_LABEL[status] || status}
+        </span>
       </div>
       {open && status === 'pending' && (
-        <div class="inspector-esec-bd"><div class="inspector-esec-skel" /><div class="inspector-esec-skel" style="width:70%" /></div>
+        <div class="inspector-esec-bd">
+          <div class="inspector-esec-skel" />
+          <div class="inspector-esec-skel" style="width:70%" />
+        </div>
       )}
       {showBody && <div class="inspector-esec-bd">{children}</div>}
     </div>

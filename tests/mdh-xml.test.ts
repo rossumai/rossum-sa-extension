@@ -25,10 +25,10 @@ describe('detectRecords', () => {
   it('offers a distinct top-level option only when it differs from the repeated group', () => {
     const d = dom(`<root><a><x>1</x></a><b><y>2</y></b><a><x>3</x></a></root>`);
     const { candidates } = detectRecords(d);
-    expect(candidates.length).toBe(2);                         // <a> group (×2) AND all top-level (×3)
+    expect(candidates.length).toBe(2); // <a> group (×2) AND all top-level (×3)
     const top = candidates.find((c) => /top-level/i.test(c.label));
     expect(top).toBeTruthy();
-    expect(detectRecords(d, top!.key).records.length).toBe(3);  // switching actually changes the records
+    expect(detectRecords(d, top!.key).records.length).toBe(3); // switching actually changes the records
   });
 });
 
@@ -40,11 +40,18 @@ describe('elementToValue', () => {
   it('returns a scalar for a pure-text leaf, null for empty, and #text for mixed', () => {
     expect(elementToValue(dom(`<a>hi</a>`).documentElement)).toBe('hi');
     expect(elementToValue(dom(`<a/>`).documentElement)).toBeNull();
-    expect(elementToValue(dom(`<a x="1">txt</a>`).documentElement)).toEqual({ '@_x': '1', '#text': 'txt' });
+    expect(elementToValue(dom(`<a x="1">txt</a>`).documentElement)).toEqual({
+      '@_x': '1',
+      '#text': 'txt',
+    });
   });
   it('strips namespace prefixes; infers types only when asked', () => {
-    expect(elementToValue(dom(`<ns:a xmlns:ns="u"><ns:b>5</ns:b></ns:a>`).documentElement)).toEqual({ b: '5' });
-    expect(elementToValue(dom(`<a><n>5</n><ok>true</ok></a>`).documentElement, { inferTypes: true })).toEqual({ n: 5, ok: true });
+    expect(elementToValue(dom(`<ns:a xmlns:ns="u"><ns:b>5</ns:b></ns:a>`).documentElement)).toEqual(
+      { b: '5' },
+    );
+    expect(
+      elementToValue(dom(`<a><n>5</n><ok>true</ok></a>`).documentElement, { inferTypes: true }),
+    ).toEqual({ n: 5, ok: true });
   });
 });
 
@@ -97,7 +104,9 @@ describe('XML export helpers', () => {
     expect(valueToXml('x', 'a&b')).toBe('<x>a&amp;b</x>');
   });
   it('docToXml wraps a doc; sanitizes the record name', () => {
-    expect(docToXml({ Vendor: 'ACME', _id: 1 }, 'record')).toBe('<record><Vendor>ACME</Vendor><_id>1</_id></record>');
+    expect(docToXml({ Vendor: 'ACME', _id: 1 }, 'record')).toBe(
+      '<record><Vendor>ACME</Vendor><_id>1</_id></record>',
+    );
   });
 });
 
@@ -117,13 +126,15 @@ describe('buildXmlSerializer', () => {
 
 describe('valueToXml and EJSON', () => {
   it('writes an ObjectId as its hex text, not a nested <_oid>', () => {
-    expect(valueToXml('_id', { $oid: '000000000000000000000001' }))
-      .toBe('<_id>000000000000000000000001</_id>');
+    expect(valueToXml('_id', { $oid: '000000000000000000000001' })).toBe(
+      '<_id>000000000000000000000001</_id>',
+    );
   });
 
   it('writes a date as ISO text', () => {
-    expect(valueToXml('updated', { $date: '2026-01-31T09:00:00.000Z' }))
-      .toBe('<updated>2026-01-31T09:00:00.000Z</updated>');
+    expect(valueToXml('updated', { $date: '2026-01-31T09:00:00.000Z' })).toBe(
+      '<updated>2026-01-31T09:00:00.000Z</updated>',
+    );
   });
 
   it('still nests an ordinary sub-document', () => {
@@ -141,7 +152,9 @@ describe('valueToXml and EJSON', () => {
   it('writes $binary as its JSON payload text, not "[object Object]"', () => {
     const xml = valueToXml('f', { $binary: { base64: 'AA==', subType: '00' } });
     expect(xml).not.toContain('[object Object]');
-    expect(xml).toBe(`<f>${JSON.stringify({ base64: 'AA==', subType: '00' }).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]!))}</f>`);
+    expect(xml).toBe(
+      `<f>${JSON.stringify({ base64: 'AA==', subType: '00' }).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!)}</f>`,
+    );
   });
 
   it('writes $timestamp as its JSON payload text, not "[object Object]"', () => {

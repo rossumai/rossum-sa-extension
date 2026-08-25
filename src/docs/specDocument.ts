@@ -14,7 +14,9 @@ import { assignSlugs } from './slug.js';
 // space, column 0, untrimmed).
 const LEADING_HEADING = /^(#{1,4})\s+(.*)$/;
 export function declaresOwnHeading(text: string | null | undefined): boolean {
-  const line = String(text || '').split('\n').find((l) => l.trim());
+  const line = String(text || '')
+    .split('\n')
+    .find((l) => l.trim());
   return !!(line && LEADING_HEADING.test(line));
 }
 
@@ -41,7 +43,10 @@ export type SpecSection = {
 };
 
 export function buildSpecSections({
-  deliverables = [], displayTitle = (d: SpecDoc) => (d && d.title) || 'Untitled', results = {}, md,
+  deliverables = [],
+  displayTitle = (d: SpecDoc) => (d && d.title) || 'Untitled',
+  results = {},
+  md,
 }: {
   deliverables?: SpecDoc[];
   displayTitle?: (d: SpecDoc) => string;

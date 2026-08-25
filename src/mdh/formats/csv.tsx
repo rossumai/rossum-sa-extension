@@ -47,7 +47,9 @@ function ConfigureControls({ opts, setOpt }: ControlsProps) {
     <div data-testid="csv-options">
       <div class="csv-toolbar">
         <span class="csv-tb-item">
-          <span class="csv-tb-k" title="Character between fields.">Delimiter</span>
+          <span class="csv-tb-k" title="Character between fields.">
+            Delimiter
+          </span>
           <Segmented
             value={opts.delimiter}
             options={DELIM_SEG}
@@ -57,25 +59,57 @@ function ConfigureControls({ opts, setOpt }: ControlsProps) {
         </span>
 
         <span class="csv-tb-item">
-          <span class="csv-tb-k" title="Use row 1 as field names. Off → fields named column_1, column_2, …">First row is a header</span>
-          <Toggle checked={opts.hasHeader} onChange={(v) => setOpt('hasHeader', v)} testid="csv-header"
-            title="Use row 1 as field names." />
+          <span
+            class="csv-tb-k"
+            title="Use row 1 as field names. Off → fields named column_1, column_2, …"
+          >
+            First row is a header
+          </span>
+          <Toggle
+            checked={opts.hasHeader}
+            onChange={(v) => setOpt('hasHeader', v)}
+            testid="csv-header"
+            title="Use row 1 as field names."
+          />
         </span>
 
         <span class="csv-tb-item">
-          <span class="csv-tb-k" title="Rebuild objects and arrays the export flattened, and match values to the types this collection already uses.">Restore structure {'&'} types</span>
-          <Toggle checked={opts.restoreValues} onChange={(v) => setOpt('restoreValues', v)} testid="csv-restore"
-            title="Rebuild what the export flattened." />
+          <span
+            class="csv-tb-k"
+            title="Rebuild objects and arrays the export flattened, and match values to the types this collection already uses."
+          >
+            Restore structure {'&'} types
+          </span>
+          <Toggle
+            checked={opts.restoreValues}
+            onChange={(v) => setOpt('restoreValues', v)}
+            testid="csv-restore"
+            title="Rebuild what the export flattened."
+          />
         </span>
 
         <span class="csv-tb-item">
-          <span class="csv-tb-k" title="Read numbers and true/false out of text, for columns the collection has no type for.">Detect numbers {'&'} booleans</span>
-          <Toggle checked={opts.inferTypes} onChange={(v) => setOpt('inferTypes', v)} testid="csv-infer"
-            title="Detect numbers and true/false." />
+          <span
+            class="csv-tb-k"
+            title="Read numbers and true/false out of text, for columns the collection has no type for."
+          >
+            Detect numbers {'&'} booleans
+          </span>
+          <Toggle
+            checked={opts.inferTypes}
+            onChange={(v) => setOpt('inferTypes', v)}
+            testid="csv-infer"
+            title="Detect numbers and true/false."
+          />
         </span>
 
-        <button type="button" class="csv-adv-toggle" data-testid="csv-advanced-toggle"
-          aria-expanded={advancedOpen} onClick={() => setAdvancedOpen(!advancedOpen)}>
+        <button
+          type="button"
+          class="csv-adv-toggle"
+          data-testid="csv-advanced-toggle"
+          aria-expanded={advancedOpen}
+          onClick={() => setAdvancedOpen(!advancedOpen)}
+        >
           Advanced {advancedOpen ? '▴' : '▾'}
         </button>
       </div>
@@ -85,17 +119,29 @@ function ConfigureControls({ opts, setOpt }: ControlsProps) {
           <div class="csv-adv-item">
             <span class="csv-tb-item">
               <span class="csv-tb-k">Encoding</span>
-              <Segmented value={opts.encoding} options={ENCODING_SEG} testid="csv-encoding"
-                ariaLabel="Encoding" onChange={(v) => setOpt('encoding', v)} />
+              <Segmented
+                value={opts.encoding}
+                options={ENCODING_SEG}
+                testid="csv-encoding"
+                ariaLabel="Encoding"
+                onChange={(v) => setOpt('encoding', v)}
+              />
             </span>
-            <div class="csv-opt-hint">Pick a legacy encoding if accented characters look garbled.</div>
+            <div class="csv-opt-hint">
+              Pick a legacy encoding if accented characters look garbled.
+            </div>
           </div>
 
           <div class="csv-adv-item">
             <span class="csv-tb-item">
               <span class="csv-tb-k">Empty cell {'→'}</span>
-              <Segmented value={opts.emptyMode} options={EMPTY_SEG} testid="csv-empty"
-                ariaLabel="Empty cell" onChange={(v) => setOpt('emptyMode', v)} />
+              <Segmented
+                value={opts.emptyMode}
+                options={EMPTY_SEG}
+                testid="csv-empty"
+                ariaLabel="Empty cell"
+                onChange={(v) => setOpt('emptyMode', v)}
+              />
             </span>
             <div class="csv-opt-hint">What an empty cell becomes in the document.</div>
           </div>
@@ -128,4 +174,13 @@ function detectOpts(arrayBuffer: any) {
   }
 }
 
-export default { id: 'csv', label: 'CSV', accept: '.csv,text/csv', read: 'arrayBuffer', defaultOpts: DEFAULT_OPTS, parse, detectOpts, ConfigureControls };
+export default {
+  id: 'csv',
+  label: 'CSV',
+  accept: '.csv,text/csv',
+  read: 'arrayBuffer',
+  defaultOpts: DEFAULT_OPTS,
+  parse,
+  detectOpts,
+  ConfigureControls,
+};

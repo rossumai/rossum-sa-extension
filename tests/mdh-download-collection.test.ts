@@ -3,14 +3,22 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../src/mdh/api.js');
 import * as api from '../src/mdh/api.js';
-import { downloadCollection, BATCH_SIZE, CONCURRENCY, buildJsonSerializer, buildCsvSerializer } from '../src/mdh/downloadCollection.js';
+import {
+  downloadCollection,
+  BATCH_SIZE,
+  CONCURRENCY,
+  buildJsonSerializer,
+  buildCsvSerializer,
+} from '../src/mdh/downloadCollection.js';
 import { buildLevelPipeline } from '../src/mdh/columnDiscovery.js';
 
 function fakeWriter() {
   const chunks: any = [];
   return {
     chunks,
-    write: vi.fn(async (chunk) => { chunks.push(chunk); }),
+    write: vi.fn(async (chunk) => {
+      chunks.push(chunk);
+    }),
     close: vi.fn(async () => {}),
     abort: vi.fn(async () => {}),
   };
@@ -22,14 +30,19 @@ function fakeHandle(writer: any) {
 
 function defer() {
   let resolve: any, reject: any;
-  const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+  const promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
   return { promise, resolve, reject };
 }
 
 // resetAllMocks (not clearAllMocks) — we need to drop any leftover
 // mockResolvedValueOnce / mockReturnValueOnce queue entries between tests,
 // otherwise an unconsumed deferred from one test leaks into the next.
-beforeEach(() => { vi.resetAllMocks(); });
+beforeEach(() => {
+  vi.resetAllMocks();
+});
 
 describe('downloadCollection — module constants', () => {
   it('uses 1000-record batches to keep progress feedback frequent', () => {
@@ -77,9 +90,24 @@ describe('downloadCollection — streaming (FileSystem Access) path', () => {
     // Every batch must include the {$sort: {_id: 1}} we inject — without it,
     // MongoDB's natural order isn't stable across separate aggregate calls
     // and adjacent windows overlap, producing duplicate _ids in the output.
-    expect(api.aggregate).toHaveBeenNthCalledWith(1, 'big', [{ $match: {} }, { $sort: { _id: 1 } }, { $skip: 0 }, { $limit: 1000 }]);
-    expect(api.aggregate).toHaveBeenNthCalledWith(2, 'big', [{ $match: {} }, { $sort: { _id: 1 } }, { $skip: 1000 }, { $limit: 1000 }]);
-    expect(api.aggregate).toHaveBeenNthCalledWith(3, 'big', [{ $match: {} }, { $sort: { _id: 1 } }, { $skip: 2000 }, { $limit: 1000 }]);
+    expect(api.aggregate).toHaveBeenNthCalledWith(1, 'big', [
+      { $match: {} },
+      { $sort: { _id: 1 } },
+      { $skip: 0 },
+      { $limit: 1000 },
+    ]);
+    expect(api.aggregate).toHaveBeenNthCalledWith(2, 'big', [
+      { $match: {} },
+      { $sort: { _id: 1 } },
+      { $skip: 1000 },
+      { $limit: 1000 },
+    ]);
+    expect(api.aggregate).toHaveBeenNthCalledWith(3, 'big', [
+      { $match: {} },
+      { $sort: { _id: 1 } },
+      { $skip: 2000 },
+      { $limit: 1000 },
+    ]);
     const parsed = JSON.parse(writer.chunks.join(''));
     expect(parsed).toEqual(docs);
   });
@@ -100,7 +128,7 @@ describe('downloadCollection — streaming (FileSystem Access) path', () => {
     ]);
   });
 
-  it('appends the trailing _id sort when the caller\'s pipeline ends with a non-sort stage', async () => {
+  it("appends the trailing _id sort when the caller's pipeline ends with a non-sort stage", async () => {
     vi.mocked(api.aggregate).mockResolvedValueOnce({ result: [{ _id: 1 }] });
     const writer = fakeWriter();
     await downloadCollection('c', {
@@ -212,10 +240,12 @@ describe('downloadCollection — streaming (FileSystem Access) path', () => {
     vi.mocked(api.aggregate).mockRejectedValueOnce(new Error('network down'));
     const writer = fakeWriter();
 
-    await expect(downloadCollection('c', {
-      fetchCount: async () => 5,
-      pickFile: () => Promise.resolve(fakeHandle(writer)),
-    })).rejects.toThrow('network down');
+    await expect(
+      downloadCollection('c', {
+        fetchCount: async () => 5,
+        pickFile: () => Promise.resolve(fakeHandle(writer)),
+      }),
+    ).rejects.toThrow('network down');
 
     expect(writer.abort).toHaveBeenCalledOnce();
     expect(writer.close).not.toHaveBeenCalled();
@@ -266,7 +296,9 @@ describe('downloadCollection — Blob fallback', () => {
       .mockResolvedValueOnce({ result: [{ c: 3 }] });
 
     let capturedParts = null;
-    const downloadBlob = vi.fn((blob) => { capturedParts = blob; });
+    const downloadBlob = vi.fn((blob) => {
+      capturedParts = blob;
+    });
 
     await downloadCollection('c', {
       batchSize: 1,
@@ -373,7 +405,11 @@ describe('downloadCollection — sliding-window concurrency', () => {
     expect(result.fetched).toBe(5);
     expect(api.aggregate).toHaveBeenCalledTimes(5);
     expect(JSON.parse(writer.chunks.join(''))).toEqual([
-      { _id: 0 }, { _id: 10 }, { _id: 20 }, { _id: 30 }, { _id: 40 },
+      { _id: 0 },
+      { _id: 10 },
+      { _id: 20 },
+      { _id: 30 },
+      { _id: 40 },
     ]);
   });
 
@@ -402,7 +438,9 @@ describe('downloadCollection — sliding-window concurrency', () => {
   it('caps pending buffer via maxBuffered backpressure when writes lag fetches', async () => {
     // Mock writer.write to never resolve until we let it.
     let releaseWrite: any;
-    const writeGate = new Promise((r) => { releaseWrite = r; });
+    const writeGate = new Promise((r) => {
+      releaseWrite = r;
+    });
     const writer = fakeWriter();
     writer.write.mockImplementation(async (chunk) => {
       writer.chunks.push(chunk);
@@ -474,10 +512,7 @@ describe('downloadCollection — pipelineStages option (filtered download)', () 
       batchSize: 1,
       concurrency: 1,
       fetchCount: async () => 2,
-      pipelineStages: [
-        { $match: { status: 'paid' } },
-        { $sort: { date: -1 } },
-      ],
+      pipelineStages: [{ $match: { status: 'paid' } }, { $sort: { date: -1 } }],
       pickFile: () => Promise.resolve(fakeHandle(writer)),
     });
 
@@ -502,10 +537,7 @@ describe('downloadCollection — pipelineStages option (filtered download)', () 
     const writer = fakeWriter();
     await downloadCollection('orders', {
       fetchCount: async () => 2,
-      pipelineStages: [
-        { $match: { status: 'paid' } },
-        { $project: { _id: 0, name: 1 } },
-      ],
+      pipelineStages: [{ $match: { status: 'paid' } }, { $project: { _id: 0, name: 1 } }],
       pickFile: () => Promise.resolve(fakeHandle(writer)),
     });
 
@@ -575,15 +607,23 @@ describe('downloadCollection — filename option', () => {
 describe('downloadCollection — CSV serializer', () => {
   it('discovers columns (_id-first, alphabetical) and writes header + CRLF rows', async () => {
     vi.mocked(api.aggregate)
-      .mockResolvedValueOnce({ result: [{ f0: [
-        { _id: 'name', types: ['string'] },
-        { _id: '_id', types: ['objectId'] },
-        { _id: 'active', types: ['bool'] },
-      ] }] })  // discovery
-      .mockResolvedValueOnce({ result: [
-        { _id: 'V1', name: 'Acme', active: true },
-        { _id: 'V2', name: 'Globex' },                 // missing `active`
-      ] });
+      .mockResolvedValueOnce({
+        result: [
+          {
+            f0: [
+              { _id: 'name', types: ['string'] },
+              { _id: '_id', types: ['objectId'] },
+              { _id: 'active', types: ['bool'] },
+            ],
+          },
+        ],
+      }) // discovery
+      .mockResolvedValueOnce({
+        result: [
+          { _id: 'V1', name: 'Acme', active: true },
+          { _id: 'V2', name: 'Globex' }, // missing `active`
+        ],
+      });
 
     const writer = fakeWriter();
     const result = await downloadCollection('vendors', {
@@ -595,7 +635,12 @@ describe('downloadCollection — CSV serializer', () => {
     expect(result).toEqual({ fetched: 2, cancelled: false, streamed: true });
     // discovery's first (and, since no field is object-valued, only) round trip
     // uses the level-1 pipeline over the default filter
-    expect(api.aggregate).toHaveBeenNthCalledWith(1, 'vendors', buildLevelPipeline([{ $match: {} }], ['']), { signal: undefined });
+    expect(api.aggregate).toHaveBeenNthCalledWith(
+      1,
+      'vendors',
+      buildLevelPipeline([{ $match: {} }], ['']),
+      { signal: undefined },
+    );
     // columns ordered _id, active, name
     expect(writer.chunks.join('')).toBe('_id,active,name\r\nV1,true,Acme\r\nV2,,Globex');
   });
@@ -615,7 +660,16 @@ describe('downloadCollection — CSV serializer', () => {
 
   it('honors a custom delimiter', async () => {
     vi.mocked(api.aggregate)
-      .mockResolvedValueOnce({ result: [{ f0: [{ _id: 'a', types: ['string'] }, { _id: 'b', types: ['string'] }] }] })
+      .mockResolvedValueOnce({
+        result: [
+          {
+            f0: [
+              { _id: 'a', types: ['string'] },
+              { _id: 'b', types: ['string'] },
+            ],
+          },
+        ],
+      })
       .mockResolvedValueOnce({ result: [{ a: '1', b: '2' }] });
     const writer = fakeWriter();
     await downloadCollection('c', {
@@ -659,11 +713,13 @@ describe('downloadCollection — CSV serializer', () => {
   it('aborts the writer and rethrows when CSV column discovery fails', async () => {
     vi.mocked(api.aggregate).mockRejectedValueOnce(new Error('discovery timeout'));
     const writer = fakeWriter();
-    await expect(downloadCollection('c', {
-      fetchCount: async () => 5,
-      serializer: buildCsvSerializer({ dialect: { delimiter: ',' }, header: true, bom: false }),
-      pickFile: () => Promise.resolve(fakeHandle(writer)),
-    })).rejects.toThrow('discovery timeout');
+    await expect(
+      downloadCollection('c', {
+        fetchCount: async () => 5,
+        serializer: buildCsvSerializer({ dialect: { delimiter: ',' }, header: true, bom: false }),
+        pickFile: () => Promise.resolve(fakeHandle(writer)),
+      }),
+    ).rejects.toThrow('discovery timeout');
     expect(writer.abort).toHaveBeenCalledOnce();
     expect(writer.close).not.toHaveBeenCalled();
   });
@@ -678,7 +734,7 @@ describe('downloadCollection — CSV serializer', () => {
     });
     expect(result).toEqual({ fetched: 0, cancelled: false, streamed: true });
     expect(api.aggregate).toHaveBeenCalledTimes(1); // discovery only; no data batches
-    expect(writer.chunks.join('')).toBe('\r\n');     // empty header (no columns) + CRLF
+    expect(writer.chunks.join('')).toBe('\r\n'); // empty header (no columns) + CRLF
   });
 
   it('JSON-encodes a non-scalar leaf value (array) through the exporter', async () => {
@@ -695,7 +751,16 @@ describe('downloadCollection — CSV serializer', () => {
       // agree is a leaf, to isolate csvCell's own JSON-encoding of a nested
       // CELL VALUE from discovery's leaf-path expansion (covered in
       // mdh-column-discovery.test.js).
-      .mockResolvedValueOnce({ result: [{ f0: [{ _id: '_id', types: ['objectId'] }, { _id: 'meta', types: ['array'] }] }] })
+      .mockResolvedValueOnce({
+        result: [
+          {
+            f0: [
+              { _id: '_id', types: ['objectId'] },
+              { _id: 'meta', types: ['array'] },
+            ],
+          },
+        ],
+      })
       .mockResolvedValueOnce({ result: [{ _id: 'V3', meta: ['role', 'admin'] }] });
     const writer = fakeWriter();
     await downloadCollection('c', {
@@ -719,7 +784,16 @@ describe('downloadCollection — CSV serializer', () => {
     vi.mocked(api.aggregate)
       // depth 1: root-level fields — meta is object-typed, so it's queued as a
       // pending parent rather than added as a leaf.
-      .mockResolvedValueOnce({ result: [{ f0: [{ _id: '_id', types: ['objectId'] }, { _id: 'meta', types: ['object'] }] }] })
+      .mockResolvedValueOnce({
+        result: [
+          {
+            f0: [
+              { _id: '_id', types: ['objectId'] },
+              { _id: 'meta', types: ['object'] },
+            ],
+          },
+        ],
+      })
       // depth 2: meta's own fields — role is a plain string leaf.
       .mockResolvedValueOnce({ result: [{ f0: [{ _id: 'role', types: ['string'] }] }] })
       // the actual fetched document, matching what discovery predicted.

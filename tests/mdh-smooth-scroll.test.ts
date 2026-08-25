@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { easeOutCubic, tweenAt, animateScrollTop, revealScrollTop, REVEAL_TOP_INSET, SCROLL_MS } from '../src/mdh/smoothScroll.js';
+import {
+  easeOutCubic,
+  tweenAt,
+  animateScrollTop,
+  revealScrollTop,
+  REVEAL_TOP_INSET,
+  SCROLL_MS,
+} from '../src/mdh/smoothScroll.js';
 
 describe('easeOutCubic', () => {
   it('runs 0 → 1 and decelerates', () => {
@@ -101,7 +108,10 @@ describe('animateScrollTop', () => {
   const rafs: any = [];
   const el = (over = {}) => ({ scrollTop: 0, scrollHeight: 2000, clientHeight: 400, ...over });
 
-  afterEach(() => { rafs.length = 0; vi.unstubAllGlobals(); });
+  afterEach(() => {
+    rafs.length = 0;
+    vi.unstubAllGlobals();
+  });
 
   it('jumps straight to the target when motion is reduced', () => {
     const e = el();
@@ -130,7 +140,10 @@ describe('animateScrollTop', () => {
     const e = el();
     let now = 1000;
     vi.stubGlobal('performance', { now: () => now });
-    vi.stubGlobal('requestAnimationFrame', (fn: any) => { rafs.push(fn); return rafs.length; });
+    vi.stubGlobal('requestAnimationFrame', (fn: any) => {
+      rafs.push(fn);
+      return rafs.length;
+    });
     vi.stubGlobal('cancelAnimationFrame', vi.fn());
 
     animateScrollTop(e, 600, { reduced: false });
@@ -152,7 +165,10 @@ describe('animateScrollTop', () => {
     const cancel = vi.fn();
     let now = 1000;
     vi.stubGlobal('performance', { now: () => now });
-    vi.stubGlobal('requestAnimationFrame', (fn: any) => { rafs.push(fn); return rafs.length; });
+    vi.stubGlobal('requestAnimationFrame', (fn: any) => {
+      rafs.push(fn);
+      return rafs.length;
+    });
     vi.stubGlobal('cancelAnimationFrame', cancel);
 
     animateScrollTop(e, 600, { reduced: false });

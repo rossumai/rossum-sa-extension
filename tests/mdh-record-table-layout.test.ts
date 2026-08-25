@@ -15,7 +15,11 @@ describe('computeColumnWidths', () => {
   });
 
   it('accounts for the selection checkbox column', () => {
-    const w = computeColumnWidths({ availW: 1400, selectionW: 36, nonLastWidths: [400, 180, 180, 180, 180] });
+    const w = computeColumnWidths({
+      availW: 1400,
+      selectionW: 36,
+      nonLastWidths: [400, 180, 180, 180, 180],
+    });
     expect(w[w.length - 1]).toBe(244);
     expect(36 + w.reduce((a, b) => a + b, 0)).toBe(1400);
   });
@@ -32,8 +36,16 @@ describe('computeColumnWidths', () => {
 });
 
 describe('clampAutoFit', () => {
-  it('floors at min', () => { expect(clampAutoFit(30)).toBe(60); });
-  it('caps at max', () => { expect(clampAutoFit(900)).toBe(600); });
-  it('rounds within range', () => { expect(clampAutoFit(180.6)).toBe(181); });
-  it('honors custom bounds', () => { expect(clampAutoFit(500, 100, 400)).toBe(400); });
+  it('floors at min', () => {
+    expect(clampAutoFit(30)).toBe(60);
+  });
+  it('caps at max', () => {
+    expect(clampAutoFit(900)).toBe(600);
+  });
+  it('rounds within range', () => {
+    expect(clampAutoFit(180.6)).toBe(181);
+  });
+  it('honors custom bounds', () => {
+    expect(clampAutoFit(500, 100, 400)).toBe(400);
+  });
 });

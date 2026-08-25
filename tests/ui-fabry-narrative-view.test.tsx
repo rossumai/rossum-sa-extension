@@ -6,8 +6,18 @@ import FabryNarrative from '../src/ui/fabry/FabryNarrative.jsx';
 import styles from '../src/ui/fabry/FabryNarrative.module.css';
 
 let root: any;
-afterEach(() => { if (root) { render(null, root); root.remove(); } });
-function mount(props: any) { root = document.createElement('div'); document.body.appendChild(root); render(<FabryNarrative {...props} />, root); return root; }
+afterEach(() => {
+  if (root) {
+    render(null, root);
+    root.remove();
+  }
+});
+function mount(props: any) {
+  root = document.createElement('div');
+  document.body.appendChild(root);
+  render(<FabryNarrative {...props} />, root);
+  return root;
+}
 
 describe('FabryNarrative', () => {
   it('renders takeaway + bullets + next step, with a streaming caret only when streaming', () => {

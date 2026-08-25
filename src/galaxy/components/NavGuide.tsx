@@ -13,7 +13,10 @@ export default function NavGuide() {
     <div class="galaxy-help">
       <div class="galaxy-help-title">Navigate</div>
       {ITEMS.map(([k, v]) => (
-        <div class="galaxy-help-row"><kbd>{k}</kbd><span>{v}</span></div>
+        <div class="galaxy-help-row">
+          <kbd>{k}</kbd>
+          <span>{v}</span>
+        </div>
       ))}
     </div>
   );

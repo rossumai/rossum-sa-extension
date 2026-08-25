@@ -23,16 +23,22 @@ import JSON5 from 'json5';
 
 const mock = vi.hoisted(() => ({ text: '', seeded: false, onChange: null, onValidChange: null }));
 
-globalThis.chrome = ({
+globalThis.chrome = {
   storage: {
     local: {
-      get: (keys: any, cb: any) => { if (cb) { cb({}); return; } return Promise.resolve({}); },
+      get: (keys: any, cb: any) => {
+        if (cb) {
+          cb({});
+          return;
+        }
+        return Promise.resolve({});
+      },
       set: () => Promise.resolve(),
       remove: () => Promise.resolve(),
     },
   },
   runtime: { onMessage: { addListener: () => {} } } as any,
-} as any);
+} as any;
 
 vi.mock('../src/mdh/api.js');
 
@@ -43,14 +49,28 @@ vi.mock('../src/mdh/components/PipelineEditor.jsx', () => ({
     if (editorRef) {
       // Seed once from initialValue, like CodeMirror's EditorState.create({ doc }).
       // Seeding must NOT fire onChange (mount produces no docChanged event).
-      if (!mock.seeded) { mock.text = initialValue || ''; mock.seeded = true; }
+      if (!mock.seeded) {
+        mock.text = initialValue || '';
+        mock.seeded = true;
+      }
       editorRef.current = {
         getValue: () => mock.text,
         // Faithful to JsonEditor: a write equal to the current text is a no-op,
         // so it fires no onChange (computeMinimalChange returns null → no dispatch
         // → no docChanged). A genuinely different write does fire onChange.
-        setValue: (v: any) => { if (v === mock.text) return; mock.text = v; if (onChange) onChange(); },
-        isValid: () => { try { JSON5.parse(mock.text); return true; } catch { return false; } },
+        setValue: (v: any) => {
+          if (v === mock.text) return;
+          mock.text = v;
+          if (onChange) onChange();
+        },
+        isValid: () => {
+          try {
+            JSON5.parse(mock.text);
+            return true;
+          } catch {
+            return false;
+          }
+        },
         getParsed: () => JSON5.parse(mock.text),
         focus: () => {},
         refresh: () => {},
@@ -76,7 +96,11 @@ async function waitFor(condition: any, description = 'condition', timeoutMs = 20
   const start = Date.now();
   for (;;) {
     let ok = false;
-    try { ok = condition(); } catch { ok = false; }
+    try {
+      ok = condition();
+    } catch {
+      ok = false;
+    }
     if (ok) return;
     if (Date.now() - start > timeoutMs) {
       throw new Error(`Timeout waiting for ${description} after ${timeoutMs}ms`);
@@ -129,6 +153,9 @@ describe('DataPanel — Aggregate Pipeline Debug visibility', () => {
     // the SAME text (a no-op). This is the precondition that made the debug vanish.
     const parsed = JSON5.parse(mock.text);
     expect(Array.isArray(parsed)).toBe(true);
-    expect(parsed.some((s: any) => s && s.$match), 'default pipeline has a $match stage').toBe(true);
+    expect(
+      parsed.some((s: any) => s && s.$match),
+      'default pipeline has a $match stage',
+    ).toBe(true);
   });
 });

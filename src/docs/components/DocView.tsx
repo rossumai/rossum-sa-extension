@@ -6,7 +6,13 @@ import { renderDocument } from '../renderCache.js';
 import { initCodeCopy } from '../client/codeCopy.js';
 import { initSectionPreview } from '../client/sectionPreview.js';
 import { initSourceViewer } from '../client/sourceViewer.js';
-import { apiPathFromHref, isResourceHref, createResourceFetcher, splitResourceView, withResourceView } from '../resources.js';
+import {
+  apiPathFromHref,
+  isResourceHref,
+  createResourceFetcher,
+  splitResourceView,
+  withResourceView,
+} from '../resources.js';
 import { namespaceSection, prefixFor, resolveInPage } from '../idNamespace.js';
 import { animateScrollTop, SCROLL_MS } from '../../mdh/smoothScroll.js';
 import { highlightCode } from '../highlightCode.js';
@@ -50,14 +56,19 @@ function siblingBody(slug: any, text: any) {
 // nothing (an unknown slug, or a link to this same deliverable).
 export function resolveSiblingHref(href: string, resolveDoc?: (slug: string) => any) {
   if (!resolveDoc || !href) return null;
-  if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith('#') || href.startsWith('/')) return null;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith('#') || href.startsWith('/'))
+    return null;
   const [pathPart, frag = ''] = String(href).split('#');
   const slug = pathPart.split('?')[0].replace(/\.(md|html)$/i, '');
   if (!slug) return null;
   const doc = resolveDoc(slug);
   if (!doc) return null;
   let headingId = '';
-  try { headingId = decodeURIComponent(frag); } catch { headingId = frag; }
+  try {
+    headingId = decodeURIComponent(frag);
+  } catch {
+    headingId = frag;
+  }
   return { title: doc.title, headingId, body: siblingBody(slug, doc.text) };
 }
 
@@ -78,18 +89,29 @@ function jumpTo(scroller: any, el: any, inset = NAV_INSET, { instant = false } =
   const top = Math.max(0, scroller.scrollTop + delta - inset);
   // `instant` is for RESTORING a position (a mode switch), where animating from the top would be the
   // very jump we are trying to avoid.
-  if (instant) { scroller.scrollTop = top; return true; }
+  if (instant) {
+    scroller.scrollTop = top;
+    return true;
+  }
   animateScrollTop(scroller, top, { duration: SCROLL_MS });
   return true;
 }
 
 function usePrefersDark() {
   const [dark, setDark] = useState(() => {
-    try { return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch { return false; }
+    try {
+      return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    } catch {
+      return false;
+    }
   });
   useEffect(() => {
     let mq;
-    try { mq = window.matchMedia('(prefers-color-scheme: dark)'); } catch { return undefined; }
+    try {
+      mq = window.matchMedia('(prefers-color-scheme: dark)');
+    } catch {
+      return undefined;
+    }
     if (!mq || !mq.addEventListener) return undefined;
     const on = (e: any) => setDark(!!e.matches);
     mq.addEventListener('change', on);
@@ -98,13 +120,24 @@ function usePrefersDark() {
   return dark;
 }
 
-
 // `sections` is the unified specification: one entry per deliverable, rendered into its own
 // `.markdown-body` inside its own `<section>`, with every section in the DOM at once — which is what
 // makes Cmd+F reach the whole specification (spec 2026-08-19 F3). A section that carries a `slug`
 // gets its heading ids namespaced (F2); the legacy single-document call passes none and is therefore
 // byte-identical to what it was.
-export default function DocView({ sections = null, headerFor = null, docId = '', text = '', domain = '', token = '', onWarnings, onNavigate, resolveDoc, onScroll: onSpy, docRef }: {
+export default function DocView({
+  sections = null,
+  headerFor = null,
+  docId = '',
+  text = '',
+  domain = '',
+  token = '',
+  onWarnings,
+  onNavigate,
+  resolveDoc,
+  onScroll: onSpy,
+  docRef,
+}: {
   sections?: SourceSection[] | null;
   headerFor?: ((s: any) => any) | null;
   docId?: string;
@@ -153,9 +186,15 @@ export default function DocView({ sections = null, headerFor = null, docId = '',
     if (!needsMermaid || mermaidReady) return undefined;
     let stale = false;
     loadMermaidRenderer()
-      .then(() => { if (!stale) setMermaidReady(true); })
-      .catch(() => { if (!stale) setMermaidReady(true); }); // render without diagrams
-    return () => { stale = true; };
+      .then(() => {
+        if (!stale) setMermaidReady(true);
+      })
+      .catch(() => {
+        if (!stale) setMermaidReady(true);
+      }); // render without diagrams
+    return () => {
+      stale = true;
+    };
   }, [needsMermaid, mermaidReady]);
 
   // Rendered through the shared cache, so a deliverable warmed in the background (see
@@ -164,16 +203,17 @@ export default function DocView({ sections = null, headerFor = null, docId = '',
   // paint on the first frame instead of being re-rendered. `syncLines: true` matches the key the
   // preloader warms.
   const rendered = useMemo(
-    () => held.map((s) => ({
-      ...s,
-      out: renderDocument({
-        id: s.id,
-        text: s.text || '',
-        mermaid: mermaidReady ? getMermaidRenderer() : null,
-        dark,
-        syncLines: true,
-      }),
-    })),
+    () =>
+      held.map((s) => ({
+        ...s,
+        out: renderDocument({
+          id: s.id,
+          text: s.text || '',
+          mermaid: mermaidReady ? getMermaidRenderer() : null,
+          dark,
+          syncLines: true,
+        }),
+      })),
     [held, mermaidReady, dark],
   );
 
@@ -197,7 +237,8 @@ export default function DocView({ sections = null, headerFor = null, docId = '',
       if (!body) return;
       body.replaceChildren();
       if (item.out.body) {
-        for (const node of [...item.out.body.childNodes]) body.appendChild(document.importNode(node, true));
+        for (const node of [...item.out.body.childNodes])
+          body.appendChild(document.importNode(node, true));
       }
       // Ids are prefixed on the ADOPTED COPY, never in the cache (F7).
       if (item.slug) namespaceSection(sec, prefixFor(item.slug));
@@ -215,7 +256,10 @@ export default function DocView({ sections = null, headerFor = null, docId = '',
         // multi-document equivalent of upstream's same-page card (owner, 2026-08-18).
         resolveExternal: (href) => resolveSiblingHref(href, resolveDocRef.current),
         onOpenExternal: (href) => {
-          const slug = href.split('#')[0].split('?')[0].replace(/\.(md|html)$/i, '');
+          const slug = href
+            .split('#')[0]
+            .split('?')[0]
+            .replace(/\.(md|html)$/i, '');
           if (slug && onNavigateRef.current) onNavigateRef.current(slug);
         },
       }),
@@ -247,14 +291,24 @@ export default function DocView({ sections = null, headerFor = null, docId = '',
         geoHeight = root.scrollHeight;
         const secs = [...root.querySelectorAll<HTMLElement>('[data-deliverable]')];
         geo = {
-          sections: secs.map((el) => ({ id: el.dataset.deliverable, slug: el.dataset.slug || '', top: el.offsetTop })),
-          headings: secs.flatMap((el) => [...el.querySelectorAll<HTMLElement>('h1[id], h2[id], h3[id]')].map((hEl) => ({
-            docId: el.dataset.deliverable, slug: hEl.id, top: el.offsetTop + hEl.offsetTop,
-          }))),
+          sections: secs.map((el) => ({
+            id: el.dataset.deliverable,
+            slug: el.dataset.slug || '',
+            top: el.offsetTop,
+          })),
+          headings: secs.flatMap((el) =>
+            [...el.querySelectorAll<HTMLElement>('h1[id], h2[id], h3[id]')].map((hEl) => ({
+              docId: el.dataset.deliverable,
+              slug: hEl.id,
+              top: el.offsetTop + hEl.offsetTop,
+            })),
+          ),
         };
         return geo;
       };
-      const invalidateGeo = () => { geo = null; };
+      const invalidateGeo = () => {
+        geo = null;
+      };
       window.addEventListener('resize', invalidateGeo);
       teardowns.push(() => window.removeEventListener('resize', invalidateGeo));
 
@@ -264,24 +318,40 @@ export default function DocView({ sections = null, headerFor = null, docId = '',
         // any deliverable; `resolveInPage` matches a prefixed id (F2) against the un-prefixed slug the
         // sidebar holds, and matches by ATTRIBUTE rather than `#id` because a heading slug may start
         // with a digit ("3-architecture"), which is not a valid CSS id selector.
-        scrollToSlug: (slug: any, prefix = '', opts: any) => jumpTo(root, resolveInPage(root, slug, prefix), NAV_INSET, opts),
+        scrollToSlug: (slug: any, prefix = '', opts: any) =>
+          jumpTo(root, resolveInPage(root, slug, prefix), NAV_INSET, opts),
         // The sidebar's row click means "take me to this deliverable", which is the section itself
         // rather than any heading inside it.
         // A section lands flush with the top: its own sticky header is what sits there.
-        scrollToDeliverable: (id: any, opts: any) => jumpTo(root, [...root.querySelectorAll<HTMLElement>('[data-deliverable]')]
-          .find((el) => el.dataset.deliverable === id), 0, opts),
+        scrollToDeliverable: (id: any, opts: any) =>
+          jumpTo(
+            root,
+            [...root.querySelectorAll<HTMLElement>('[data-deliverable]')].find(
+              (el) => el.dataset.deliverable === id,
+            ),
+            0,
+            opts,
+          ),
         // Where each section starts, and every heading — both from the cache above.
         sectionTops: () => readGeo().sections,
         headingTops: () => readGeo().headings,
       };
       if (docRef) docRef.current = api;
-      const fireSpy = () => { if (onSpyRef.current) onSpyRef.current(api); };
+      const fireSpy = () => {
+        if (onSpyRef.current) onSpyRef.current(api);
+      };
       root.addEventListener('scroll', fireSpy, { passive: true });
       teardowns.push(() => root.removeEventListener('scroll', fireSpy));
       fireSpy();
     }
     return () => {
-      for (const off of teardowns) { try { off(); } catch { /* teardown is best-effort */ } }
+      for (const off of teardowns) {
+        try {
+          off();
+        } catch {
+          /* teardown is best-effort */
+        }
+      }
       if (docRef) docRef.current = null;
     };
   }, [rendered, domain, token]);
@@ -306,14 +376,21 @@ export default function DocView({ sections = null, headerFor = null, docId = '',
       // With many deliverables on one page an id can appear twice (F2), so resolution starts in the
       // section the link is IN — that is what a fragment written in that document means.
       const inSec = a.closest('[data-slug]');
-      const target = resolveInPage(rootRef.current!, href.slice(1), inSec ? prefixFor((inSec as HTMLElement).dataset.slug) : '');
+      const target = resolveInPage(
+        rootRef.current!,
+        href.slice(1),
+        inSec ? prefixFor((inSec as HTMLElement).dataset.slug) : '',
+      );
       e.preventDefault();
       jumpTo(rootRef.current!, target);
       return;
     }
 
     e.preventDefault();
-    const slug = href.split('#')[0].split('?')[0].replace(/\.(md|html)$/i, '');
+    const slug = href
+      .split('#')[0]
+      .split('?')[0]
+      .replace(/\.(md|html)$/i, '');
     if (slug && onNavigateRef.current) onNavigateRef.current(slug);
   }
 
@@ -321,7 +398,12 @@ export default function DocView({ sections = null, headerFor = null, docId = '',
     <div class="docs-pane" ref={paneRef}>
       <div class="docs-root" ref={rootRef} onClick={onClick}>
         {list.map((s) => (
-          <section key={s.id} class="docs-section" data-deliverable={s.id} data-slug={s.slug || null}>
+          <section
+            key={s.id}
+            class="docs-section"
+            data-deliverable={s.id}
+            data-slug={s.slug || null}
+          >
             {headerFor ? headerFor(s) : null}
             <div class="markdown-body" />
           </section>
@@ -335,11 +417,22 @@ export default function DocView({ sections = null, headerFor = null, docId = '',
               <div class="source-modal-path" id="srcPath" />
             </div>
             <div class="source-modal-views" id="srcViews" hidden />
-            <button type="button" class="source-modal-copy" id="srcCopy" aria-label="Copy file content to clipboard">Copy</button>
-            <button class="source-modal-close" id="srcClose">{'×'}</button>
+            <button
+              type="button"
+              class="source-modal-copy"
+              id="srcCopy"
+              aria-label="Copy file content to clipboard"
+            >
+              Copy
+            </button>
+            <button class="source-modal-close" id="srcClose">
+              {'×'}
+            </button>
           </div>
           <div class="source-modal-body">
-            <pre><code id="srcCode" class="hljs" /></pre>
+            <pre>
+              <code id="srcCode" class="hljs" />
+            </pre>
           </div>
         </div>
       </div>

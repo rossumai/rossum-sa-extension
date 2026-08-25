@@ -8,7 +8,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 globalThis.chrome = globalThis.chrome || {
-  storage: { local: { get: () => Promise.resolve({}), set: () => Promise.resolve(), remove: () => Promise.resolve() } },
+  storage: {
+    local: {
+      get: () => Promise.resolve({}),
+      set: () => Promise.resolve(),
+      remove: () => Promise.resolve(),
+    },
+  },
   runtime: { onMessage: { addListener: () => {} } },
 };
 
@@ -38,7 +44,11 @@ beforeEach(() => {
 describe('performDrop waits for the async drop before refreshing the sidebar', () => {
   it('removes the collection from the sidebar only after the drop operation finishes', async () => {
     let dropFinished = false;
-    vi.mocked(api.dropCollection).mockResolvedValue({ code: 'accept', message: OP_MESSAGE, operationId: OP_ID });
+    vi.mocked(api.dropCollection).mockResolvedValue({
+      code: 'accept',
+      message: OP_MESSAGE,
+      operationId: OP_ID,
+    });
     vi.mocked(api.waitForOperation).mockImplementation(async () => {
       dropFinished = true; // the background drop completes here
       return { status: 'FINISHED' };
@@ -56,7 +66,11 @@ describe('performDrop waits for the async drop before refreshing the sidebar', (
   });
 
   it('surfaces an error and leaves the collection listed if the drop operation fails', async () => {
-    vi.mocked(api.dropCollection).mockResolvedValue({ code: 'accept', message: OP_MESSAGE, operationId: OP_ID });
+    vi.mocked(api.dropCollection).mockResolvedValue({
+      code: 'accept',
+      message: OP_MESSAGE,
+      operationId: OP_ID,
+    });
     vi.mocked(api.waitForOperation).mockRejectedValue(new Error('drop failed: disk error'));
     vi.mocked(api.listCollections).mockResolvedValue({ result: ['keep', 'doomed'] });
 
@@ -69,7 +83,11 @@ describe('performDrop waits for the async drop before refreshing the sidebar', (
   });
 
   it('shows a soft "still running" message (not a hard failure) when the drop poll times out', async () => {
-    vi.mocked(api.dropCollection).mockResolvedValue({ code: 'accept', message: OP_MESSAGE, operationId: OP_ID });
+    vi.mocked(api.dropCollection).mockResolvedValue({
+      code: 'accept',
+      message: OP_MESSAGE,
+      operationId: OP_ID,
+    });
     const timeout = new Error('Operation aaaaaaaaaaaaaaaaaaaaaaaa did not finish within 120s');
     (timeout as any).timedOut = true;
     vi.mocked(api.waitForOperation).mockRejectedValue(timeout);
@@ -83,7 +101,11 @@ describe('performDrop waits for the async drop before refreshing the sidebar', (
   it('offers undo only after the drop has finished (no recreate-while-dropping race)', async () => {
     let undoVisibleDuringDrop = false;
     let dropFinished = false;
-    vi.mocked(api.dropCollection).mockResolvedValue({ code: 'accept', message: OP_MESSAGE, operationId: OP_ID });
+    vi.mocked(api.dropCollection).mockResolvedValue({
+      code: 'accept',
+      message: OP_MESSAGE,
+      operationId: OP_ID,
+    });
     vi.mocked(api.waitForOperation).mockImplementation(async () => {
       if (undoToast.value) undoVisibleDuringDrop = true; // toast must not exist yet
       dropFinished = true;

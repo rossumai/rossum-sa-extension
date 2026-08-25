@@ -9,46 +9,68 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { h, render } from 'preact';
 import { act } from 'preact/test-utils';
 
-globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
-globalThis.chrome = ({ storage: { local: { get: (k: any, cb: any) => cb && cb({}), set() {}, remove() {} } } } as any);
+globalThis.ResizeObserver = class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+globalThis.chrome = {
+  storage: { local: { get: (k: any, cb: any) => cb && cb({}), set() {}, remove() {} } },
+} as any;
 
 vi.mock('../src/mdh/api.js');
-vi.mock('../src/mdh/components/RecordCard.jsx', () => ({ default: () => <div class="record-card-stub" /> }));
-vi.mock('../src/mdh/components/StagesView.jsx', () => ({ default: () => <div class="stages-view-stub" /> }));
+vi.mock('../src/mdh/components/RecordCard.jsx', () => ({
+  default: () => <div class="record-card-stub" />,
+}));
+vi.mock('../src/mdh/components/StagesView.jsx', () => ({
+  default: () => <div class="stages-view-stub" />,
+}));
 
 import RecordList from '../src/mdh/components/RecordList.jsx';
-import { skip, limit, selectedCollection, selectionMode, selectedIds, selectionPipelineDirty, resultsView, inspectTarget } from '../src/mdh/store.js';
+import {
+  skip,
+  limit,
+  selectedCollection,
+  selectionMode,
+  selectedIds,
+  selectionPipelineDirty,
+  resultsView,
+  inspectTarget,
+} from '../src/mdh/store.js';
 
 const pagination = { hasPrev: () => false, hasNext: () => false, page: () => 1 };
 
 function renderList(props = {}) {
   const root = document.createElement('div');
   document.body.appendChild(root);
-  render(<RecordList
-    records={[{ _id: '1' }, { _id: '2' }]}
-    pipelineText="[]"
-    filterState={{}}
-    sortState={{}}
-    lastQueryMs={0}
-    totalCount={null}
-    pagination={pagination}
-    onSort={() => {}}
-    onFilter={() => {}}
-    onPageChange={() => {}}
-    onEdit={() => {}}
-    onDelete={() => {}}
-    onRefresh={() => {}}
-    downloadState={null}
-    onCancelDownload={() => {}}
-    onEnterSelectionMode={() => {}}
-    onExitSelectionMode={() => {}}
-    onBulkDelete={() => {}}
-    onBulkUpdate={() => {}}
-    onSelectPage={() => {}}
-    onClearSelection={() => {}}
-    onViewSelected={() => {}}
-    {...props}
-  />, root);
+  render(
+    <RecordList
+      records={[{ _id: '1' }, { _id: '2' }]}
+      pipelineText="[]"
+      filterState={{}}
+      sortState={{}}
+      lastQueryMs={0}
+      totalCount={null}
+      pagination={pagination}
+      onSort={() => {}}
+      onFilter={() => {}}
+      onPageChange={() => {}}
+      onEdit={() => {}}
+      onDelete={() => {}}
+      onRefresh={() => {}}
+      downloadState={null}
+      onCancelDownload={() => {}}
+      onEnterSelectionMode={() => {}}
+      onExitSelectionMode={() => {}}
+      onBulkDelete={() => {}}
+      onBulkUpdate={() => {}}
+      onSelectPage={() => {}}
+      onClearSelection={() => {}}
+      onViewSelected={() => {}}
+      {...props}
+    />,
+    root,
+  );
   return root;
 }
 
@@ -70,10 +92,14 @@ describe('RecordList view switch', () => {
     expect(root.querySelector('.view-toggle')).toBeNull();
     const seg = root.querySelector('.view-seg');
     expect(seg).not.toBeNull();
-    const tableOpt = [...seg!.querySelectorAll('.view-seg-opt')].find((b) => b.textContent.trim() === 'Table');
+    const tableOpt = [...seg!.querySelectorAll('.view-seg-opt')].find(
+      (b) => b.textContent.trim() === 'Table',
+    );
     expect(tableOpt).toBeTruthy();
     // One click switches — no dropdown to open first.
-    await act(() => { tableOpt!.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    await act(() => {
+      tableOpt!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
     expect(root.querySelector('table.record-table')).not.toBeNull();
   });
 
@@ -84,21 +110,26 @@ describe('RecordList view switch', () => {
   });
 
   it('marks the active view and falls back to List for the legacy "json" value', async () => {
-    globalThis.chrome.storage.local.get = ((((keys: any, cb: any) => cb({ mdhResultsView: 'json' }) as any as any)) as any);
+    globalThis.chrome.storage.local.get = ((keys: any, cb: any) =>
+      cb({ mdhResultsView: 'json' }) as any as any) as any;
     const root = renderList();
     await act(() => {});
     const active = root.querySelector('.view-seg-opt.on');
     expect(active).toBeTruthy();
     expect(active!.textContent.trim()).toBe('List');
     expect(root.querySelector('table.record-table')).toBeNull();
-    globalThis.chrome.storage.local.get = ((((k: any, cb: any) => cb && cb({}) as any as any)) as any);
+    globalThis.chrome.storage.local.get = ((k: any, cb: any) =>
+      cb && (cb({}) as any as any)) as any;
   });
 });
 
 describe('RecordList — stages view', () => {
   it('renders StagesView (not records) and hides pagination when view=stages', () => {
     resultsView.value = 'stages';
-    const root = renderList({ entries: [{ disabled: false, stage: { $match: {} } }], onToggleStage() {} });
+    const root = renderList({
+      entries: [{ disabled: false, stage: { $match: {} } }],
+      onToggleStage() {},
+    });
     expect(root.querySelector('.stages-view-stub')).not.toBeNull();
     expect(root.querySelector('.record-list')).toBeNull();
     expect(root.querySelector('.pagination')).toBeNull();
@@ -106,21 +137,32 @@ describe('RecordList — stages view', () => {
 
   it('switches to the Stages view in one click via the segmented switch', async () => {
     const root = renderList();
-    const stagesOpt = [...root.querySelectorAll('.view-seg-opt')].find((b) => b.textContent.trim() === 'Stages');
+    const stagesOpt = [...root.querySelectorAll('.view-seg-opt')].find(
+      (b) => b.textContent.trim() === 'Stages',
+    );
     expect(stagesOpt).toBeTruthy();
-    await act(() => { stagesOpt!.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    await act(() => {
+      stagesOpt!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
     expect(resultsView.value).toBe('stages');
     expect(root.querySelector('.stages-view-stub')).not.toBeNull();
   });
 
   it('shows record-action buttons present-but-disabled in stages view, with an explanatory tooltip; View stays enabled', () => {
     resultsView.value = 'stages';
-    const root = renderList({ entries: [{ disabled: false, stage: { $match: {} } }], onToggleStage() {} });
+    const root = renderList({
+      entries: [{ disabled: false, stage: { $match: {} } }],
+      onToggleStage() {},
+    });
     // Select + Expand All are still rendered, inside a greyed/inert group (not removed).
-    const selectBtn = [...root.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Select');
+    const selectBtn = [...root.querySelectorAll('button')].find(
+      (b) => b.textContent.trim() === 'Select',
+    );
     expect(selectBtn).toBeTruthy();
     expect(selectBtn!.closest('.toolbar-group-disabled')).not.toBeNull();
-    const expandBtn = [...root.querySelectorAll('button')].find((b) => /Expand All|Collapse All/.test(b.textContent));
+    const expandBtn = [...root.querySelectorAll('button')].find((b) =>
+      /Expand All|Collapse All/.test(b.textContent),
+    );
     expect(expandBtn).toBeTruthy();
     expect(expandBtn!.closest('.toolbar-group-disabled')).not.toBeNull();
     // Every disabled group carries a tooltip (title) explaining why it's disabled.
@@ -130,7 +172,9 @@ describe('RecordList — stages view', () => {
       expect((g.getAttribute('title') || '').toLowerCase()).toContain('stages view');
     }
     // The View switch stays enabled (not inside a disabled group).
-    const stagesOpt = [...root.querySelectorAll('.view-seg-opt')].find((b) => b.textContent.trim() === 'Stages');
+    const stagesOpt = [...root.querySelectorAll('.view-seg-opt')].find(
+      (b) => b.textContent.trim() === 'Stages',
+    );
     expect(stagesOpt).toBeTruthy();
     expect(stagesOpt!.closest('.toolbar-group-disabled')).toBeNull();
   });

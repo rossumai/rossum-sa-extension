@@ -38,11 +38,7 @@ describe('stableKey', () => {
 
 describe('analyzeDocs', () => {
   it('counts total, withId, withoutId', () => {
-    const stats = analyzeDocs([
-      { _id: 'a', x: 1 },
-      { _id: 'b', x: 2 },
-      { x: 3 },
-    ]);
+    const stats = analyzeDocs([{ _id: 'a', x: 1 }, { _id: 'b', x: 2 }, { x: 3 }]);
     expect(stats.total).toBe(3);
     expect(stats.withId).toBe(2);
     expect(stats.withoutId).toBe(1);
@@ -76,18 +72,25 @@ describe('analyzeDocs', () => {
 
 describe('normalizeDocId', () => {
   it('coerces a 24-hex-char string _id to an EJSON {$oid}', () => {
-    expect(normalizeDocId({ _id: '69c65a799ec46e786beb4c5a', n: 1 }))
-      .toEqual({ _id: { $oid: '69c65a799ec46e786beb4c5a' }, n: 1 });
+    expect(normalizeDocId({ _id: '69c65a799ec46e786beb4c5a', n: 1 })).toEqual({
+      _id: { $oid: '69c65a799ec46e786beb4c5a' },
+      n: 1,
+    });
   });
   it('accepts uppercase hex', () => {
-    expect(normalizeDocId({ _id: 'AABBCCDDEEFF00112233445A' }))
-      .toEqual({ _id: { $oid: 'AABBCCDDEEFF00112233445A' } });
+    expect(normalizeDocId({ _id: 'AABBCCDDEEFF00112233445A' })).toEqual({
+      _id: { $oid: 'AABBCCDDEEFF00112233445A' },
+    });
   });
   it('leaves non-ObjectId string _ids untouched (real string keys stay strings)', () => {
     expect(normalizeDocId({ _id: 'US', n: 1 })).toEqual({ _id: 'US', n: 1 });
     expect(normalizeDocId({ _id: 'SKU-12345' })).toEqual({ _id: 'SKU-12345' });
-    expect(normalizeDocId({ _id: 'zzz65a799ec46e786beb4c5a' })).toEqual({ _id: 'zzz65a799ec46e786beb4c5a' }); // 24 chars, non-hex
-    expect(normalizeDocId({ _id: '69c65a799ec46e786beb4c5' })).toEqual({ _id: '69c65a799ec46e786beb4c5' }); // 23 chars
+    expect(normalizeDocId({ _id: 'zzz65a799ec46e786beb4c5a' })).toEqual({
+      _id: 'zzz65a799ec46e786beb4c5a',
+    }); // 24 chars, non-hex
+    expect(normalizeDocId({ _id: '69c65a799ec46e786beb4c5' })).toEqual({
+      _id: '69c65a799ec46e786beb4c5',
+    }); // 23 chars
   });
   it('leaves numeric, object, and missing _ids untouched', () => {
     expect(normalizeDocId({ _id: 42 })).toEqual({ _id: 42 });
@@ -106,8 +109,14 @@ describe('normalizeDocId', () => {
 describe('dedupeById', () => {
   it('coerces ObjectId-looking string _ids to {$oid} in the kept docs', () => {
     const hex = '69c65a799ec46e786beb4c5a';
-    const { kept } = dedupeById([{ _id: hex, n: 1 }, { _id: 'plain', n: 2 }]);
-    expect(kept).toEqual([{ _id: { $oid: hex }, n: 1 }, { _id: 'plain', n: 2 }]);
+    const { kept } = dedupeById([
+      { _id: hex, n: 1 },
+      { _id: 'plain', n: 2 },
+    ]);
+    expect(kept).toEqual([
+      { _id: { $oid: hex }, n: 1 },
+      { _id: 'plain', n: 2 },
+    ]);
   });
 
   it('keeps the first occurrence of each _id and reports dropped count', () => {
@@ -115,27 +124,28 @@ describe('dedupeById', () => {
       { _id: 'a', v: 1 },
       { _id: 'b', v: 2 },
       { _id: 'a', v: 3 }, // duplicate -> dropped
-      { v: 4 },           // no _id -> kept
+      { v: 4 }, // no _id -> kept
       { _id: 'a', v: 5 }, // duplicate -> dropped
     ]);
-    expect(kept).toEqual([
-      { _id: 'a', v: 1 },
-      { _id: 'b', v: 2 },
-      { v: 4 },
-    ]);
+    expect(kept).toEqual([{ _id: 'a', v: 1 }, { _id: 'b', v: 2 }, { v: 4 }]);
     expect(dropped).toBe(2);
   });
 
   it('treats EJSON $oid duplicates as duplicates', () => {
     const oid = { $oid: 'abc' };
-    const { kept, dropped } = dedupeById([{ _id: oid, n: 1 }, { _id: { $oid: 'abc' }, n: 2 }]);
+    const { kept, dropped } = dedupeById([
+      { _id: oid, n: 1 },
+      { _id: { $oid: 'abc' }, n: 2 },
+    ]);
     expect(kept).toHaveLength(1);
     expect(dropped).toBe(1);
   });
 });
 
 describe('runChunkedInsert', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('chunks at the shared dataset BATCH_SIZE (1000) and calls insertMany with ordered:false', async () => {
     vi.mocked(api.insertMany).mockResolvedValue({ result: {} });
@@ -186,7 +196,10 @@ describe('runChunkedInsert', () => {
       if (callCount === 2) controller.abort();
       return { result: {} };
     });
-    const result = await runChunkedInsert('vendors', docs, { batchSize: 2, signal: controller.signal });
+    const result = await runChunkedInsert('vendors', docs, {
+      batchSize: 2,
+      signal: controller.signal,
+    });
     expect(result.cancelled).toBe(true);
     expect(api.insertMany).toHaveBeenCalledTimes(2);
     expect(result.inserted).toBe(4); // first two batches landed before abort
@@ -201,14 +214,21 @@ describe('shared chunk size with downloader', () => {
 
 describe('stripServerFields', () => {
   it('removes _id (plain or EJSON) without mutating inputs', () => {
-    const docs = [{ _id: { $oid: 'a'.repeat(24) }, sku: 'A' }, { _id: '1', sku: 'B' }, { sku: 'C' }];
+    const docs = [
+      { _id: { $oid: 'a'.repeat(24) }, sku: 'A' },
+      { _id: '1', sku: 'B' },
+      { sku: 'C' },
+    ];
     const out = stripServerFields(docs);
     expect(out).toEqual([{ sku: 'A' }, { sku: 'B' }, { sku: 'C' }]);
     expect(docs[0]._id).toBeTruthy(); // originals untouched
-    expect(out[2]).toBe(docs[2]);     // rows without server fields pass through by reference
+    expect(out[2]).toBe(docs[2]); // rows without server fields pass through by reference
   });
   it('removes __digest_md5 (server stores uploaded digests verbatim, never recomputes)', () => {
-    const docs = [{ _id: '1', __digest_md5: '0'.repeat(32), sku: 'A' }, { __digest_md5: 'f'.repeat(32), sku: 'B' }];
+    const docs = [
+      { _id: '1', __digest_md5: '0'.repeat(32), sku: 'A' },
+      { __digest_md5: 'f'.repeat(32), sku: 'B' },
+    ];
     expect(stripServerFields(docs)).toEqual([{ sku: 'A' }, { sku: 'B' }]);
     expect(docs[1].__digest_md5).toBeTruthy(); // originals untouched
   });

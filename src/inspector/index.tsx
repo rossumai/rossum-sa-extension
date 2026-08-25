@@ -10,8 +10,14 @@ import { buildEvidence } from './evidence.js';
 import { runSynthesis, continueSynthesis } from './synthesize.js';
 
 let loadId = 0;
-const safe = (fn: any) => Promise.resolve().then(fn).catch(() => null);
-function idFromUrl(url: any) { const m = String(url || '').match(/\/(\d+)\/?$/); return m ? m[1] : null; }
+const safe = (fn: any) =>
+  Promise.resolve()
+    .then(fn)
+    .catch(() => null);
+function idFromUrl(url: any) {
+  const m = String(url || '').match(/\/(\d+)\/?$/);
+  return m ? m[1] : null;
+}
 
 // Prefetch all enrichment + queue hooks/labels/rules/intake/workflow context (all
 // 403-tolerant), then run the attribution orchestrator, then (agent permitting) the
@@ -24,20 +30,51 @@ let attrController: AbortController | null = null;
 // fast gather reads the default-false aiAvailable while the probe is still in flight
 // and wrongly skips synthesis (the probe's .then sets aiAvailable exactly once).
 let aiProbe: Promise<any> | null = null;
-const SOURCES = ['workflow', 'notes', 'hookLogs', 'ruleLogs', 'hooks', 'labels', 'rules', 'workflowCtx', 'intakeCtx'];
+const SOURCES = [
+  'workflow',
+  'notes',
+  'hookLogs',
+  'ruleLogs',
+  'hooks',
+  'labels',
+  'rules',
+  'workflowCtx',
+  'intakeCtx',
+];
 async function prefetchAndOrchestrate() {
   track('sa_inspector_report');
   if (attrController) attrController.abort();
   attrController = new AbortController();
   const signal = attrController.signal;
-  store.setInvestigation({ stage: 'gathering', sourcesDone: 0, sourcesTotal: SOURCES.length, activity: '' });
-  const tick = (p: any) => p.then(() => { if (!signal.aborted) { store.setInvestigation({ sourcesDone: store.investigation.value.sourcesDone + 1 }); recomputeEvidence(); } })
-    .catch(() => { if (!signal.aborted) { store.setInvestigation({ sourcesDone: store.investigation.value.sourcesDone + 1 }); } });
+  store.setInvestigation({
+    stage: 'gathering',
+    sourcesDone: 0,
+    sourcesTotal: SOURCES.length,
+    activity: '',
+  });
+  const tick = (p: any) =>
+    p
+      .then(() => {
+        if (!signal.aborted) {
+          store.setInvestigation({ sourcesDone: store.investigation.value.sourcesDone + 1 });
+          recomputeEvidence();
+        }
+      })
+      .catch(() => {
+        if (!signal.aborted) {
+          store.setInvestigation({ sourcesDone: store.investigation.value.sourcesDone + 1 });
+        }
+      });
   await Promise.all([
-    tick(loadEnrichment('workflow')), tick(loadEnrichment('notes')),
-    tick(loadEnrichment('hookLogs')), tick(loadEnrichment('ruleLogs')),
-    tick(loadQueueHooks()), tick(loadLabelContext()), tick(loadQueueRules()),
-    tick(loadWorkflowContext()), tick(loadIntakeContext()),
+    tick(loadEnrichment('workflow')),
+    tick(loadEnrichment('notes')),
+    tick(loadEnrichment('hookLogs')),
+    tick(loadEnrichment('ruleLogs')),
+    tick(loadQueueHooks()),
+    tick(loadLabelContext()),
+    tick(loadQueueRules()),
+    tick(loadWorkflowContext()),
+    tick(loadIntakeContext()),
   ]);
   if (signal.aborted) return;
   // Settle the agent health probe BEFORE attribution AND synthesis: a fast gather
@@ -45,7 +82,10 @@ async function prefetchAndOrchestrate() {
   // aiAvailable is false — orchestrate.js:110) OR the offline decision on a
   // still-default value. The probe starts in initInspector, so this is normally
   // already resolved (no stall); a slow/hung /health is bounded by probeAgent's 10s.
-  if (aiProbe) { await aiProbe; if (signal.aborted) return; }
+  if (aiProbe) {
+    await aiProbe;
+    if (signal.aborted) return;
+  }
   store.setInvestigation({ stage: 'attributing' });
   await orchestrateAttributions({ store, api, agentApi, signal });
   if (signal.aborted) return;
@@ -60,17 +100,34 @@ async function prefetchAndOrchestrate() {
   try {
     const a = store.data.value?.annotation || {};
     const res = await runSynthesis({
-      agentApi, evidence: store.evidence.value,
+      agentApi,
+      evidence: store.evidence.value,
       annotation: { id: a.id, status: a.status, queueId: idFromUrl(a.queue) },
       signal,
-      onPhase: (p) => { if (!signal.aborted) store.setInvestigation({ activity: p }); },
-      onText: (t) => { if (!signal.aborted) store.synthesis.value = { ...store.synthesis.value, text: t }; },
+      onPhase: (p) => {
+        if (!signal.aborted) store.setInvestigation({ activity: p });
+      },
+      onText: (t) => {
+        if (!signal.aborted) store.synthesis.value = { ...store.synthesis.value, text: t };
+      },
     });
     if (signal.aborted) return;
-    store.synthesis.value = { status: 'done', text: res.text, reasoning: res.reasoning, tools: res.tools, chatId: res.chatId, followups: [], error: null };
+    store.synthesis.value = {
+      status: 'done',
+      text: res.text,
+      reasoning: res.reasoning,
+      tools: res.tools,
+      chatId: res.chatId,
+      followups: [],
+      error: null,
+    };
   } catch (e: any) {
     if (signal.aborted || e?.name === 'AbortError') return;
-    store.synthesis.value = { ...store.synthesis.value, status: 'error', error: e?.message || 'synthesis failed' };
+    store.synthesis.value = {
+      ...store.synthesis.value,
+      status: 'error',
+      error: e?.message || 'synthesis failed',
+    };
   }
   store.setInvestigation({ stage: 'complete', activity: '' });
 }
@@ -86,17 +143,34 @@ export async function initInspector() {
     try {
       chrome.storage.onChanged.addListener((changes, area) => {
         if (area !== 'local' || !changes[VIEWED_KEY]) return;
-        loadRecents().then(() => { if (store.connected.value) return enrichRecents(api); }).catch(() => {});
+        loadRecents()
+          .then(() => {
+            if (store.connected.value) return enrichRecents(api);
+          })
+          .catch(() => {});
       });
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
-  try { await api.whoami(); }
-  catch (err: any) { store.error.value = err.message || 'Failed to verify session'; store.connected.value = false; return; }
+  try {
+    await api.whoami();
+  } catch (err: any) {
+    store.error.value = err.message || 'Failed to verify session';
+    store.connected.value = false;
+    return;
+  }
   store.connected.value = true;
   enrichRecents(api).catch(() => {}); // resolve names for the viewed list (non-blocking)
   // Non-blocking, but held so prefetchAndOrchestrate can await it (avoids the
   // fast-gather → false agent-offline race). Sets aiAvailable exactly once.
-  aiProbe = agentApi.probeAgent().then((ok) => { store.aiAvailable.value = ok; return ok; }).catch(() => false);
+  aiProbe = agentApi
+    .probeAgent()
+    .then((ok) => {
+      store.aiAvailable.value = ok;
+      return ok;
+    })
+    .catch(() => false);
   if (store.annotationId.value) loadAnnotation(store.annotationId.value); // not awaited
 }
 
@@ -109,21 +183,36 @@ export async function loadAnnotation(id: any) {
     const annotation = await api.getAnnotation(id);
     if (myId !== loadId) return;
     const [blocker, content, queue, schema, document] = await Promise.all([
-      annotation.automation_blocker ? safe(() => api.getAutomationBlocker(annotation.automation_blocker)) : Promise.resolve(null),
+      annotation.automation_blocker
+        ? safe(() => api.getAutomationBlocker(annotation.automation_blocker))
+        : Promise.resolve(null),
       safe(() => api.getContent(id)),
       annotation.queue ? safe(() => api.getQueue(annotation.queue)) : Promise.resolve(null),
       annotation.schema ? safe(() => api.getSchema(annotation.schema)) : Promise.resolve(null),
-      annotation.document ? safe(() => api.getDocument(annotation.document)) : Promise.resolve(null),
+      annotation.document
+        ? safe(() => api.getDocument(annotation.document))
+        : Promise.resolve(null),
     ]);
     if (myId !== loadId) return;
 
     // Resolve the few users we name (rejected_by, modifier) — best-effort.
     const usersById: Record<string, any> = {};
     const userUrls = [annotation.rejected_by, annotation.modifier].filter(Boolean);
-    await Promise.all(userUrls.map((u) => safe(() => api.getUser(u)).then((usr) => { if (usr) usersById[idFromUrl(u) as string] = usr; })));
+    await Promise.all(
+      userUrls.map((u) =>
+        safe(() => api.getUser(u)).then((usr) => {
+          if (usr) usersById[idFromUrl(u) as string] = usr;
+        }),
+      ),
+    );
     if (myId !== loadId) return;
 
-    store.data.value = { annotation, blocker, content, resolved: { queue, schema, document, usersById, hooksById: {}, rulesById: {} } };
+    store.data.value = {
+      annotation,
+      blocker,
+      content,
+      resolved: { queue, schema, document, usersById, hooksById: {}, rulesById: {} },
+    };
     recomputeEvidence(); // skeleton evidence + verdict render before enrichment lands
     prefetchAndOrchestrate().catch(() => {}); // not awaited; swallow (attribution is best-effort)
     loadPagePreviews().catch(() => {}); // not awaited; decoration, not an investigation source
@@ -144,10 +233,14 @@ async function fetchPreviewBatch(pageResources: any, myId: any) {
     if (myId !== loadId) return;
     const blob = await safe(() => api.getBlob(p.content));
     if (myId !== loadId) return;
-    const objectUrl = blob && typeof URL !== 'undefined' && URL.createObjectURL ? URL.createObjectURL(blob) : null;
+    const objectUrl =
+      blob && typeof URL !== 'undefined' && URL.createObjectURL ? URL.createObjectURL(blob) : null;
     const cur = store.pagePreviews.value;
     if (!cur) return; // cleared by an annotation switch
-    store.pagePreviews.value = { ...cur, pages: [...cur.pages, { number: p.number, width: p.width, height: p.height, objectUrl }] };
+    store.pagePreviews.value = {
+      ...cur,
+      pages: [...cur.pages, { number: p.number, width: p.width, height: p.height, objectUrl }],
+    };
   }
 }
 
@@ -159,14 +252,23 @@ export async function loadPagePreviews() {
     const list = (await api.listPages(id)) || [];
     if (myId !== loadId) return;
     const sorted = [...list].sort((a, b) => (a.number ?? 0) - (b.number ?? 0));
-    if (!sorted.length) { store.pagePreviews.value = { status: 'done', total: 0, pages: [], rest: [] }; return; }
-    store.pagePreviews.value = { status: 'loading', total: sorted.length, pages: [], rest: sorted.slice(PAGE_PREVIEW_LIMIT) };
+    if (!sorted.length) {
+      store.pagePreviews.value = { status: 'done', total: 0, pages: [], rest: [] };
+      return;
+    }
+    store.pagePreviews.value = {
+      status: 'loading',
+      total: sorted.length,
+      pages: [],
+      rest: sorted.slice(PAGE_PREVIEW_LIMIT),
+    };
     await fetchPreviewBatch(sorted.slice(0, PAGE_PREVIEW_LIMIT), myId);
     if (myId !== loadId) return;
     const cur = store.pagePreviews.value;
     if (cur) store.pagePreviews.value = { ...cur, status: 'done' };
   } catch {
-    if (myId === loadId) store.pagePreviews.value = { status: 'error', total: 0, pages: [], rest: [] };
+    if (myId === loadId)
+      store.pagePreviews.value = { status: 'error', total: 0, pages: [], rest: [] };
   }
 }
 
@@ -181,7 +283,9 @@ export async function loadAllPagePreviews() {
 }
 
 // Lazily fetch a best-effort enrichment collection into store.enrichment[kind].
-export async function loadEnrichment(kind: 'notes' | 'workflow' | 'audit' | 'hookLogs' | 'ruleLogs') {
+export async function loadEnrichment(
+  kind: 'notes' | 'workflow' | 'audit' | 'hookLogs' | 'ruleLogs',
+) {
   const id = store.annotationId.value!;
   const myId = loadId; // bail before writing if the user navigated to another annotation
   const fns = {
@@ -198,7 +302,10 @@ export async function loadEnrichment(kind: 'notes' | 'workflow' | 'audit' | 'hoo
     store.enrichment.value = { ...store.enrichment.value, [kind]: v };
   } catch (err: any) {
     if (myId !== loadId) return;
-    store.enrichment.value = { ...store.enrichment.value, [kind]: err.featureUnavailable ? 'unavailable' : [] };
+    store.enrichment.value = {
+      ...store.enrichment.value,
+      [kind]: err.featureUnavailable ? 'unavailable' : [],
+    };
   }
 }
 
@@ -207,8 +314,8 @@ export async function loadQueueHooks() {
   const d = store.data.value;
   if (!d || !d.annotation.queue || d.resolved._hooksLoaded) return;
   const myId = loadId;
-  const hooks = await safe(() => api.listHooks(idFromUrl(d.annotation.queue) as string)) || [];
-  const hooksById : Record<string, any> = {};
+  const hooks = (await safe(() => api.listHooks(idFromUrl(d.annotation.queue) as string))) || [];
+  const hooksById: Record<string, any> = {};
   for (const hk of hooks as any[]) hooksById[hk.id] = hk;
   const cur = store.data.value;
   if (!cur || myId !== loadId) return; // superseded by a newer annotation → don't contaminate it
@@ -227,14 +334,24 @@ export async function loadLabelContext() {
     queueId ? safe(() => api.listRules(queueId)) : Promise.resolve(null),
     queueId ? safe(() => api.listHooks(queueId)) : Promise.resolve(null),
   ]);
-  const labelsById : Record<string, any> = {};
-  for (const l of (labels || []) as any[]) labelsById[String(l.id)] = { id: String(l.id), name: l.name, color: l.color, url: l.url };
+  const labelsById: Record<string, any> = {};
+  for (const l of (labels || []) as any[])
+    labelsById[String(l.id)] = { id: String(l.id), name: l.name, color: l.color, url: l.url };
   const labelRules = extractLabelRules(rules || []);
-  const hooksById : Record<string, any> = {};
+  const hooksById: Record<string, any> = {};
   for (const hk of (hooks || []) as any[]) hooksById[hk.id] = hk;
   const cur = store.data.value;
   if (!cur || myId !== loadId) return; // superseded → don't merge stale label context into another annotation
-  store.data.value = { ...cur, resolved: { ...cur.resolved, labelsById, labelRules, hooksById: { ...cur.resolved.hooksById, ...hooksById }, _hooksLoaded: true } };
+  store.data.value = {
+    ...cur,
+    resolved: {
+      ...cur.resolved,
+      labelsById,
+      labelRules,
+      hooksById: { ...cur.resolved.hooksById, ...hooksById },
+      _hooksLoaded: true,
+    },
+  };
 }
 
 // For the orchestrator's programmatic correlation (rule → field): populate
@@ -243,8 +360,9 @@ export async function loadQueueRules() {
   const d = store.data.value;
   if (!d || !d.annotation.queue || d.resolved._rulesLoaded) return;
   const myId = loadId;
-  const rules = await safe(() => api.listRules(idFromUrl(d.annotation.queue) as string)) || [];
-  const cur = store.data.value; if (!cur || myId !== loadId) return; // superseded → skip stale write
+  const rules = (await safe(() => api.listRules(idFromUrl(d.annotation.queue) as string))) || [];
+  const cur = store.data.value;
+  if (!cur || myId !== loadId) return; // superseded → skip stale write
   store.data.value = { ...cur, resolved: { ...cur.resolved, rules, _rulesLoaded: true } };
 }
 
@@ -256,12 +374,19 @@ export async function loadIntakeContext() {
   const doc = d.resolved.document || null;
   const [parentDocument, relations, email] = await Promise.all([
     doc?.parent ? safe(() => api.getDocument(doc.parent)) : Promise.resolve(null),
-    Promise.all((d.annotation.relations || []).map((u: any) => safe(() => api.getRelation(u)))).then((rs) => rs.filter(Boolean)),
-    (d.annotation.email || doc?.email) ? safe(() => api.getEmail(d.annotation.email || doc.email)) : Promise.resolve(null),
+    Promise.all(
+      (d.annotation.relations || []).map((u: any) => safe(() => api.getRelation(u))),
+    ).then((rs) => rs.filter(Boolean)),
+    d.annotation.email || doc?.email
+      ? safe(() => api.getEmail(d.annotation.email || doc.email))
+      : Promise.resolve(null),
   ]);
   const cur = store.data.value;
   if (!cur || myId !== loadId) return;
-  store.data.value = { ...cur, resolved: { ...cur.resolved, parentDocument, relations, email, _intakeLoaded: true } };
+  store.data.value = {
+    ...cur,
+    resolved: { ...cur.resolved, parentDocument, relations, email, _intakeLoaded: true },
+  };
 }
 
 // Approval-workflow context: runs + their steps.
@@ -269,26 +394,44 @@ export async function loadWorkflowContext() {
   const d = store.data.value;
   if (!d || d.resolved._workflowLoaded) return;
   const myId = loadId;
-  const runs = await safe(() => api.listWorkflowRuns(d.annotation.id)) || [];
+  const runs = (await safe(() => api.listWorkflowRuns(d.annotation.id))) || [];
   const wfIds = [...new Set((runs as any[]).map((r) => idFromUrl(r.workflow)).filter(Boolean))];
-  const steps = (await Promise.all(wfIds.map((id) => safe(() => api.listWorkflowSteps(id as string))))).flat().filter(Boolean);
+  const steps = (
+    await Promise.all(wfIds.map((id) => safe(() => api.listWorkflowSteps(id as string))))
+  )
+    .flat()
+    .filter(Boolean);
   const cur = store.data.value;
   if (!cur || myId !== loadId) return;
-  store.data.value = { ...cur, resolved: { ...cur.resolved, workflowRuns: runs, workflowSteps: steps, _workflowLoaded: true } };
+  store.data.value = {
+    ...cur,
+    resolved: { ...cur.resolved, workflowRuns: runs, workflowSteps: steps, _workflowLoaded: true },
+  };
 }
 
 // Rebuild the evidence model from current signals — cheap and pure; call after
 // every source load and after attribution changes.
 export function recomputeEvidence() {
   const d = store.data.value;
-  if (!d) { store.evidence.value = null; return; }
+  if (!d) {
+    store.evidence.value = null;
+    return;
+  }
   store.evidence.value = buildEvidence({
-    annotation: d.annotation, blocker: d.blocker, content: d.content,
-    queue: d.resolved.queue, schema: d.resolved.schema, document: d.resolved.document,
-    parentDocument: d.resolved.parentDocument || null, relations: d.resolved.relations || [],
-    email: d.resolved.email || null, enrichment: store.enrichment.value,
-    resolved: d.resolved, workflowRuns: d.resolved.workflowRuns || [],
-    workflowSteps: d.resolved.workflowSteps || [], attributions: store.attributions.value,
+    annotation: d.annotation,
+    blocker: d.blocker,
+    content: d.content,
+    queue: d.resolved.queue,
+    schema: d.resolved.schema,
+    document: d.resolved.document,
+    parentDocument: d.resolved.parentDocument || null,
+    relations: d.resolved.relations || [],
+    email: d.resolved.email || null,
+    enrichment: store.enrichment.value,
+    resolved: d.resolved,
+    workflowRuns: d.resolved.workflowRuns || [],
+    workflowSteps: d.resolved.workflowSteps || [],
+    attributions: store.attributions.value,
     live: store.live.value,
   });
 }
@@ -299,7 +442,9 @@ export function closeAnnotation() {
   loadId++;
   if (attrController) attrController.abort();
   store.setAnnotationId(null);
-  loadRecents().then(() => enrichRecents(api)).catch(() => {}); // refresh the viewed list on return
+  loadRecents()
+    .then(() => enrichRecents(api))
+    .catch(() => {}); // refresh the viewed list on return
 }
 
 // Follow-up question to Mr. Fabry in the finished synthesis chat. Appends a
@@ -325,14 +470,26 @@ export async function askFabry(question: any) {
   patch((f: any) => f.push({ q, text: '', status: 'streaming' }));
   try {
     const res = await continueSynthesis({
-      agentApi, chatId: syn.chatId, question: q, signal,
-      onPhase: (p) => { if (myId === loadId) store.setInvestigation({ activity: p }); },
-      onText: (t) => patch((f: any) => { f[f.length - 1] = { ...f[f.length - 1], text: t }; }),
+      agentApi,
+      chatId: syn.chatId,
+      question: q,
+      signal,
+      onPhase: (p) => {
+        if (myId === loadId) store.setInvestigation({ activity: p });
+      },
+      onText: (t) =>
+        patch((f: any) => {
+          f[f.length - 1] = { ...f[f.length - 1], text: t };
+        }),
     });
-    patch((f: any) => { f[f.length - 1] = { q, text: res.text, status: 'done' }; });
+    patch((f: any) => {
+      f[f.length - 1] = { q, text: res.text, status: 'done' };
+    });
   } catch (e: any) {
     if (e?.name === 'AbortError') return;
-    patch((f: any) => { f[f.length - 1] = { ...f[f.length - 1], status: 'error' }; });
+    patch((f: any) => {
+      f[f.length - 1] = { ...f[f.length - 1], status: 'error' };
+    });
   } finally {
     if (myId === loadId) store.setInvestigation({ activity: '' });
   }
@@ -345,6 +502,9 @@ export async function runRevalidate() {
   track('sa_inspector_revalidate');
   const id = store.annotationId.value!;
   const res = await api.revalidate(id);
-  store.live.value = { messages: res?.messages || [], matchedTriggerRules: res?.matched_trigger_rules || [] };
+  store.live.value = {
+    messages: res?.messages || [],
+    matchedTriggerRules: res?.matched_trigger_rules || [],
+  };
   recomputeEvidence();
 }

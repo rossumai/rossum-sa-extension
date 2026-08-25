@@ -8,7 +8,9 @@ import FabryTranscript from '../../ui/fabry/FabryTranscript.jsx';
 import FabryMark from '../../ui/FabryMark.jsx';
 
 function flashEvidence(id: any, section: any) {
-  const el = document.querySelector(`[data-evidence-id="${id}"]`) || (section ? document.querySelector(`[data-evidence-section="${section}"]`) : null);
+  const el =
+    document.querySelector(`[data-evidence-id="${id}"]`) ||
+    (section ? document.querySelector(`[data-evidence-section="${section}"]`) : null);
   if (!el) return;
   el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   el.classList.remove('inspector-ev-flash');
@@ -26,7 +28,13 @@ function resolveCite(id: any) {
 }
 
 // Inspector-flavored gerunds cycled while a follow-up streams (AgentBox pattern).
-const GERUNDS = ['Consulting Mr. Fabry', 'Reading the evidence', 'Cross-checking logs', 'Following citations', 'Almost there'];
+const GERUNDS = [
+  'Consulting Mr. Fabry',
+  'Reading the evidence',
+  'Cross-checking logs',
+  'Following citations',
+  'Almost there',
+];
 
 // Follow-up Q&A thread + ask input in the same synthesis chat — mirrors the MDH
 // aggregation-pipeline prompt (sparkle idle, rainbow loader, Enter to send).
@@ -44,10 +52,18 @@ function FollowupThread({ syn }: { syn: any }) {
     <div class="inspector-followups">
       {followups.map((f: any) => (
         <div class="inspector-followup">
-          <div class="inspector-followup-q"><span class="inspector-followup-role">You</span> {f.q}</div>
-          {f.status === 'error'
-            ? <div class="inspector-empty">Mr. Fabry could not answer that one.</div>
-            : <FabryNarrative text={f.text} streaming={f.status === 'streaming'} resolveCite={resolveCite} />}
+          <div class="inspector-followup-q">
+            <span class="inspector-followup-role">You</span> {f.q}
+          </div>
+          {f.status === 'error' ? (
+            <div class="inspector-empty">Mr. Fabry could not answer that one.</div>
+          ) : (
+            <FabryNarrative
+              text={f.text}
+              streaming={f.status === 'streaming'}
+              resolveCite={resolveCite}
+            />
+          )}
         </div>
       ))}
       <FabryInput
@@ -77,20 +93,56 @@ export default function DiagnosisPanel() {
     <div class="inspector-diag">
       <div class="inspector-diag-hd">
         <FabryMark /> Diagnosis <span class="inspector-diag-credit">by Mr. Fabry</span>
-        {waiting ? <span class="inspector-diag-phase">starts after attribution finishes{'…'}</span> : null}
-        {syn?.status === 'streaming' ? <span class="inspector-diag-phase">writing{'…'}</span> : null}
+        {waiting ? (
+          <span class="inspector-diag-phase">starts after attribution finishes{'…'}</span>
+        ) : null}
+        {syn?.status === 'streaming' ? (
+          <span class="inspector-diag-phase">writing{'…'}</span>
+        ) : null}
         {syn?.status === 'done' ? (
           <span class="inspector-diag-phase">
-            <button type="button" class="inspector-fold-btn" onClick={() => setShowTranscript(true)}>View investigation</button>
+            <button
+              type="button"
+              class="inspector-fold-btn"
+              onClick={() => setShowTranscript(true)}
+            >
+              View investigation
+            </button>
           </span>
         ) : null}
       </div>
-      {waiting && <Fragment><div class="inspector-esec-skel" style="width:92%" /><div class="inspector-esec-skel" style="width:78%" /></Fragment>}
-      {syn?.status === 'offline' && <div class="inspector-empty">AI synthesis unavailable (agent offline) — the verified evidence below is complete.</div>}
-      {syn?.status === 'error' && <div class="inspector-empty">AI synthesis failed{syn.error ? ` (${syn.error})` : ''} — the verified evidence below is complete.</div>}
-      {(syn?.status === 'streaming' || syn?.status === 'done') && <FabryNarrative text={syn.text} streaming={syn.status === 'streaming'} resolveCite={resolveCite} />}
+      {waiting && (
+        <Fragment>
+          <div class="inspector-esec-skel" style="width:92%" />
+          <div class="inspector-esec-skel" style="width:78%" />
+        </Fragment>
+      )}
+      {syn?.status === 'offline' && (
+        <div class="inspector-empty">
+          AI synthesis unavailable (agent offline) — the verified evidence below is complete.
+        </div>
+      )}
+      {syn?.status === 'error' && (
+        <div class="inspector-empty">
+          AI synthesis failed{syn.error ? ` (${syn.error})` : ''} — the verified evidence below is
+          complete.
+        </div>
+      )}
+      {(syn?.status === 'streaming' || syn?.status === 'done') && (
+        <FabryNarrative
+          text={syn.text}
+          streaming={syn.status === 'streaming'}
+          resolveCite={resolveCite}
+        />
+      )}
       {syn?.status === 'done' && syn.chatId ? <FollowupThread syn={syn} /> : null}
-      {showTranscript && syn ? <FabryTranscript reasoning={syn.reasoning} tools={syn.tools || []} onClose={() => setShowTranscript(false)} /> : null}
+      {showTranscript && syn ? (
+        <FabryTranscript
+          reasoning={syn.reasoning}
+          tools={syn.tools || []}
+          onClose={() => setShowTranscript(false)}
+        />
+      ) : null}
     </div>
   );
 }

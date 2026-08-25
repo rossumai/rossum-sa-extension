@@ -3,13 +3,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { h, render } from 'preact';
 
 vi.mock('../src/fabry/chat.js', () => ({
-  loadChats: vi.fn(), openChat: vi.fn(), startNewChat: vi.fn(),
+  loadChats: vi.fn(),
+  openChat: vi.fn(),
+  startNewChat: vi.fn(),
 }));
 
 import * as chat from '../src/fabry/chat.js';
 import * as store from '../src/fabry/store.js';
 import Sidebar from '../src/fabry/components/Sidebar.jsx';
-
 
 function mount() {
   const root = document.createElement('div');
@@ -21,7 +22,13 @@ function mount() {
 beforeEach(() => {
   vi.clearAllMocks();
   store.chats.value = [
-    { chat_id: 'chat_1', timestamp: 1760000000, message_count: 4, first_message: 'find failed exports', summary: 'Failed exports triage' },
+    {
+      chat_id: 'chat_1',
+      timestamp: 1760000000,
+      message_count: 4,
+      first_message: 'find failed exports',
+      summary: 'Failed exports triage',
+    },
     { chat_id: 'chat_2', timestamp: 1760000000, message_count: 1, first_message: 'hello' },
   ];
   store.chatsTotal.value = 10;
@@ -87,7 +94,9 @@ describe('Sidebar — infinite scroll', () => {
 
 describe('Sidebar — resize', () => {
   it('dragging the edge resizes within clamps and persists on mouseup', () => {
-    global.chrome = ({ storage: { local: { set: vi.fn(), get: vi.fn().mockResolvedValue({}) } } as any } as any);
+    global.chrome = {
+      storage: { local: { set: vi.fn(), get: vi.fn().mockResolvedValue({}) } } as any,
+    } as any;
     store.sidebarWidth.value = 280;
     const root = mount();
     const handle = root.querySelector('.fabry-side-resizer');

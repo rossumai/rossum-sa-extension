@@ -16,7 +16,10 @@ import { openBulkUpdate, diffJsonContent } from '../src/mdh/components/BulkUpdat
 // extra mock values (root cause of the historic flake on this file).
 let activeRoot: any = null;
 function mountModal() {
-  if (activeRoot) { render(null, activeRoot); activeRoot = null; }
+  if (activeRoot) {
+    render(null, activeRoot);
+    activeRoot = null;
+  }
   document.body.innerHTML = '';
   const root = document.createElement('div');
   document.body.appendChild(root);
@@ -24,7 +27,9 @@ function mountModal() {
   activeRoot = root;
   return root;
 }
-function rerender(root: any) { render(<Modal />, root); }
+function rerender(root: any) {
+  render(<Modal />, root);
+}
 async function flush() {
   await new Promise((r) => setTimeout(r, 0));
   await new Promise((r) => setTimeout(r, 0));
@@ -37,7 +42,10 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  if (activeRoot) { render(null, activeRoot); activeRoot = null; }
+  if (activeRoot) {
+    render(null, activeRoot);
+    activeRoot = null;
+  }
 });
 
 // Repeatable mock for preview queries. previewMatch fires two aggregate
@@ -60,12 +68,26 @@ function mockPreviewAndSnapshot({ count, sample }: any) {
 
 describe('openBulkUpdate — filter mode', () => {
   it('shows preview with count and sample, and submit calls updateMany', async () => {
-    mockPreviewAndSnapshot({ count: 2, sample: [{ _id: '1', status: 'old' }, { _id: '2', status: 'old' }] });
-    vi.mocked(api.updateMany).mockResolvedValueOnce({ result: { matched_count: 2, modified_count: 2 } });
+    mockPreviewAndSnapshot({
+      count: 2,
+      sample: [
+        { _id: '1', status: 'old' },
+        { _id: '2', status: 'old' },
+      ],
+    });
+    vi.mocked(api.updateMany).mockResolvedValueOnce({
+      result: { matched_count: 2, modified_count: 2 },
+    });
     const onSuccess = vi.fn();
 
     const root = mountModal();
-    openBulkUpdate({ collection: 'vendors', mode: 'filter', filter: { status: 'old' }, onSuccess, fieldsFn: () => [] });
+    openBulkUpdate({
+      collection: 'vendors',
+      mode: 'filter',
+      filter: { status: 'old' },
+      onSuccess,
+      fieldsFn: () => [],
+    });
     rerender(root);
     await flush();
     rerender(root);
@@ -84,7 +106,13 @@ describe('openBulkUpdate — filter mode', () => {
     mockPreviewAndSnapshot({ count: 1, sample: [{ _id: '1' }] });
 
     const root = mountModal();
-    openBulkUpdate({ collection: 'vendors', mode: 'filter', filter: {}, onSuccess: () => {}, fieldsFn: () => [] });
+    openBulkUpdate({
+      collection: 'vendors',
+      mode: 'filter',
+      filter: {},
+      onSuccess: () => {},
+      fieldsFn: () => [],
+    });
     rerender(root);
     await flush();
     rerender(root);
@@ -106,7 +134,13 @@ describe('openBulkUpdate — filter mode', () => {
     mockPreviewAndSnapshot({ count: 5, sample: [] });
 
     const root = mountModal();
-    openBulkUpdate({ collection: 'vendors', mode: 'filter', filter: {}, onSuccess: () => {}, fieldsFn: () => [] });
+    openBulkUpdate({
+      collection: 'vendors',
+      mode: 'filter',
+      filter: {},
+      onSuccess: () => {},
+      fieldsFn: () => [],
+    });
     rerender(root);
     await flush();
     rerender(root);
@@ -115,11 +149,14 @@ describe('openBulkUpdate — filter mode', () => {
     // (re-rendering each tick) rather than asserting after a fixed flush, which
     // races the render under full-suite CPU load.
     let input: any;
-    await vi.waitFor(() => {
-      rerender(root);
-      input = root.querySelector('[data-testid="bulk-confirm-input"]');
-      expect(input).not.toBeNull();
-    }, { timeout: 5000, interval: 20 });
+    await vi.waitFor(
+      () => {
+        rerender(root);
+        input = root.querySelector('[data-testid="bulk-confirm-input"]');
+        expect(input).not.toBeNull();
+      },
+      { timeout: 5000, interval: 20 },
+    );
     expect(input.placeholder).toBe('vendors');
   });
 });
@@ -129,11 +166,19 @@ describe('openBulkUpdate — selection mode', () => {
     vi.mocked(api.aggregate)
       .mockResolvedValueOnce({ result: [{ _id: 'a' }, { _id: 'b' }] }) // sample
       .mockResolvedValueOnce({ result: [{ _id: 'a' }, { _id: 'b' }] }); // snapshot
-    vi.mocked(api.updateMany).mockResolvedValueOnce({ result: { matched_count: 2, modified_count: 2 } });
+    vi.mocked(api.updateMany).mockResolvedValueOnce({
+      result: { matched_count: 2, modified_count: 2 },
+    });
     const onSuccess = vi.fn();
 
     const root = mountModal();
-    openBulkUpdate({ collection: 'vendors', mode: 'selection', ids: ['a', 'b'], onSuccess, fieldsFn: () => [] });
+    openBulkUpdate({
+      collection: 'vendors',
+      mode: 'selection',
+      ids: ['a', 'b'],
+      onSuccess,
+      fieldsFn: () => [],
+    });
     rerender(root);
     await flush();
     rerender(root);

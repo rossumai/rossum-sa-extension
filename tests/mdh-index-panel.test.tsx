@@ -17,7 +17,11 @@ vi.mock('../src/mdh/components/JsonEditor.jsx', () => ({
       editorRef.current = {
         isValid: () => true,
         getParsed: () => ({ indexName: 'new_idx', keys: { a: 1 } }),
-        getValue: () => '', setValue: () => {}, getError: () => '', focus: () => {}, refresh: () => {},
+        getValue: () => '',
+        setValue: () => {},
+        getError: () => '',
+        focus: () => {},
+        refresh: () => {},
       };
     }
     return <div class="json-editor-stub" />;
@@ -42,7 +46,13 @@ function mount() {
 function mountWithModal() {
   const root = document.createElement('div');
   document.body.appendChild(root);
-  render(<><IndexPanel /><Modal /></>, root);
+  render(
+    <>
+      <IndexPanel />
+      <Modal />
+    </>,
+    root,
+  );
   return root;
 }
 function buttonByText(root: any, text: any) {
@@ -50,8 +60,9 @@ function buttonByText(root: any, text: any) {
 }
 
 function cardByName(root: any, name: any) {
-  return [...root.querySelectorAll('.record-card')]
-    .find((c) => c.querySelector('.record-summary strong')?.textContent === name);
+  return [...root.querySelectorAll('.record-card')].find(
+    (c) => c.querySelector('.record-summary strong')?.textContent === name,
+  );
 }
 function badgeTexts(el: any) {
   return [...el.querySelectorAll('.index-badge')].map((b) => b.textContent.toLowerCase());
@@ -72,21 +83,27 @@ beforeEach(() => {
 
 describe('IndexPanel — copy is create-ready', () => {
   it('Copy emits a clean { indexName, keys, options } definition', async () => {
-    vi.mocked(api.listIndexes).mockResolvedValue({ result: [
-      { v: 2, key: { email: 1 }, name: 'email_1', unique: true },
-    ] });
+    vi.mocked(api.listIndexes).mockResolvedValue({
+      result: [{ v: 2, key: { email: 1 }, name: 'email_1', unique: true }],
+    });
     const root = mount();
 
     await vi.waitFor(() => expect(root.querySelector('.action-copy')).not.toBeNull());
     root.querySelector<HTMLElement>('.action-copy')!.click();
 
-    expect(writeText).toHaveBeenCalledWith(JSON.stringify(
-      { indexName: 'email_1', keys: { email: 1 }, options: { unique: true } }, null, 2,
-    ));
+    expect(writeText).toHaveBeenCalledWith(
+      JSON.stringify(
+        { indexName: 'email_1', keys: { email: 1 }, options: { unique: true } },
+        null,
+        2,
+      ),
+    );
   });
 
   it('copied JSON drops the internal v and is not the raw listed object', async () => {
-    vi.mocked(api.listIndexes).mockResolvedValue({ result: [{ v: 2, key: { a: 1 }, name: 'a_1' }] });
+    vi.mocked(api.listIndexes).mockResolvedValue({
+      result: [{ v: 2, key: { a: 1 }, name: 'a_1' }],
+    });
     const root = mount();
     await vi.waitFor(() => expect(root.querySelector('.action-copy')).not.toBeNull());
     root.querySelector<HTMLElement>('.action-copy')!.click();
@@ -98,10 +115,12 @@ describe('IndexPanel — copy is create-ready', () => {
 
 describe('IndexPanel — diagnostics badges', () => {
   it('shows a type badge for compound but not for single-field indexes', async () => {
-    vi.mocked(api.listIndexes).mockResolvedValue({ result: [
-      { v: 2, key: { a: 1 }, name: 'a_1' },
-      { v: 2, key: { x: 1, y: -1 }, name: 'x_1_y_-1' },
-    ] });
+    vi.mocked(api.listIndexes).mockResolvedValue({
+      result: [
+        { v: 2, key: { a: 1 }, name: 'a_1' },
+        { v: 2, key: { x: 1, y: -1 }, name: 'x_1_y_-1' },
+      ],
+    });
     const root = mount();
     await vi.waitFor(() => expect(cardByName(root, 'x_1_y_-1')).toBeTruthy());
 
@@ -111,33 +130,49 @@ describe('IndexPanel — diagnostics badges', () => {
   });
 
   it('flags a plain prefix index as redundant', async () => {
-    vi.mocked(api.listIndexes).mockResolvedValue({ result: [
-      { v: 2, key: { a: 1 }, name: 'a_1' },
-      { v: 2, key: { a: 1, b: 1 }, name: 'a_1_b_1' },
-    ] });
+    vi.mocked(api.listIndexes).mockResolvedValue({
+      result: [
+        { v: 2, key: { a: 1 }, name: 'a_1' },
+        { v: 2, key: { a: 1, b: 1 }, name: 'a_1_b_1' },
+      ],
+    });
     const root = mount();
     await vi.waitFor(() => expect(cardByName(root, 'a_1')).toBeTruthy());
 
     expect(badgeTexts(cardByName(root, 'a_1')).some((t) => t.includes('redundant'))).toBe(true);
-    expect(badgeTexts(cardByName(root, 'a_1_b_1')).some((t) => t.includes('redundant'))).toBe(false);
+    expect(badgeTexts(cardByName(root, 'a_1_b_1')).some((t) => t.includes('redundant'))).toBe(
+      false,
+    );
   });
 });
 
 describe('IndexPanel — size from $collStats', () => {
   it('shows per-index size and collection totals', async () => {
-    vi.mocked(api.listIndexes).mockResolvedValue({ result: [{ v: 2, key: { ALT1: 1 }, name: 'products_alt1_idx' }] });
-    vi.mocked(api.collectionStats).mockResolvedValue({ result: [{
-      count: 20581, totalIndexSize: 1216512, indexSizes: { _id_: 913408, products_alt1_idx: 303104 },
-    }] });
+    vi.mocked(api.listIndexes).mockResolvedValue({
+      result: [{ v: 2, key: { ALT1: 1 }, name: 'products_alt1_idx' }],
+    });
+    vi.mocked(api.collectionStats).mockResolvedValue({
+      result: [
+        {
+          count: 20581,
+          totalIndexSize: 1216512,
+          indexSizes: { _id_: 913408, products_alt1_idx: 303104 },
+        },
+      ],
+    });
     const root = mount();
 
     await vi.waitFor(() => expect(cardByName(root, 'products_alt1_idx')).toBeTruthy());
-    await vi.waitFor(() => expect(cardByName(root, 'products_alt1_idx').textContent).toContain('296 KB'));
+    await vi.waitFor(() =>
+      expect(cardByName(root, 'products_alt1_idx').textContent).toContain('296 KB'),
+    );
     expect(root.querySelector('.toolbar')!.textContent).toContain('20,581');
   });
 
   it('degrades silently when $collStats fails', async () => {
-    vi.mocked(api.listIndexes).mockResolvedValue({ result: [{ v: 2, key: { a: 1 }, name: 'a_1' }] });
+    vi.mocked(api.listIndexes).mockResolvedValue({
+      result: [{ v: 2, key: { a: 1 }, name: 'a_1' }],
+    });
     vi.mocked(api.collectionStats).mockRejectedValue(new Error('not authorized'));
     const root = mount();
 
@@ -149,7 +184,11 @@ describe('IndexPanel — size from $collStats', () => {
 
 describe('IndexPanel — async create surfaces operation outcome', () => {
   // api.post() surfaces the op id from the content-location header as res.operationId.
-  const OP_ACCEPT = { code: 'accept', message: '', operationId: 'bb7001c1-89f3-4c61-b29b-a074e5e6f026' };
+  const OP_ACCEPT = {
+    code: 'accept',
+    message: '',
+    operationId: 'bb7001c1-89f3-4c61-b29b-a074e5e6f026',
+  };
 
   async function openAndSubmitCreate(root: any) {
     await vi.waitFor(() => expect(buttonByText(root, '+ Create')).toBeTruthy());
@@ -176,7 +215,11 @@ describe('IndexPanel — async create surfaces operation outcome', () => {
     vi.mocked(api.listIndexes).mockResolvedValue({ result: [] });
     vi.mocked(api.createIndex).mockResolvedValue(OP_ACCEPT);
     let resolveOp: any;
-    vi.mocked(api.waitForOperation).mockReturnValue(new Promise((r) => { resolveOp = r; }));
+    vi.mocked(api.waitForOperation).mockReturnValue(
+      new Promise((r) => {
+        resolveOp = r;
+      }),
+    );
     const root = mountWithModal();
 
     await vi.waitFor(() => expect(buttonByText(root, '+ Create')).toBeTruthy());

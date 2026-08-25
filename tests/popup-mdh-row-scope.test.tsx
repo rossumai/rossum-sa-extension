@@ -28,18 +28,16 @@ const CONTENT = {
     {
       category: 'multivalue',
       schema_id: 'tax_amounts',
-      children: Array.from({ length: 4 }, (_, i) => tuple([
-        dp('tax_description', `TAX-${i}`),
-        dp('tax_code_matched', ''),
-      ])),
+      children: Array.from({ length: 4 }, (_, i) =>
+        tuple([dp('tax_description', `TAX-${i}`), dp('tax_code_matched', '')]),
+      ),
     },
     {
       category: 'multivalue',
       schema_id: 'line_items',
-      children: Array.from({ length: 23 }, (_, i) => tuple([
-        dp('item_description', `ITEM-${i}`),
-        dp('item_tax_code_match', ''),
-      ])),
+      children: Array.from({ length: 23 }, (_, i) =>
+        tuple([dp('item_description', `ITEM-${i}`), dp('item_tax_code_match', '')]),
+      ),
     },
   ],
 };
@@ -52,7 +50,13 @@ const taxCfg = () => ({
   target: 'tax_code_matched',
   dataset: 'tax_codes',
   datasetKey: 'code',
-  queries: [{ label: 'exact', raw: { find: { d: '{tax_description}' } }, placeholders: ['tax_description'] }],
+  queries: [
+    {
+      label: 'exact',
+      raw: { find: { d: '{tax_description}' } },
+      placeholders: ['tax_description'],
+    },
+  ],
   actionCondition: null,
   actionConditionPlaceholders: [],
   additionalMappings: [],
@@ -63,28 +67,37 @@ const lineCfg = () => ({
   target: 'item_tax_code_match',
   dataset: 'po_lines',
   datasetKey: 'line',
-  queries: [{ label: 'exact', raw: { find: { d: '{item_description}' } }, placeholders: ['item_description'] }],
+  queries: [
+    {
+      label: 'exact',
+      raw: { find: { d: '{item_description}' } },
+      placeholders: ['item_description'],
+    },
+  ],
   actionCondition: null,
   actionConditionPlaceholders: [],
   additionalMappings: [],
 });
 
 function mount(root: any, cfg: any, extra = {}) {
-  render(<ConfigBlock
-    ctx={CTX}
-    cfg={cfg}
-    cfgKey="h1::0"
-    headerValues={FLAT.headerValues}
-    rowValues={FLAT.rowValues}
-    tables={FLAT.tables}
-    types={FLAT.types}
-    annotationModifiedAt={null}
-    rowByTable={{}}
-    onRowChange={() => {}}
-    forceRefreshNonce={0}
-    onOpenInDm={() => {}}
-    {...extra}
-  />, root);
+  render(
+    <ConfigBlock
+      ctx={CTX}
+      cfg={cfg}
+      cfgKey="h1::0"
+      headerValues={FLAT.headerValues}
+      rowValues={FLAT.rowValues}
+      tables={FLAT.tables}
+      types={FLAT.types}
+      annotationModifiedAt={null}
+      rowByTable={{}}
+      onRowChange={() => {}}
+      forceRefreshNonce={0}
+      onOpenInDm={() => {}}
+      {...extra}
+    />,
+    root,
+  );
 }
 
 let root: any;
@@ -98,12 +111,17 @@ beforeEach(() => {
       session: { get: vi.fn(async () => ({})), set: vi.fn(async () => {}) },
     },
   });
-  vi.stubGlobal('fetch', vi.fn(async () => ({
-    ok: true,
-    json: async () => ({ result: [] }),
-    clone() { return this; },
-    text: async () => '',
-  })));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ result: [] }),
+      clone() {
+        return this;
+      },
+      text: async () => '',
+    })),
+  );
 });
 
 afterEach(() => {

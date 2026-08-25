@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  parseEntries,
-  parsePipelineDoc,
-} from '../src/mdh/pipelineComments.js';
+import { parseEntries, parsePipelineDoc } from '../src/mdh/pipelineComments.js';
 
 const A = '[\n  { "$match": { "x": 1 } },\n  { "$limit": 50 }\n]';
 
@@ -17,7 +14,8 @@ describe('parseEntries', () => {
   });
 
   it('parses a disabled block interleaved at its position', () => {
-    const text = '[\n  { "$match": { "x": 1 } },\n  /* @disabled-stage\n  {\n    "$sort": { "a": -1 }\n  } */\n  { "$limit": 50 }\n]';
+    const text =
+      '[\n  { "$match": { "x": 1 } },\n  /* @disabled-stage\n  {\n    "$sort": { "a": -1 }\n  } */\n  { "$limit": 50 }\n]';
     const { entries, ok } = parseEntries(text);
     expect(ok).toBe(true);
     expect(entries.map((e) => e.disabled)).toEqual([false, true, false]);
@@ -68,12 +66,17 @@ import {
   stageLineRanges,
   entryIndexAtOffset,
 } from '../src/mdh/pipelineComments.js';
-import { applySortToPipeline, applyFilterDeltaToPipeline, applySkipToPipeline } from '../src/mdh/pipelineOps.js';
+import {
+  applySortToPipeline,
+  applyFilterDeltaToPipeline,
+  applySkipToPipeline,
+} from '../src/mdh/pipelineOps.js';
 import JSON5 from 'json5';
 
 describe('setStageDisabled (verbatim wrap/unwrap)', () => {
   it('disables a stage by wrapping its verbatim span, preserving other stages exactly', () => {
-    const text = '[\n  { "$match": { "x": 1 } },\n  { "$sort": { "a": -1 } },\n  { "$limit": 50 }\n]';
+    const text =
+      '[\n  { "$match": { "x": 1 } },\n  { "$sort": { "a": -1 } },\n  { "$limit": 50 }\n]';
     const out = setStageDisabled(text, 1, true);
     expect(JSON5.parse(out)).toEqual([{ $match: { x: 1 } }, { $limit: 50 }]);
     expect(out).toContain('/* @disabled-stage');
@@ -87,7 +90,8 @@ describe('setStageDisabled (verbatim wrap/unwrap)', () => {
   });
 
   it('enables a disabled block by restoring its inner verbatim', () => {
-    const text = '[\n  { "$match": { "x": 1 } },\n  /* @disabled-stage\n{ "$sort": { "a": -1 } } */\n  { "$limit": 50 }\n]';
+    const text =
+      '[\n  { "$match": { "x": 1 } },\n  /* @disabled-stage\n{ "$sort": { "a": -1 } } */\n  { "$limit": 50 }\n]';
     const out = setStageDisabled(text, 1, false);
     expect(JSON5.parse(out)).toEqual([{ $match: { x: 1 } }, { $sort: { a: -1 } }, { $limit: 50 }]);
     expect(out).not.toContain('@disabled-stage');
@@ -158,7 +162,8 @@ describe('setStageDisabled (verbatim wrap/unwrap)', () => {
   });
 
   it('keeps the comma in the comment for a multi-line stage and round-trips', () => {
-    const text = '[\n  { "$match": {} },\n  {\n    "$sort": { "a": -1 }\n  },\n  { "$limit": 50 }\n]';
+    const text =
+      '[\n  { "$match": {} },\n  {\n    "$sort": { "a": -1 }\n  },\n  { "$limit": 50 }\n]';
     const out = setStageDisabled(text, 1, true);
     expect(parsePipelineDoc(out).ok).toBe(true);
     expect(JSON5.parse(out)).toEqual([{ $match: {} }, { $limit: 50 }]);
@@ -168,18 +173,22 @@ describe('setStageDisabled (verbatim wrap/unwrap)', () => {
 
 describe('applyMutationToText (minimal edits preserve comments + formatting)', () => {
   it('replace-in-place preserves a comment on the line above the changed stage', () => {
-    const text = '[\n  // only active\n  { "$match": { "active": true } },\n  // newest first\n  { "$sort": { "created": -1 } },\n  { "$skip": 0 }\n]';
+    const text =
+      '[\n  // only active\n  { "$match": { "active": true } },\n  // newest first\n  { "$sort": { "created": -1 } },\n  { "$skip": 0 }\n]';
     const out = applyMutationToText(text, (p) => applySortToPipeline(p, { created: 1 }));
     expect(out).toContain('// only active');
-    expect(out).toContain('// newest first');           // comment above the re-sorted stage survives
+    expect(out).toContain('// newest first'); // comment above the re-sorted stage survives
     expect(out).toContain('{ "$match": { "active": true } }'); // untouched stage verbatim
     expect(JSON5.parse(out!)).toEqual([
-      { $match: { active: true } }, { $sort: { created: 1 } }, { $skip: 0 },
+      { $match: { active: true } },
+      { $sort: { created: 1 } },
+      { $skip: 0 },
     ]);
   });
 
   it('paginate (replace $skip) preserves leading + between + trailing comments', () => {
-    const text = '[\n  // lead\n  { "$match": {} },\n  // mid\n  { "$skip": 0 },\n  { "$limit": 50 }\n  // tail\n]';
+    const text =
+      '[\n  // lead\n  { "$match": {} },\n  // mid\n  { "$skip": 0 },\n  { "$limit": 50 }\n  // tail\n]';
     const out = applyMutationToText(text, (p) => applySkipToPipeline(p, 100));
     expect(out).toContain('// lead');
     expect(out).toContain('// mid');
@@ -189,22 +198,30 @@ describe('applyMutationToText (minimal edits preserve comments + formatting)', (
 
   it('preserves an untouched stage BETWEEN two changed stages (multi-change mutator)', () => {
     // handleSort does applySort + applySkip; a $group sits between $sort and $skip.
-    const text = '[\n  { "$match": {} },\n  { "$sort": { "a": 1 } },\n  { "$group": { "_id": "$x" /* keep me */ } },\n  { "$skip": 0 }\n]';
-    const out = applyMutationToText(text, (p) => { applySortToPipeline(p, { b: -1 }); applySkipToPipeline(p, 25); });
+    const text =
+      '[\n  { "$match": {} },\n  { "$sort": { "a": 1 } },\n  { "$group": { "_id": "$x" /* keep me */ } },\n  { "$skip": 0 }\n]';
+    const out = applyMutationToText(text, (p) => {
+      applySortToPipeline(p, { b: -1 });
+      applySkipToPipeline(p, 25);
+    });
     expect(out).toContain('/* keep me */'); // the untouched $group keeps its inner comment
     expect(JSON5.parse(out!)).toEqual([
-      { $match: {} }, { $sort: { b: -1 } }, { $group: { _id: '$x' } }, { $skip: 25 },
+      { $match: {} },
+      { $sort: { b: -1 } },
+      { $group: { _id: '$x' } },
+      { $skip: 25 },
     ]);
   });
 
   it('preserves disabled stages through a mutation', () => {
-    const text = '[\n  { "$match": {} },\n  /* @disabled-stage\n{ "$project": { "a": 1 } } */\n  { "$skip": 0 }\n]';
+    const text =
+      '[\n  { "$match": {} },\n  /* @disabled-stage\n{ "$project": { "a": 1 } } */\n  { "$skip": 0 }\n]';
     const out = applyMutationToText(text, (p) => applySortToPipeline(p, { a: -1 }))!;
     expect(parseEntries(out).entries.filter((e) => e.disabled)).toHaveLength(1);
     expect(JSON5.parse(out)).toEqual([{ $match: {} }, { $sort: { a: -1 } }, { $skip: 0 }]);
   });
 
-  it('insert keeps the following stage\'s leading comment attached to it', () => {
+  it("insert keeps the following stage's leading comment attached to it", () => {
     const text = '[\n  { "$match": {} },\n  // pagination\n  { "$skip": 0 }\n]';
     const out = applyMutationToText(text, (p) => applySortToPipeline(p, { a: 1 })); // inserts $sort after $match
     expect(out).toContain('// pagination');
@@ -213,13 +230,14 @@ describe('applyMutationToText (minimal edits preserve comments + formatting)', (
   });
 
   it('Limit B: removing a stage drops its leading comment', () => {
-    const text = '[\n  { "$match": {} },\n  // newest first\n  { "$sort": { "a": -1 } },\n  { "$skip": 0 }\n]';
+    const text =
+      '[\n  { "$match": {} },\n  // newest first\n  { "$sort": { "a": -1 } },\n  { "$skip": 0 }\n]';
     const out = applyMutationToText(text, (p) => applySortToPipeline(p, {})); // clears the sort -> removes $sort
     expect(out).not.toContain('// newest first');
     expect(JSON5.parse(out!)).toEqual([{ $match: {} }, { $skip: 0 }]);
   });
 
-  it('Limit A: the changed stage\'s OWN inner comment is reserialized away', () => {
+  it("Limit A: the changed stage's OWN inner comment is reserialized away", () => {
     const text = '[\n  { "$sort": { "created": -1 /* tie-break later */ } }\n]';
     const out = applyMutationToText(text, (p) => applySortToPipeline(p, { created: 1 }));
     expect(out).not.toContain('tie-break later');
@@ -231,7 +249,8 @@ describe('applyMutationToText (minimal edits preserve comments + formatting)', (
   });
 
   it('removing a stage whose predecessor is a disabled block stays valid JSON5', () => {
-    const text = '[\n  /* @disabled-stage\n{ "$project": { "a": 1 } } */\n  { "$sort": { "a": -1 } },\n  { "$skip": 0 }\n]';
+    const text =
+      '[\n  /* @disabled-stage\n{ "$project": { "a": 1 } } */\n  { "$sort": { "a": -1 } },\n  { "$skip": 0 }\n]';
     const out = applyMutationToText(text, (p) => applySortToPipeline(p, {}))!; // clears the sort -> removes $sort
     expect(parsePipelineDoc(out).ok).toBe(true);
     expect(JSON5.parse(out)).toEqual([{ $skip: 0 }]);
@@ -239,7 +258,8 @@ describe('applyMutationToText (minimal edits preserve comments + formatting)', (
   });
 
   it('removing the LAST active stage when preceded by a disabled block stays valid', () => {
-    const text = '[\n  { "$match": {} },\n  /* @disabled-stage\n{ "$project": { "a": 1 } } */\n  { "$sort": { "a": -1 } }\n]';
+    const text =
+      '[\n  { "$match": {} },\n  /* @disabled-stage\n{ "$project": { "a": 1 } } */\n  { "$sort": { "a": -1 } }\n]';
     const out = applyMutationToText(text, (p) => applySortToPipeline(p, {}))!;
     expect(parsePipelineDoc(out).ok).toBe(true);
     expect(JSON5.parse(out)).toEqual([{ $match: {} }]);
@@ -301,7 +321,8 @@ describe('beautifyText (reformat stages, keep comments)', () => {
 
 describe('stageLineRanges', () => {
   it('returns 1-based line spans + entryIndex + disabled flag per top-level stage', () => {
-    const text = '[\n  { "$match": {} },\n  /* @disabled-stage\n  { "$sort": { "a": -1 } } */\n  { "$limit": 50 }\n]';
+    const text =
+      '[\n  { "$match": {} },\n  /* @disabled-stage\n  { "$sort": { "a": -1 } } */\n  { "$limit": 50 }\n]';
     const ranges = stageLineRanges(text);
     expect(ranges).toMatchObject([
       { entryIndex: 0, disabled: false, lineStart: 2, lineEnd: 2 },
@@ -373,7 +394,7 @@ describe('entryIndexAtOffset', () => {
   });
 
   it('returns null outside every stage', () => {
-    expect(entryIndexAtOffset(ranges, 0)).toBeNull();          // the '['
+    expect(entryIndexAtOffset(ranges, 0)).toBeNull(); // the '['
     expect(entryIndexAtOffset(ranges, text.length - 1)).toBeNull(); // the ']'
   });
 

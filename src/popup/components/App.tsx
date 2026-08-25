@@ -6,7 +6,14 @@ import ReviewingLockBanner from './ReviewingLockBanner.jsx';
 import UsageStrip, { UsageFooterButton, stripVisible } from './UsageStrip.jsx';
 import { track } from '../../usage/track.js';
 import { writeConsent } from '../usageConsent.js';
-import { openConsoleTab, runInTab, detectSite, findRossumTabs, activateTab, isConsoleTab } from '../utils.js';
+import {
+  openConsoleTab,
+  runInTab,
+  detectSite,
+  findRossumTabs,
+  activateTab,
+  isConsoleTab,
+} from '../utils.js';
 import { readAuthInfo, readPageFlag, togglePageFlag } from '../tab-readers.js';
 import { createUnlockCounter } from '../experimental.js';
 import { openPanelForTab } from '../../sidepanel/panelScope.js';
@@ -29,7 +36,8 @@ const PAGE_FLAG_TOGGLES = ['devFeaturesEnabled', 'devDebugEnabled'];
 
 // Chrome Web Store "Support" tab for this extension. The item id matches the
 // install link in README.md.
-const SUPPORT_URL = 'https://chromewebstore.google.com/detail/bljkbinljmhdbipklfcljongikhmnneh/support';
+const SUPPORT_URL =
+  'https://chromewebstore.google.com/detail/bljkbinljmhdbipklfcljongikhmnneh/support';
 
 function combineUrlWithCustomPath(originalUrl: any, customPath: any) {
   const match = originalUrl.match(/^https?:\/\/[^/?#]+/);
@@ -40,7 +48,16 @@ function combineUrlWithCustomPath(originalUrl: any, customPath: any) {
 
 function ExternalIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
       <path d="M7 17L17 7M17 7H7M17 7v10" />
     </svg>
   );
@@ -48,14 +65,27 @@ function ExternalIcon() {
 
 function ExternalIconSmall() {
   return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
       <path d="M7 17L17 7M17 7H7M17 7v10" />
     </svg>
   );
 }
 
 function hostFromUrl(url: any) {
-  try { return new URL(url).host; } catch { return ''; }
+  try {
+    return new URL(url).host;
+  } catch {
+    return '';
+  }
 }
 
 export function UnsupportedSite({ tabs, isConsole }: { tabs?: any[] | null; isConsole?: boolean }) {
@@ -67,7 +97,11 @@ export function UnsupportedSite({ tabs, isConsole }: { tabs?: any[] | null; isCo
   if (hasTabs) {
     return (
       <div class="unsupported-site">
-        <p class="unsupported-lede">{isConsole ? "You're on the Rossum Console." : "This tab isn't supported by the extension."}</p>
+        <p class="unsupported-lede">
+          {isConsole
+            ? "You're on the Rossum Console."
+            : "This tab isn't supported by the extension."}
+        </p>
         <p class="unsupported-heading">Switch to one of your open Rossum tabs:</p>
         <ul class="rossum-tab-list">
           {tabs.map((t) => (
@@ -76,7 +110,10 @@ export function UnsupportedSite({ tabs, isConsole }: { tabs?: any[] | null; isCo
                 {t.favIconUrl ? (
                   <img class="rossum-tab-favicon" src={t.favIconUrl} alt="" />
                 ) : (
-                  <span class="rossum-tab-favicon rossum-tab-favicon-placeholder" aria-hidden="true" />
+                  <span
+                    class="rossum-tab-favicon rossum-tab-favicon-placeholder"
+                    aria-hidden="true"
+                  />
                 )}
                 <span class="rossum-tab-text">
                   <span class="rossum-tab-title">{t.title || hostFromUrl(t.url)}</span>
@@ -93,7 +130,9 @@ export function UnsupportedSite({ tabs, isConsole }: { tabs?: any[] | null; isCo
 
   return (
     <div class="unsupported-site">
-      <p class="unsupported-lede">{isConsole ? "You're on the Rossum Console." : "This tab isn't supported by the extension."}</p>
+      <p class="unsupported-lede">
+        {isConsole ? "You're on the Rossum Console." : "This tab isn't supported by the extension."}
+      </p>
       <p>It works on:</p>
       <div class="supported-sites">
         <span class="supported-site">Rossum</span>
@@ -111,7 +150,10 @@ export default function App({ tab }: { tab?: any }) {
   const version = chrome.runtime.getManifest().version_name || chrome.runtime.getManifest().version;
 
   const [storageValues, setStorageValues] = useState<any>(null);
-  const [messageValues, setMessageValues] = useState<Record<string, any>>({ devFeaturesEnabled: false, devDebugEnabled: false });
+  const [messageValues, setMessageValues] = useState<Record<string, any>>({
+    devFeaturesEnabled: false,
+    devDebugEnabled: false,
+  });
   const [authError, setAuthError] = useState<{ kind: string } | null>(null);
   const [rossumTabs, setRossumTabs] = useState<any>(null);
   const [unlockNotice, setUnlockNotice] = useState<string | null>(null);
@@ -153,7 +195,8 @@ export default function App({ tab }: { tab?: any }) {
   }, [site]);
 
   useEffect(() => {
-    chrome.storage.local.get(STORAGE_TOGGLES)
+    chrome.storage.local
+      .get(STORAGE_TOGGLES)
       .then((vals) => {
         const filled: Record<string, boolean> = {};
         for (const key of STORAGE_TOGGLES) filled[key] = !!vals[key];
@@ -168,7 +211,8 @@ export default function App({ tab }: { tab?: any }) {
   }, []);
 
   useEffect(() => {
-    chrome.storage.local.get(['usageConsent', 'usageAsked'])
+    chrome.storage.local
+      .get(['usageConsent', 'usageAsked'])
       .then((vals) => {
         if (vals.usageConsent === true) setConsent(true);
         else if (vals.usageConsent === false) setConsent(false);
@@ -269,7 +313,8 @@ export default function App({ tab }: { tab?: any }) {
     opener(tab, auth);
   };
 
-  const onRossumConsole = () => fetchAuthAndOpen((tab: any, auth: any) => openConsoleTab(tab, auth, 'mdh'));
+  const onRossumConsole = () =>
+    fetchAuthAndOpen((tab: any, auth: any) => openConsoleTab(tab, auth, 'mdh'));
 
   // Chrome cannot keep a popup open on blur — no API prevents it — so the pin
   // hands the same MDH card to a side panel, which survives clicking and
@@ -339,7 +384,10 @@ export default function App({ tab }: { tab?: any }) {
           <div class="content-row">
             {showMdhPanel ? (
               <div class="content-col content-col-mdh">
-                <MdhProvenancePanel tab={tab} onPin={canPinSidePanel ? onPinSidePanel : undefined} />
+                <MdhProvenancePanel
+                  tab={tab}
+                  onPin={canPinSidePanel ? onPinSidePanel : undefined}
+                />
               </div>
             ) : null}
 
@@ -447,9 +495,7 @@ export default function App({ tab }: { tab?: any }) {
                       </button>
                     </Fragment>
                   ) : (
-                    <span class="tool-notice-msg">
-                      Sign in to Rossum in this tab first.
-                    </span>
+                    <span class="tool-notice-msg">Sign in to Rossum in this tab first.</span>
                   )}
                 </div>
               ) : null}
@@ -463,7 +509,9 @@ export default function App({ tab }: { tab?: any }) {
         {/* Version hash with the usage-data control beside it, rather than a
             third item floating in the middle of the footer. */}
         <div class="footer-left">
-          <span class="version" onClick={onVersionClick}>{version}</span>
+          <span class="version" onClick={onVersionClick}>
+            {version}
+          </span>
           <UsageFooterButton
             asked={asked}
             consent={consent}
@@ -471,12 +519,7 @@ export default function App({ tab }: { tab?: any }) {
           />
         </div>
         {unlockNotice ? <span class="unlock-notice">{unlockNotice}</span> : null}
-        <a
-          href={SUPPORT_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="footer-link"
-        >
+        <a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer" class="footer-link">
           Support & feedback
           <ExternalIconSmall />
         </a>

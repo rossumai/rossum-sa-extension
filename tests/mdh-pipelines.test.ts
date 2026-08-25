@@ -36,11 +36,13 @@ describe('field discovery', () => {
   });
 
   it('treats BSON types ($oid, $date) as leaf values', () => {
-    const docs = [{
-      created: { $date: '2024-01-01' },
-      ref: { $oid: '507f1f77' },
-      name: 'test',
-    }];
+    const docs = [
+      {
+        created: { $date: '2024-01-01' },
+        ref: { $oid: '507f1f77' },
+        name: 'test',
+      },
+    ];
     const fields = discoverFieldsWithTotal(docs).fields;
     expect(fields).toContain('name');
     expect(fields).toContain('created');
@@ -65,7 +67,8 @@ describe('field discovery', () => {
 
   it('keeps the MOST COMMON fields (by doc frequency) when over MAX_FIELDS', () => {
     const common = {};
-    for (let i = 0; i < MAX_FIELDS; i++) (common as any)[`common_${String(i).padStart(2, '0')}`] = i;
+    for (let i = 0; i < MAX_FIELDS; i++)
+      (common as any)[`common_${String(i).padStart(2, '0')}`] = i;
     // common fields appear in BOTH docs (freq 2); rare fields in only one (freq 1).
     const { fields, total } = discoverFieldsWithTotal([
       { ...common, rare_x: 1, rare_y: 2 },
@@ -198,8 +201,18 @@ describe('pipeline builders', () => {
   it('SENTINEL_STRINGS is the broad placeholder set in normalized form', () => {
     expect(SENTINEL_STRINGS).toEqual(
       expect.arrayContaining([
-        'null', 'none', 'nan', 'undefined', 'nil',
-        'n/a', 'na', 'tbd', 'unknown', '-', '--', '.',
+        'null',
+        'none',
+        'nan',
+        'undefined',
+        'nil',
+        'n/a',
+        'na',
+        'tbd',
+        'unknown',
+        '-',
+        '--',
+        '.',
       ]),
     );
     expect(SENTINEL_STRINGS).toHaveLength(12);
@@ -237,8 +250,18 @@ describe('pipeline builders', () => {
   it('buildAllPipelines returns all 12 pipeline types', () => {
     const all = buildAllPipelines(fields);
     expect(Object.keys(all).sort()).toEqual([
-      'cardinality', 'coverage', 'dates', 'distribution', 'docSize',
-      'empties', 'numeric', 'schema', 'sentinels', 'storage', 'strings', 'types',
+      'cardinality',
+      'coverage',
+      'dates',
+      'distribution',
+      'docSize',
+      'empties',
+      'numeric',
+      'schema',
+      'sentinels',
+      'storage',
+      'strings',
+      'types',
     ]);
     for (const pipeline of Object.values(all)) {
       expect(Array.isArray(pipeline)).toBe(true);

@@ -16,7 +16,10 @@ function deferred() {
   let resolve: any, reject: any;
   // The promise stands in for a typed API return (waitForOperation -> Promise<Operation>),
   // so it is the deferred that is generic here, not the assertion that is loosened.
-  const promise = new Promise<any>((res, rej) => { resolve = res; reject = rej; });
+  const promise = new Promise<any>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
   return { promise, resolve, reject };
 }
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -24,12 +27,19 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 function setup() {
   let latest: any;
   const container = document.createElement('div');
-  const Probe = () => { latest = useOperationStatus(); return null; };
+  const Probe = () => {
+    latest = useOperationStatus();
+    return null;
+  };
   render(<Probe />, container);
   return { get: () => latest, unmount: () => render(null, container) };
 }
 
-beforeEach(() => { vi.clearAllMocks(); error.value = null; opNotice.value = null; });
+beforeEach(() => {
+  vi.clearAllMocks();
+  error.value = null;
+  opNotice.value = null;
+});
 
 describe('useOperationStatus', () => {
   it('shows an info opNotice while running, clears it and calls onFinished on success', async () => {
@@ -67,7 +77,8 @@ describe('useOperationStatus', () => {
 
   it('shows a warning opNotice (not a red error) when the outcome is inconclusive', async () => {
     for (const tag of ['timedOut', 'pollUnavailable']) {
-      error.value = null; opNotice.value = null;
+      error.value = null;
+      opNotice.value = null;
       const d = deferred();
       vi.mocked(api.waitForOperation).mockReturnValueOnce(d.promise);
       const { get } = setup();
@@ -113,11 +124,20 @@ describe('useOperationStatus', () => {
     // act() flushes preact's mount effect so its unmount cleanup is registered.
     const container = document.createElement('div');
     let api2: any;
-    act(() => { const Probe = () => { api2 = useOperationStatus(); return null; };
-  render(<Probe />, container); });
-    act(() => { api2.track('op1', { label: 'Creating index "x"' }); });
+    act(() => {
+      const Probe = () => {
+        api2 = useOperationStatus();
+        return null;
+      };
+      render(<Probe />, container);
+    });
+    act(() => {
+      api2.track('op1', { label: 'Creating index "x"' });
+    });
     expect(opNotice.value).not.toBeNull();
-    act(() => { render(null, container); }); // unmount → cleanup runs
+    act(() => {
+      render(null, container);
+    }); // unmount → cleanup runs
     expect(opNotice.value).toBeNull();
   });
 

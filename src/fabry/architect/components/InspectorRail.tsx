@@ -54,7 +54,12 @@ export default function InspectorRail() {
 
   const rv = store.reviewTarget.value;
   const wideHere = !!rv && rv.id === d.id && (rv.kind === 'refine' || rv.kind === 'history');
-  const TABS = [['check', 'Check'], ['refine', '✦ Refine'], ...(implAllowed ? [['implement', '▷ Implement']] : []), ['history', '↺ History']];
+  const TABS = [
+    ['check', 'Check'],
+    ['refine', '✦ Refine'],
+    ...(implAllowed ? [['implement', '▷ Implement']] : []),
+    ['history', '↺ History'],
+  ];
   const active = TABS.some(([k]) => k === tab) ? tab : 'check';
 
   // Drag the rail's LEFT edge to resize (the Fabry sidebar's pattern, mirrored: this column is on
@@ -67,7 +72,9 @@ export default function InspectorRail() {
     handle.classList.add('dragging');
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
-    function onMove(ev: any) { store.railWidth.value = store.clampRailWidth(startWidth - (ev.clientX - startX)); }
+    function onMove(ev: any) {
+      store.railWidth.value = store.clampRailWidth(startWidth - (ev.clientX - startX));
+    }
     function onUp() {
       handle.classList.remove('dragging');
       document.body.style.cursor = '';
@@ -85,17 +92,29 @@ export default function InspectorRail() {
       <div class="fabry-rail-resizer" title="Drag to resize" onMouseDown={startResize} />
       <div class="fabry-rail-hd">
         <div class="fabry-rail-for">{pinned ? 'Pinned to' : 'Inspecting'}</div>
-        <div class="fabry-rail-name" title={displayTitle(d)}>{displayTitle(d)}</div>
-        <div class="fabry-rail-chips"><CheckBadge result={result} /></div>
+        <div class="fabry-rail-name" title={displayTitle(d)}>
+          {displayTitle(d)}
+        </div>
+        <div class="fabry-rail-chips">
+          <CheckBadge result={result} />
+        </div>
         <div class="fabry-rail-follow">
           <button
             type="button"
             class={'fabry-rail-pin' + (pinned ? ' on' : '')}
             aria-pressed={pinned}
-            title={pinned ? 'Unpin — follow what I scroll to' : 'Pin the inspector to this deliverable'}
+            title={
+              pinned ? 'Unpin — follow what I scroll to' : 'Pin the inspector to this deliverable'
+            }
             onClick={() => store.setPinnedTarget(pinned ? null : d.id)}
-          >{pinned ? '◉ Pinned' : '○ Following scroll'}</button>
-          {held ? <span class="fabry-rail-held" title="The target stays put while this run finishes">{'held while this runs'}</span> : null}
+          >
+            {pinned ? '◉ Pinned' : '○ Following scroll'}
+          </button>
+          {held ? (
+            <span class="fabry-rail-held" title="The target stays put while this run finishes">
+              {'held while this runs'}
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -108,7 +127,9 @@ export default function InspectorRail() {
             class="fabry-rail-tab"
             aria-selected={active === key}
             onClick={() => setTab(key)}
-          >{label}</button>
+          >
+            {label}
+          </button>
         ))}
       </div>
 
@@ -118,12 +139,20 @@ export default function InspectorRail() {
           // two copies would fight over it. While the wide view has it, the rail points at it.
           <div class="fabry-rail-elsewhere">
             {'Shown at document width. '}
-            <button type="button" class="fabry-spec-btn" onClick={() => store.setReviewTarget(null)}>{'Bring it back'}</button>
+            <button
+              type="button"
+              class="fabry-spec-btn"
+              onClick={() => store.setReviewTarget(null)}
+            >
+              {'Bring it back'}
+            </button>
           </div>
         ) : null}
         {!wideHere && active === 'check' ? <CheckPanel key={d.id} deliverable={d} /> : null}
         {!wideHere && active === 'refine' ? <RefineDock key={d.id} deliverable={d} /> : null}
-        {active === 'implement' && implAllowed ? <ImplementPanel key={d.id} deliverable={d} /> : null}
+        {active === 'implement' && implAllowed ? (
+          <ImplementPanel key={d.id} deliverable={d} />
+        ) : null}
         {!wideHere && active === 'history' ? <HistoryPanel key={d.id} deliverable={d} /> : null}
         {!wideHere && (active === 'refine' || active === 'history') ? (
           // A word-diff in a 322px rail is unreadable, so it can be sent to the document column,
@@ -132,7 +161,9 @@ export default function InspectorRail() {
             type="button"
             class="fabry-rail-wide"
             onClick={() => store.setReviewTarget({ id: d.id, kind: active })}
-          >{'⤢ Open at document width'}</button>
+          >
+            {'⤢ Open at document width'}
+          </button>
         ) : null}
       </div>
     </aside>

@@ -71,7 +71,10 @@ export async function get(
   }
   clearTimeout(timer);
   if (res.status === 401) {
-    throw apiError('Session expired. Open a Rossum page and click Audit Logs again to reconnect.', 401);
+    throw apiError(
+      'Session expired. Open a Rossum page and click Audit Logs again to reconnect.',
+      401,
+    );
   }
   const data = await res.json().catch(() => null);
   if (!res.ok) {
@@ -138,7 +141,11 @@ export function whoami({ signal }: { signal?: AbortSignal | null } = {}): Promis
 // next/previous URLs). Null on missing param or unparseable URL.
 export function extractParam(url: string | null | undefined, name: string): string | null {
   if (!url) return null;
-  try { return new URL(url).searchParams.get(name); } catch { return null; }
+  try {
+    return new URL(url).searchParams.get(name);
+  } catch {
+    return null;
+  }
 }
 
 // Normalize the API `pagination` object into the shell's pageInfo shape.
@@ -148,13 +155,21 @@ export function normalizePage(
   mode: 'cursor' | 'offset',
   currentPage?: number,
 ): PageInfo {
-  const empty: PageInfo = { total: null, totalPages: null, hasNext: false, hasPrev: false, nextCursor: null, prevCursor: null };
+  const empty: PageInfo = {
+    total: null,
+    totalPages: null,
+    hasNext: false,
+    hasPrev: false,
+    nextCursor: null,
+    prevCursor: null,
+  };
   if (!pagination) return empty;
   const total = typeof pagination.total === 'number' ? pagination.total : null;
   const totalPages = typeof pagination.total_pages === 'number' ? pagination.total_pages : null;
   if (mode === 'cursor') {
     return {
-      total, totalPages,
+      total,
+      totalPages,
       hasNext: !!pagination.next,
       hasPrev: !!pagination.previous,
       nextCursor: extractParam(pagination.next, 'cursor'),
@@ -162,9 +177,11 @@ export function normalizePage(
     };
   }
   return {
-    total, totalPages,
+    total,
+    totalPages,
     hasNext: !!pagination.next,
     hasPrev: (currentPage || 1) > 1,
-    nextCursor: null, prevCursor: null,
+    nextCursor: null,
+    prevCursor: null,
   };
 }

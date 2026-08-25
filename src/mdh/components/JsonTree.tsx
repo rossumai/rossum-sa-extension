@@ -5,7 +5,6 @@ import { ALT_KEY } from '../platform.js';
 import SpecialText from './SpecialText.jsx';
 import type { SortFilterControls } from '../hooks/usePipeline.js';
 
-
 export const AUTO_COLLAPSE_FIELD_THRESHOLD = 50;
 
 // Total count of keys + array items, recursively. EJSON-typed values count as leaves.
@@ -43,10 +42,13 @@ export function CopyButton({ getText, kind = 'value' }: { getText: () => string;
       .catch(() => {});
   }
 
-  const title = copied ? 'Copied'
-    : kind === 'path' ? 'Copy field path'
-    : kind === 'json' ? 'Copy as JSON'
-    : 'Copy value';
+  const title = copied
+    ? 'Copied'
+    : kind === 'path'
+      ? 'Copy field path'
+      : kind === 'json'
+        ? 'Copy as JSON'
+        : 'Copy value';
 
   return (
     <button
@@ -55,7 +57,9 @@ export function CopyButton({ getText, kind = 'value' }: { getText: () => string;
       title={title}
       aria-label={title}
       onClick={handleClick}
-    >{copied ? '✓' : '⧉'}</button>
+    >
+      {copied ? '✓' : '⧉'}
+    </button>
   );
 }
 
@@ -63,8 +67,21 @@ export function CopyButton({ getText, kind = 'value' }: { getText: () => string;
 // All four are absent in the read-only Stages view, which is what `readOnly` gates.
 type TreeControls = Partial<SortFilterControls> & { readOnly?: boolean };
 
-export default function JsonTree({ data, prefix = '', depth = 0, collapseDepth = Infinity, sortState, filterState, onSort, onFilter, readOnly = false }: {
-  data: any; prefix?: string; depth?: number; collapseDepth?: number;
+export default function JsonTree({
+  data,
+  prefix = '',
+  depth = 0,
+  collapseDepth = Infinity,
+  sortState,
+  filterState,
+  onSort,
+  onFilter,
+  readOnly = false,
+}: {
+  data: any;
+  prefix?: string;
+  depth?: number;
+  collapseDepth?: number;
 } & TreeControls) {
   return (
     <div class="json-tree">
@@ -87,8 +104,23 @@ export default function JsonTree({ data, prefix = '', depth = 0, collapseDepth =
   );
 }
 
-function JsonTreeRow({ fieldKey, value, fullPath, depth, collapseDepth, sortState, filterState, onSort, onFilter, readOnly }: {
-  fieldKey: string; value: any; fullPath: string; depth: number; collapseDepth: number;
+function JsonTreeRow({
+  fieldKey,
+  value,
+  fullPath,
+  depth,
+  collapseDepth,
+  sortState,
+  filterState,
+  onSort,
+  onFilter,
+  readOnly,
+}: {
+  fieldKey: string;
+  value: any;
+  fullPath: string;
+  depth: number;
+  collapseDepth: number;
 } & TreeControls) {
   const ejsonType = getEjsonType(value);
   const isObj = value !== null && typeof value === 'object' && !Array.isArray(value) && !ejsonType;
@@ -104,7 +136,9 @@ function JsonTreeRow({ fieldKey, value, fullPath, depth, collapseDepth, sortStat
   function handleKeyClick(e: any) {
     e.stopPropagation();
     if (e.altKey) {
-      writeClipboard(fullPath).then(() => triggerFlash('key')).catch(() => {});
+      writeClipboard(fullPath)
+        .then(() => triggerFlash('key'))
+        .catch(() => {});
       return;
     }
     onSort!(fullPath);
@@ -113,7 +147,9 @@ function JsonTreeRow({ fieldKey, value, fullPath, depth, collapseDepth, sortStat
   function handleValueClick(e: any, copyText: any) {
     e.stopPropagation();
     if (e.altKey) {
-      writeClipboard(copyText).then(() => triggerFlash('value')).catch(() => {});
+      writeClipboard(copyText)
+        .then(() => triggerFlash('value'))
+        .catch(() => {});
       return;
     }
     onFilter!(fullPath, value);
@@ -121,19 +157,28 @@ function JsonTreeRow({ fieldKey, value, fullPath, depth, collapseDepth, sortStat
 
   const sortDir = sortState![fullPath];
   const sortInd = sortDir === 1 ? ' ↑' : sortDir === -1 ? ' ↓' : '';
-  const keyCls = 'json-tree-key'
-    + (sortDir === 1 ? ' json-tree-key-asc' : sortDir === -1 ? ' json-tree-key-desc' : '')
-    + (flash === 'key' ? ' json-tree-flash' : '');
-  const keyTitle = sortDir === 1 ? `Sorted ascending — click to sort descending (${ALT_KEY}+click to copy path)`
-    : sortDir === -1 ? `Sorted descending — click to remove sort (${ALT_KEY}+click to copy path)`
-    : `Click to sort by ${fullPath} — ${ALT_KEY}+click to copy path`;
+  const keyCls =
+    'json-tree-key' +
+    (sortDir === 1 ? ' json-tree-key-asc' : sortDir === -1 ? ' json-tree-key-desc' : '') +
+    (flash === 'key' ? ' json-tree-flash' : '');
+  const keyTitle =
+    sortDir === 1
+      ? `Sorted ascending — click to sort descending (${ALT_KEY}+click to copy path)`
+      : sortDir === -1
+        ? `Sorted descending — click to remove sort (${ALT_KEY}+click to copy path)`
+        : `Click to sort by ${fullPath} — ${ALT_KEY}+click to copy path`;
   const filtered = fullPath in (filterState as object);
 
   // Read-only (e.g. the Stages debug view): keys/values are plain, non-interactive
   // text — no sort/filter, no pointer/hover. Collapse toggles + copy stay active.
-  const keyEl = readOnly
-    ? <span class="json-tree-key json-tree-key-static">{fieldKey}</span>
-    : <button class={keyCls} title={keyTitle} onClick={handleKeyClick}>{fieldKey}{sortInd}</button>;
+  const keyEl = readOnly ? (
+    <span class="json-tree-key json-tree-key-static">{fieldKey}</span>
+  ) : (
+    <button class={keyCls} title={keyTitle} onClick={handleKeyClick}>
+      {fieldKey}
+      {sortInd}
+    </button>
+  );
 
   if (ejsonType) {
     const formatted = formatEjsonValue(value, ejsonType);
@@ -143,18 +188,29 @@ function JsonTreeRow({ fieldKey, value, fullPath, depth, collapseDepth, sortStat
       <div class="json-tree-row">
         {keyEl}
         <span class="json-tree-sep">: </span>
-        {readOnly
-          ? <span class={'json-tree-value ' + info.css}>{formatted}</span>
-          : (
-            <button
-              class={'json-tree-value json-tree-value-clickable ' + info.css
-                + (filtered ? ' json-tree-value-filtered' : '')
-                + (flash === 'value' ? ' json-tree-flash' : '')}
-              title={filtered ? `Filtering by ${fullPath} — click to remove filter (${ALT_KEY}+click to copy)` : `Click to filter: ${fullPath} = ${formatted} — ${ALT_KEY}+click to copy`}
-              onClick={(e) => handleValueClick(e, copyText)}
-            >{formatted}</button>
-          )}
-        <span class={'value-type-tag ' + info.css} title={info.label}>{info.short}</span>
+        {readOnly ? (
+          <span class={'json-tree-value ' + info.css}>{formatted}</span>
+        ) : (
+          <button
+            class={
+              'json-tree-value json-tree-value-clickable ' +
+              info.css +
+              (filtered ? ' json-tree-value-filtered' : '') +
+              (flash === 'value' ? ' json-tree-flash' : '')
+            }
+            title={
+              filtered
+                ? `Filtering by ${fullPath} — click to remove filter (${ALT_KEY}+click to copy)`
+                : `Click to filter: ${fullPath} = ${formatted} — ${ALT_KEY}+click to copy`
+            }
+            onClick={(e) => handleValueClick(e, copyText)}
+          >
+            {formatted}
+          </button>
+        )}
+        <span class={'value-type-tag ' + info.css} title={info.label}>
+          {info.short}
+        </span>
         <CopyButton getText={() => copyText} kind="value" />
       </div>
     );
@@ -167,14 +223,31 @@ function JsonTreeRow({ fieldKey, value, fullPath, depth, collapseDepth, sortStat
         <div class="json-tree-row">
           {keyEl}
           <span class="json-tree-sep">: </span>
-          <span class="json-tree-toggle" style="cursor:pointer" onClick={(e) => { e.stopPropagation(); setCollapsed(!collapsed); }}>
+          <span
+            class="json-tree-toggle"
+            style="cursor:pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              setCollapsed(!collapsed);
+            }}
+          >
             {collapsed ? `▶ {${fieldCount} field${fieldCount === 1 ? '' : 's'}}` : '▼'}
           </span>
           <CopyButton getText={() => JSON.stringify(value, null, 2)} kind="json" />
         </div>
         {!collapsed && (
           <div class="json-tree-nested">
-            <JsonTree data={value} prefix={fullPath} depth={depth + 1} collapseDepth={collapseDepth} sortState={sortState} filterState={filterState} onSort={onSort} onFilter={onFilter} readOnly={readOnly} />
+            <JsonTree
+              data={value}
+              prefix={fullPath}
+              depth={depth + 1}
+              collapseDepth={collapseDepth}
+              sortState={sortState}
+              filterState={filterState}
+              onSort={onSort}
+              onFilter={onFilter}
+              readOnly={readOnly}
+            />
           </div>
         )}
       </div>
@@ -187,7 +260,14 @@ function JsonTreeRow({ fieldKey, value, fullPath, depth, collapseDepth, sortStat
         <div class="json-tree-row">
           {keyEl}
           <span class="json-tree-sep">: </span>
-          <span class="json-tree-toggle" style="cursor:pointer" onClick={(e) => { e.stopPropagation(); setCollapsed(!collapsed); }}>
+          <span
+            class="json-tree-toggle"
+            style="cursor:pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              setCollapsed(!collapsed);
+            }}
+          >
             {collapsed ? `▶ [${value.length}]` : `▼ [${value.length}]`}
           </span>
           <CopyButton getText={() => JSON.stringify(value, null, 2)} kind="json" />
@@ -196,14 +276,29 @@ function JsonTreeRow({ fieldKey, value, fullPath, depth, collapseDepth, sortStat
           <div class="json-tree-nested">
             {value.map((item, ai) => {
               const itemPath = `${fullPath}.${ai}`;
-              if (item !== null && typeof item === 'object' && !Array.isArray(item) && !getEjsonType(item)) {
+              if (
+                item !== null &&
+                typeof item === 'object' &&
+                !Array.isArray(item) &&
+                !getEjsonType(item)
+              ) {
                 return (
                   <div class="json-tree-array-item">
                     <div class="json-tree-row">
                       <span class="json-tree-array-index">[{ai}]</span>
                       <CopyButton getText={() => JSON.stringify(item, null, 2)} kind="json" />
                     </div>
-                    <JsonTree data={item} prefix={itemPath} depth={depth + 1} collapseDepth={collapseDepth} sortState={sortState} filterState={filterState} onSort={onSort} onFilter={onFilter} readOnly={readOnly} />
+                    <JsonTree
+                      data={item}
+                      prefix={itemPath}
+                      depth={depth + 1}
+                      collapseDepth={collapseDepth}
+                      sortState={sortState}
+                      filterState={filterState}
+                      onSort={onSort}
+                      onFilter={onFilter}
+                      readOnly={readOnly}
+                    />
                   </div>
                 );
               }
@@ -211,9 +306,11 @@ function JsonTreeRow({ fieldKey, value, fullPath, depth, collapseDepth, sortStat
                 <div class="json-tree-row">
                   <span class="json-tree-array-index">[{ai}]</span>
                   <span class="json-tree-value">
-                    {typeof item === 'string'
-                      ? <SpecialText value={item} quote />
-                      : JSON.stringify(item)}
+                    {typeof item === 'string' ? (
+                      <SpecialText value={item} quote />
+                    ) : (
+                      JSON.stringify(item)
+                    )}
                   </span>
                   <CopyButton getText={() => copyTextFor(item)} kind="value" />
                 </div>
@@ -243,15 +340,21 @@ function JsonTreeRow({ fieldKey, value, fullPath, depth, collapseDepth, sortStat
     <div class="json-tree-row">
       {keyEl}
       <span class="json-tree-sep">: </span>
-      {readOnly
-        ? <span class={'json-tree-value' + colorCls}>{valueContent}</span>
-        : (
-          <button
-            class={valCls}
-            title={filtered ? `Filtering by ${fullPath} — click to remove filter (${ALT_KEY}+click to copy)` : `Click to filter: ${fullPath} = ${JSON.stringify(value)} — ${ALT_KEY}+click to copy`}
-            onClick={(e) => handleValueClick(e, copyText)}
-          >{valueContent}</button>
-        )}
+      {readOnly ? (
+        <span class={'json-tree-value' + colorCls}>{valueContent}</span>
+      ) : (
+        <button
+          class={valCls}
+          title={
+            filtered
+              ? `Filtering by ${fullPath} — click to remove filter (${ALT_KEY}+click to copy)`
+              : `Click to filter: ${fullPath} = ${JSON.stringify(value)} — ${ALT_KEY}+click to copy`
+          }
+          onClick={(e) => handleValueClick(e, copyText)}
+        >
+          {valueContent}
+        </button>
+      )}
       <CopyButton getText={() => copyText} kind="value" />
     </div>
   );

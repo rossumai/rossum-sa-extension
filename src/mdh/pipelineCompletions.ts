@@ -81,85 +81,174 @@ const RAW_QUERY = [
 
 const RAW_EXPRESSION = [
   // arithmetic
-  ['$add', 'Add numbers or dates'], ['$subtract', 'Subtract numbers or dates'],
-  ['$multiply', 'Multiply numbers'], ['$divide', 'Divide numbers'], ['$mod', 'Modulo'],
-  ['$abs', 'Absolute value'], ['$ceil', 'Round up'], ['$floor', 'Round down'],
-  ['$round', 'Round to decimals'], ['$trunc', 'Truncate to integer'], ['$sqrt', 'Square root'],
-  ['$pow', 'Raise to power'], ['$exp', 'e raised to power'], ['$ln', 'Natural logarithm'],
-  ['$log', 'Logarithm with base'], ['$log10', 'Base-10 logarithm'],
+  ['$add', 'Add numbers or dates'],
+  ['$subtract', 'Subtract numbers or dates'],
+  ['$multiply', 'Multiply numbers'],
+  ['$divide', 'Divide numbers'],
+  ['$mod', 'Modulo'],
+  ['$abs', 'Absolute value'],
+  ['$ceil', 'Round up'],
+  ['$floor', 'Round down'],
+  ['$round', 'Round to decimals'],
+  ['$trunc', 'Truncate to integer'],
+  ['$sqrt', 'Square root'],
+  ['$pow', 'Raise to power'],
+  ['$exp', 'e raised to power'],
+  ['$ln', 'Natural logarithm'],
+  ['$log', 'Logarithm with base'],
+  ['$log10', 'Base-10 logarithm'],
   // string
-  ['$concat', 'Concatenate strings'], ['$substr', 'Substring (bytes)'],
-  ['$substrBytes', 'Substring by bytes'], ['$substrCP', 'Substring by code points'],
-  ['$toLower', 'To lowercase'], ['$toUpper', 'To uppercase'], ['$trim', 'Trim characters'],
-  ['$ltrim', 'Trim leading characters'], ['$rtrim', 'Trim trailing characters'],
-  ['$split', 'Split string into array'], ['$strLenBytes', 'Length in bytes'],
-  ['$strLenCP', 'Length in code points'], ['$indexOfBytes', 'Substring index (bytes)'],
-  ['$indexOfCP', 'Substring index (code points)'], ['$regexFind', 'First regex match'],
-  ['$regexFindAll', 'All regex matches'], ['$regexMatch', 'Regex test (boolean)'],
-  ['$replaceOne', 'Replace first occurrence'], ['$replaceAll', 'Replace all occurrences'],
+  ['$concat', 'Concatenate strings'],
+  ['$substr', 'Substring (bytes)'],
+  ['$substrBytes', 'Substring by bytes'],
+  ['$substrCP', 'Substring by code points'],
+  ['$toLower', 'To lowercase'],
+  ['$toUpper', 'To uppercase'],
+  ['$trim', 'Trim characters'],
+  ['$ltrim', 'Trim leading characters'],
+  ['$rtrim', 'Trim trailing characters'],
+  ['$split', 'Split string into array'],
+  ['$strLenBytes', 'Length in bytes'],
+  ['$strLenCP', 'Length in code points'],
+  ['$indexOfBytes', 'Substring index (bytes)'],
+  ['$indexOfCP', 'Substring index (code points)'],
+  ['$regexFind', 'First regex match'],
+  ['$regexFindAll', 'All regex matches'],
+  ['$regexMatch', 'Regex test (boolean)'],
+  ['$replaceOne', 'Replace first occurrence'],
+  ['$replaceAll', 'Replace all occurrences'],
   ['$toString', 'Convert to string'],
   // array
-  ['$arrayElemAt', 'Element at index'], ['$arrayToObject', 'Array of pairs to object'],
-  ['$concatArrays', 'Concatenate arrays'], ['$filter', 'Filter array by condition'],
-  ['$first', 'First element/value'], ['$last', 'Last element/value'],
-  ['$firstN', 'First N elements'], ['$lastN', 'Last N elements'],
-  ['$in', 'Value is in array'], ['$indexOfArray', 'Find element index'],
-  ['$isArray', 'Is value an array'], ['$map', 'Transform each element'],
-  ['$objectToArray', 'Object to array of pairs'], ['$range', 'Generate integer array'],
-  ['$reduce', 'Reduce array to a value'], ['$reverseArray', 'Reverse array'],
-  ['$size', 'Array length'], ['$slice', 'Subset of array'], ['$zip', 'Merge arrays element-wise'],
-  ['$sortArray', 'Sort array elements'], ['$maxN', 'N largest values'], ['$minN', 'N smallest values'],
+  ['$arrayElemAt', 'Element at index'],
+  ['$arrayToObject', 'Array of pairs to object'],
+  ['$concatArrays', 'Concatenate arrays'],
+  ['$filter', 'Filter array by condition'],
+  ['$first', 'First element/value'],
+  ['$last', 'Last element/value'],
+  ['$firstN', 'First N elements'],
+  ['$lastN', 'Last N elements'],
+  ['$in', 'Value is in array'],
+  ['$indexOfArray', 'Find element index'],
+  ['$isArray', 'Is value an array'],
+  ['$map', 'Transform each element'],
+  ['$objectToArray', 'Object to array of pairs'],
+  ['$range', 'Generate integer array'],
+  ['$reduce', 'Reduce array to a value'],
+  ['$reverseArray', 'Reverse array'],
+  ['$size', 'Array length'],
+  ['$slice', 'Subset of array'],
+  ['$zip', 'Merge arrays element-wise'],
+  ['$sortArray', 'Sort array elements'],
+  ['$maxN', 'N largest values'],
+  ['$minN', 'N smallest values'],
   // date
-  ['$dateFromString', 'Parse date string'], ['$dateToString', 'Format date as string'],
-  ['$dateFromParts', 'Build date from parts'], ['$dateToParts', 'Decompose date to parts'],
-  ['$year', 'Year component'], ['$month', 'Month component'], ['$dayOfMonth', 'Day-of-month'],
-  ['$hour', 'Hour component'], ['$minute', 'Minute component'], ['$second', 'Second component'],
-  ['$millisecond', 'Millisecond component'], ['$dayOfWeek', 'Day-of-week'], ['$dayOfYear', 'Day-of-year'],
-  ['$week', 'Week of year'], ['$isoWeek', 'ISO week'], ['$isoWeekYear', 'ISO week-year'],
-  ['$isoDayOfWeek', 'ISO day-of-week'], ['$dateAdd', 'Add to a date'], ['$dateSubtract', 'Subtract from a date'],
-  ['$dateDiff', 'Difference between dates'], ['$dateTrunc', 'Truncate date to unit'], ['$toDate', 'Convert to date'],
+  ['$dateFromString', 'Parse date string'],
+  ['$dateToString', 'Format date as string'],
+  ['$dateFromParts', 'Build date from parts'],
+  ['$dateToParts', 'Decompose date to parts'],
+  ['$year', 'Year component'],
+  ['$month', 'Month component'],
+  ['$dayOfMonth', 'Day-of-month'],
+  ['$hour', 'Hour component'],
+  ['$minute', 'Minute component'],
+  ['$second', 'Second component'],
+  ['$millisecond', 'Millisecond component'],
+  ['$dayOfWeek', 'Day-of-week'],
+  ['$dayOfYear', 'Day-of-year'],
+  ['$week', 'Week of year'],
+  ['$isoWeek', 'ISO week'],
+  ['$isoWeekYear', 'ISO week-year'],
+  ['$isoDayOfWeek', 'ISO day-of-week'],
+  ['$dateAdd', 'Add to a date'],
+  ['$dateSubtract', 'Subtract from a date'],
+  ['$dateDiff', 'Difference between dates'],
+  ['$dateTrunc', 'Truncate date to unit'],
+  ['$toDate', 'Convert to date'],
   // comparison
   ['$cmp', 'Compare two values (-1/0/1)'],
-  ['$eq', 'Equal to'], ['$ne', 'Not equal to'], ['$gt', 'Greater than'],
-  ['$gte', 'Greater than or equal'], ['$lt', 'Less than'], ['$lte', 'Less than or equal'],
+  ['$eq', 'Equal to'],
+  ['$ne', 'Not equal to'],
+  ['$gt', 'Greater than'],
+  ['$gte', 'Greater than or equal'],
+  ['$lt', 'Less than'],
+  ['$lte', 'Less than or equal'],
   // conditional / boolean
-  ['$cond', 'If-then-else'], ['$ifNull', 'First non-null value'], ['$switch', 'Multi-branch conditional'],
-  ['$and', 'Logical AND'], ['$or', 'Logical OR'], ['$not', 'Logical NOT'],
+  ['$cond', 'If-then-else'],
+  ['$ifNull', 'First non-null value'],
+  ['$switch', 'Multi-branch conditional'],
+  ['$and', 'Logical AND'],
+  ['$or', 'Logical OR'],
+  ['$not', 'Logical NOT'],
   // type
-  ['$type', 'BSON type string'], ['$convert', 'Convert with onError/onNull'],
-  ['$toBool', 'Convert to boolean'], ['$toInt', 'Convert to int'], ['$toLong', 'Convert to long'],
-  ['$toDouble', 'Convert to double'], ['$toDecimal', 'Convert to decimal'],
-  ['$toObjectId', 'Convert to ObjectId'], ['$isNumber', 'Is value numeric'],
+  ['$type', 'BSON type string'],
+  ['$convert', 'Convert with onError/onNull'],
+  ['$toBool', 'Convert to boolean'],
+  ['$toInt', 'Convert to int'],
+  ['$toLong', 'Convert to long'],
+  ['$toDouble', 'Convert to double'],
+  ['$toDecimal', 'Convert to decimal'],
+  ['$toObjectId', 'Convert to ObjectId'],
+  ['$isNumber', 'Is value numeric'],
   // set
-  ['$setEquals', 'Sets are equal'], ['$setIntersection', 'Common elements'],
-  ['$setUnion', 'All elements'], ['$setDifference', 'Elements in A not B'],
-  ['$setIsSubset', 'A is a subset of B'], ['$anyElementTrue', 'Any element truthy'],
+  ['$setEquals', 'Sets are equal'],
+  ['$setIntersection', 'Common elements'],
+  ['$setUnion', 'All elements'],
+  ['$setDifference', 'Elements in A not B'],
+  ['$setIsSubset', 'A is a subset of B'],
+  ['$anyElementTrue', 'Any element truthy'],
   ['$allElementsTrue', 'All elements truthy'],
   // object
-  ['$mergeObjects', 'Merge objects'], ['$getField', 'Get field by name'], ['$setField', 'Set field by name'],
+  ['$mergeObjects', 'Merge objects'],
+  ['$getField', 'Get field by name'],
+  ['$setField', 'Set field by name'],
   // accumulator-as-expression (valid in $project, $addFields, etc.)
-  ['$sum', 'Sum of values (array or accumulator)'], ['$avg', 'Average (array or accumulator)'],
-  ['$min', 'Minimum (array or accumulator)'], ['$max', 'Maximum (array or accumulator)'],
+  ['$sum', 'Sum of values (array or accumulator)'],
+  ['$avg', 'Average (array or accumulator)'],
+  ['$min', 'Minimum (array or accumulator)'],
+  ['$max', 'Maximum (array or accumulator)'],
   // variable / special
-  ['$let', 'Bind variables in an expression'], ['$literal', 'Return a value unparsed'],
-  ['$rand', 'Random float 0..1'], ['$function', 'Custom JavaScript'], ['$meta', 'Metadata (e.g. searchScore)'],
+  ['$let', 'Bind variables in an expression'],
+  ['$literal', 'Return a value unparsed'],
+  ['$rand', 'Random float 0..1'],
+  ['$function', 'Custom JavaScript'],
+  ['$meta', 'Metadata (e.g. searchScore)'],
 ];
 
 const RAW_ACCUMULATOR = [
-  ['$sum', 'Sum of values'], ['$avg', 'Average'], ['$min', 'Minimum'], ['$max', 'Maximum'],
-  ['$first', 'First value in group'], ['$last', 'Last value in group'],
-  ['$push', 'Collect values into an array'], ['$addToSet', 'Collect unique values'],
-  ['$count', 'Count of documents'], ['$stdDevPop', 'Population standard deviation'],
-  ['$stdDevSamp', 'Sample standard deviation'], ['$mergeObjects', 'Merge grouped objects'],
-  ['$accumulator', 'Custom JavaScript accumulator'], ['$top', 'Top value by sort'],
-  ['$topN', 'Top N values by sort'], ['$bottom', 'Bottom value by sort'], ['$bottomN', 'Bottom N values by sort'],
-  ['$firstN', 'First N values'], ['$lastN', 'Last N values'], ['$maxN', 'N maximum values'],
-  ['$minN', 'N minimum values'], ['$median', 'Approximate median'], ['$percentile', 'Approximate percentile'],
+  ['$sum', 'Sum of values'],
+  ['$avg', 'Average'],
+  ['$min', 'Minimum'],
+  ['$max', 'Maximum'],
+  ['$first', 'First value in group'],
+  ['$last', 'Last value in group'],
+  ['$push', 'Collect values into an array'],
+  ['$addToSet', 'Collect unique values'],
+  ['$count', 'Count of documents'],
+  ['$stdDevPop', 'Population standard deviation'],
+  ['$stdDevSamp', 'Sample standard deviation'],
+  ['$mergeObjects', 'Merge grouped objects'],
+  ['$accumulator', 'Custom JavaScript accumulator'],
+  ['$top', 'Top value by sort'],
+  ['$topN', 'Top N values by sort'],
+  ['$bottom', 'Bottom value by sort'],
+  ['$bottomN', 'Bottom N values by sort'],
+  ['$firstN', 'First N values'],
+  ['$lastN', 'Last N values'],
+  ['$maxN', 'N maximum values'],
+  ['$minN', 'N minimum values'],
+  ['$median', 'Approximate median'],
+  ['$percentile', 'Approximate percentile'],
   // window-only
-  ['$rank', 'Rank with gaps'], ['$denseRank', 'Rank without gaps'], ['$documentNumber', 'Position in partition'],
-  ['$shift', 'Value from an offset row'], ['$derivative', 'Rate of change'], ['$integral', 'Area under the curve'],
-  ['$expMovingAvg', 'Exponential moving average'], ['$covariancePop', 'Population covariance'],
-  ['$covarianceSamp', 'Sample covariance'], ['$linearFill', 'Linear interpolation fill'],
+  ['$rank', 'Rank with gaps'],
+  ['$denseRank', 'Rank without gaps'],
+  ['$documentNumber', 'Position in partition'],
+  ['$shift', 'Value from an offset row'],
+  ['$derivative', 'Rate of change'],
+  ['$integral', 'Area under the curve'],
+  ['$expMovingAvg', 'Exponential moving average'],
+  ['$covariancePop', 'Population covariance'],
+  ['$covarianceSamp', 'Sample covariance'],
+  ['$linearFill', 'Linear interpolation fill'],
   ['$locf', 'Last observation carried forward'],
 ];
 
@@ -168,7 +257,10 @@ function buildCatalog() {
   const add = (cat: string, list: any[]) => {
     for (const [label, detail] of list) {
       let e = byLabel.get(label);
-      if (!e) { e = { label, detail, cats: new Set() }; byLabel.set(label, e); }
+      if (!e) {
+        e = { label, detail, cats: new Set() };
+        byLabel.set(label, e);
+      }
       e.cats.add(cat);
     }
   };
@@ -181,11 +273,17 @@ function buildCatalog() {
 
 export const CATALOG = buildCatalog();
 
-function toOption(e: any) { return { label: e.label, type: 'keyword', detail: e.detail }; }
+function toOption(e: any) {
+  return { label: e.label, type: 'keyword', detail: e.detail };
+}
 function dedupeByLabel(opts: any[]): any[] {
   const seen = new Set();
   const out = [];
-  for (const o of opts) if (!seen.has(o.label)) { seen.add(o.label); out.push(o); }
+  for (const o of opts)
+    if (!seen.has(o.label)) {
+      seen.add(o.label);
+      out.push(o);
+    }
   return out;
 }
 
@@ -208,13 +306,19 @@ export function optionsFor(context: any): readonly any[] {
   return OPTS_ALL;
 }
 
-export const SYSTEM_VAR_OPTIONS = Object.freeze([
-  ['$$ROOT', 'Root document'], ['$$CURRENT', 'Current document'],
-  ['$$REMOVE', 'Conditionally omit a field'], ['$$NOW', 'Current datetime'],
-  ['$$CLUSTER_TIME', 'Current cluster time'], ['$$DESCEND', '$redact: keep and descend'],
-  ['$$PRUNE', '$redact: exclude subtree'], ['$$KEEP', '$redact: keep subtree'],
-  ['$$SEARCH_META', 'Atlas Search metadata'],
-].map(([label, detail]) => ({ label, type: 'variable', detail })));
+export const SYSTEM_VAR_OPTIONS = Object.freeze(
+  [
+    ['$$ROOT', 'Root document'],
+    ['$$CURRENT', 'Current document'],
+    ['$$REMOVE', 'Conditionally omit a field'],
+    ['$$NOW', 'Current datetime'],
+    ['$$CLUSTER_TIME', 'Current cluster time'],
+    ['$$DESCEND', '$redact: keep and descend'],
+    ['$$PRUNE', '$redact: exclude subtree'],
+    ['$$KEEP', '$redact: keep subtree'],
+    ['$$SEARCH_META', 'Atlas Search metadata'],
+  ].map(([label, detail]) => ({ label, type: 'variable', detail })),
+);
 
 // ---- Syntax-tree context classifier ---------------------------------------
 // Verified lezer (@codemirror/lang-javascript) facts, 2026-06-16:
@@ -296,7 +400,7 @@ function isPipelineArray(arrayNode: any, state: any): boolean {
   if (p.name === 'ExpressionStatement' || p.name === 'Script') return true; // root pipeline
   if (p.name === 'Property') {
     const k = propertyKeyText(p, state);
-    if (k === 'pipeline') return true;                 // $lookup / $unionWith / $graphLookup
+    if (k === 'pipeline') return true; // $lookup / $unionWith / $graphLookup
     if (k != null && !k.startsWith('$') && governingKey(p, state).key === '$facet') return true;
   }
   return false;
@@ -320,8 +424,12 @@ export function classifyContext(state: any, pos: number): any {
     // (no completion that instant). closeBrackets auto-inserts the closing quote
     // (`"$g|"`) in practice, which parses as a Property key, so this is rarely hit.
     const prop = node.parent;
-    const isKey = prop && prop.name === 'Property' && prop.firstChild
-      && prop.firstChild.from === node.from && prop.firstChild.to === node.to;
+    const isKey =
+      prop &&
+      prop.name === 'Property' &&
+      prop.firstChild &&
+      prop.firstChild.from === node.from &&
+      prop.firstChild.to === node.to;
     position = isKey ? 'key' : 'value';
   }
 
@@ -374,11 +482,15 @@ const VALID_FOR = /^"?\${0,2}[\w.]*$/;
 
 function fieldNameOptions(fieldsFn: (() => string[]) | null) {
   if (!fieldsFn) return [];
-  return fieldsFn().filter((f) => !f.startsWith('$')).map((f: string) => ({ label: f, type: 'property', detail: 'field' }));
+  return fieldsFn()
+    .filter((f) => !f.startsWith('$'))
+    .map((f: string) => ({ label: f, type: 'property', detail: 'field' }));
 }
 function fieldRefOptions(fieldsFn: (() => string[]) | null) {
   if (!fieldsFn) return [];
-  return fieldsFn().filter((f) => !f.startsWith('$')).map((f: string) => ({ label: '$' + f, type: 'property', detail: 'field' }));
+  return fieldsFn()
+    .filter((f) => !f.startsWith('$'))
+    .map((f: string) => ({ label: '$' + f, type: 'property', detail: 'field' }));
 }
 
 function aggregateSource(fieldsFn: (() => string[]) | null) {
@@ -492,7 +604,12 @@ function getCompletionSets(mode: string) {
   if (mode === 'update') return [LEGACY_UPDATE_OPERATORS, LEGACY_QUERY_OPERATORS];
   if (mode === 'query') return [LEGACY_QUERY_OPERATORS];
   if (mode === 'sort') return [];
-  return [LEGACY_QUERY_OPERATORS, LEGACY_UPDATE_OPERATORS, LEGACY_AGGREGATION_STAGES, LEGACY_EXPRESSION_OPERATORS];
+  return [
+    LEGACY_QUERY_OPERATORS,
+    LEGACY_UPDATE_OPERATORS,
+    LEGACY_AGGREGATION_STAGES,
+    LEGACY_EXPRESSION_OPERATORS,
+  ];
 }
 function legacySource(operatorSets: any[], fieldsFn: (() => string[]) | null) {
   const allOps = operatorSets.flat();
@@ -504,7 +621,10 @@ function legacySource(operatorSets: any[], fieldsFn: (() => string[]) | null) {
     }
     const unquoted = context.matchBefore(/\$[\w]*/);
     if (unquoted) {
-      return { from: unquoted.from, options: allOps.filter((op) => op.label.startsWith(unquoted.text)) };
+      return {
+        from: unquoted.from,
+        options: allOps.filter((op) => op.label.startsWith(unquoted.text)),
+      };
     }
     const fieldQuoted = context.matchBefore(/"[\w.]*/);
     if (fieldQuoted && fieldsFn) {

@@ -14,12 +14,17 @@ import { REL } from './culprit.js';
 // when the AI tier is offline, so we keep an honest best-effort signal instead.
 export function correlateMessage(
   msg: any,
-  { hookLogs = [], ruleLogs = [], hooksById = {} }:
-    { hookLogs?: any[]; ruleLogs?: any[]; hooksById?: Record<string, any> } = {},
+  {
+    hookLogs = [],
+    ruleLogs = [],
+    hooksById = {},
+  }: { hookLogs?: any[]; ruleLogs?: any[]; hooksById?: Record<string, any> } = {},
 ) {
   const rid = msg && msg.requestId;
   if (!rid) return null;
-  const matches = (hookLogs || []).filter((l) => l && (l.request_id === rid || l.uuid === rid) && l.hook_id != null);
+  const matches = (hookLogs || []).filter(
+    (l) => l && (l.request_id === rid || l.uuid === rid) && l.hook_id != null,
+  );
   if (matches.length) {
     const distinct = [...new Set(matches.map((l) => l.hook_id))];
     const hookId = distinct.length === 1 ? distinct[0] : matches[0].hook_id;
@@ -31,7 +36,10 @@ export function correlateMessage(
   }
   const rl = (ruleLogs || []).find((l) => l && l.request_id === rid);
   if (rl && rl.rule_id != null) {
-    return { culprit: { kind: 'rule', id: rl.rule_id, name: rl.rule_name || `rule ${rl.rule_id}` }, reliability: REL.BEST_EFFORT };
+    return {
+      culprit: { kind: 'rule', id: rl.rule_id, name: rl.rule_name || `rule ${rl.rule_id}` },
+      reliability: REL.BEST_EFFORT,
+    };
   }
   return null;
 }
@@ -43,7 +51,8 @@ function ruleActionTargets(rule: any) {
     const p = a && a.payload;
     if (!p) continue;
     if (typeof p.schema_id === 'string') ids.add(p.schema_id);
-    for (const s of Array.isArray(p.schema_ids) ? p.schema_ids : []) if (typeof s === 'string') ids.add(s);
+    for (const s of Array.isArray(p.schema_ids) ? p.schema_ids : [])
+      if (typeof s === 'string') ids.add(s);
   }
   return [...ids];
 }
@@ -57,13 +66,18 @@ export function correlateField(
   if (!schemaId) return null;
   const fired = new Set(
     (ruleLogs || [])
-      .filter((l) => l && (l.execution_result === 'success' || l.execution_result === 'partial_success'))
+      .filter(
+        (l) => l && (l.execution_result === 'success' || l.execution_result === 'partial_success'),
+      )
       .map((l) => l.rule_id),
   );
   for (const r of rules || []) {
     if (!r || !fired.has(r.id)) continue;
     if (ruleActionTargets(r).includes(schemaId)) {
-      return { culprit: { kind: 'rule', id: r.id, name: r.name || `rule ${r.id}` }, reliability: REL.BEST_EFFORT };
+      return {
+        culprit: { kind: 'rule', id: r.id, name: r.name || `rule ${r.id}` },
+        reliability: REL.BEST_EFFORT,
+      };
     }
   }
   return null;

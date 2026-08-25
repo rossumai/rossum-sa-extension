@@ -35,7 +35,13 @@ describe('curriculum integrity', () => {
   });
 
   it('points every visit step at a type detectResource can actually return', () => {
-    const known = new Set([...ROUTES.map((r) => r.type), 'organization', 'label', 'inbox', 'schema']);
+    const known = new Set([
+      ...ROUTES.map((r) => r.type),
+      'organization',
+      'label',
+      'inbox',
+      'schema',
+    ]);
     for (const s of steps.filter((x) => x.kind === 'visit')) {
       expect(known).toContain(s.target!.type);
     }
@@ -45,8 +51,8 @@ describe('curriculum integrity', () => {
     for (const s of steps) {
       expect(typeof s.hint).toBe('string');
       expect(s.hint.length).toBeGreaterThan(0);
-      expect(s.hint).not.toContain('\n');   // the card renders one line
-      expect(s.hint).not.toContain('<');    // textContent only, never markup
+      expect(s.hint).not.toContain('\n'); // the card renders one line
+      expect(s.hint).not.toContain('<'); // textContent only, never markup
       expect(typeof s.teach).toBe('string');
       expect(s.teach!.length).toBeGreaterThan(0);
     }
@@ -82,6 +88,8 @@ describe('curriculum integrity', () => {
   });
 
   it('detects the documented dashboard route the first step relies on', () => {
-    expect(detectResource({ pathname: '/documents', search: '?level=all' })!.type).toBe('organization');
+    expect(detectResource({ pathname: '/documents', search: '?level=all' })!.type).toBe(
+      'organization',
+    );
   });
 });

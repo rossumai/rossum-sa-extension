@@ -51,10 +51,7 @@ export function handleNode(node: HTMLElement): void {
   if (node.nodeType !== Node.ELEMENT_NODE) return;
   // Match either the popper itself OR any descendant added in a later mutation
   // (when MUI adds the popper first and fills its content in a follow-up commit).
-  const popper =
-    node.matches?.(POPPER_SELECTOR)
-      ? node
-      : node.closest?.(POPPER_SELECTOR);
+  const popper = node.matches?.(POPPER_SELECTOR) ? node : node.closest?.(POPPER_SELECTOR);
   if (popper) addCloseButton(popper as HTMLElement);
 }
 

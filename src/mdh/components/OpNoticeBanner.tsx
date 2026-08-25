@@ -11,7 +11,14 @@ export default function OpNoticeBanner() {
   return (
     <div class={'op-notice-banner ' + (notice.kind || 'info')}>
       <span>{notice.message}</span>
-      <button class="dismiss" onClick={() => { opNotice.value = null; }}>{'×'}</button>
+      <button
+        class="dismiss"
+        onClick={() => {
+          opNotice.value = null;
+        }}
+      >
+        {'×'}
+      </button>
     </div>
   );
 }

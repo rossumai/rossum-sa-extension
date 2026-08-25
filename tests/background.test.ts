@@ -3,7 +3,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // The module registers a chrome.runtime.onMessage listener at import time, so
 // stub chrome before importing.
 globalThis.chrome = {
-  runtime: { onMessage: { addListener: vi.fn() }, id: 'self', getURL: (p: any) => `chrome-extension://self/${p}` } as any,
+  runtime: {
+    onMessage: { addListener: vi.fn() },
+    id: 'self',
+    getURL: (p: any) => `chrome-extension://self/${p}`,
+  } as any,
   storage: { local: { set: vi.fn() } } as any,
   tabs: { create: vi.fn() },
 } as any;
@@ -25,7 +29,14 @@ describe('openDatasetManagement', () => {
   it('stages a single-use consoleAuth entry with the token + domain + app', () => {
     openDatasetManagement({ token: 'tok', domain: 'https://x.rossum.app' }, deps);
     expect(deps.storageSet).toHaveBeenCalledWith(
-      { consoleAuth_UUID: { token: 'tok', domain: 'https://x.rossum.app', app: 'mdh', createdAt: 1234 } },
+      {
+        consoleAuth_UUID: {
+          token: 'tok',
+          domain: 'https://x.rossum.app',
+          app: 'mdh',
+          createdAt: 1234,
+        },
+      },
       expect.any(Function),
     );
   });

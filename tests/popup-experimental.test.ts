@@ -4,7 +4,12 @@ import { createUnlockCounter } from '../src/popup/experimental.js';
 // Deterministic clock: each call to tick(ms) advances; now() reads it.
 function clock(start = 1000) {
   let t = start;
-  return { now: () => t, tick: (ms: any) => { t += ms; } };
+  return {
+    now: () => t,
+    tick: (ms: any) => {
+      t += ms;
+    },
+  };
 }
 
 describe('createUnlockCounter', () => {
@@ -22,10 +27,16 @@ describe('createUnlockCounter', () => {
   it('resets the streak after the inactivity window', () => {
     const c = clock();
     const u = createUnlockCounter({ now: c.now });
-    for (let i = 0; i < 4; i++) { u.click(); c.tick(200); }
+    for (let i = 0; i < 4; i++) {
+      u.click();
+      c.tick(200);
+    }
     c.tick(2500); // > 2s pause — streak is stale
     expect(u.click()).toBe(false); // this is click 1, not click 5
-    for (let i = 0; i < 3; i++) { c.tick(200); expect(u.click()).toBe(false); }
+    for (let i = 0; i < 3; i++) {
+      c.tick(200);
+      expect(u.click()).toBe(false);
+    }
     c.tick(200);
     expect(u.click()).toBe(true);
   });
@@ -34,7 +45,10 @@ describe('createUnlockCounter', () => {
     const c = clock();
     const u = createUnlockCounter({ now: c.now });
     const flips = [];
-    for (let i = 0; i < 10; i++) { if (u.click()) flips.push(i); c.tick(100); }
+    for (let i = 0; i < 10; i++) {
+      if (u.click()) flips.push(i);
+      c.tick(100);
+    }
     expect(flips).toEqual([4, 9]); // 5th and 10th clicks
   });
 

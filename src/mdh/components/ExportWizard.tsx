@@ -26,7 +26,11 @@ const PREVIEW_ROWS = 10;
 // Pure UI: fetches count/preview read-only; hands ONE config object to
 // onExport and never touches the download engine itself.
 export default function ExportWizard({
-  collection, filterState, totalCount, recordsSample, onExport,
+  collection,
+  filterState,
+  totalCount,
+  recordsSample,
+  onExport,
 }: {
   collection: string;
   filterState: Record<string, any>;
@@ -45,7 +49,12 @@ export default function ExportWizard({
     all: { value: null, loading: true },
     filtered: { value: null, loading: filterState.available },
   });
-  const [preview, setPreview] = useState<{ loading: boolean; columns: string[] | null; sample: any[]; error: string | null }>({ loading: true, columns: null, sample: [], error: null });
+  const [preview, setPreview] = useState<{
+    loading: boolean;
+    columns: string[] | null;
+    sample: any[];
+    error: string | null;
+  }>({ loading: true, columns: null, sample: [], error: null });
 
   const fmt = getExportFormat(formatId)!;
   const effOpts = { ...fmt.defaultOpts, ...opts };
@@ -53,7 +62,10 @@ export default function ExportWizard({
   const stages = scope === 'filtered' ? filterState.stages : [{ $match: {} }];
   const filename = exportFilename(collection, scope, fmt);
 
-  function switchFormat(id: any) { setFormatId(id); setOpts({}); }
+  function switchFormat(id: any) {
+    setFormatId(id);
+    setOpts({});
+  }
 
   // Exact counts for BOTH scopes, fetched once on mount. All-records reuses
   // the pagination total when known; a failure only degrades the labels/line —
@@ -64,16 +76,22 @@ export default function ExportWizard({
     if (totalCount !== null && totalCount !== undefined) {
       set('all', { value: totalCount, loading: false });
     } else {
-      api.aggregate(collection, [{ $match: {} }, { $count: 'total' }], { signal: controller.signal })
+      api
+        .aggregate(collection, [{ $match: {} }, { $count: 'total' }], { signal: controller.signal })
         .then((r) => set('all', { value: r.result?.[0]?.total ?? 0, loading: false }))
         .catch(() => set('all', { value: null, loading: false }));
     }
     if (filterState.available) {
-      api.aggregate(collection, [...filterState.stages, { $count: 'total' }], { signal: controller.signal })
+      api
+        .aggregate(collection, [...filterState.stages, { $count: 'total' }], {
+          signal: controller.signal,
+        })
         .then((r) => set('filtered', { value: r.result?.[0]?.total ?? 0, loading: false }))
         .catch(() => set('filtered', { value: null, loading: false }));
     }
-    return () => { controller.abort(); };
+    return () => {
+      controller.abort();
+    };
   }, []);
   const count = counts[scope];
 
@@ -84,12 +102,23 @@ export default function ExportWizard({
     let alive = true;
     setPreview((p) => ({ ...p, loading: true, error: null }));
     const controller = new AbortController();
-    const samplePromise = api.aggregate(collection, [...stages, { $limit: PREVIEW_ROWS }], { signal: controller.signal });
+    const samplePromise = api.aggregate(collection, [...stages, { $limit: PREVIEW_ROWS }], {
+      signal: controller.signal,
+    });
     samplePromiseRef.current = samplePromise;
     samplePromise
-      .then((r) => { if (alive) setPreview({ loading: false, columns: null, sample: r.result || [], error: null }); })
-      .catch((e) => { if (alive) setPreview({ loading: false, columns: null, sample: [], error: e?.message || 'failed' }); });
-    return () => { alive = false; controller.abort(); };
+      .then((r) => {
+        if (alive)
+          setPreview({ loading: false, columns: null, sample: r.result || [], error: null });
+      })
+      .catch((e) => {
+        if (alive)
+          setPreview({ loading: false, columns: null, sample: [], error: e?.message || 'failed' });
+      });
+    return () => {
+      alive = false;
+      controller.abort();
+    };
   }, [scope]);
 
   // Column discovery is a full-scope $objectToArray/$unwind/$group scan — run
@@ -98,7 +127,10 @@ export default function ExportWizard({
   // switch reuses it instead of re-scanning. A scope change carries a
   // different set of stages, so it's treated as a fresh cache key. Aborted on
   // cleanup (scope change / format change away / unmount).
-  const [cols, setCols] = useState<{ loading: boolean; value: string[] | null }>({ loading: false, value: null });
+  const [cols, setCols] = useState<{ loading: boolean; value: string[] | null }>({
+    loading: false,
+    value: null,
+  });
   // Scope for which `cols` is fetched/in-flight; null = not cached.
   const colsFetchedScopeRef = useRef<string | null>(null);
   useEffect(() => {
@@ -113,15 +145,24 @@ export default function ExportWizard({
         // Table-order seed: the loaded page first, then the fetched preview
         // rows (covers a fresh view where no page is loaded yet) — so the
         // header follows first-seen order, not the alphabetical fallback.
-        const sampleDocs = await (samplePromiseRef.current || Promise.resolve({ result: [] })).then((s: any) => s.result || []).catch(() => []);
-        if (alive) setCols({ loading: false, value: orderExportColumns([...(recordsSample || []), ...sampleDocs], paths) });
+        const sampleDocs = await (samplePromiseRef.current || Promise.resolve({ result: [] }))
+          .then((s: any) => s.result || [])
+          .catch(() => []);
+        if (alive)
+          setCols({
+            loading: false,
+            value: orderExportColumns([...(recordsSample || []), ...sampleDocs], paths),
+          });
       })
       .catch(() => {
         if (!alive) return; // superseded/aborted — don't clobber the new scope's cache marker
         setCols({ loading: false, value: null });
         colsFetchedScopeRef.current = null; // allow a retry on next need
       });
-    return () => { alive = false; controller.abort(); };
+    return () => {
+      alive = false;
+      controller.abort();
+    };
   }, [fmt.needsColumns, scope]);
 
   const columns = cols.value;
@@ -130,24 +171,50 @@ export default function ExportWizard({
   function download() {
     closeModal();
     track('sa_mdh_export');
-    onExport({ scope, formatId, opts: effOpts, columns: fmt.needsColumns ? columns : null, count: count.value });
+    onExport({
+      scope,
+      formatId,
+      opts: effOpts,
+      columns: fmt.needsColumns ? columns : null,
+      count: count.value,
+    });
   }
 
   const scopeSeg = [
     { value: 'all', label: scopeLabel('All records', counts.all) },
-    { value: 'filtered', label: scopeLabel('Current filter', counts.filtered), ...(filterState.available ? {} : { disabled: true }) },
+    {
+      value: 'filtered',
+      label: scopeLabel('Current filter', counts.filtered),
+      ...(filterState.available ? {} : { disabled: true }),
+    },
   ];
 
   return (
     <ModalBody class="export-wizard">
       <ModalFieldLabel>Scope</ModalFieldLabel>
-      <Segmented value={scope} options={scopeSeg} onChange={setScope} ariaLabel="Export scope" testid="export-scope" tabs />
+      <Segmented
+        value={scope}
+        options={scopeSeg}
+        onChange={setScope}
+        ariaLabel="Export scope"
+        testid="export-scope"
+        tabs
+      />
       {!filterState.available && filterState.reason && (
-        <div class="import-shape-neutral" style="margin-top:4px">{filterState.reason}</div>
+        <div class="import-shape-neutral" style="margin-top:4px">
+          {filterState.reason}
+        </div>
       )}
 
       <ModalFieldLabel style="margin-top:10px">Format</ModalFieldLabel>
-      <Segmented value={formatId} options={FORMAT_SEG} onChange={switchFormat} ariaLabel="Export format" testid="export-format" tabs />
+      <Segmented
+        value={formatId}
+        options={FORMAT_SEG}
+        onChange={switchFormat}
+        ariaLabel="Export format"
+        testid="export-format"
+        tabs
+      />
 
       {fmt.OptionsControls && (
         <div class="csv-toolbar" style="margin-top:10px">
@@ -167,11 +234,25 @@ export default function ExportWizard({
             <PreviewCaption sample={preview.sample} columns={columns} />
             <div class="csv-preview-scroll">
               <table class="csv-preview-table">
-                {effOpts.header && columns && <thead><tr>{columns.map((c) => <th key={c}>{c}</th>)}</tr></thead>}
+                {effOpts.header && columns && (
+                  <thead>
+                    <tr>
+                      {columns.map((c) => (
+                        <th key={c}>{c}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                )}
                 <tbody>
                   {preview.sample.map((d, i) => {
                     const flat = d == null ? {} : flattenDoc(d);
-                    return <tr key={i}>{(columns || []).map((c) => <td key={c}>{cellPreview(flat[c])}</td>)}</tr>;
+                    return (
+                      <tr key={i}>
+                        {(columns || []).map((c) => (
+                          <td key={c}>{cellPreview(flat[c])}</td>
+                        ))}
+                      </tr>
+                    );
                   })}
                 </tbody>
               </table>
@@ -180,7 +261,13 @@ export default function ExportWizard({
         ) : (
           <Fragment>
             <PreviewCaption sample={preview.sample} columns={fmt.needsColumns ? columns : null} />
-            <pre class="csv-export-preview-text">{fmt.needsColumns && cols.loading ? 'Building preview…' : fmt.needsColumns && !columns ? 'Preview unavailable' : fmt.buildPreviewText!(preview.sample, columns, effOpts)}</pre>
+            <pre class="csv-export-preview-text">
+              {fmt.needsColumns && cols.loading
+                ? 'Building preview…'
+                : fmt.needsColumns && !columns
+                  ? 'Preview unavailable'
+                  : fmt.buildPreviewText!(preview.sample, columns, effOpts)}
+            </pre>
           </Fragment>
         )}
       </div>
@@ -188,33 +275,60 @@ export default function ExportWizard({
       <PlanSummary
         summaryTestid="export-count"
         summary={
-          count.loading ? <span>Counting documents{'…'}</span>
-          : count.value !== null ? (
+          count.loading ? (
+            <span>Counting documents{'…'}</span>
+          ) : count.value !== null ? (
             <span>
-              Exports {count.value.toLocaleString()} record{count.value === 1 ? '' : 's'} to <code>{filename}</code> {'—'} streamed to the file you pick; the collection is never modified.
+              Exports {count.value.toLocaleString()} record{count.value === 1 ? '' : 's'} to{' '}
+              <code>{filename}</code> {'—'} streamed to the file you pick; the collection is never
+              modified.
               {isLarge ? <span> Large export {'—'} may take a while.</span> : null}
             </span>
           ) : (
-            <span>Exports to <code>{filename}</code> {'—'} streamed to the file you pick; read-only.</span>
+            <span>
+              Exports to <code>{filename}</code> {'—'} streamed to the file you pick; read-only.
+            </span>
           )
         }
       >
         <ul data-testid="export-plan">
-          {scope === 'all'
-            ? <li>Every record in the collection is exported {'—'} the pipeline editor is ignored.</li>
-            : <li>Only records matching the current pipeline are exported; trailing paging stages (<code>$skip</code>/<code>$limit</code>) are removed, so the whole result set is exported {'—'} not just the visible page.</li>}
-          <li>Downloads in 1,000-record batches (10 in parallel) and streams to the file you pick; if the browser can{'’'}t stream, the file downloads normally when complete.</li>
-          {scope === 'all'
-            ? <li>Records are exported in a stable order {'—'} by <code>_id</code>.</li>
-            : <li>Records are exported in a stable order {'—'} your filter{'’'}s final sort if it has one, otherwise by <code>_id</code>.</li>}
-          {fmt.needsColumns && <li>Columns are the union of fields across the exported records, in table order.</li>}
+          {scope === 'all' ? (
+            <li>
+              Every record in the collection is exported {'—'} the pipeline editor is ignored.
+            </li>
+          ) : (
+            <li>
+              Only records matching the current pipeline are exported; trailing paging stages (
+              <code>$skip</code>/<code>$limit</code>) are removed, so the whole result set is
+              exported {'—'} not just the visible page.
+            </li>
+          )}
+          <li>
+            Downloads in 1,000-record batches (10 in parallel) and streams to the file you pick; if
+            the browser can{'’'}t stream, the file downloads normally when complete.
+          </li>
+          {scope === 'all' ? (
+            <li>
+              Records are exported in a stable order {'—'} by <code>_id</code>.
+            </li>
+          ) : (
+            <li>
+              Records are exported in a stable order {'—'} your filter{'’'}s final sort if it has
+              one, otherwise by <code>_id</code>.
+            </li>
+          )}
+          {fmt.needsColumns && (
+            <li>Columns are the union of fields across the exported records, in table order.</li>
+          )}
           <li>Cancelling discards the partial file {'—'} nothing is saved.</li>
           <li>The export is read-only {'—'} the collection is never modified.</li>
         </ul>
       </PlanSummary>
 
       <ModalActions>
-        <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>
+        <button class="btn btn-secondary" onClick={closeModal}>
+          Cancel
+        </button>
         <button class="btn btn-primary" data-testid="export-download" onClick={download}>
           {count.value !== null
             ? `Download ${count.value.toLocaleString()} record${count.value === 1 ? '' : 's'} \u00b7 ${fmt.label}`
@@ -228,7 +342,13 @@ export default function ExportWizard({
 function PreviewCaption({ sample, columns }: { sample: any[]; columns?: string[] | null }) {
   return (
     <div class="csv-export-preview-caption">
-      Preview {'·'} first {sample.length} row{sample.length === 1 ? '' : 's'}{columns ? <Fragment> {'·'} {columns.length} column{columns.length === 1 ? '' : 's'}</Fragment> : null}
+      Preview {'·'} first {sample.length} row{sample.length === 1 ? '' : 's'}
+      {columns ? (
+        <Fragment>
+          {' '}
+          {'·'} {columns.length} column{columns.length === 1 ? '' : 's'}
+        </Fragment>
+      ) : null}
     </div>
   );
 }

@@ -4,44 +4,133 @@ const MARKER_CLASS = 'rossum-sa-extension-coupa-field-name';
 
 // Generic s- classes to ignore (UI framework, not field identifiers)
 const IGNORE_S_CLASSES = new Set([
-  'header', 'data', 'hidden', 'sectionContent', 'expandableArrow', 'expandableSection',
-  'coupaSimpleTooltip', 'readOnlyContent', 'label_readonly', 'mainContent', 'primaryNavBar',
-  'popoverContentWrapper', 'popoverTrigger', 'tooltipWrapper', 'avatarElement',
-  'searchBar', 'searchBarBtn', 'leftItems', 'leftItem', 'rightItems', 'rightItem',
-  'menuLink', 'menu', 'bottom', 'toggleResults', 'comboBoxContainer', 'freeForm',
-  'hiddenField', 'fieldHelperItem', 'fieldHelper', 'addCommentBtn', 'addCommentField',
-  'commentList', 'numComments', 'headerIcon', 'tagList', 'addTagLink',
-  'invoiceApp', 'FlashContainer', 'topSection', 'editableContainer',
-  'invoiceLineGrid', 'invoiceEditLineGrid', 'invoiceLineTableRowRoot',
-  'invoiceLineundefined', 'openFormLineWrapper', 'totalActionHolder',
-  'invoiceLinesFields', 'invoiceLineCFA', 'headerCFA', 'invoiceLineTotal',
-  'advSearch', 'dataTableId', 'pageContent', 'pageContentRight',
-  'superScreenSwitchBtn', 'superScreenSwitch', 'superScreenFrameContent',
-  'superScreenMenus', 'expandedFrame', 'collapsedFrame', 'relatedDocsIconBtn',
-  'superScreenCollapsedContainer', 'coupaGlobalHeader',
-  'muteAttachmentNotifications', 'attachmentFile', 'attachmentList',
-  'tab-0', 'tab-1', 'tab-2', 'tab-3',
-  'historyContainer', 'historyBody', 'history_content',
-  'totalsTaxesSection', 'totalsTaxesContainer', 'lineTotalsSection',
-  'lineNetTotal', 'totalAmounts', 'totalsTaxes', 'totalsContainer',
-  'chargesSection', 'shippingCharges', 'handlingCharges', 'miscCharges',
-  'shippingAmount', 'handlingAmount', 'miscAmount', 'amount',
-  'reactSummaryView', 'invoiceSummary',
-  'lineNumberDisplay', 'collapseSection',
-  'secondaryLines', 'taxCodeSupport', 'lineToleranceFailureInfo',
+  'header',
+  'data',
+  'hidden',
+  'sectionContent',
+  'expandableArrow',
+  'expandableSection',
+  'coupaSimpleTooltip',
+  'readOnlyContent',
+  'label_readonly',
+  'mainContent',
+  'primaryNavBar',
+  'popoverContentWrapper',
+  'popoverTrigger',
+  'tooltipWrapper',
+  'avatarElement',
+  'searchBar',
+  'searchBarBtn',
+  'leftItems',
+  'leftItem',
+  'rightItems',
+  'rightItem',
+  'menuLink',
+  'menu',
+  'bottom',
+  'toggleResults',
+  'comboBoxContainer',
+  'freeForm',
+  'hiddenField',
+  'fieldHelperItem',
+  'fieldHelper',
+  'addCommentBtn',
+  'addCommentField',
+  'commentList',
+  'numComments',
+  'headerIcon',
+  'tagList',
+  'addTagLink',
+  'invoiceApp',
+  'FlashContainer',
+  'topSection',
+  'editableContainer',
+  'invoiceLineGrid',
+  'invoiceEditLineGrid',
+  'invoiceLineTableRowRoot',
+  'invoiceLineundefined',
+  'openFormLineWrapper',
+  'totalActionHolder',
+  'invoiceLinesFields',
+  'invoiceLineCFA',
+  'headerCFA',
+  'invoiceLineTotal',
+  'advSearch',
+  'dataTableId',
+  'pageContent',
+  'pageContentRight',
+  'superScreenSwitchBtn',
+  'superScreenSwitch',
+  'superScreenFrameContent',
+  'superScreenMenus',
+  'expandedFrame',
+  'collapsedFrame',
+  'relatedDocsIconBtn',
+  'superScreenCollapsedContainer',
+  'coupaGlobalHeader',
+  'muteAttachmentNotifications',
+  'attachmentFile',
+  'attachmentList',
+  'tab-0',
+  'tab-1',
+  'tab-2',
+  'tab-3',
+  'historyContainer',
+  'historyBody',
+  'history_content',
+  'totalsTaxesSection',
+  'totalsTaxesContainer',
+  'lineTotalsSection',
+  'lineNetTotal',
+  'totalAmounts',
+  'totalsTaxes',
+  'totalsContainer',
+  'chargesSection',
+  'shippingCharges',
+  'handlingCharges',
+  'miscCharges',
+  'shippingAmount',
+  'handlingAmount',
+  'miscAmount',
+  'amount',
+  'reactSummaryView',
+  'invoiceSummary',
+  'lineNumberDisplay',
+  'collapseSection',
+  'secondaryLines',
+  'taxCodeSupport',
+  'lineToleranceFailureInfo',
   'coupaNumberBadge__chip',
-  'billToShipTo', 'supplierInfoSection', 'generalSystemFields',
-  'savingsOpportunity', 'coupaUserMenuPopover', 'coupaNotificationPopover',
-  'coupaHelpPopover', 'coupaMenuPopup', 'coupaMenuPopupBody',
-  'universalSearchContainer', 'magnifierIcon',
-  'expandable-section', 'expandable-content',
-  'invoicePaymentDetailsShow', 'paymentSection', 'paymentDetailsShow',
-  'invoiceActionButtons', 'floatingActionBar', 'quickInfoBar', 'quickInfo',
+  'billToShipTo',
+  'supplierInfoSection',
+  'generalSystemFields',
+  'savingsOpportunity',
+  'coupaUserMenuPopover',
+  'coupaNotificationPopover',
+  'coupaHelpPopover',
+  'coupaMenuPopup',
+  'coupaMenuPopupBody',
+  'universalSearchContainer',
+  'magnifierIcon',
+  'expandable-section',
+  'expandable-content',
+  'invoicePaymentDetailsShow',
+  'paymentSection',
+  'paymentDetailsShow',
+  'invoiceActionButtons',
+  'floatingActionBar',
+  'quickInfoBar',
+  'quickInfo',
   'approvalButtonsGroup',
-  'orderLineItem', 'lineNumberDisplay',
+  'orderLineItem',
+  'lineNumberDisplay',
   // PO-specific UI classes
-  'SupplierShippableWidget', 'shippableApp', 'trackerList', 'emptyTrackerList',
-  'groupCartContainer', 'groupCartShow',
+  'SupplierShippableWidget',
+  'shippableApp',
+  'trackerList',
+  'emptyTrackerList',
+  'groupCartContainer',
+  'groupCartShow',
 ]);
 
 function injectStyles() {
@@ -118,7 +207,7 @@ function getFieldMapFromJson() {
 
 function annotateJsonLabels(fieldMap: Map<string, string>) {
   const labels = document.querySelectorAll(
-    'dt.label_readonly, dt.group_label, dl.attribute dt, dl.form_element dt'
+    'dt.label_readonly, dt.group_label, dl.attribute dt, dl.form_element dt',
   );
   for (const dt of labels) {
     const labelText = dt.textContent!.trim();
@@ -136,7 +225,7 @@ function extractFieldNameFromId(formElement: Element): string | null {
   const children = formElement.querySelectorAll('[id]');
   for (const el of children) {
     const match = el.id.match(
-      /^(?:order_header|order_line|requisition_header|contract)_(?:\d+_)?(.+)$/
+      /^(?:order_header|order_line|requisition_header|contract)_(?:\d+_)?(.+)$/,
     );
     if (match && match[1]) return match[1];
   }
@@ -170,14 +259,11 @@ function extractFieldNameFromClasses(formElement: Element): string | null {
 function annotateRailsLabels() {
   const formElements = document.querySelectorAll('.form_element');
   for (const el of formElements) {
-    const label =
-      el.querySelector('span.group_label') ||
-      el.querySelector('label.group_label');
+    const label = el.querySelector('span.group_label') || el.querySelector('label.group_label');
     if (!label) continue;
     if (label.querySelector(`.${MARKER_CLASS}`)) continue;
 
-    const fieldName =
-      extractFieldNameFromId(el) || extractFieldNameFromClasses(el);
+    const fieldName = extractFieldNameFromId(el) || extractFieldNameFromClasses(el);
     if (fieldName) {
       displayFieldName(label, fieldName);
     }

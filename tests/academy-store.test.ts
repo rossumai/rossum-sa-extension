@@ -7,17 +7,20 @@ import { TRACK } from '../src/training/track.js';
 let state: any;
 beforeEach(() => {
   state = {};
-  globalThis.chrome = ({ storage: {
-    local: {
-      get: vi.fn(async (keys) => {
-        const out = {};
-        for (const k of (Array.isArray(keys) ? keys : [keys])) if (k in state) (out as any)[k] = state[k];
-        return out;
-      }),
-      set: vi.fn(async (obj) => Object.assign(state, obj)),
-    },
-    onChanged: { addListener: vi.fn(), removeListener: vi.fn() },
-  } as any } as any);
+  globalThis.chrome = {
+    storage: {
+      local: {
+        get: vi.fn(async (keys) => {
+          const out = {};
+          for (const k of Array.isArray(keys) ? keys : [keys])
+            if (k in state) (out as any)[k] = state[k];
+          return out;
+        }),
+        set: vi.fn(async (obj) => Object.assign(state, obj)),
+      },
+      onChanged: { addListener: vi.fn(), removeListener: vi.fn() },
+    } as any,
+  } as any;
   store.setOrigin('https://x.rossum.app');
   store.progress.value = null;
   store.activeMissionId.value = null;
@@ -40,7 +43,9 @@ describe('startTrack', () => {
   });
 
   it('sets a human error and leaves the signals untouched when the storage write rejects', async () => {
-    globalThis.chrome.storage.local.set = vi.fn(async () => { throw new Error('QuotaExceededError'); });
+    globalThis.chrome.storage.local.set = vi.fn(async () => {
+      throw new Error('QuotaExceededError');
+    });
     await expect(store.startTrack()).resolves.toBeUndefined(); // must not reject out of a click handler
     expect(store.progress.value).toBe(null); // untouched — never assigned before the throw
     expect(store.activeMissionId.value).toBe(null);
@@ -52,13 +57,17 @@ describe('attestStep', () => {
   it('marks a self step and persists it', async () => {
     await store.startTrack();
     await store.attestStep('m1', 'm1.s4');
-    expect(state[PROGRESS_KEY]['https://x.rossum.app'].missions.m1.steps['m1.s4'].state).toBe('self');
+    expect(state[PROGRESS_KEY]['https://x.rossum.app'].missions.m1.steps['m1.s4'].state).toBe(
+      'self',
+    );
   });
 
   it('refuses to attest a step that is not kind self', async () => {
     await store.startTrack();
     await store.attestStep('m1', 'm1.s1');
-    expect(state[PROGRESS_KEY]['https://x.rossum.app'].missions?.m1?.steps?.['m1.s1']).toBeUndefined();
+    expect(
+      state[PROGRESS_KEY]['https://x.rossum.app'].missions?.m1?.steps?.['m1.s1'],
+    ).toBeUndefined();
   });
 
   it('refuses a nonexistent mission id — nothing written', async () => {
@@ -91,7 +100,10 @@ describe('attestStep', () => {
 
 describe('restartTrack', () => {
   it('clears only this org and resets the signals', async () => {
-    state[PROGRESS_KEY] = { 'https://x.rossum.app': { trackId: 't' }, 'https://y.rossum.app': { trackId: 't' } };
+    state[PROGRESS_KEY] = {
+      'https://x.rossum.app': { trackId: 't' },
+      'https://y.rossum.app': { trackId: 't' },
+    };
     await store.restartTrack();
     expect(Object.keys(state[PROGRESS_KEY])).toEqual(['https://y.rossum.app']);
     expect(store.progress.value).toBe(null);

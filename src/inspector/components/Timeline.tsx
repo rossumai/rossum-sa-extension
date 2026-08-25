@@ -12,12 +12,22 @@ const STEPS = [
 ];
 
 const CHECK = (
-  <svg class="inspector-step-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+  <svg
+    class="inspector-step-check"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="3.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
     <path d="M20 6 9 17l-5-5" />
   </svg>
 );
 
-function fmt(ts: unknown) { return String(ts).replace('T', ' ').replace('Z', '').slice(0, 16); }
+function fmt(ts: unknown) {
+  return String(ts).replace('T', ' ').replace('Z', '').slice(0, 16);
+}
 
 // Short relative gap between two timestamps (e.g. "18d", "1h", "2m").
 function gap(a: any, b: any) {
@@ -38,7 +48,13 @@ function gap(a: any, b: any) {
 function statusTone(status?: string) {
   if (status === 'rejected' || status === 'failed_export') return 'danger';
   if (status === 'confirmed' || status === 'exported') return 'success';
-  if (status === 'to_review' || status === 'reviewing' || status === 'importing' || status === 'created') return 'warning';
+  if (
+    status === 'to_review' ||
+    status === 'reviewing' ||
+    status === 'importing' ||
+    status === 'created'
+  )
+    return 'warning';
   return 'accent';
 }
 
@@ -63,7 +79,9 @@ export default function Timeline() {
               <span class="inspector-step-dot">{isCurrent ? null : CHECK}</span>
               <div class="inspector-step-label">{s.label}</div>
               <div class="dt">{fmt(s.ts)}</div>
-              {isCurrent ? <span class="inspector-step-now">{String(a.status).replace(/_/g, ' ')}</span> : null}
+              {isCurrent ? (
+                <span class="inspector-step-now">{String(a.status).replace(/_/g, ' ')}</span>
+              ) : null}
             </li>
           );
         })}

@@ -11,17 +11,26 @@ const SECTIONS = [
 function mount(props = {}) {
   const root = document.createElement('div');
   document.body.appendChild(root);
-  act(() => { render(<DocView sections={SECTIONS} {...props} />, root); });
+  act(() => {
+    render(<DocView sections={SECTIONS} {...props} />, root);
+  });
   return root;
 }
-beforeEach(() => { document.body.innerHTML = ''; });
+beforeEach(() => {
+  document.body.innerHTML = '';
+});
 
 describe('DocView with many sections', () => {
   it('renders one section per deliverable, tagged with id and slug', async () => {
     const root = mount();
-    await vi.waitFor(() => expect(root.querySelectorAll('section[data-deliverable]').length).toBe(2));
-    expect([...root.querySelectorAll('section[data-deliverable]')].map((s) => (s as HTMLElement).dataset.slug))
-      .toEqual(['data-model', 'intake']);
+    await vi.waitFor(() =>
+      expect(root.querySelectorAll('section[data-deliverable]').length).toBe(2),
+    );
+    expect(
+      [...root.querySelectorAll('section[data-deliverable]')].map(
+        (s) => (s as HTMLElement).dataset.slug,
+      ),
+    ).toEqual(['data-model', 'intake']);
   });
 
   it('puts EVERY deliverable text in the DOM — this is what makes Cmd+F work', async () => {
@@ -33,8 +42,10 @@ describe('DocView with many sections', () => {
   it('namespaces colliding heading ids so a fragment can address one deliverable', async () => {
     const root = mount();
     await vi.waitFor(() => expect(root.querySelectorAll('h2[id]').length).toBe(2));
-    expect([...root.querySelectorAll('h2[id]')].map((e) => e.id))
-      .toEqual(['data-model--2-scope', 'intake--2-scope']);
+    expect([...root.querySelectorAll('h2[id]')].map((e) => e.id)).toEqual([
+      'data-model--2-scope',
+      'intake--2-scope',
+    ]);
   });
 
   it('keeps ONE scroller for the page and one body per section', async () => {
@@ -46,7 +57,10 @@ describe('DocView with many sections', () => {
   it('renders a host-supplied header inside each section', async () => {
     const root = mount({ headerFor: (s: any) => <div class="mk-hd">{s.slug}</div> });
     await vi.waitFor(() => expect(root.querySelectorAll('.mk-hd').length).toBe(2));
-    expect([...root.querySelectorAll('.mk-hd')].map((e) => e.textContent)).toEqual(['data-model', 'intake']);
+    expect([...root.querySelectorAll('.mk-hd')].map((e) => e.textContent)).toEqual([
+      'data-model',
+      'intake',
+    ]);
   });
 
   it('exposes page-wide geometry for the scroll spy', async () => {

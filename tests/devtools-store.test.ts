@@ -3,7 +3,8 @@ import * as store from '../src/devtools/store.js';
 
 const R = (type: any, id: any) => ({ type, id, apiPath: `/api/v1/${type}s/${id}`, label: type });
 beforeEach(() => {
-  store.tabs.value = []; store.activeId.value = null;
+  store.tabs.value = [];
+  store.activeId.value = null;
   vi.useRealTimers();
   store._resetToast();
 });
@@ -60,7 +61,8 @@ describe('store tabs', () => {
     expect(store.tabs.value.length).toBe(1); // deduped
   });
   it('closeTab activates a neighbor', () => {
-    const a = store.openTab(R('queue', '1')); const b = store.openTab(R('queue', '2'));
+    const a = store.openTab(R('queue', '1'));
+    const b = store.openTab(R('queue', '2'));
     store.setActive(a.id);
     store.closeTab(a.id);
     expect(store.tabs.value.length).toBe(1);
@@ -92,8 +94,19 @@ describe('store tabs', () => {
     expect(store.keyOf({ via: 'org' })).toBe('org:current');
   });
   it('parent and sub-resource have distinct keys and openTab does not dedup them', () => {
-    const parent = { type: 'annotations', id: '123', apiPath: '/api/v1/annotations/123', label: 'Annotation' };
-    const sub = { type: 'annotations', id: '123', apiPath: '/api/v1/annotations/123/content', label: 'Content', readOnly: true };
+    const parent = {
+      type: 'annotations',
+      id: '123',
+      apiPath: '/api/v1/annotations/123',
+      label: 'Annotation',
+    };
+    const sub = {
+      type: 'annotations',
+      id: '123',
+      apiPath: '/api/v1/annotations/123/content',
+      label: 'Content',
+      readOnly: true,
+    };
     const t1 = store.openTab(parent, 'link');
     expect(store.tabs.value.length).toBe(1);
     const t2 = store.openTab(sub, 'link');

@@ -5,7 +5,10 @@ import { decodeBytes, parseCsv } from '../src/mdh/csv.js';
 
 describe('tokenizeCsv', () => {
   it('parses plain rows', () => {
-    expect(tokenizeCsv('a,b\nc,d').rows).toEqual([['a', 'b'], ['c', 'd']]);
+    expect(tokenizeCsv('a,b\nc,d').rows).toEqual([
+      ['a', 'b'],
+      ['c', 'd'],
+    ]);
   });
 
   it('keeps the delimiter inside a quoted field', () => {
@@ -33,14 +36,26 @@ describe('tokenizeCsv', () => {
   });
 
   it('handles CRLF, LF, and lone CR terminators', () => {
-    expect(tokenizeCsv('a,b\r\nc,d').rows).toEqual([['a', 'b'], ['c', 'd']]);
-    expect(tokenizeCsv('a,b\rc,d').rows).toEqual([['a', 'b'], ['c', 'd']]);
+    expect(tokenizeCsv('a,b\r\nc,d').rows).toEqual([
+      ['a', 'b'],
+      ['c', 'd'],
+    ]);
+    expect(tokenizeCsv('a,b\rc,d').rows).toEqual([
+      ['a', 'b'],
+      ['c', 'd'],
+    ]);
   });
 
   it('drops blank lines when skipEmptyLines is on, keeps them when off', () => {
-    expect(tokenizeCsv('a,b\n\nc,d').rows).toEqual([['a', 'b'], ['c', 'd']]);
-    expect(tokenizeCsv('a,b\n\nc,d', { skipEmptyLines: false }).rows)
-      .toEqual([['a', 'b'], [''], ['c', 'd']]);
+    expect(tokenizeCsv('a,b\n\nc,d').rows).toEqual([
+      ['a', 'b'],
+      ['c', 'd'],
+    ]);
+    expect(tokenizeCsv('a,b\n\nc,d', { skipEmptyLines: false }).rows).toEqual([
+      ['a', 'b'],
+      [''],
+      ['c', 'd'],
+    ]);
   });
 
   it('keeps a row of empty quoted fields (not a blank line)', () => {
@@ -102,12 +117,24 @@ describe('dedupeHeaders', () => {
 
 describe('rowsToDocs', () => {
   it('maps a header row to keys (strings by default)', () => {
-    const r = rowsToDocs([['name', 'age'], ['Alice', '30']], { hasHeader: true });
+    const r = rowsToDocs(
+      [
+        ['name', 'age'],
+        ['Alice', '30'],
+      ],
+      { hasHeader: true },
+    );
     expect(r.columns).toEqual(['name', 'age']);
     expect(r.docs).toEqual([{ name: 'Alice', age: '30' }]);
   });
   it('infers types when inferTypes is on', () => {
-    const r = rowsToDocs([['name', 'age'], ['Alice', '30']], { hasHeader: true, inferTypes: true });
+    const r = rowsToDocs(
+      [
+        ['name', 'age'],
+        ['Alice', '30'],
+      ],
+      { hasHeader: true, inferTypes: true },
+    );
     expect(r.docs).toEqual([{ name: 'Alice', age: 30 }]);
   });
   it('generates column_N names when there is no header', () => {
@@ -116,11 +143,20 @@ describe('rowsToDocs', () => {
     expect(r.docs).toEqual([{ column_1: 'a', column_2: 'b' }]);
   });
   it('resolves duplicate header names', () => {
-    const r = rowsToDocs([['x', 'x'], ['1', '2']], { hasHeader: true });
+    const r = rowsToDocs(
+      [
+        ['x', 'x'],
+        ['1', '2'],
+      ],
+      { hasHeader: true },
+    );
     expect(r.docs).toEqual([{ x: '1', x_2: '2' }]);
   });
   it('handles empty cells per emptyMode', () => {
-    const rows = [['a', 'b'], ['1', '']];
+    const rows = [
+      ['a', 'b'],
+      ['1', ''],
+    ];
     expect(rowsToDocs(rows, { emptyMode: 'empty' }).docs).toEqual([{ a: '1', b: '' }]);
     expect(rowsToDocs(rows, { emptyMode: 'null' }).docs).toEqual([{ a: '1', b: null }]);
     expect(rowsToDocs(rows, { emptyMode: 'omit' }).docs).toEqual([{ a: '1' }]);
@@ -130,7 +166,13 @@ describe('rowsToDocs', () => {
     expect(r.docs).toEqual([{ a: 'x' }]);
   });
   it('passes an _id column through unchanged', () => {
-    const r = rowsToDocs([['_id', 'name'], ['V1', 'Acme']], { hasHeader: true });
+    const r = rowsToDocs(
+      [
+        ['_id', 'name'],
+        ['V1', 'Acme'],
+      ],
+      { hasHeader: true },
+    );
     expect(r.docs).toEqual([{ _id: 'V1', name: 'Acme' }]);
   });
   it('warns about ragged rows and pads short ones', () => {
@@ -149,7 +191,7 @@ describe('decodeBytes', () => {
     expect(decodeBytes(bytes.buffer)).toBe('héllo');
   });
   it('decodes windows-1252', () => {
-    expect(decodeBytes(new Uint8Array([0x68, 0xE9]), 'windows-1252')).toBe('hé');
+    expect(decodeBytes(new Uint8Array([0x68, 0xe9]), 'windows-1252')).toBe('hé');
   });
   it('falls back to utf-8 for an unknown encoding label', () => {
     expect(decodeBytes(new Uint8Array([0x41]), 'bogus-enc-xyz')).toBe('A');
@@ -160,7 +202,12 @@ describe('parseCsv', () => {
   it('decodes, tokenizes, and converts in one call', () => {
     const text = new TextEncoder().encode('a,b\n1,2');
     const r = parseCsv(text.buffer, { hasHeader: true });
-    expect(r).toEqual({ docs: [{ a: '1', b: '2' }], columns: ['a', 'b'], warnings: [], error: null });
+    expect(r).toEqual({
+      docs: [{ a: '1', b: '2' }],
+      columns: ['a', 'b'],
+      warnings: [],
+      error: null,
+    });
   });
   it('accepts a string buffer directly', () => {
     expect(parseCsv('a,b\n1,2', { hasHeader: true }).docs).toEqual([{ a: '1', b: '2' }]);

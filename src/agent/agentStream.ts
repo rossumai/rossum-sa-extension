@@ -61,8 +61,15 @@ function parseLines(raw: string) {
     const m = line.match(/^data:\s?(.*)$/);
     if (!m) continue;
     const payload = m[1];
-    if (payload === '[DONE]') { events.push({ type: '__done__' }); continue; }
-    try { events.push(JSON.parse(payload)); } catch { /* partial/non-json → skip */ }
+    if (payload === '[DONE]') {
+      events.push({ type: '__done__' });
+      continue;
+    }
+    try {
+      events.push(JSON.parse(payload));
+    } catch {
+      /* partial/non-json → skip */
+    }
   }
   return events;
 }
@@ -110,31 +117,63 @@ export type StreamAcc = {
 };
 
 export function newAcc(): StreamAcc {
-  return { reasoning: '', text: '', finalAnswer: null, status: '', done: false, tools: [], questions: null, unhandled: [], error: null };
+  return {
+    reasoning: '',
+    text: '',
+    finalAnswer: null,
+    status: '',
+    done: false,
+    tools: [],
+    questions: null,
+    unhandled: [],
+    error: null,
+  };
 }
 
 // Fold a batch of events into a mutable accumulator.
 export function foldEvents(acc: StreamAcc, events: any[]) {
   for (const e of events) {
     switch (e && e.type) {
-      case 'reasoning-start': acc.status = 'thinking'; break;
-      case 'reasoning-delta': acc.reasoning += e.delta || ''; break;
-      case 'text-delta': acc.text += e.delta || ''; break;
-      case 'data-final-answer': acc.finalAnswer = e.data?.text ?? acc.finalAnswer; break;
-      case 'data-agent-question': acc.questions = (e.data?.questions && e.data.questions.length) ? e.data.questions : acc.questions; break;
-      case 'error': case 'tool-output-error': {
+      case 'reasoning-start':
+        acc.status = 'thinking';
+        break;
+      case 'reasoning-delta':
+        acc.reasoning += e.delta || '';
+        break;
+      case 'text-delta':
+        acc.text += e.delta || '';
+        break;
+      case 'data-final-answer':
+        acc.finalAnswer = e.data?.text ?? acc.finalAnswer;
+        break;
+      case 'data-agent-question':
+        acc.questions =
+          e.data?.questions && e.data.questions.length ? e.data.questions : acc.questions;
+        break;
+      case 'error':
+      case 'tool-output-error': {
         const msg = e.errorText || e.error || e.message;
         if (msg) acc.error = acc.error ? `${acc.error}\n${msg}` : String(msg);
         break;
       }
-      case 'tool-input-start': acc.status = toolLabel(e.toolName); acc.tools.push(e.toolName); break;
-      case 'finish': case '__done__': acc.done = true; break;
+      case 'tool-input-start':
+        acc.status = toolLabel(e.toolName);
+        acc.tools.push(e.toolName);
+        break;
+      case 'finish':
+      case '__done__':
+        acc.done = true;
+        break;
       default:
         // Forward-compatible: any UNKNOWN custom data-* part (a future
         // interactive element) is captured so the UI can show a named notice
         // instead of rendering nothing. Known data-* are handled above.
-        if (typeof e?.type === 'string' && e.type.startsWith('data-') && !BENIGN_DATA_PARTS.has(e.type)
-          && !acc.unhandled.some((u) => u.type === e.type)) {
+        if (
+          typeof e?.type === 'string' &&
+          e.type.startsWith('data-') &&
+          !BENIGN_DATA_PARTS.has(e.type) &&
+          !acc.unhandled.some((u) => u.type === e.type)
+        ) {
           acc.unhandled.push({ type: e.type, data: e.data });
         }
         break;
@@ -155,7 +194,11 @@ export function fallbackNotice(turn: any) {
   if ((turn.text && turn.text.length) || turn.questions) return null;
   if (turn.error) return { kind: 'error', text: turn.error };
   if (turn.unhandled && turn.unhandled.length) {
-    return { kind: 'unsupported', types: turn.unhandled.map((u: any) => u.type), payloads: turn.unhandled };
+    return {
+      kind: 'unsupported',
+      types: turn.unhandled.map((u: any) => u.type),
+      payloads: turn.unhandled,
+    };
   }
   return { kind: 'empty' };
 }
@@ -165,7 +208,10 @@ export function fallbackNotice(turn: any) {
 // each balanced [ … ] substring. Returns pretty JSON, or null.
 export function extractPipeline(text: unknown) {
   if (typeof text !== 'string') return null;
-  const tryParse = (s: unknown) => { const a = safeParseArray(String(s).trim()); return a ? JSON.stringify(a, null, 2) : null; };
+  const tryParse = (s: unknown) => {
+    const a = safeParseArray(String(s).trim());
+    return a ? JSON.stringify(a, null, 2) : null;
+  };
   const fenceRe = /```(?:json)?\s*\n?([\s\S]*?)```/gi;
   let m;
   while ((m = fenceRe.exec(text)) !== null) {
@@ -178,7 +224,8 @@ export function extractPipeline(text: unknown) {
   // array of stage objects. Requiring object elements skips incidental arrays
   // like a markdown link's [x] or a [1] footnote reference that also parse as
   // valid JSON but aren't pipelines.
-  const isPipeline = (a: any) => Array.isArray(a) && a.every((s) => s && typeof s === 'object' && !Array.isArray(s));
+  const isPipeline = (a: any) =>
+    Array.isArray(a) && a.every((s) => s && typeof s === 'object' && !Array.isArray(s));
   for (let i = 0; i < text.length; i++) {
     if (text[i] !== '[') continue;
     let depth = 0;

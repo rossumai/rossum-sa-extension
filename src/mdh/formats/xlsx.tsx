@@ -5,7 +5,13 @@ import { Segmented, Toggle } from '../components/ImportControls.jsx';
 // The options bag every format's Configure controls edit, plus its setter.
 type ControlsProps = { opts: Record<string, any>; setOpt: (key: string, value: any) => void };
 
-const defaultOpts = { sheet: null, hasHeader: true, emptyMode: 'null', trim: false, restoreValues: true };
+const defaultOpts = {
+  sheet: null,
+  hasHeader: true,
+  emptyMode: 'null',
+  trim: false,
+  restoreValues: true,
+};
 
 const EMPTY_SEG = [
   { value: 'empty', label: '""', title: 'Empty string' },
@@ -19,34 +25,90 @@ function ConfigureControls({ opts, setOpt, parsed }: ControlsProps & { parsed?: 
     <div class="csv-toolbar">
       {sheets.length > 1 && (
         <span class="csv-tb-item">
-          <span class="csv-tb-k" title="Which worksheet to import.">Sheet</span>
-          <select class="xlsx-sheet-select" data-testid="xlsx-sheet" value={opts.sheet ?? sheets[0]} onChange={(e: any) => setOpt('sheet', e.target.value)}>
-            {sheets.map((s: any) => <option key={s} value={s}>{s}</option>)}
+          <span class="csv-tb-k" title="Which worksheet to import.">
+            Sheet
+          </span>
+          <select
+            class="xlsx-sheet-select"
+            data-testid="xlsx-sheet"
+            value={opts.sheet ?? sheets[0]}
+            onChange={(e: any) => setOpt('sheet', e.target.value)}
+          >
+            {sheets.map((s: any) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
           </select>
         </span>
       )}
       <span class="csv-tb-item">
-        <span class="csv-tb-k" title="Use row 1 as field names.">First row is a header</span>
-        <Toggle checked={opts.hasHeader} onChange={(v) => setOpt('hasHeader', v)} testid="xlsx-header" title="Use row 1 as field names." />
+        <span class="csv-tb-k" title="Use row 1 as field names.">
+          First row is a header
+        </span>
+        <Toggle
+          checked={opts.hasHeader}
+          onChange={(v) => setOpt('hasHeader', v)}
+          testid="xlsx-header"
+          title="Use row 1 as field names."
+        />
       </span>
       <span class="csv-tb-item">
-        <span class="csv-tb-k" title="Rebuild objects and arrays the export flattened, and match values to the types this collection already uses.">Restore structure {'&'} types</span>
-        <Toggle checked={opts.restoreValues} onChange={(v) => setOpt('restoreValues', v)} testid="xlsx-restore" title="Rebuild what the export flattened." />
+        <span
+          class="csv-tb-k"
+          title="Rebuild objects and arrays the export flattened, and match values to the types this collection already uses."
+        >
+          Restore structure {'&'} types
+        </span>
+        <Toggle
+          checked={opts.restoreValues}
+          onChange={(v) => setOpt('restoreValues', v)}
+          testid="xlsx-restore"
+          title="Rebuild what the export flattened."
+        />
       </span>
       <span class="csv-tb-item">
-        <span class="csv-tb-k" title="What an empty cell becomes.">Empty cell {'→'}</span>
-        <Segmented value={opts.emptyMode} options={EMPTY_SEG} testid="xlsx-empty" ariaLabel="Empty cell" onChange={(v) => setOpt('emptyMode', v)} />
+        <span class="csv-tb-k" title="What an empty cell becomes.">
+          Empty cell {'→'}
+        </span>
+        <Segmented
+          value={opts.emptyMode}
+          options={EMPTY_SEG}
+          testid="xlsx-empty"
+          ariaLabel="Empty cell"
+          onChange={(v) => setOpt('emptyMode', v)}
+        />
       </span>
       <span class="csv-tb-item">
-        <span class="csv-tb-k" title="Strip leading/trailing whitespace around text cells.">Trim values</span>
-        <Toggle checked={opts.trim} onChange={(v) => setOpt('trim', v)} testid="xlsx-trim" title="Strip surrounding whitespace from text cells." />
+        <span class="csv-tb-k" title="Strip leading/trailing whitespace around text cells.">
+          Trim values
+        </span>
+        <Toggle
+          checked={opts.trim}
+          onChange={(v) => setOpt('trim', v)}
+          testid="xlsx-trim"
+          title="Strip surrounding whitespace from text cells."
+        />
       </span>
     </div>
   );
 }
 
 function parse(arrayBuffer: any, opts: any) {
-  return parseXlsx(arrayBuffer, { sheet: opts.sheet, hasHeader: opts.hasHeader, emptyMode: opts.emptyMode, trim: opts.trim });
+  return parseXlsx(arrayBuffer, {
+    sheet: opts.sheet,
+    hasHeader: opts.hasHeader,
+    emptyMode: opts.emptyMode,
+    trim: opts.trim,
+  });
 }
 
-export default { id: 'xlsx', label: 'Excel', accept: '.xlsx', read: 'arrayBuffer', defaultOpts, parse, ConfigureControls };
+export default {
+  id: 'xlsx',
+  label: 'Excel',
+  accept: '.xlsx',
+  read: 'arrayBuffer',
+  defaultOpts,
+  parse,
+  ConfigureControls,
+};

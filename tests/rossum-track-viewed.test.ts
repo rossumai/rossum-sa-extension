@@ -16,10 +16,14 @@ describe('viewed tracking', () => {
   let state: any;
   beforeEach(() => {
     state = {};
-    globalThis.chrome = ({ storage: { local: {
-      get: vi.fn(async () => ({ ...state })),
-      set: vi.fn(async (obj) => Object.assign(state, obj)),
-    } } as any } as any);
+    globalThis.chrome = {
+      storage: {
+        local: {
+          get: vi.fn(async () => ({ ...state })),
+          set: vi.fn(async (obj) => Object.assign(state, obj)),
+        },
+      } as any,
+    } as any;
   });
 
   it('records {id, origin, at} when on an annotation route', async () => {

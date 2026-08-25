@@ -2,7 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { driftDiff } from '../src/inspector/driftDiff.js';
 
 describe('driftDiff', () => {
-  const e = (content: any, type = 'error', id: string | number | null = null) => ({ type, content, id });
+  const e = (content: any, type = 'error', id: string | number | null = null) => ({
+    type,
+    content,
+    id,
+  });
   it('classifies added / removed / unchanged by (type, content, id)', () => {
     const persisted = [e('A'), e('B', 'warning'), e('C', 'error', 101)];
     const live = [e('A'), e('D'), e('C', 'error', 102)];

@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { init as initSchemaIds, handleNode as handleSchemaId } from '../src/rossum/features/schema-ids.js';
+import {
+  init as initSchemaIds,
+  handleNode as handleSchemaId,
+} from '../src/rossum/features/schema-ids.js';
 import { handleNode as handleExpandFormulas } from '../src/rossum/features/expand-formulas.js';
 import { handleNode as handleExpandReasoning } from '../src/rossum/features/expand-reasoning.js';
 

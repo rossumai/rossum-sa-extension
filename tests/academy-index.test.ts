@@ -11,13 +11,15 @@ beforeEach(() => {
   store.error.value = null;
   store.progress.value = null;
   store.activeMissionId.value = null;
-  globalThis.chrome = ({ storage: {
-    local: {
-      get: vi.fn(async () => ({})),
-      set: vi.fn(async () => {}),
-    },
-    onChanged: { addListener: vi.fn() },
-  } as any } as any);
+  globalThis.chrome = {
+    storage: {
+      local: {
+        get: vi.fn(async () => ({})),
+        set: vi.fn(async () => {}),
+      },
+      onChanged: { addListener: vi.fn() },
+    } as any,
+  } as any;
 });
 
 describe('initAcademy', () => {

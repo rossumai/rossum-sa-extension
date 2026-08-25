@@ -7,7 +7,16 @@ let hintSeq = 0;
 
 function CopyIcon() {
   return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
       <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
     </svg>
@@ -16,7 +25,16 @@ function CopyIcon() {
 
 function CheckIcon() {
   return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="3"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
       <polyline points="20 6 9 17 4 12" />
     </svg>
   );
@@ -24,20 +42,34 @@ function CheckIcon() {
 
 function OpenExternalIcon() {
   return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
       <path d="M7 17L17 7M17 7H7M17 7v10" />
     </svg>
   );
 }
 
-export default function QueryItem(
-  { index, label, status, onCopy, onOpen }:
-  {
-    index: number; label: string;
-    status?: { status?: string; hint?: string } | null;
-    onCopy: () => void | Promise<void>; onOpen: () => void;
-  },
-) {
+export default function QueryItem({
+  index,
+  label,
+  status,
+  onCopy,
+  onOpen,
+}: {
+  index: number;
+  label: string;
+  status?: { status?: string; hint?: string } | null;
+  onCopy: () => void | Promise<void>;
+  onOpen: () => void;
+}) {
   const meta = STATUS_GLYPH[status?.status as string] || STATUS_GLYPH.pending;
   const hint = status?.hint;
   const hasHint = !!(meta.showHint && hint);
@@ -81,7 +113,9 @@ export default function QueryItem(
   useEffect(() => {
     if (!tip) return undefined;
     const close = () => setTip(null);
-    const onKey = (e: any) => { if (e.key === 'Escape') setTip(null); };
+    const onKey = (e: any) => {
+      if (e.key === 'Escape') setTip(null);
+    };
     document.addEventListener('scroll', close, true);
     window.addEventListener('resize', close);
     document.addEventListener('keydown', onKey);
@@ -120,7 +154,9 @@ export default function QueryItem(
     status?.status === 'winner' ? 'mdh-q--winner' : '',
     status?.status === 'skipped' ? 'mdh-q--skipped' : '',
     status?.status === 'gated' ? 'mdh-q--gated' : '',
-  ].filter(Boolean).join(' ');
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <li class={liClass}>
@@ -136,14 +172,22 @@ export default function QueryItem(
         onMouseLeave={closeTip}
         onFocus={openTip}
         onBlur={closeTip}
-      >{meta.glyph}</span>
+      >
+        {meta.glyph}
+      </span>
       <span class="mdh-q-num">{index + 1}.</span>
-      <span class="mdh-q-name" title={label}>{label}</span>
+      <span class="mdh-q-name" title={label}>
+        {label}
+      </span>
       <span class="mdh-q-actions">
         <button
           type="button"
           class={`mdh-q-copy mdh-q-action${copied ? ' mdh-q-copy--ok' : ''}`}
-          title={copyFailed ? 'Copy failed — clipboard blocked' : 'Copy pipeline (with current row values) to clipboard'}
+          title={
+            copyFailed
+              ? 'Copy failed — clipboard blocked'
+              : 'Copy pipeline (with current row values) to clipboard'
+          }
           onClick={handleCopy}
         >
           {copied ? <CheckIcon /> : <CopyIcon />}
@@ -163,7 +207,11 @@ export default function QueryItem(
           id={hintId.current}
           role="tooltip"
           class={`mdh-q-hint${status?.status === 'error' ? ' mdh-q-hint--error' : ''}`}
-          style={{ top: `${tip.top}px`, left: `${tip.left}px`, visibility: tip.placed ? 'visible' : 'hidden' }}
+          style={{
+            top: `${tip.top}px`,
+            left: `${tip.left}px`,
+            visibility: tip.placed ? 'visible' : 'hidden',
+          }}
         >
           <span class="mdh-q-hint-title">{meta.title}</span>
           {hint}

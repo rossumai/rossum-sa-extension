@@ -47,12 +47,20 @@ export type CollectionPlan = {
 //              which is the "customers where we cannot rename it now" case: they keep
 //              working on the legacy name and the next boot tries again.
 //   'merge'  — both exist: read both, prefer the new one per _id, and say so in the UI.
-export function planCollection(
-  { hasNew, hasOld }: { hasNew?: boolean; hasOld?: boolean } = {},
-): CollectionPlan {
-  if (hasNew && hasOld) return { use: COLLECTION, legacy: LEGACY_COLLECTION, action: 'merge', fallback: null };
+export function planCollection({
+  hasNew,
+  hasOld,
+}: { hasNew?: boolean; hasOld?: boolean } = {}): CollectionPlan {
+  if (hasNew && hasOld)
+    return { use: COLLECTION, legacy: LEGACY_COLLECTION, action: 'merge', fallback: null };
   if (hasNew) return { use: COLLECTION, legacy: null, action: 'none', fallback: null };
-  if (hasOld) return { use: COLLECTION, legacy: LEGACY_COLLECTION, action: 'rename', fallback: LEGACY_COLLECTION };
+  if (hasOld)
+    return {
+      use: COLLECTION,
+      legacy: LEGACY_COLLECTION,
+      action: 'rename',
+      fallback: LEGACY_COLLECTION,
+    };
   return { use: COLLECTION, legacy: null, action: 'create', fallback: null };
 }
 
@@ -78,7 +86,12 @@ export function mergeDeliverables(
   primary: Deliverable[] | null | undefined,
   legacy: Deliverable[] | null | undefined,
 ): Deliverable[] {
-  const stamp = (d: Deliverable) => (typeof d?.editedAt === 'number' ? d.editedAt : (typeof d?.createdAt === 'number' ? d.createdAt : -1));
+  const stamp = (d: Deliverable) =>
+    typeof d?.editedAt === 'number'
+      ? d.editedAt
+      : typeof d?.createdAt === 'number'
+        ? d.createdAt
+        : -1;
   const byId = new Map();
   for (const d of primary || []) if (d && d.id != null) byId.set(d.id, d);
   for (const d of legacy || []) {

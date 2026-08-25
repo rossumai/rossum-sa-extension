@@ -16,7 +16,9 @@ export default function App({ connected }: { connected: boolean | null }) {
         <ConnectionBar connected={connected} />
         <ErrorBanner />
         {!connected ? (
-          <div class="empty-state">Not connected — open a Rossum page and click Audit Logs in the extension popup.</div>
+          <div class="empty-state">
+            Not connected — open a Rossum page and click Audit Logs in the extension popup.
+          </div>
         ) : availability.value === 'unavailable' ? (
           <UnavailablePanel />
         ) : (

@@ -6,11 +6,23 @@ import JsonTree from '../src/mdh/components/JsonTree.jsx';
 function mount(data: any, extra = {}) {
   const root = document.createElement('div');
   document.body.appendChild(root);
-  render(<JsonTree data={data} sortState={{}} filterState={{}} onSort={() => {}} onFilter={() => {}} {...extra} />, root);
+  render(
+    <JsonTree
+      data={data}
+      sortState={{}}
+      filterState={{}}
+      onSort={() => {}}
+      onFilter={() => {}}
+      {...extra}
+    />,
+    root,
+  );
   return root;
 }
 
-afterEach(() => { document.body.innerHTML = ''; });
+afterEach(() => {
+  document.body.innerHTML = '';
+});
 
 describe('JsonTree compact type tags', () => {
   it('renders an EJSON value with the shared compact value-type-tag (short + title), not the full-word badge', () => {

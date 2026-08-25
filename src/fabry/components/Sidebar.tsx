@@ -41,23 +41,43 @@ export default function Sidebar() {
   return (
     <aside class="fabry-sidebar">
       <div class="fabry-sidebar-title">
-        <span class="fabry-sidebar-mark"><FabryMark /></span>
+        <span class="fabry-sidebar-mark">
+          <FabryMark />
+        </span>
         <span class="fabry-sidebar-name">Mr. Fabry</span>
       </div>
       <div class="fabry-mode" role="tablist">
-        <button type="button" class={'fabry-mode-opt' + (!architect ? ' on' : '')} onClick={() => store.setFabryMode('chat')}>Chat</button>
-        <button type="button" class={'fabry-mode-opt' + (architect ? ' on' : '')} onClick={() => store.setFabryMode('architect')}>Architect</button>
+        <button
+          type="button"
+          class={'fabry-mode-opt' + (!architect ? ' on' : '')}
+          onClick={() => store.setFabryMode('chat')}
+        >
+          Chat
+        </button>
+        <button
+          type="button"
+          class={'fabry-mode-opt' + (architect ? ' on' : '')}
+          onClick={() => store.setFabryMode('architect')}
+        >
+          Architect
+        </button>
       </div>
       {architect ? (
         <ArchitectSidebar />
       ) : (
         <>
-          <button type="button" class="fabry-newchat" onClick={startNewChat}>{'＋ New chat'}</button>
+          <button type="button" class="fabry-newchat" onClick={startNewChat}>
+            {'＋ New chat'}
+          </button>
           <div
             class="fabry-chatlist"
             onScroll={(e) => {
               const el = e.currentTarget;
-              if (hasMore && !store.chatsLoading.value && el.scrollHeight - el.scrollTop - el.clientHeight < 80) {
+              if (
+                hasMore &&
+                !store.chatsLoading.value &&
+                el.scrollHeight - el.scrollTop - el.clientHeight < 80
+              ) {
                 loadChats({ more: true });
               }
             }}
@@ -69,10 +89,14 @@ export default function Sidebar() {
                 class={'fabry-chat-row' + (store.activeChatId.value === c.chat_id ? ' active' : '')}
                 onClick={() => openChat(c.chat_id)}
               >
-                <span class="fabry-chat-title" title={chatTitle(c)}>{chatTitle(c)}</span>
+                <span class="fabry-chat-title" title={chatTitle(c)}>
+                  {chatTitle(c)}
+                </span>
               </button>
             ))}
-            {list.length === 0 && !store.chatsLoading.value && <div class="fabry-chat-empty">No conversations yet</div>}
+            {list.length === 0 && !store.chatsLoading.value && (
+              <div class="fabry-chat-empty">No conversations yet</div>
+            )}
           </div>
           {store.chatsLoading.value && <div class="fabry-chat-loadingrow">Loading{'…'}</div>}
         </>

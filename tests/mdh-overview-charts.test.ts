@@ -1,16 +1,24 @@
 import { describe, it, expect } from 'vitest';
 import {
-  overheadColor, overheadTextColor, indexOverhead, scaleArea, treemapItems, squarify,
-  buildTreemap, buildScatter, TOP_N, SCALE_MODES,
+  overheadColor,
+  overheadTextColor,
+  indexOverhead,
+  scaleArea,
+  treemapItems,
+  squarify,
+  buildTreemap,
+  buildScatter,
+  TOP_N,
+  SCALE_MODES,
 } from '../src/mdh/overviewCharts.js';
 
 const MiB = 1024 * 1024;
 
 describe('overheadColor', () => {
   it('maps the scale endpoints and midpoint to the legend colors (blue→teal→yellow)', () => {
-    expect(overheadColor(0)).toBe('#4270db');   // data-heavy (blue)
-    expect(overheadColor(0.5)).toBe('#19b89a');  // teal
-    expect(overheadColor(1)).toBe('#f5c518');    // index-heavy (yellow)
+    expect(overheadColor(0)).toBe('#4270db'); // data-heavy (blue)
+    expect(overheadColor(0.5)).toBe('#19b89a'); // teal
+    expect(overheadColor(1)).toBe('#f5c518'); // index-heavy (yellow)
   });
   it('clamps out-of-range and non-finite ratios', () => {
     expect(overheadColor(-3)).toBe('#4270db');
@@ -22,8 +30,8 @@ describe('overheadColor', () => {
 
 describe('overheadTextColor', () => {
   it('uses white text on the dark blue end and dark text on the light yellow end', () => {
-    expect(overheadTextColor(0)).toBe('#ffffff');   // over blue
-    expect(overheadTextColor(1)).toBe('#10223a');   // over yellow
+    expect(overheadTextColor(0)).toBe('#ffffff'); // over blue
+    expect(overheadTextColor(1)).toBe('#10223a'); // over yellow
   });
 });
 
@@ -98,10 +106,13 @@ describe('treemapItems', () => {
 describe('squarify', () => {
   it('lays out one rect per positive item and conserves total area', () => {
     const items = [
-      { name: 'a', value: 50 }, { name: 'b', value: 30 },
-      { name: 'c', value: 15 }, { name: 'd', value: 5 },
+      { name: 'a', value: 50 },
+      { name: 'b', value: 30 },
+      { name: 'c', value: 15 },
+      { name: 'd', value: 5 },
     ];
-    const W = 400; const H = 300;
+    const W = 400;
+    const H = 300;
     const rects = squarify(items, W, H);
     expect(rects).toHaveLength(4);
     const area = rects.reduce((s, r) => s + r.w * r.h, 0);
@@ -116,7 +127,10 @@ describe('squarify', () => {
     }
   });
   it('areas are proportional to value', () => {
-    const items = [{ name: 'big', value: 75 }, { name: 'small', value: 25 }];
+    const items = [
+      { name: 'big', value: 75 },
+      { name: 'small', value: 25 },
+    ];
     const rects = squarify(items, 200, 200);
     const byName = Object.fromEntries(rects.map((r) => [r.name, r.w * r.h]));
     expect(byName.big / byName.small).toBeCloseTo(3, 1);
@@ -134,10 +148,14 @@ describe('buildTreemap', () => {
     { name: 'b', storageSize: 20 * MiB, totalIndexSize: 40 * MiB }, // 200% overhead → red
   ];
   it('colors data tiles and leaves Other uncolored', () => {
-    const tiles = buildTreemap([...rows,
-      { name: 'c', storageSize: 1 * MiB, totalIndexSize: 0 },
-      { name: 'd', storageSize: 0.5 * MiB, totalIndexSize: 0 },
-    ], { width: 300, height: 200, topN: 2, mode: 'linear' });
+    const tiles = buildTreemap(
+      [
+        ...rows,
+        { name: 'c', storageSize: 1 * MiB, totalIndexSize: 0 },
+        { name: 'd', storageSize: 0.5 * MiB, totalIndexSize: 0 },
+      ],
+      { width: 300, height: 200, topN: 2, mode: 'linear' },
+    );
     const other = tiles.find((t) => t.isOther);
     expect(other.color).toBeNull();
     const b = tiles.find((t) => t.name === 'b');
@@ -153,7 +171,7 @@ describe('buildScatter', () => {
   const rows = [
     { name: 'a', count: 100, avgObjSize: 1024, storageSize: 5 * MiB, totalIndexSize: 1 * MiB },
     { name: 'b', count: 10000, avgObjSize: 4096, storageSize: 30 * MiB, totalIndexSize: 3 * MiB },
-    { name: 'tiny', count: 0, avgObjSize: 0 },     // excluded
+    { name: 'tiny', count: 0, avgObjSize: 0 }, // excluded
     { name: 'err', error: 'x', count: 5, avgObjSize: 100 }, // excluded
   ];
   it('plots only valid points within the plot area', () => {

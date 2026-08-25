@@ -1,19 +1,42 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { viewedRows, enrichRows, loadRecents, enrichRecents, clearRecents, relativeTime, MAX_RECENTS } from '../src/inspector/recents.js';
+import {
+  viewedRows,
+  enrichRows,
+  loadRecents,
+  enrichRecents,
+  clearRecents,
+  relativeTime,
+  MAX_RECENTS,
+} from '../src/inspector/recents.js';
 import { mergeViewed, VIEWED_KEY, MAX_VIEWED } from '../src/inspector/viewed.js';
 import * as store from '../src/inspector/store.js';
 
-beforeEach(() => { store.reset(); store.domain.value = 'https://org.example'; });
-afterEach(() => { delete (globalThis as any).chrome; });
+beforeEach(() => {
+  store.reset();
+  store.domain.value = 'https://org.example';
+});
+afterEach(() => {
+  delete (globalThis as any).chrome;
+});
 
 describe('mergeViewed (pure)', () => {
   it('prepends, dedups by (origin, id), caps', () => {
     const a = { id: 1, origin: 'https://a', at: 1 };
-    const out = mergeViewed([{ id: '1', origin: 'https://a', at: 0 }, { id: '1', origin: 'https://b', at: 0 }], a);
+    const out = mergeViewed(
+      [
+        { id: '1', origin: 'https://a', at: 0 },
+        { id: '1', origin: 'https://b', at: 0 },
+      ],
+      a,
+    );
     expect(out).toHaveLength(2); // same id on another origin survives
     expect(out[0]).toEqual({ id: '1', origin: 'https://a', at: 1 });
-    const many = Array.from({ length: MAX_VIEWED }, (_, i) => ({ id: String(i), origin: 'https://a', at: i }));
+    const many = Array.from({ length: MAX_VIEWED }, (_, i) => ({
+      id: String(i),
+      origin: 'https://a',
+      at: i,
+    }));
     expect(mergeViewed(many, { id: 'new', origin: 'https://a', at: 99 })).toHaveLength(MAX_VIEWED);
   });
   it('tolerates null list and nullish entry', () => {
@@ -35,7 +58,11 @@ describe('viewedRows (pure)', () => {
     expect(rows[1].at).toBe(null); // missing timestamp stays honest
   });
   it('caps at MAX_RECENTS and tolerates garbage', () => {
-    const many = Array.from({ length: 12 }, (_, i) => ({ id: i, origin: 'https://org.example', at: i }));
+    const many = Array.from({ length: 12 }, (_, i) => ({
+      id: i,
+      origin: 'https://org.example',
+      at: i,
+    }));
     expect(viewedRows(many, 'https://org.example')).toHaveLength(MAX_RECENTS);
     expect(viewedRows(null, 'x')).toEqual([]);
     expect(viewedRows([null, { origin: 'x' }], 'x')).toEqual([]);
@@ -49,12 +76,25 @@ describe('enrichRows (pure)', () => {
       { id: '99', fileName: null, queue: null, status: null, at: 2 },
     ];
     const payload = {
-      results: [{ id: 10, status: 'to_review', document: 'https://x/api/v1/documents/7', queue: 'https://x/api/v1/queues/3' }],
+      results: [
+        {
+          id: 10,
+          status: 'to_review',
+          document: 'https://x/api/v1/documents/7',
+          queue: 'https://x/api/v1/queues/3',
+        },
+      ],
       documents: [{ url: 'https://x/api/v1/documents/7', original_file_name: 'invoice_10422.pdf' }],
       queues: [{ url: 'https://x/api/v1/queues/3', name: 'AP Invoices' }],
     };
     const out = enrichRows(rows, payload);
-    expect(out[0]).toEqual({ id: '10', fileName: 'invoice_10422.pdf', queue: 'AP Invoices', status: 'to_review', at: 1 });
+    expect(out[0]).toEqual({
+      id: '10',
+      fileName: 'invoice_10422.pdf',
+      queue: 'AP Invoices',
+      status: 'to_review',
+      at: 1,
+    });
     expect(out[1]).toEqual(rows[1]); // deleted/inaccessible id keeps its honest shape
   });
 });
@@ -62,24 +102,33 @@ describe('enrichRows (pure)', () => {
 describe('storage-backed flows', () => {
   function chromeMock(seed: any) {
     const state = { [VIEWED_KEY]: seed };
-    globalThis.chrome = ({ storage: { local: {
-      get: vi.fn(async () => ({ ...state })),
-      set: vi.fn(async (obj) => Object.assign(state, obj)),
-    } } as any } as any);
+    globalThis.chrome = {
+      storage: {
+        local: {
+          get: vi.fn(async () => ({ ...state })),
+          set: vi.fn(async (obj) => Object.assign(state, obj)),
+        },
+      } as any,
+    } as any;
     return state;
   }
   it('loadRecents reads + filters into the signal', async () => {
-    chromeMock([{ id: 1, origin: 'https://org.example', at: 3 }, { id: 2, origin: 'https://elsewhere', at: 2 }]);
+    chromeMock([
+      { id: 1, origin: 'https://org.example', at: 3 },
+      { id: 2, origin: 'https://elsewhere', at: 2 },
+    ]);
     await loadRecents();
     expect(store.recents.value.map((r) => r.id)).toEqual(['1']);
   });
   it('enrichRecents resolves names via the injected api', async () => {
     store.recents.value = [{ id: '1', fileName: null, queue: null, status: null, at: 3 }];
-    const api = { listAnnotationsByIds: vi.fn(async () => ({
-      results: [{ id: 1, status: 'exported', document: 'https://x/d/1', queue: 'https://x/q/1' }],
-      documents: [{ url: 'https://x/d/1', original_file_name: 'a.pdf' }],
-      queues: [{ url: 'https://x/q/1', name: 'Q' }],
-    })) };
+    const api = {
+      listAnnotationsByIds: vi.fn(async () => ({
+        results: [{ id: 1, status: 'exported', document: 'https://x/d/1', queue: 'https://x/q/1' }],
+        documents: [{ url: 'https://x/d/1', original_file_name: 'a.pdf' }],
+        queues: [{ url: 'https://x/q/1', name: 'Q' }],
+      })),
+    };
     await enrichRecents(api);
     expect(api.listAnnotationsByIds).toHaveBeenCalledWith(['1']);
     expect(store.recents.value[0].fileName).toBe('a.pdf');
@@ -87,11 +136,18 @@ describe('storage-backed flows', () => {
   });
   it('enrichRecents failure keeps id-only rows', async () => {
     store.recents.value = [{ id: '1', fileName: null, queue: null, status: null, at: 3 }];
-    await enrichRecents({ listAnnotationsByIds: vi.fn(async () => { throw new Error('boom'); }) });
+    await enrichRecents({
+      listAnnotationsByIds: vi.fn(async () => {
+        throw new Error('boom');
+      }),
+    });
     expect(store.recents.value[0].fileName).toBe(null);
   });
   it('clearRecents clears the signal and only this origin from storage', async () => {
-    const state = chromeMock([{ id: 1, origin: 'https://org.example', at: 3 }, { id: 2, origin: 'https://elsewhere', at: 2 }]);
+    const state = chromeMock([
+      { id: 1, origin: 'https://org.example', at: 3 },
+      { id: 2, origin: 'https://elsewhere', at: 2 },
+    ]);
     store.recents.value = [{ id: '1' }];
     clearRecents();
     expect(store.recents.value).toEqual([]);

@@ -20,13 +20,33 @@ describe('layer 0 — un-dotting', () => {
 });
 
 describe('layer 1 — the collection decides', () => {
-  const shape = deriveShape([{
-    name: 'x', at: { $date: '2026-01-31T09:00:00.000Z' }, ref: { $oid: '000000000000000000000001' },
-    n: 1, ok: true, tags: ['a'], code: '123456',
-  }]);
+  const shape = deriveShape([
+    {
+      name: 'x',
+      at: { $date: '2026-01-31T09:00:00.000Z' },
+      ref: { $oid: '000000000000000000000001' },
+      n: 1,
+      ok: true,
+      tags: ['a'],
+      code: '123456',
+    },
+  ]);
 
   it('restores a date, an ObjectId, a number and a boolean', () => {
-    const d = one([{ name: 'y', at: '2026-02-01T00:00:00.000Z', ref: '0000000000000000000000ff', n: '42', ok: 'true', tags: '["p","q"]', code: '999' }], shape);
+    const d = one(
+      [
+        {
+          name: 'y',
+          at: '2026-02-01T00:00:00.000Z',
+          ref: '0000000000000000000000ff',
+          n: '42',
+          ok: 'true',
+          tags: '["p","q"]',
+          code: '999',
+        },
+      ],
+      shape,
+    );
     expect(d.at).toEqual({ $date: '2026-02-01T00:00:00.000Z' });
     expect(d.ref).toEqual({ $oid: '0000000000000000000000ff' });
     expect(d.n).toBe(42);
@@ -35,7 +55,20 @@ describe('layer 1 — the collection decides', () => {
   });
 
   it('NEVER converts a path the collection calls a string', () => {
-    const d = one([{ name: '{"looks":"like json"}', at: '2026-02-01T00:00:00.000Z', ref: 'x', n: '1', ok: 'true', tags: '[]', code: '123456' }], shape);
+    const d = one(
+      [
+        {
+          name: '{"looks":"like json"}',
+          at: '2026-02-01T00:00:00.000Z',
+          ref: 'x',
+          n: '1',
+          ok: 'true',
+          tags: '[]',
+          code: '123456',
+        },
+      ],
+      shape,
+    );
     expect(d.name).toBe('{"looks":"like json"}');
     expect(d.code).toBe('123456');
   });
@@ -45,12 +78,16 @@ describe('layer 1 — the collection decides', () => {
   });
 
   it('leaves a value that does not match the expected form alone, for the guard to report', () => {
-    expect(one([{ at: 'not-a-date' }], deriveShape([{ at: { $date: 'i' } }]))).toEqual({ at: 'not-a-date' });
+    expect(one([{ at: 'not-a-date' }], deriveShape([{ at: { $date: 'i' } }]))).toEqual({
+      at: 'not-a-date',
+    });
   });
 
   it('has no opinion when the collection shows more than one non-null type', () => {
     const mixed = deriveShape([{ v: 1 }, { v: 'text' }]);
-    expect(one([{ v: '2026-02-01T00:00:00.000Z' }], mixed)).toEqual({ v: '2026-02-01T00:00:00.000Z' });
+    expect(one([{ v: '2026-02-01T00:00:00.000Z' }], mixed)).toEqual({
+      v: '2026-02-01T00:00:00.000Z',
+    });
   });
 });
 
@@ -84,8 +121,9 @@ describe('layers 2 and 3 — only where the collection has no opinion', () => {
 
   it('restores EJSON that survived JSON-encoding inside a legacy cell', () => {
     const shape = deriveShape([{ a: { at: { $date: 'i' } } }]);
-    expect(one([{ a: '{"at":{"$date":"2026-02-01T00:00:00.000Z"}}' }], shape))
-      .toEqual({ a: { at: { $date: '2026-02-01T00:00:00.000Z' } } });
+    expect(one([{ a: '{"at":{"$date":"2026-02-01T00:00:00.000Z"}}' }], shape)).toEqual({
+      a: { at: { $date: '2026-02-01T00:00:00.000Z' } },
+    });
   });
 
   it('ORDERING: the collection outranks inference — a known-string path survives it', () => {
@@ -102,14 +140,28 @@ describe('conflicts', () => {
 });
 
 describe('formatRestoreSummary', () => {
-  const empty = { nestedColumns: 0, json: 0, dates: 0, oids: 0, numbers: 0, bools: 0, arrays: 0, dropped: 0, nulled: 0, warnings: [] };
+  const empty = {
+    nestedColumns: 0,
+    json: 0,
+    dates: 0,
+    oids: 0,
+    numbers: 0,
+    bools: 0,
+    arrays: 0,
+    dropped: 0,
+    nulled: 0,
+    warnings: [],
+  };
 
   it('is null when nothing was restored, so a clean import stays silent', () => {
     expect(formatRestoreSummary(empty, { hasShape: true })).toBe(null);
   });
 
   it('names each category and says it matched the collection', () => {
-    const s = formatRestoreSummary({ ...empty, nestedColumns: 9, arrays: 1, dates: 1 }, { hasShape: true });
+    const s = formatRestoreSummary(
+      { ...empty, nestedColumns: 9, arrays: 1, dates: 1 },
+      { hasShape: true },
+    );
     expect(s).toMatch(/9 nested columns/);
     expect(s).toMatch(/1 array/);
     expect(s).toMatch(/1 date/);
@@ -117,10 +169,12 @@ describe('formatRestoreSummary', () => {
   });
 
   it('explains why types were left as text when there is no shape', () => {
-    expect(formatRestoreSummary({ ...empty, nestedColumns: 9 }, { hasShape: false }))
-      .toMatch(/collection is empty, so value types were left as text/);
-    expect(formatRestoreSummary({ ...empty, nestedColumns: 9 }, { hasShape: false, shapeError: true }))
-      .toMatch(/couldn.t read the collection.s types/);
+    expect(formatRestoreSummary({ ...empty, nestedColumns: 9 }, { hasShape: false })).toMatch(
+      /collection is empty, so value types were left as text/,
+    );
+    expect(
+      formatRestoreSummary({ ...empty, nestedColumns: 9 }, { hasShape: false, shapeError: true }),
+    ).toMatch(/couldn.t read the collection.s types/);
   });
 
   it('discloses an empty cell that was set to null on a required non-string path', () => {

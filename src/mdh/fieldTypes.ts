@@ -31,16 +31,24 @@ export function transformTypeBuckets(buckets: any[]) {
   }
   let dominant = null;
   let dominantCount = -1;
-  for (const cat of PRECEDENCE) {            // precedence order → ties resolve to the earlier cat
+  for (const cat of PRECEDENCE) {
+    // precedence order → ties resolve to the earlier cat
     if (!byCat.has(cat)) continue;
     const c = byCat.get(cat);
-    if (c > dominantCount) { dominant = cat; dominantCount = c; }
+    if (c > dominantCount) {
+      dominant = cat;
+      dominantCount = c;
+    }
   }
   return {
     dominant,
     dominantBson: bsonByCat.get(dominant),
     share: dominantCount / total,
-    distribution: real.map((b) => ({ bsonType: b._id, count: b.count, pct: Math.round((b.count / total) * 100) })),
+    distribution: real.map((b) => ({
+      bsonType: b._id,
+      count: b.count,
+      pct: Math.round((b.count / total) * 100),
+    })),
     mixed: byCat.size > 1,
   };
 }
@@ -52,11 +60,17 @@ const PRIMITIVES = new Set(['string', 'number', 'boolean', 'null']);
 // `.source` drives the badge text.
 export function deriveResolvedType(
   name: string,
-  { override, fieldMap, fieldTypeInfo, parsedOk }:
-    { override?: any; fieldMap?: any; fieldTypeInfo?: any; parsedOk?: boolean },
+  {
+    override,
+    fieldMap,
+    fieldTypeInfo,
+    parsedOk,
+  }: { override?: any; fieldMap?: any; fieldTypeInfo?: any; parsedOk?: boolean },
 ) {
   if (override && override !== 'auto') {
-    return PRIMITIVES.has(override) ? { type: override, source: 'override' } : { type: undefined, source: 'no-field' };
+    return PRIMITIVES.has(override)
+      ? { type: override, source: 'override' }
+      : { type: undefined, source: 'no-field' };
   }
   if (!parsedOk) return { type: undefined, source: 'invalid' };
   const m = fieldMap[name];
@@ -64,12 +78,24 @@ export function deriveResolvedType(
   if (m.ambiguous) return { type: undefined, source: 'ambiguous' };
   if (fieldTypeInfo === undefined) return { type: undefined, source: 'detecting', field: m.field };
   if (!fieldTypeInfo) return { type: undefined, source: 'no-data', field: m.field };
-  if (fieldTypeInfo.dominant === 'other') return { type: undefined, source: 'other', field: m.field, detectedBson: fieldTypeInfo.dominantBson };
-  return { type: fieldTypeInfo.dominant, source: fieldTypeInfo.mixed ? 'mixed' : 'field', field: m.field, share: fieldTypeInfo.share, mixed: fieldTypeInfo.mixed };
+  if (fieldTypeInfo.dominant === 'other')
+    return {
+      type: undefined,
+      source: 'other',
+      field: m.field,
+      detectedBson: fieldTypeInfo.dominantBson,
+    };
+  return {
+    type: fieldTypeInfo.dominant,
+    source: fieldTypeInfo.mixed ? 'mixed' : 'field',
+    field: m.field,
+    share: fieldTypeInfo.share,
+    mixed: fieldTypeInfo.mixed,
+  };
 }
 
 const FIELD_TYPES_KEY = 'stats_fieldTypes'; // 10-min TTL (cache.js: key starts with 'stats')
-const RAW_TYPES_KEY = 'stats_types';        // raw $type facet cached by the Stats panel
+const RAW_TYPES_KEY = 'stats_types'; // raw $type facet cached by the Stats panel
 
 // Resolve FieldTypeInfo (or null) for each requested field, reusing the Stats
 // panel's cached raw $type facet when present, else probing only the missing
@@ -95,7 +121,8 @@ export async function resolveFieldTypes(collectionName: string, fields: string[]
 
   if (missing.length) {
     try {
-      const facet = (await api.aggregate(collectionName, buildTypePipeline(missing)))?.result?.[0] || {};
+      const facet =
+        (await api.aggregate(collectionName, buildTypePipeline(missing)))?.result?.[0] || {};
       for (const f of missing) cached[f] = transformTypeBuckets(facet[encKey(f)] || []);
     } catch {
       for (const f of missing) cached[f] = null; // don't hammer; value-based fallback

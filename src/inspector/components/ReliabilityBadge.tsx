@@ -2,7 +2,9 @@ import { h } from 'preact';
 
 const LABEL: Record<string, string> = {
   unavailable: 'Not recorded',
-  high: 'High confidence', medium: 'Medium confidence', low: 'Low confidence',
+  high: 'High confidence',
+  medium: 'Medium confidence',
+  low: 'Low confidence',
 };
 
 export default function ReliabilityBadge({ level }: { level?: string | null }) {

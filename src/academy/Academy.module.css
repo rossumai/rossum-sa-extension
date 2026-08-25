@@ -3,37 +3,155 @@
    defined in src/console/console.css (--border, --accent, --bg-*,
    --text-*, --success-*) — NOT --surface/--surface-2/--fg-muted/--accent-bg,
    which are not defined anywhere in this codebase. */
-.root { display: grid; grid-template-columns: 240px minmax(0, 1fr); height: 100%; overflow: hidden; }
-.list { border-right: 1px solid var(--border); background: var(--bg-sidebar); padding: 14px 10px; overflow-y: auto; }
-.listTitle { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--text-secondary); margin: 0 0 10px; }
-.mission { display: flex; gap: 9px; align-items: center; width: 100%; text-align: left; background: none;
-  border: 0; border-radius: 8px; padding: 8px; cursor: pointer; color: inherit; }
-.mission:hover:not(:disabled) { background: var(--bg-hover); }
-.mission:disabled { opacity: .5; cursor: default; }
-.missionActive { background: var(--bg-card); }
-.mission b { display: block; font-size: 13px; }
-.mission i { font-style: normal; font-size: 11px; color: var(--text-secondary); }
-.ring { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
-  font-size: 10px; font-weight: 700; background: var(--bg-hover); }
-.ring[data-status="done"] { background: var(--success-bg); color: var(--success-fg); }
-.main { overflow-y: auto; padding: 16px 20px; background: var(--bg-card); }
-.detail { display: block; }
-.hud { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
-.hud button { margin-left: auto; }
-.detailTitle { margin: 0 0 4px; font-size: 20px; }
-.blurb { margin: 0 0 14px; color: var(--text-secondary); }
-.step { display: flex; gap: 10px; padding: 10px 12px; border: 1px solid var(--border);
-  border-radius: 10px; margin-bottom: 8px; }
-.step[data-state="passed"], .step[data-state="self"] { background: var(--success-bg); border-color: var(--success-border); }
-.tick { flex: none; }
-.stepBody { flex: 1; min-width: 0; }
-.chip { flex: none; align-self: flex-start; font-size: 10px; font-weight: 700; text-transform: uppercase;
-  border-radius: 4px; padding: 2px 6px; background: var(--bg-hover); color: var(--text-secondary); }
-.attest, .primary, .ghost { border-radius: 7px; font-weight: 600; cursor: pointer; padding: 6px 12px; }
-.primary { background: var(--accent); color: #fff; border: 0; }
-.primary:hover { background: var(--accent-hover); }
-.ghost { background: none; border: 1px solid var(--border); color: inherit; }
-.attest { background: none; border: 1px solid var(--border); color: inherit; margin-top: 6px; }
+.root {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  height: 100%;
+  overflow: hidden;
+}
+.list {
+  border-right: 1px solid var(--border);
+  background: var(--bg-sidebar);
+  padding: 14px 10px;
+  overflow-y: auto;
+}
+.listTitle {
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin: 0 0 10px;
+}
+.mission {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px;
+  cursor: pointer;
+  color: inherit;
+}
+.mission:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+.mission:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.missionActive {
+  background: var(--bg-card);
+}
+.mission b {
+  display: block;
+  font-size: 13px;
+}
+.mission i {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.ring {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--bg-hover);
+}
+.ring[data-status="done"] {
+  background: var(--success-bg);
+  color: var(--success-fg);
+}
+.main {
+  overflow-y: auto;
+  padding: 16px 20px;
+  background: var(--bg-card);
+}
+.detail {
+  display: block;
+}
+.hud {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.hud button {
+  margin-left: auto;
+}
+.detailTitle {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+.blurb {
+  margin: 0 0 14px;
+  color: var(--text-secondary);
+}
+.step {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+.step[data-state="passed"],
+.step[data-state="self"] {
+  background: var(--success-bg);
+  border-color: var(--success-border);
+}
+.tick {
+  flex: none;
+}
+.stepBody {
+  flex: 1;
+  min-width: 0;
+}
+.chip {
+  flex: none;
+  align-self: flex-start;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-radius: 4px;
+  padding: 2px 6px;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+.attest,
+.primary,
+.ghost {
+  border-radius: 7px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 12px;
+}
+.primary {
+  background: var(--accent);
+  color: #fff;
+  border: 0;
+}
+.primary:hover {
+  background: var(--accent-hover);
+}
+.ghost {
+  background: none;
+  border: 1px solid var(--border);
+  color: inherit;
+}
+.attest {
+  background: none;
+  border: 1px solid var(--border);
+  color: inherit;
+  margin-top: 6px;
+}
 /* Entry ("start the track") screen — direct app-root child; flex column so
    the centered hero and the quieter trainer section below both fit, with
    page-level scroll if the content (hero + trainer) runs taller than the
@@ -46,17 +164,29 @@
    `.heroBg` reaches the true edges; children that actually need the old
    horizontal inset (the error strip, `.trainerWrap`) now carry their own,
    since they can no longer borrow it from here. */
-.entry { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-y: auto; }
+.entry {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
 /* Only used within `.entry` (the not-connected and no-progress branches) —
    `.main`'s own `<ErrorStrip />` keeps `.main`'s padding and skips this, so
    the inset is never applied twice. Reproduces `.entry`'s old padding
    (24 top, 20 sides) directly on the strip; margin-bottom is left to
    `.errorStrip` itself so the two never fight over the same property. */
-.entryError { margin-top: 24px; margin-left: 20px; margin-right: 20px; }
+.entryError {
+  margin-top: 24px;
+  margin-left: 20px;
+  margin-right: 20px;
+}
 /* Wider than the shared 380px empty-state-card, used only by the !connected
    branch's empty-state — composed onto (not replacing) empty-state-card, so
    it still inherits the card's centered column/gap/text-align. */
-.entryCard { max-width: 440px; }
+.entryCard {
+  max-width: 440px;
+}
 
 /* ---- "Aurora" landing hero (no-progress branch) ------------------------
    Two columns (~352px pitch/CTA + ~344px mission-preview card) centered in
@@ -73,77 +203,264 @@
    whole `.hero` box in. Net effect: the atmosphere now bleeds to the edges;
    `.heroInner`'s on-screen position is unchanged (verified by measuring both
    before and after in the running extension). */
-.hero { position: relative; overflow: hidden; flex: 1; min-height: 0;
-  display: flex; align-items: center; justify-content: center; padding: 24px 20px; }
-.heroBg { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
-.heroBlobA, .heroBlobB { position: absolute; border-radius: 50%; filter: blur(46px); }
-.heroBlobA { top: -90px; right: -70px; width: 320px; height: 320px;
+.hero {
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 20px;
+}
+.heroBg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.heroBlobA,
+.heroBlobB {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(46px);
+}
+.heroBlobA {
+  top: -90px;
+  right: -70px;
+  width: 320px;
+  height: 320px;
   background: color-mix(in srgb, var(--accent) 26%, transparent);
-  animation: heroDriftA 17s ease-in-out infinite alternate; }
-.heroBlobB { bottom: -100px; left: -80px; width: 300px; height: 300px;
+  animation: heroDriftA 17s ease-in-out infinite alternate;
+}
+.heroBlobB {
+  bottom: -100px;
+  left: -80px;
+  width: 300px;
+  height: 300px;
   background: color-mix(in srgb, var(--success) 20%, transparent);
-  animation: heroDriftB 21s ease-in-out infinite alternate; }
-.heroGrain { position: absolute; inset: 0;
-  background-image: radial-gradient(color-mix(in srgb, var(--text-secondary) 26%, transparent) .5px, transparent .5px);
-  background-size: 4px 4px; opacity: .5; }
-@keyframes heroDriftA { from { transform: translate(0, 0); } to { transform: translate(-26px, 22px); } }
-@keyframes heroDriftB { from { transform: translate(0, 0); } to { transform: translate(24px, -18px); } }
+  animation: heroDriftB 21s ease-in-out infinite alternate;
+}
+.heroGrain {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--text-secondary) 26%, transparent) 0.5px,
+    transparent 0.5px
+  );
+  background-size: 4px 4px;
+  opacity: 0.5;
+}
+@keyframes heroDriftA {
+  from {
+    transform: translate(0, 0);
+  }
+  to {
+    transform: translate(-26px, 22px);
+  }
+}
+@keyframes heroDriftB {
+  from {
+    transform: translate(0, 0);
+  }
+  to {
+    transform: translate(24px, -18px);
+  }
+}
 
-.heroInner { position: relative; z-index: 1;
-  display: grid; grid-template-columns: 352px 344px; gap: 56px; align-items: center; max-width: 100%; }
+.heroInner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 352px 344px;
+  gap: 56px;
+  align-items: center;
+  max-width: 100%;
+}
 
-.heroLeft { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+.heroLeft {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
 /* Fixed, non-repeating markup (not a `.map()`) — nth-child stagger is fine
    here; the dynamic mission rows below use a `--i` custom property instead,
    per the design brief. */
-.heroLeft > * { animation: heroFadeUp 500ms cubic-bezier(.2, .7, .3, 1) backwards; }
-.heroLeft > *:nth-child(1) { animation-delay: 0ms; }
-.heroLeft > *:nth-child(2) { animation-delay: 60ms; }
-.heroLeft > *:nth-child(3) { animation-delay: 120ms; }
-.heroLeft > *:nth-child(4) { animation-delay: 180ms; }
-.heroLeft > *:nth-child(5) { animation-delay: 240ms; }
-.heroLeft > *:nth-child(6) { animation-delay: 300ms; }
-@keyframes heroFadeUp { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
+.heroLeft > * {
+  animation: heroFadeUp 500ms cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+}
+.heroLeft > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.heroLeft > *:nth-child(2) {
+  animation-delay: 60ms;
+}
+.heroLeft > *:nth-child(3) {
+  animation-delay: 120ms;
+}
+.heroLeft > *:nth-child(4) {
+  animation-delay: 180ms;
+}
+.heroLeft > *:nth-child(5) {
+  animation-delay: 240ms;
+}
+.heroLeft > *:nth-child(6) {
+  animation-delay: 300ms;
+}
+@keyframes heroFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 
-.eyebrow { margin: 0 0 14px; font-family: var(--font-mono); font-size: 10px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .14em; color: var(--accent); }
-.heroTitle { margin: 0 0 12px; font-size: 28px; line-height: 1.14; font-weight: 600;
-  letter-spacing: -.6px; color: var(--text-primary); }
-.lede { margin: 0 0 12px; font-size: 15px; line-height: 1.5; color: var(--text-primary); }
-.heroBody { margin: 0 0 22px; font-size: 13px; line-height: 1.62; color: var(--text-secondary); }
-.heroCta { margin: 0 0 22px; }
-.heroFooter { width: 100%; padding-top: 14px; border-top: 1px solid var(--border);
-  display: flex; flex-direction: column; gap: 6px; }
-.heroFooterText { margin: 0; font-size: 12px; line-height: 1.5; color: var(--text-secondary); }
-.trainerToggle { align-self: flex-start; background: none; border: 0; padding: 0; margin: 0;
-  font: inherit; font-size: 12px; color: var(--accent); text-decoration: underline; cursor: pointer; }
-.trainerToggle:hover { color: var(--accent-hover); }
+.eyebrow {
+  margin: 0 0 14px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+}
+.heroTitle {
+  margin: 0 0 12px;
+  font-size: 28px;
+  line-height: 1.14;
+  font-weight: 600;
+  letter-spacing: -0.6px;
+  color: var(--text-primary);
+}
+.lede {
+  margin: 0 0 12px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+.heroBody {
+  margin: 0 0 22px;
+  font-size: 13px;
+  line-height: 1.62;
+  color: var(--text-secondary);
+}
+.heroCta {
+  margin: 0 0 22px;
+}
+.heroFooter {
+  width: 100%;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.heroFooterText {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.trainerToggle {
+  align-self: flex-start;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: 12px;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.trainerToggle:hover {
+  color: var(--accent-hover);
+}
 
-.heroCard { box-sizing: border-box; width: 100%; padding: 20px 20px 10px; border-radius: 14px;
+.heroCard {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 20px 20px 10px;
+  border-radius: 14px;
   backdrop-filter: blur(9px);
   background: var(--glass-bg, var(--bg-card));
   border: 1px solid var(--glass-border, var(--border));
-  box-shadow: var(--glass-shadow, var(--shadow)); }
-.heroCardHeading { margin: 0 0 10px; font-family: var(--font-mono); font-size: 10px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .1em; color: var(--text-secondary); }
-.heroMissions { list-style: none; margin: 0; padding: 0; }
-.heroMissionRow { display: flex; align-items: flex-start; gap: 10px; padding: 9px 8px; margin-bottom: 2px;
-  border-radius: 8px; transition: background 180ms ease, transform 180ms ease;
-  animation: heroFadeUp 500ms cubic-bezier(.2, .7, .3, 1) backwards;
-  animation-delay: calc(360ms + (var(--i) * 60ms)); }
-.heroMissionRow:hover { background: var(--bg-hover); transform: translateX(3px); }
-.heroMissionNode { flex: none; width: 24px; height: 24px; border-radius: 50%;
-  display: grid; place-items: center; font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+  box-shadow: var(--glass-shadow, var(--shadow));
+}
+.heroCardHeading {
+  margin: 0 0 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-secondary);
+}
+.heroMissions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.heroMissionRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 8px;
+  margin-bottom: 2px;
+  border-radius: 8px;
+  transition:
+    background 180ms ease,
+    transform 180ms ease;
+  animation: heroFadeUp 500ms cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+  animation-delay: calc(360ms + (var(--i) * 60ms));
+}
+.heroMissionRow:hover {
+  background: var(--bg-hover);
+  transform: translateX(3px);
+}
+.heroMissionNode {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 12%, var(--bg-card));
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); }
-.heroMissionText { min-width: 0; }
-.heroMissionText b { display: block; font-size: 13px; font-weight: 600; color: var(--text-primary); }
-.heroMissionText p { margin: 2px 0 0; font-size: 11.5px; line-height: 1.4; color: var(--text-secondary); }
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+.heroMissionText {
+  min-width: 0;
+}
+.heroMissionText b {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.heroMissionText p {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .heroBlobA, .heroBlobB, .heroLeft > *, .heroMissionRow {
-    animation: none; opacity: 1; transform: none;
+  .heroBlobA,
+  .heroBlobB,
+  .heroLeft > *,
+  .heroMissionRow {
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
 }
 
@@ -156,19 +473,78 @@
    content width at exactly 752 — still matching `.heroInner` above it —
    while `width: 100%` still shrinks the whole thing (padding included) to
    fit a narrower one. */
-.trainerWrap { box-sizing: border-box; max-width: 792px; width: 100%; margin: 24px auto 0; padding: 0 20px; }
-.receipt, .trainer { margin-top: 22px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; }
-.receiptBlock { background: var(--bg-code); border-radius: 8px; padding: 12px; overflow-x: auto;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
-.textarea { width: 100%; box-sizing: border-box; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px; border: 1px solid var(--border); border-radius: 8px; padding: 8px; margin-bottom: 8px;
-  background: var(--bg-input); color: inherit; }
-.errorStrip { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; padding: 9px 12px;
-  border: 1px solid var(--danger-border); border-radius: 8px; background: var(--danger-bg);
-  color: var(--danger-fg); font-size: 12px; line-height: 1.45; text-align: left; }
-.errorStrip span { flex: 1; min-width: 0; }
-.errorDismiss { flex: none; background: none; border: 0; color: inherit; cursor: pointer;
-  font-size: 15px; line-height: 1; padding: 0 2px; }
-.fine { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
-.ok { color: var(--success-fg); font-weight: 600; }
-.warn { color: var(--warning-fg); font-weight: 600; }
+.trainerWrap {
+  box-sizing: border-box;
+  max-width: 792px;
+  width: 100%;
+  margin: 24px auto 0;
+  padding: 0 20px;
+}
+.receipt,
+.trainer {
+  margin-top: 22px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.receiptBlock {
+  background: var(--bg-code);
+  border-radius: 8px;
+  padding: 12px;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+.textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 8px;
+  background: var(--bg-input);
+  color: inherit;
+}
+.errorStrip {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 9px 12px;
+  border: 1px solid var(--danger-border);
+  border-radius: 8px;
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: left;
+}
+.errorStrip span {
+  flex: 1;
+  min-width: 0;
+}
+.errorDismiss {
+  flex: none;
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 2px;
+}
+.fine {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.ok {
+  color: var(--success-fg);
+  font-weight: 600;
+}
+.warn {
+  color: var(--warning-fg);
+  font-weight: 600;
+}

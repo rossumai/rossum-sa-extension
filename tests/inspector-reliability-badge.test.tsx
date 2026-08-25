@@ -4,8 +4,18 @@ import { h, render } from 'preact';
 import ReliabilityBadge from '../src/inspector/components/ReliabilityBadge.jsx';
 
 let root: any;
-function mount(level: any) { root = document.createElement('div'); document.body.appendChild(root); render(<ReliabilityBadge level={level} />, root); return root; }
-afterEach(() => { if (root) { render(null, root); root.remove(); } });
+function mount(level: any) {
+  root = document.createElement('div');
+  document.body.appendChild(root);
+  render(<ReliabilityBadge level={level} />, root);
+  return root;
+}
+afterEach(() => {
+  if (root) {
+    render(null, root);
+    root.remove();
+  }
+});
 
 describe('ReliabilityBadge', () => {
   it('shows a confidence label for high/medium/low', () => {

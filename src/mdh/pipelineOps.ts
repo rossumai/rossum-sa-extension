@@ -27,7 +27,10 @@ export function applySortToPipeline(pipeline: any[], sortSpec: any): any[] {
     // Insert after the last $match, else before the first $skip/$limit, else at start.
     let insertAt = -1;
     for (let i = pipeline.length - 1; i >= 0; i--) {
-      if (hasKey(pipeline[i], '$match')) { insertAt = i + 1; break; }
+      if (hasKey(pipeline[i], '$match')) {
+        insertAt = i + 1;
+        break;
+      }
     }
     if (insertAt === -1) {
       const pagIdx = pipeline.findIndex((s) => hasKey(s, '$skip') || hasKey(s, '$limit'));
@@ -43,7 +46,12 @@ export function applySortToPipeline(pipeline: any[], sortSpec: any): any[] {
 // Toggle a single filter key in the first `$match` stage. If the filter was
 // just activated, add/overwrite `field: value`; if deactivated, delete that
 // key only. Other keys in `$match` (user-written or other UI filters) remain.
-export function applyFilterDeltaToPipeline(pipeline: any[], field: string, value: any, active: boolean): any[] {
+export function applyFilterDeltaToPipeline(
+  pipeline: any[],
+  field: string,
+  value: any,
+  active: boolean,
+): any[] {
   const matchIdx = findIndexBy(pipeline, '$match');
   if (active) {
     if (matchIdx >= 0) {
@@ -150,12 +158,12 @@ export function terminalWriteStage(stages: any[]): WriteStage | null {
   const key = Object.keys(last)[0];
   if (key === '$out') {
     const v = last.$out;
-    const target = typeof v === 'string' ? v : (v?.coll || v?.collectionName || null);
+    const target = typeof v === 'string' ? v : v?.coll || v?.collectionName || null;
     return target ? { op: '$out', target } : { op: '$out', target: '(unknown)' };
   }
   if (key === '$merge') {
     const into = last.$merge?.into;
-    const target = typeof into === 'string' ? into : (into?.coll || null);
+    const target = typeof into === 'string' ? into : into?.coll || null;
     return target ? { op: '$merge', target } : { op: '$merge', target: '(unknown)' };
   }
   return null;
@@ -193,11 +201,24 @@ export function parseExportFilter(rawText: string, substitute: (t: string) => st
     const parsed = JSON5.parse(substitute(rawText));
     if (!Array.isArray(parsed)) throw new Error('pipeline must be a JSON array');
     const stages = stripPaginationStages(parsed);
-    if (stages.length === 0) return { stages: null, available: false, reason: 'No filter is active — the pipeline is empty.' };
+    if (stages.length === 0)
+      return {
+        stages: null,
+        available: false,
+        reason: 'No filter is active — the pipeline is empty.',
+      };
     if (terminalWriteStage(stages)) {
-      return { stages: null, available: false, reason: 'The pipeline ends in a write stage ($out/$merge) — exports are read-only.' };
+      return {
+        stages: null,
+        available: false,
+        reason: 'The pipeline ends in a write stage ($out/$merge) — exports are read-only.',
+      };
     }
-    return { stages, available: true, trivial: stages.length === 1 && JSON.stringify(stages[0]) === '{"$match":{}}' };
+    return {
+      stages,
+      available: true,
+      trivial: stages.length === 1 && JSON.stringify(stages[0]) === '{"$match":{}}',
+    };
   } catch (err) {
     return { stages: null, available: false, reason: (err as Error).message };
   }

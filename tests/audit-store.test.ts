@@ -5,10 +5,23 @@ describe('audit store — Fabry state', () => {
   it('defaults: aiAvailable false, fabry idle and empty', () => {
     store.resetFabry();
     expect(store.aiAvailable.value).toBe(false);
-    expect(store.fabry.value).toEqual({ status: 'idle', chatId: null, turns: [], error: null, forView: null, refreshFailedFor: null });
+    expect(store.fabry.value).toEqual({
+      status: 'idle',
+      chatId: null,
+      turns: [],
+      error: null,
+      forView: null,
+      refreshFailedFor: null,
+    });
   });
   it('resetFabry restores the idle default after mutation', () => {
-    store.fabry.value = { status: 'done', chatId: 'c1', error: 'x', forView: null, turns: [{ id: 1, question: null, text: 'hi', reasoning: '', tools: [], state: 'done' }] };
+    store.fabry.value = {
+      status: 'done',
+      chatId: 'c1',
+      error: 'x',
+      forView: null,
+      turns: [{ id: 1, question: null, text: 'hi', reasoning: '', tools: [], state: 'done' }],
+    };
     store.resetFabry();
     expect(store.fabry.value.turns).toEqual([]);
     expect(store.fabry.value.status).toBe('idle');
@@ -17,7 +30,9 @@ describe('audit store — Fabry state', () => {
 });
 
 describe('searchSignature — what counts as a new search', () => {
-  const base = { audit: { object_type: 'annotation', action: '', search: '', page: 1, cursor: null } };
+  const base = {
+    audit: { object_type: 'annotation', action: '', search: '', page: 1, cursor: null },
+  };
 
   it('ignores pagination, so a next-page click is not a search', () => {
     // Pagination.jsx patches page/cursor through patchFilters, i.e. into the
@@ -32,8 +47,12 @@ describe('searchSignature — what counts as a new search', () => {
 
   it('still changes for a real filter change or a source change', () => {
     const a = store.searchSignature('audit', base);
-    expect(store.searchSignature('audit', { audit: { ...base.audit, search: 'invoice' } })).not.toBe(a);
-    expect(store.searchSignature('audit', { audit: { ...base.audit, object_type: 'queue' } })).not.toBe(a);
+    expect(
+      store.searchSignature('audit', { audit: { ...base.audit, search: 'invoice' } }),
+    ).not.toBe(a);
+    expect(
+      store.searchSignature('audit', { audit: { ...base.audit, object_type: 'queue' } }),
+    ).not.toBe(a);
     expect(store.searchSignature('other', base)).not.toBe(a);
   });
 

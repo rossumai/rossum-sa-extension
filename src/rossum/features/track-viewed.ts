@@ -20,11 +20,22 @@ function recordView(annotationId: string): void {
   if (key === lastRecordedKey) return;
   lastRecordedKey = key;
   try {
-    chrome.storage.local.get(VIEWED_KEY).then((got) => {
-      const next = mergeViewed(got && got[VIEWED_KEY] as any, { id: annotationId, origin, at: Date.now() });
-      chrome.storage.local.set({ [VIEWED_KEY]: next });
-    }).catch(() => { /* ignore */ });
-  } catch { /* ignore */ }
+    chrome.storage.local
+      .get(VIEWED_KEY)
+      .then((got) => {
+        const next = mergeViewed(got && (got[VIEWED_KEY] as any), {
+          id: annotationId,
+          origin,
+          at: Date.now(),
+        });
+        chrome.storage.local.set({ [VIEWED_KEY]: next });
+      })
+      .catch(() => {
+        /* ignore */
+      });
+  } catch {
+    /* ignore */
+  }
 }
 
 function sync() {

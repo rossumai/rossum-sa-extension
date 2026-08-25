@@ -11,11 +11,17 @@ export default function FoldableCode({ code }: { code?: string | null }) {
   const firstLine = s.split('\n')[0];
   return (
     <Fragment>
-      {open
-        ? <pre class="inspector-code-block">{s}</pre>
-        : <code class="inspector-code">{firstLine.slice(0, 90)}{(firstLine.length > 90 || s.includes('\n')) ? '…' : ''}</code>}
-      {' '}
-      <button class="inspector-fold-btn" type="button" onClick={() => setOpen(!open)}>{open ? 'Show less' : 'Show more'}</button>
+      {open ? (
+        <pre class="inspector-code-block">{s}</pre>
+      ) : (
+        <code class="inspector-code">
+          {firstLine.slice(0, 90)}
+          {firstLine.length > 90 || s.includes('\n') ? '…' : ''}
+        </code>
+      )}{' '}
+      <button class="inspector-fold-btn" type="button" onClick={() => setOpen(!open)}>
+        {open ? 'Show less' : 'Show more'}
+      </button>
     </Fragment>
   );
 }

@@ -27,10 +27,14 @@ export default function HistoryPanel({ deliverable }: { deliverable: Deliverable
   // one change that version recorded.
   const [mode, setMode] = useState('current');
 
-  useEffect(() => { loadRevisions(id); }, [id]);
+  useEffect(() => {
+    loadRevisions(id);
+  }, [id]);
   // The selection is global (one History panel is open at a time), so it must not survive a
   // switch — it would point at another deliverable's version.
-  useEffect(() => { store.selectedRevision.value = null; }, [id]);
+  useEffect(() => {
+    store.selectedRevision.value = null;
+  }, [id]);
 
   const idx = items.findIndex((r: any) => r.id === selected);
   // items are newest-first, so the NEWER neighbour is the previous index; for the newest
@@ -43,17 +47,23 @@ export default function HistoryPanel({ deliverable }: { deliverable: Deliverable
     if (!selected && items.length) openRevision(id, items[0].id);
   }, [id, items.length, selected]);
   // The list projects `text` out, so each side is fetched only when it is actually shown.
-  useEffect(() => { if (compareId) ensureRevisionText(id, compareId); }, [id, compareId]);
+  useEffect(() => {
+    if (compareId) ensureRevisionText(id, compareId);
+  }, [id, compareId]);
 
   const before = selected ? texts[selected] : null;
-  const after = mode === 'current' ? deliverable.text : (compareId ? texts[compareId] : deliverable.text);
+  const after =
+    mode === 'current' ? deliverable.text : compareId ? texts[compareId] : deliverable.text;
   const now = Date.now();
 
-  if (state.error) return <div class="fabry-arch-hist-note fabry-arch-hist-error">{state.error}</div>;
+  if (state.error)
+    return <div class="fabry-arch-hist-note fabry-arch-hist-error">{state.error}</div>;
   if (!items.length) {
     return (
       <div class="fabry-arch-hist-note">
-        {state.loading ? 'Loading versions…' : 'No earlier versions yet — the next edit records what this looks like now.'}
+        {state.loading
+          ? 'Loading versions…'
+          : 'No earlier versions yet — the next edit records what this looks like now.'}
       </div>
     );
   }
@@ -65,7 +75,9 @@ export default function HistoryPanel({ deliverable }: { deliverable: Deliverable
           <span class="fabry-arch-hist-icon">{'●'}</span>
           <span class="fabry-arch-hist-when">Current</span>
           <span class="fabry-arch-hist-what">
-            {deliverable.editedAt ? 'edited ' + relativeTime(deliverable.editedAt, now) : 'not edited yet'}
+            {deliverable.editedAt
+              ? 'edited ' + relativeTime(deliverable.editedAt, now)
+              : 'not edited yet'}
           </span>
         </li>
         {items.map((r: any) => {
@@ -90,13 +102,21 @@ export default function HistoryPanel({ deliverable }: { deliverable: Deliverable
       <div class="fabry-arch-hist-pane">
         <div class="fabry-arch-hist-bar">
           <div class="fabry-arch-viewtoggle fabry-arch-hist-cmp">
-            <button type="button" aria-pressed={mode === 'current'} onClick={() => setMode('current')}>vs current</button>
+            <button
+              type="button"
+              aria-pressed={mode === 'current'}
+              onClick={() => setMode('current')}
+            >
+              vs current
+            </button>
             <button
               type="button"
               aria-pressed={mode === 'previous'}
               title={newerId ? 'Compare with the next version' : 'This is the newest version'}
               onClick={() => setMode('previous')}
-            >vs next</button>
+            >
+              vs next
+            </button>
           </div>
           <button
             type="button"
@@ -104,11 +124,17 @@ export default function HistoryPanel({ deliverable }: { deliverable: Deliverable
             disabled={!selected || typeof before !== 'string'}
             title="Replace the deliverable text with this version. The current text is kept as a new version, so this is undoable."
             onClick={() => restoreRevision(id, selected)}
-          >{'↶ Restore'}</button>
+          >
+            {'↶ Restore'}
+          </button>
         </div>
-        {typeof before === 'string' && typeof after === 'string'
-          ? <div class="fabry-arch-hist-diff"><DiffView before={before} after={after} /></div>
-          : <div class="fabry-arch-hist-note">Loading version…</div>}
+        {typeof before === 'string' && typeof after === 'string' ? (
+          <div class="fabry-arch-hist-diff">
+            <DiffView before={before} after={after} />
+          </div>
+        ) : (
+          <div class="fabry-arch-hist-note">Loading version…</div>
+        )}
       </div>
     </div>
   );

@@ -15,8 +15,18 @@ describe('side panel manifest', () => {
   // until each user re-approves it. tab.url is readable through the Rossum
   // host_permissions we already hold, so "tabs" is never needed here.
   it('adds no permission that triggers a Chrome permission warning', () => {
-    const WARNS = ['tabs', 'webNavigation', 'history', 'bookmarks', 'downloads',
-      'management', 'debugger', 'proxy', 'clipboardRead', '<all_urls>'];
+    const WARNS = [
+      'tabs',
+      'webNavigation',
+      'history',
+      'bookmarks',
+      'downloads',
+      'management',
+      'debugger',
+      'proxy',
+      'clipboardRead',
+      '<all_urls>',
+    ];
     expect(manifest.permissions.filter((p: any) => WARNS.includes(p))).toEqual([]);
   });
 

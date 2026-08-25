@@ -76,8 +76,7 @@ async function mint({ get, whoami, now }: MintDeps): Promise<MintResult> {
     return { ok: false, reason: 'identity' };
   }
 
-  const selfCount = TRACK.missions
-    .flatMap((m) => m.steps.filter((s) => s.kind === 'self')).length;
+  const selfCount = TRACK.missions.flatMap((m) => m.steps.filter((s) => s.kind === 'self')).length;
   const fields = {
     trackId: TRACK.id,
     trackVersion: TRACK.version,
@@ -122,7 +121,11 @@ export type MintResult =
   | { ok: true; text: string; reason?: undefined; failedStep?: undefined; message?: undefined }
   | { ok: false; reason: string; failedStep?: string; message?: string; text?: undefined };
 
-export async function mintReceipt({ get, whoami, now = () => new Date() }: Partial<MintDeps> & Pick<MintDeps, 'get' | 'whoami'>): Promise<MintResult> {
+export async function mintReceipt({
+  get,
+  whoami,
+  now = () => new Date(),
+}: Partial<MintDeps> & Pick<MintDeps, 'get' | 'whoami'>): Promise<MintResult> {
   try {
     return await mint({ get, whoami, now });
   } catch (e) {

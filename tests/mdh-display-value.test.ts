@@ -71,11 +71,15 @@ describe('formatEjsonValue', () => {
   });
 
   it('formats $date ISO strings', () => {
-    expect(formatEjsonValue({ $date: '2024-01-01T00:00:00Z' }, '$date')).toBe('2024-01-01T00:00:00.000Z');
+    expect(formatEjsonValue({ $date: '2024-01-01T00:00:00Z' }, '$date')).toBe(
+      '2024-01-01T00:00:00.000Z',
+    );
   });
 
   it('formats $date with numeric epoch ms as { $numberLong }', () => {
-    expect(formatEjsonValue({ $date: { $numberLong: '0' } }, '$date')).toBe('1970-01-01T00:00:00.000Z');
+    expect(formatEjsonValue({ $date: { $numberLong: '0' } }, '$date')).toBe(
+      '1970-01-01T00:00:00.000Z',
+    );
   });
 
   it('formats $regex with options', () => {

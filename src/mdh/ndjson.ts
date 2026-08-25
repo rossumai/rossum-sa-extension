@@ -22,6 +22,7 @@ export function parseNdjson(text: unknown) {
     }
     docs.push(v);
   }
-  if (docs.length === 0) return { docs: [], warnings, error: { message: 'No JSON or JSON Lines documents found' } };
+  if (docs.length === 0)
+    return { docs: [], warnings, error: { message: 'No JSON or JSON Lines documents found' } };
   return { docs, warnings, error: null };
 }

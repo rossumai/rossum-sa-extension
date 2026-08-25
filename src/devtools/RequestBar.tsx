@@ -11,7 +11,12 @@ export default function RequestBar({ onSubmit }: { onSubmit: (path: string) => v
 
   const items = suggest(value);
 
-  const fire = (raw?: string) => { const v = (raw ?? value).trim(); if (!v) return; onSubmit(v); setOpen(false); };
+  const fire = (raw?: string) => {
+    const v = (raw ?? value).trim();
+    if (!v) return;
+    onSubmit(v);
+    setOpen(false);
+  };
 
   const pick = (e: any) => {
     // Insert the short (prefix-free) form — the /api/v1/ prefix is assumed.
@@ -21,15 +26,26 @@ export default function RequestBar({ onSubmit }: { onSubmit: (path: string) => v
     const el = inputRef.current;
     if (el) {
       const at = short.indexOf('{');
-      requestAnimationFrame(() => { el.focus(); if (at >= 0) el.setSelectionRange(at, short.indexOf('}') + 1); });
+      requestAnimationFrame(() => {
+        el.focus();
+        if (at >= 0) el.setSelectionRange(at, short.indexOf('}') + 1);
+      });
     }
   };
 
   const onKeyDown = (ev: any) => {
-    if (ev.key === 'ArrowDown') { ev.preventDefault(); setOpen(true); setHi((i) => (items.length ? (i >= items.length - 1 ? 0 : i + 1) : -1)); }
-    else if (ev.key === 'ArrowUp') { ev.preventDefault(); setOpen(true); setHi((i) => (items.length ? (i <= 0 ? items.length - 1 : i - 1) : -1)); }
-    else if (ev.key === 'Escape') { setOpen(false); setHi(-1); }
-    else if (ev.key === 'Enter') {
+    if (ev.key === 'ArrowDown') {
+      ev.preventDefault();
+      setOpen(true);
+      setHi((i) => (items.length ? (i >= items.length - 1 ? 0 : i + 1) : -1));
+    } else if (ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      setOpen(true);
+      setHi((i) => (items.length ? (i <= 0 ? items.length - 1 : i - 1) : -1));
+    } else if (ev.key === 'Escape') {
+      setOpen(false);
+      setHi(-1);
+    } else if (ev.key === 'Enter') {
       ev.preventDefault();
       if (open && hi >= 0 && items[hi]) pick(items[hi]);
       // Read the live DOM value (not the closured `value` state) — Preact
@@ -43,7 +59,9 @@ export default function RequestBar({ onSubmit }: { onSubmit: (path: string) => v
   return (
     <div class="rawjson-reqbar">
       <span class="rawjson-reqbar-method">GET</span>
-      <span class="rawjson-reqbar-prefix" aria-hidden="true">/api/v1/</span>
+      <span class="rawjson-reqbar-prefix" aria-hidden="true">
+        /api/v1/
+      </span>
       <input
         ref={inputRef}
         class="rawjson-reqbar-input"
@@ -51,16 +69,29 @@ export default function RequestBar({ onSubmit }: { onSubmit: (path: string) => v
         spellcheck={false}
         placeholder={'queues?page_size=100  —  type to search endpoints'}
         value={value}
-        onInput={(ev: any) => { setValue(ev.target.value); setOpen(true); setHi(-1); }}
+        onInput={(ev: any) => {
+          setValue(ev.target.value);
+          setOpen(true);
+          setHi(-1);
+        }}
         onKeyDown={onKeyDown}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 120)}
       />
-      <button class="rawjson-reqbar-go" title="Go" onClick={() => fire()}>{'→'}</button>
+      <button class="rawjson-reqbar-go" title="Go" onClick={() => fire()}>
+        {'→'}
+      </button>
       {open && items.length ? (
         <ul class="rawjson-reqbar-suggest">
           {items.map((e, i) => (
-            <li key={e.pathTemplate + e.kind} class={`rawjson-reqbar-item${i === hi ? ' active' : ''}`} onMouseDown={(ev) => { ev.preventDefault(); pick(e); }}>
+            <li
+              key={e.pathTemplate + e.kind}
+              class={`rawjson-reqbar-item${i === hi ? ' active' : ''}`}
+              onMouseDown={(ev) => {
+                ev.preventDefault();
+                pick(e);
+              }}
+            >
               <span class="rawjson-reqbar-item-path">{shortPath(e.pathTemplate)}</span>
               <span class="rawjson-reqbar-item-desc">{e.description}</span>
             </li>

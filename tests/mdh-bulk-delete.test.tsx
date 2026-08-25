@@ -16,7 +16,10 @@ import { openBulkDelete } from '../src/mdh/components/BulkDelete.jsx';
 // extra mock values (root cause of the historic flake on this file).
 let activeRoot: any = null;
 function mountModal() {
-  if (activeRoot) { render(null, activeRoot); activeRoot = null; }
+  if (activeRoot) {
+    render(null, activeRoot);
+    activeRoot = null;
+  }
   document.body.innerHTML = '';
   const root = document.createElement('div');
   document.body.appendChild(root);
@@ -25,7 +28,9 @@ function mountModal() {
   return root;
 }
 
-function rerender(root: any) { render(<Modal />, root); }
+function rerender(root: any) {
+  render(<Modal />, root);
+}
 
 async function flush() {
   await new Promise((r) => setTimeout(r, 0));
@@ -39,7 +44,10 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  if (activeRoot) { render(null, activeRoot); activeRoot = null; }
+  if (activeRoot) {
+    render(null, activeRoot);
+    activeRoot = null;
+  }
 });
 
 // Repeatable mock for preview queries. previewMatch fires two aggregate
@@ -63,7 +71,13 @@ describe('openBulkDelete — filter mode', () => {
     mockPreview({ count: 3, sample: [{ _id: '1' }, { _id: '2' }, { _id: '3' }] });
 
     const root = mountModal();
-    openBulkDelete({ collection: 'vendors', mode: 'filter', filter: { status: 'draft' }, onSuccess: () => {}, fieldsFn: () => [] });
+    openBulkDelete({
+      collection: 'vendors',
+      mode: 'filter',
+      filter: { status: 'draft' },
+      onSuccess: () => {},
+      fieldsFn: () => [],
+    });
     rerender(root);
     await flush();
     rerender(root);
@@ -73,29 +87,49 @@ describe('openBulkDelete — filter mode', () => {
 
   it('disables submit while the preview is loading', async () => {
     let resolveCount: any;
-    vi.mocked(api.aggregate).mockReturnValueOnce(new Promise((r) => { resolveCount = r; }));
+    vi.mocked(api.aggregate).mockReturnValueOnce(
+      new Promise((r) => {
+        resolveCount = r;
+      }),
+    );
     vi.mocked(api.aggregate).mockResolvedValueOnce({ result: [] });
 
     const root = mountModal();
-    openBulkDelete({ collection: 'vendors', mode: 'filter', filter: {}, onSuccess: () => {}, fieldsFn: () => [] });
+    openBulkDelete({
+      collection: 'vendors',
+      mode: 'filter',
+      filter: {},
+      onSuccess: () => {},
+      fieldsFn: () => [],
+    });
     rerender(root);
     await flush();
     rerender(root);
 
-    expect(root.querySelector<HTMLButtonElement>('[data-testid="bulk-submit"]')!.disabled).toBe(true);
+    expect(root.querySelector<HTMLButtonElement>('[data-testid="bulk-submit"]')!.disabled).toBe(
+      true,
+    );
 
     resolveCount({ result: [{ total: 0 }] });
     await flush();
     rerender(root);
     // count = 0 — still disabled, but for a different reason (nothing to delete).
-    expect(root.querySelector<HTMLButtonElement>('[data-testid="bulk-submit"]')!.disabled).toBe(true);
+    expect(root.querySelector<HTMLButtonElement>('[data-testid="bulk-submit"]')!.disabled).toBe(
+      true,
+    );
   });
 
   it('forces the name-gate when the filter is exactly {}', async () => {
     mockPreview({ count: 7, sample: [] });
 
     const root = mountModal();
-    openBulkDelete({ collection: 'vendors', mode: 'filter', filter: {}, onSuccess: () => {}, fieldsFn: () => [] });
+    openBulkDelete({
+      collection: 'vendors',
+      mode: 'filter',
+      filter: {},
+      onSuccess: () => {},
+      fieldsFn: () => [],
+    });
     rerender(root);
     await flush();
     rerender(root);
@@ -110,7 +144,13 @@ describe('openBulkDelete — selection mode', () => {
     vi.mocked(api.aggregate).mockResolvedValueOnce({ result: [{ _id: 'a' }, { _id: 'b' }] }); // sample only
 
     const root = mountModal();
-    openBulkDelete({ collection: 'vendors', mode: 'selection', ids: ['a', 'b'], onSuccess: () => {}, fieldsFn: () => [] });
+    openBulkDelete({
+      collection: 'vendors',
+      mode: 'selection',
+      ids: ['a', 'b'],
+      onSuccess: () => {},
+      fieldsFn: () => [],
+    });
     rerender(root);
     await flush();
     rerender(root);
@@ -129,7 +169,13 @@ describe('openBulkDelete — selection mode', () => {
     const onSuccess = vi.fn();
 
     const root = mountModal();
-    openBulkDelete({ collection: 'vendors', mode: 'selection', ids: ['a', 'b'], onSuccess, fieldsFn: () => [] });
+    openBulkDelete({
+      collection: 'vendors',
+      mode: 'selection',
+      ids: ['a', 'b'],
+      onSuccess,
+      fieldsFn: () => [],
+    });
     rerender(root);
     await flush();
     rerender(root);
@@ -151,7 +197,13 @@ describe('openBulkDelete — selection mode', () => {
     vi.mocked(api.insertMany).mockResolvedValueOnce({ result: {} });
 
     const root = mountModal();
-    openBulkDelete({ collection: 'vendors', mode: 'selection', ids: [oidA, oidB], onSuccess: () => {}, fieldsFn: () => [] });
+    openBulkDelete({
+      collection: 'vendors',
+      mode: 'selection',
+      ids: [oidA, oidB],
+      onSuccess: () => {},
+      fieldsFn: () => [],
+    });
     rerender(root);
     await flush();
     rerender(root);

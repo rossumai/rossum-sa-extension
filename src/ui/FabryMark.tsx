@@ -13,14 +13,19 @@ import styles from './FabryMark.module.css';
 // old Rail SVG used. One constant drives every surface (chat, audit, inspector, rail).
 const STAR_PATH = 'M12 2.5L15.4 8.6L21.5 12L15.4 15.4L12 21.5L8.6 15.4L2.5 12L8.6 8.6Z';
 
-export default function FabryMark(
-  { size = '1em', animated = true, class: className, title }:
-  { size?: string | number; animated?: boolean; class?: string; title?: string },
-) {
+export default function FabryMark({
+  size = '1em',
+  animated = true,
+  class: className,
+  title,
+}: {
+  size?: string | number;
+  animated?: boolean;
+  class?: string;
+  title?: string;
+}) {
   const cls =
-    styles.mark +
-    (animated ? ' ' + styles.animated : '') +
-    (className ? ' ' + className : '');
+    styles.mark + (animated ? ' ' + styles.animated : '') + (className ? ' ' + className : '');
   return (
     <svg
       class={cls}

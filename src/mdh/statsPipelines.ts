@@ -9,11 +9,23 @@ export const MAX_FIELDS = 50;
 // Normalized (lowercase, whitespace-trimmed) placeholder tokens that masquerade
 // as real string data. Single source of truth for sentinel detection.
 export const SENTINEL_STRINGS = [
-  'null', 'none', 'nan', 'undefined', 'nil',
-  'n/a', 'na', 'tbd', 'unknown', '-', '--', '.',
+  'null',
+  'none',
+  'nan',
+  'undefined',
+  'nil',
+  'n/a',
+  'na',
+  'tbd',
+  'unknown',
+  '-',
+  '--',
+  '.',
 ];
 
-export function encKey(field: string): string { return field.replace(/\./g, '__DOT__'); }
+export function encKey(field: string): string {
+  return field.replace(/\./g, '__DOT__');
+}
 
 function fieldsOnly(fields: string[]): { $project: Record<string, number> } {
   const p: Record<string, number> = { _id: 0 };
@@ -32,7 +44,12 @@ function allDiscoveredFields(docs: any[]): { deduped: string[]; counts: Map<stri
       if (!prefix && key === '_id') continue;
       const path = prefix ? `${prefix}.${key}` : key;
       const val = obj[key];
-      if (val !== null && typeof val === 'object' && !Array.isArray(val) && !(val.$oid || val.$date)) {
+      if (
+        val !== null &&
+        typeof val === 'object' &&
+        !Array.isArray(val) &&
+        !(val.$oid || val.$date)
+      ) {
         walk(val, path, depth + 1);
       } else {
         counts.set(path, (counts.get(path) || 0) + 1);
@@ -59,7 +76,7 @@ export function discoverFieldsWithTotal(docs: any[]): { fields: string[]; total:
   const total = deduped.length;
   if (total <= MAX_FIELDS) return { fields: deduped, total };
   const fields = [...deduped]
-    .sort((a, b) => ((counts.get(b) as number) - (counts.get(a) as number)) || a.localeCompare(b))
+    .sort((a, b) => (counts.get(b) as number) - (counts.get(a) as number) || a.localeCompare(b))
     .slice(0, MAX_FIELDS)
     .sort();
   return { fields, total };
@@ -70,7 +87,18 @@ export function buildOverviewPipeline() {
 }
 
 export function buildStoragePipeline() {
-  return [{ $collStats: { storageStats: { scale: 1 } } }, { $project: { host: 0, localTime: 0, 'storageStats.wiredTiger': 0, 'storageStats.indexDetails': 0 } }, { $limit: 1 }];
+  return [
+    { $collStats: { storageStats: { scale: 1 } } },
+    {
+      $project: {
+        host: 0,
+        localTime: 0,
+        'storageStats.wiredTiger': 0,
+        'storageStats.indexDetails': 0,
+      },
+    },
+    { $limit: 1 },
+  ];
 }
 
 // Batched storage stats across many collections in a single aggregate call.
@@ -78,7 +106,12 @@ export function buildStoragePipeline() {
 // $unionWith. Each row carries the collection name in `_coll` so callers can
 // split the result back per collection.
 export function buildBatchStoragePipeline(names: string[]): any[] {
-  const project = { host: 0, localTime: 0, 'storageStats.wiredTiger': 0, 'storageStats.indexDetails': 0 };
+  const project = {
+    host: 0,
+    localTime: 0,
+    'storageStats.wiredTiger': 0,
+    'storageStats.indexDetails': 0,
+  };
   const pipeline: any[] = [
     { $collStats: { storageStats: { scale: 1 } } },
     { $project: project },
@@ -120,10 +153,13 @@ export function buildFieldCoveragePipeline(fields: string[]): any[] {
   for (const f of fields) {
     const k = encKey(f);
     group[`f_${k}`] = {
-      $sum: { $cond: [{ $and: [
-        { $ne: [{ $type: `$${f}` }, 'missing'] },
-        { $ne: [`$${f}`, null] },
-      ] }, 1, 0] },
+      $sum: {
+        $cond: [
+          { $and: [{ $ne: [{ $type: `$${f}` }, 'missing'] }, { $ne: [`$${f}`, null] }] },
+          1,
+          0,
+        ],
+      },
     };
   }
   return [fieldsOnly(fields), { $group: group }];
@@ -172,10 +208,7 @@ export function buildValueDistributionPipeline(fields: string[]): any[] {
 export function buildCardinalityPipeline(fields: string[]): any[] {
   const facet: Record<string, any> = {};
   for (const f of fields) {
-    facet[encKey(f)] = [
-      { $group: { _id: `$${f}` } },
-      { $count: 'distinct' },
-    ];
+    facet[encKey(f)] = [{ $group: { _id: `$${f}` } }, { $count: 'distinct' }];
   }
   return [fieldsOnly(fields), { $facet: facet }];
 }
@@ -281,9 +314,18 @@ export function buildSchemaConsistencyPipeline() {
 }
 
 export const STATS_CHECKS = [
-  'coverage', 'empties', 'types', 'distribution',
-  'cardinality', 'strings', 'numeric', 'dates', 'schema',
-  'storage', 'docSize', 'sentinels',
+  'coverage',
+  'empties',
+  'types',
+  'distribution',
+  'cardinality',
+  'strings',
+  'numeric',
+  'dates',
+  'schema',
+  'storage',
+  'docSize',
+  'sentinels',
 ];
 
 export function buildAllPipelines(fields: string[]) {

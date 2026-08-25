@@ -11,7 +11,11 @@ describe('inspector store', () => {
     expect(store.annotationId.value).toBe(null);
     expect(store.data.value).toBe(null);
     expect(store.enrichment.value).toEqual({
-      audit: null, hookLogs: null, ruleLogs: null, workflow: null, notes: null,
+      audit: null,
+      hookLogs: null,
+      ruleLogs: null,
+      workflow: null,
+      notes: null,
     });
     expect(store.loading.value).toBe(false);
   });

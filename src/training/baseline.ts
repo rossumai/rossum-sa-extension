@@ -37,7 +37,10 @@ export function fieldCount(schema: any): number {
   let n = 0;
   const walk = (node: any): void => {
     if (!node || typeof node !== 'object') return;
-    if (Array.isArray(node)) { node.forEach(walk); return; }
+    if (Array.isArray(node)) {
+      node.forEach(walk);
+      return;
+    }
     if (node.id != null && node.category !== 'section') n += 1;
     if (node.children) walk(node.children); // array OR single object
   };
@@ -77,8 +80,10 @@ export function collectionCount(data: any): number {
 // mission never started, so nothing can have grown.
 // A baseline is either a LIST of ids or a COUNT, and the numeric branch below is how a
 // count grows — so the union carries both rather than making callers cast.
-export function grew(before: unknown[] | number | null | undefined,
-                     after: unknown[] | number | null | undefined): boolean {
+export function grew(
+  before: unknown[] | number | null | undefined,
+  after: unknown[] | number | null | undefined,
+): boolean {
   if (before == null) return false;
   if (typeof before === 'number') return typeof after === 'number' && after > before;
   const seen = new Set(before);
@@ -88,7 +93,10 @@ export function grew(before: unknown[] | number | null | undefined,
 }
 
 // A value the baseline already knew about now differs. New keys are not changes.
-export function changed(before: Record<string, unknown> | null | undefined, after: Record<string, unknown> | null | undefined): boolean {
+export function changed(
+  before: Record<string, unknown> | null | undefined,
+  after: Record<string, unknown> | null | undefined,
+): boolean {
   if (before == null) return false;
   return Object.keys(before).some((k) => after && k in after && after[k] !== before[k]);
 }

@@ -7,10 +7,19 @@ import ReliabilityBadge from './ReliabilityBadge.jsx';
 // Arrival story: email/upload/split/archive + duplicates (spec §5.5-intake).
 export default function IntakeSection() {
   const items = (store.evidence.value?.items || []).filter((i: any) => i.section === 'intake');
-  const status = !store.data.value?.resolved?._intakeLoaded ? 'pending' : (items.length ? 'loaded' : 'na');
+  const status = !store.data.value?.resolved?._intakeLoaded
+    ? 'pending'
+    : items.length
+      ? 'loaded'
+      : 'na';
   const arrival = items.find((i: any) => i.id === 'intake:arrival');
   return (
-    <EvidenceSection id="intake" title="Intake & origin" count={arrival ? arrivalLabel(arrival.data.attachmentStatus) : null} status={status}>
+    <EvidenceSection
+      id="intake"
+      title="Intake & origin"
+      count={arrival ? arrivalLabel(arrival.data.attachmentStatus) : null}
+      status={status}
+    >
       {items.map((i: any) => (
         <div class="inspector-ev" data-evidence-id={i.id}>
           <span class="inspector-ev-id">{i.id}</span>

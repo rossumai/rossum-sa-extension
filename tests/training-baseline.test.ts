@@ -1,19 +1,32 @@
 // tests/training-baseline.test.js
 import { describe, it, expect } from 'vitest';
 import {
-  hookQueuePairs, fieldCount, ruleIds, thresholds, collectionCount,
-  grew, changed, isIdsOnly,
+  hookQueuePairs,
+  fieldCount,
+  ruleIds,
+  thresholds,
+  collectionCount,
+  grew,
+  changed,
+  isIdsOnly,
 } from '../src/training/baseline.js';
 
-const HOOKS = { results: [
-  { url: 'https://o.rossum.app/api/v1/hooks/7', queues: ['https://o.rossum.app/api/v1/queues/1'] },
-  { url: 'https://o.rossum.app/api/v1/hooks/8', queues: [] },
-] };
+const HOOKS = {
+  results: [
+    {
+      url: 'https://o.rossum.app/api/v1/hooks/7',
+      queues: ['https://o.rossum.app/api/v1/queues/1'],
+    },
+    { url: 'https://o.rossum.app/api/v1/hooks/8', queues: [] },
+  ],
+};
 
-const QUEUES = { results: [
-  { url: 'https://o.rossum.app/api/v1/queues/4', default_score_threshold: 0.8 },
-  { url: 'https://o.rossum.app/api/v1/queues/12', default_score_threshold: 0.95 },
-] };
+const QUEUES = {
+  results: [
+    { url: 'https://o.rossum.app/api/v1/queues/4', default_score_threshold: 0.8 },
+    { url: 'https://o.rossum.app/api/v1/queues/12', default_score_threshold: 0.95 },
+  ],
+};
 
 describe('signature builders', () => {
   it('builds hook:queue pairs of numeric ids', () => {
@@ -21,23 +34,37 @@ describe('signature builders', () => {
   });
 
   it('counts schema fields across sections without recording their ids', () => {
-    const schema = { content: [
-      { category: 'section', children: [{ id: 'invoice_id' }, { id: 'total' }] },
-      { category: 'section', children: [{ id: 'vendor' }] },
-    ] };
+    const schema = {
+      content: [
+        { category: 'section', children: [{ id: 'invoice_id' }, { id: 'total' }] },
+        { category: 'section', children: [{ id: 'vendor' }] },
+      ],
+    };
     expect(fieldCount(schema)).toBe(3);
   });
 
   // Real nesting, verified live on elis 2026-08-07: a multivalue's `children`
   // is a single OBJECT (the tuple), whose `children` is the column array.
-  const TABLE_SCHEMA = (columns: any) => ({ content: [
-    { category: 'section', id: 'sec', children: [
-      { category: 'datapoint', id: 'total' },
-      { category: 'multivalue', id: 'line_items', children: {
-        category: 'tuple', id: 'line_item', children: columns,
-      } },
-    ] },
-  ] });
+  const TABLE_SCHEMA = (columns: any) => ({
+    content: [
+      {
+        category: 'section',
+        id: 'sec',
+        children: [
+          { category: 'datapoint', id: 'total' },
+          {
+            category: 'multivalue',
+            id: 'line_items',
+            children: {
+              category: 'tuple',
+              id: 'line_item',
+              children: columns,
+            },
+          },
+        ],
+      },
+    ],
+  });
 
   it('counts fields nested inside a line-item table', () => {
     const schema = TABLE_SCHEMA([
@@ -51,18 +78,22 @@ describe('signature builders', () => {
 
   it('moves when a column is added inside a table — the delta the step relies on', () => {
     const before = fieldCount(TABLE_SCHEMA([{ category: 'datapoint', id: 'item_code' }]));
-    const after = fieldCount(TABLE_SCHEMA([
-      { category: 'datapoint', id: 'item_code' },
-      { category: 'datapoint', id: 'item_qty' },
-    ]));
+    const after = fieldCount(
+      TABLE_SCHEMA([
+        { category: 'datapoint', id: 'item_code' },
+        { category: 'datapoint', id: 'item_qty' },
+      ]),
+    );
     expect(grew(before, after)).toBe(true);
   });
 
   it('extracts rule ids and per-queue thresholds', () => {
     expect(ruleIds({ results: [{ id: 5 }, { id: 2 }] })).toEqual([2, 5]);
-    expect(thresholds({ results: [
-      { url: 'https://o.rossum.app/api/v1/queues/4', default_score_threshold: 0.8 },
-    ] })).toEqual({ 4: 0.8 });
+    expect(
+      thresholds({
+        results: [{ url: 'https://o.rossum.app/api/v1/queues/4', default_score_threshold: 0.8 }],
+      }),
+    ).toEqual({ 4: 0.8 });
   });
 
   it('counts Data Storage collections from the REAL `result` key', () => {
@@ -84,7 +115,7 @@ describe('delta predicates', () => {
     expect(grew([1, 2], [1, 2, 3])).toBe(true);
     expect(grew([1, 2], [1, 2])).toBe(false);
     expect(grew([1, 2], [1])).toBe(false);
-    expect(grew(2, 3)).toBe(true);      // counts
+    expect(grew(2, 3)).toBe(true); // counts
     expect(grew(2, 2)).toBe(false);
   });
 
@@ -121,10 +152,18 @@ describe('isIdsOnly — the privacy guard', () => {
   // populated with realistic org content, and `nonEmpty` fails the test if a
   // future change makes one of them empty again.
   it('every builder output is ids-only, on POPULATED org data', () => {
-    const SCHEMAS = { content: [
-      { category: 'section', id: 'basic_info', children: [
-        { category: 'datapoint', id: 'invoice_id' }, { category: 'datapoint', id: 'vendor_name' }] },
-    ] };
+    const SCHEMAS = {
+      content: [
+        {
+          category: 'section',
+          id: 'basic_info',
+          children: [
+            { category: 'datapoint', id: 'invoice_id' },
+            { category: 'datapoint', id: 'vendor_name' },
+          ],
+        },
+      ],
+    };
     const nonEmpty = (sig: any) => {
       if (Array.isArray(sig)) return sig.length > 0;
       if (typeof sig === 'number') return sig > 0;
@@ -138,7 +177,10 @@ describe('isIdsOnly — the privacy guard', () => {
       collectionCount: collectionCount({ result: ['vendors', 'gl_codes'] }),
     };
     for (const [name, sig] of Object.entries(outputs)) {
-      expect(nonEmpty(sig), `${name} produced an empty signature — the check below would be vacuous`).toBe(true);
+      expect(
+        nonEmpty(sig),
+        `${name} produced an empty signature — the check below would be vacuous`,
+      ).toBe(true);
       expect(isIdsOnly(sig), `${name} leaked something that is not an id`).toBe(true);
     }
     // The org-authored names fed in above must appear NOWHERE in the outputs.

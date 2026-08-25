@@ -25,7 +25,40 @@ const LANGS: Record<string, LangConfig> = {
     comment: /#[^\n]*/y,
     string: /("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')/y,
     decorator: /@[A-Za-z_][\w.]*/y,
-    keywords: new Set(['def', 'class', 'return', 'if', 'elif', 'else', 'for', 'while', 'import', 'from', 'as', 'try', 'except', 'finally', 'with', 'lambda', 'and', 'or', 'not', 'in', 'is', 'raise', 'pass', 'yield', 'async', 'await', 'global', 'nonlocal', 'del', 'assert', 'break', 'continue']),
+    keywords: new Set([
+      'def',
+      'class',
+      'return',
+      'if',
+      'elif',
+      'else',
+      'for',
+      'while',
+      'import',
+      'from',
+      'as',
+      'try',
+      'except',
+      'finally',
+      'with',
+      'lambda',
+      'and',
+      'or',
+      'not',
+      'in',
+      'is',
+      'raise',
+      'pass',
+      'yield',
+      'async',
+      'await',
+      'global',
+      'nonlocal',
+      'del',
+      'assert',
+      'break',
+      'continue',
+    ]),
     literals: new Set(['None', 'True', 'False', 'self']),
   },
   json: {
@@ -37,19 +70,108 @@ const LANGS: Record<string, LangConfig> = {
   javascript: {
     comment: /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)/y,
     string: /(`(?:\\.|[^`\\])*`|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')/y,
-    keywords: new Set(['const', 'let', 'var', 'function', 'return', 'if', 'else', 'for', 'while', 'class', 'extends', 'new', 'import', 'from', 'export', 'default', 'try', 'catch', 'finally', 'throw', 'async', 'await', 'typeof', 'instanceof', 'in', 'of', 'switch', 'case', 'break', 'continue', 'delete', 'void', 'yield']),
+    keywords: new Set([
+      'const',
+      'let',
+      'var',
+      'function',
+      'return',
+      'if',
+      'else',
+      'for',
+      'while',
+      'class',
+      'extends',
+      'new',
+      'import',
+      'from',
+      'export',
+      'default',
+      'try',
+      'catch',
+      'finally',
+      'throw',
+      'async',
+      'await',
+      'typeof',
+      'instanceof',
+      'in',
+      'of',
+      'switch',
+      'case',
+      'break',
+      'continue',
+      'delete',
+      'void',
+      'yield',
+    ]),
     literals: new Set(['true', 'false', 'null', 'undefined', 'this']),
   },
   bash: {
     comment: /#[^\n]*/y,
     string: /("(?:\\.|[^"\\])*"|'[^']*')/y,
-    keywords: new Set(['if', 'then', 'else', 'elif', 'fi', 'for', 'in', 'do', 'done', 'while', 'case', 'esac', 'function', 'export', 'local', 'return', 'echo', 'cd', 'set']),
+    keywords: new Set([
+      'if',
+      'then',
+      'else',
+      'elif',
+      'fi',
+      'for',
+      'in',
+      'do',
+      'done',
+      'while',
+      'case',
+      'esac',
+      'function',
+      'export',
+      'local',
+      'return',
+      'echo',
+      'cd',
+      'set',
+    ]),
     literals: new Set(),
   },
   sql: {
     comment: /(--[^\n]*|\/\*[\s\S]*?\*\/)/y,
     string: /'(?:''|[^'\n])*'/y,
-    keywords: new Set(['select', 'from', 'where', 'and', 'or', 'not', 'insert', 'into', 'values', 'update', 'set', 'delete', 'join', 'left', 'right', 'inner', 'outer', 'on', 'group', 'by', 'order', 'having', 'limit', 'offset', 'as', 'distinct', 'count', 'sum', 'avg', 'min', 'max', 'create', 'table', 'index']),
+    keywords: new Set([
+      'select',
+      'from',
+      'where',
+      'and',
+      'or',
+      'not',
+      'insert',
+      'into',
+      'values',
+      'update',
+      'set',
+      'delete',
+      'join',
+      'left',
+      'right',
+      'inner',
+      'outer',
+      'on',
+      'group',
+      'by',
+      'order',
+      'having',
+      'limit',
+      'offset',
+      'as',
+      'distinct',
+      'count',
+      'sum',
+      'avg',
+      'min',
+      'max',
+      'create',
+      'table',
+      'index',
+    ]),
     literals: new Set(['null', 'true', 'false']),
     caseInsensitiveKeywords: true,
   },
@@ -71,29 +193,60 @@ export function highlightCode(code: unknown, lang: unknown): Token[] {
 
   const tokens: Token[] = [];
   let plain = '';
-  const flush = () => { if (plain) { tokens.push({ type: 'plain', text: plain }); plain = ''; } };
-  const tryMatch = (re: RegExp | undefined, i: number): string | null => { if (!re) return null; re.lastIndex = i; const m = re.exec(src); return m ? m[0] : null; };
+  const flush = () => {
+    if (plain) {
+      tokens.push({ type: 'plain', text: plain });
+      plain = '';
+    }
+  };
+  const tryMatch = (re: RegExp | undefined, i: number): string | null => {
+    if (!re) return null;
+    re.lastIndex = i;
+    const m = re.exec(src);
+    return m ? m[0] : null;
+  };
 
   let i = 0;
   while (i < src.length) {
     let m: string | null;
-    if ((m = tryMatch(cfg.comment, i))) { flush(); tokens.push({ type: 'com', text: m }); i += m.length; continue; }
+    if ((m = tryMatch(cfg.comment, i))) {
+      flush();
+      tokens.push({ type: 'com', text: m });
+      i += m.length;
+      continue;
+    }
     if ((m = tryMatch(cfg.string, i))) {
       flush();
       // JSON object keys ("key":) read better in a distinct color than values.
       let type = 'str';
       if (cfg.jsonKeys && /^\s*:/.test(src.slice(i + m.length))) type = 'key';
       tokens.push({ type, text: m });
-      i += m.length; continue;
+      i += m.length;
+      continue;
     }
-    if ((m = tryMatch(cfg.decorator, i))) { flush(); tokens.push({ type: 'dec', text: m }); i += m.length; continue; }
-    if ((m = tryMatch(NUMBER, i))) { flush(); tokens.push({ type: 'num', text: m }); i += m.length; continue; }
+    if ((m = tryMatch(cfg.decorator, i))) {
+      flush();
+      tokens.push({ type: 'dec', text: m });
+      i += m.length;
+      continue;
+    }
+    if ((m = tryMatch(NUMBER, i))) {
+      flush();
+      tokens.push({ type: 'num', text: m });
+      i += m.length;
+      continue;
+    }
     if ((m = tryMatch(WORD, i))) {
       const w = cfg.caseInsensitiveKeywords ? m.toLowerCase() : m;
-      if (cfg.keywords.has(w)) { flush(); tokens.push({ type: 'kw', text: m }); }
-      else if (cfg.literals.has(w)) { flush(); tokens.push({ type: 'lit', text: m }); }
-      else plain += m;
-      i += m.length; continue;
+      if (cfg.keywords.has(w)) {
+        flush();
+        tokens.push({ type: 'kw', text: m });
+      } else if (cfg.literals.has(w)) {
+        flush();
+        tokens.push({ type: 'lit', text: m });
+      } else plain += m;
+      i += m.length;
+      continue;
     }
     plain += src[i];
     i += 1;

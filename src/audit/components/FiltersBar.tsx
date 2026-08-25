@@ -3,17 +3,36 @@ import { useState, useEffect } from 'preact/hooks';
 import { activeSource, filtersBySource, patchFilters } from '../store.js';
 import { SOURCES } from '../sources/index.js';
 
-function DebouncedInput(
-  { value, type, placeholder, onCommit }:
-  { value?: string; type?: string; placeholder?: string; onCommit: (v: string) => void },
-) {
+function DebouncedInput({
+  value,
+  type,
+  placeholder,
+  onCommit,
+}: {
+  value?: string;
+  type?: string;
+  placeholder?: string;
+  onCommit: (v: string) => void;
+}) {
   const [v, setV] = useState(value);
-  useEffect(() => { setV(value); }, [value]);          // re-sync on external change (Clear / source switch)
   useEffect(() => {
-    const id = setTimeout(() => { if (v !== value) onCommit(v as string); }, 300);
+    setV(value);
+  }, [value]); // re-sync on external change (Clear / source switch)
+  useEffect(() => {
+    const id = setTimeout(() => {
+      if (v !== value) onCommit(v as string);
+    }, 300);
     return () => clearTimeout(id);
   }, [v]);
-  return <input class="input" type={type} placeholder={placeholder || ''} value={v} onInput={(e: any) => setV(e.target.value)} />;
+  return (
+    <input
+      class="input"
+      type={type}
+      placeholder={placeholder || ''}
+      value={v}
+      onInput={(e: any) => setV(e.target.value)}
+    />
+  );
 }
 
 export default function FiltersBar() {
@@ -48,13 +67,21 @@ export default function FiltersBar() {
           <label class="filter">
             <span class="filter-label">{f.label}</span>
             {f.kind === 'select' ? (
-              <select class="input" value={st[f.name] as string} onChange={(e: any) => setFilter(f.name, e.target.value)}>
+              <select
+                class="input"
+                value={st[f.name] as string}
+                onChange={(e: any) => setFilter(f.name, e.target.value)}
+              >
                 {!f.required && <option value="">any</option>}
-                {(f.options ? f.options(st) : []).map((o: any) => <option value={o}>{o}</option>)}
+                {(f.options ? f.options(st) : []).map((o: any) => (
+                  <option value={o}>{o}</option>
+                ))}
               </select>
             ) : (
               <DebouncedInput
-                type={f.kind === 'number' ? 'number' : f.kind === 'datetime' ? 'datetime-local' : 'text'}
+                type={
+                  f.kind === 'number' ? 'number' : f.kind === 'datetime' ? 'datetime-local' : 'text'
+                }
                 placeholder={f.placeholder || ''}
                 value={st[f.name] as string}
                 onCommit={(val: string) => setFilter(f.name, val)}
@@ -66,13 +93,18 @@ export default function FiltersBar() {
         {desc.supportsServerSearch && (
           <label class="filter filter-grow">
             <span class="filter-label">Search</span>
-            <DebouncedInput type="search" value={st.search}
-                            onCommit={(val) => patchFilters(key, { search: val, page: 1, cursor: null })} />
+            <DebouncedInput
+              type="search"
+              value={st.search}
+              onCommit={(val) => patchFilters(key, { search: val, page: 1, cursor: null })}
+            />
           </label>
         )}
 
         <div class="filters-actions">
-          <button class="btn btn-secondary" onClick={clearFilters} disabled={!hasActiveFilters}>Reset filters</button>
+          <button class="btn btn-secondary" onClick={clearFilters} disabled={!hasActiveFilters}>
+            Reset filters
+          </button>
         </div>
       </div>
     </section>

@@ -17,9 +17,15 @@ export default function MermaidBlock({ code }: { code?: string | null }) {
     if (ready) return undefined;
     let stale = false;
     loadMermaidRenderer()
-      .then(() => { if (!stale) setReady(true); })
-      .catch(() => { if (!stale) setFailed(true); });
-    return () => { stale = true; };
+      .then(() => {
+        if (!stale) setReady(true);
+      })
+      .catch(() => {
+        if (!stale) setFailed(true);
+      });
+    return () => {
+      stale = true;
+    };
   }, [ready]);
 
   // Sync render + parse; ref callback attaches the node at commit time (no
@@ -41,7 +47,9 @@ export default function MermaidBlock({ code }: { code?: string | null }) {
     return (
       <div class={styles.codewrap}>
         <span class={styles.lang}>mermaid</span>
-        <pre class={styles.code}><code>{code}</code></pre>
+        <pre class={styles.code}>
+          <code>{code}</code>
+        </pre>
       </div>
     );
   }
@@ -56,7 +64,12 @@ export default function MermaidBlock({ code }: { code?: string | null }) {
   return (
     <div class={styles.mermaid}>
       <span class={styles.lang}>mermaid</span>
-      <div class={styles.mermaidBox} ref={(el) => { if (el && el.firstChild !== svgEl) el.replaceChildren(svgEl); }} />
+      <div
+        class={styles.mermaidBox}
+        ref={(el) => {
+          if (el && el.firstChild !== svgEl) el.replaceChildren(svgEl);
+        }}
+      />
     </div>
   );
 }

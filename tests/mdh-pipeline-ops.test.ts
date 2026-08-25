@@ -21,12 +21,7 @@ describe('applySortToPipeline', () => {
   it('inserts $sort immediately after $match when absent', () => {
     const p = [{ $match: { x: 1 } }, { $skip: 0 }, { $limit: 50 }];
     applySortToPipeline(p, { foo: -1 });
-    expect(p).toEqual([
-      { $match: { x: 1 } },
-      { $sort: { foo: -1 } },
-      { $skip: 0 },
-      { $limit: 50 },
-    ]);
+    expect(p).toEqual([{ $match: { x: 1 } }, { $sort: { foo: -1 } }, { $skip: 0 }, { $limit: 50 }]);
   });
 
   it('inserts $sort before $skip/$limit when no $match exists', () => {
@@ -139,7 +134,10 @@ describe('extractUIStateFromPipeline', () => {
   it('extracts primitive-valued $match entries into filters', () => {
     const p = [{ $match: { status: 'active', count: 5, flag: true, nothing: null } }];
     expect(extractUIStateFromPipeline(p).filters).toEqual({
-      status: 'active', count: 5, flag: true, nothing: null,
+      status: 'active',
+      count: 5,
+      flag: true,
+      nothing: null,
     });
   });
 
@@ -182,16 +180,8 @@ describe('extractUIStateFromPipeline', () => {
 
 describe('stripPaginationStages', () => {
   it('removes the contiguous trailing run of $skip/$limit stages', () => {
-    const p = [
-      { $match: { x: 1 } },
-      { $sort: { y: -1 } },
-      { $skip: 100 },
-      { $limit: 50 },
-    ];
-    expect(stripPaginationStages(p)).toEqual([
-      { $match: { x: 1 } },
-      { $sort: { y: -1 } },
-    ]);
+    const p = [{ $match: { x: 1 } }, { $sort: { y: -1 } }, { $skip: 100 }, { $limit: 50 }];
+    expect(stripPaginationStages(p)).toEqual([{ $match: { x: 1 } }, { $sort: { y: -1 } }]);
   });
 
   it('preserves mid-pipeline $skip/$limit when followed by a non-pagination stage', () => {
@@ -256,8 +246,12 @@ describe('stripPaginationStages', () => {
 
   it('strips a trailing run of more than one $limit or $skip', () => {
     // Hand-edited pipelines may have redundant trailing pagination stages.
-    expect(stripPaginationStages([{ $match: {} }, { $skip: 0 }, { $skip: 5 }, { $limit: 10 }])).toEqual([{ $match: {} }]);
-    expect(stripPaginationStages([{ $match: {} }, { $limit: 50 }, { $limit: 10 }])).toEqual([{ $match: {} }]);
+    expect(
+      stripPaginationStages([{ $match: {} }, { $skip: 0 }, { $skip: 5 }, { $limit: 10 }]),
+    ).toEqual([{ $match: {} }]);
+    expect(stripPaginationStages([{ $match: {} }, { $limit: 50 }, { $limit: 10 }])).toEqual([
+      { $match: {} },
+    ]);
   });
 
   it('returns an empty array unchanged', () => {
@@ -280,7 +274,14 @@ describe('stripPaginationStages', () => {
 
 describe('pipelineReducesResultSet', () => {
   it('returns false for a plain full-collection browse', () => {
-    expect(pipelineReducesResultSet([{ $match: {} }, { $sort: { _id: -1 } }, { $skip: 0 }, { $limit: 50 }])).toBe(false);
+    expect(
+      pipelineReducesResultSet([
+        { $match: {} },
+        { $sort: { _id: -1 } },
+        { $skip: 0 },
+        { $limit: 50 },
+      ]),
+    ).toBe(false);
     expect(pipelineReducesResultSet([])).toBe(false);
   });
   it('returns true when $match has any key', () => {
@@ -298,11 +299,15 @@ describe('stripWriteStages', () => {
   });
 
   it('removes $merge stages', () => {
-    expect(stripWriteStages([{ $group: { _id: '$x' } }, { $merge: { into: 'targetCol' } }])).toEqual([{ $group: { _id: '$x' } }]);
+    expect(
+      stripWriteStages([{ $group: { _id: '$x' } }, { $merge: { into: 'targetCol' } }]),
+    ).toEqual([{ $group: { _id: '$x' } }]);
   });
 
   it('removes $out with an object value', () => {
-    expect(stripWriteStages([{ $match: {} }, { $out: { db: 'x', coll: 'archive' } }])).toEqual([{ $match: {} }]);
+    expect(stripWriteStages([{ $match: {} }, { $out: { db: 'x', coll: 'archive' } }])).toEqual([
+      { $match: {} },
+    ]);
   });
 
   it('keeps $match/$group/$sort/etc. unchanged', () => {
@@ -340,16 +345,28 @@ describe('terminalWriteStage', () => {
     expect(terminalWriteStage([])).toBeNull();
   });
   it('detects $out with a string target', () => {
-    expect(terminalWriteStage([{ $match: {} }, { $out: 'archive' }])).toEqual({ op: '$out', target: 'archive' });
+    expect(terminalWriteStage([{ $match: {} }, { $out: 'archive' }])).toEqual({
+      op: '$out',
+      target: 'archive',
+    });
   });
   it('detects $out with an object target', () => {
-    expect(terminalWriteStage([{ $out: { db: 'x', coll: 'archive' } }])).toEqual({ op: '$out', target: 'archive' });
+    expect(terminalWriteStage([{ $out: { db: 'x', coll: 'archive' } }])).toEqual({
+      op: '$out',
+      target: 'archive',
+    });
   });
   it('detects $merge with a string into', () => {
-    expect(terminalWriteStage([{ $merge: { into: 'targetCol' } }])).toEqual({ op: '$merge', target: 'targetCol' });
+    expect(terminalWriteStage([{ $merge: { into: 'targetCol' } }])).toEqual({
+      op: '$merge',
+      target: 'targetCol',
+    });
   });
   it('detects $merge with an object into', () => {
-    expect(terminalWriteStage([{ $merge: { into: { db: 'x', coll: 'targetCol' } } }])).toEqual({ op: '$merge', target: 'targetCol' });
+    expect(terminalWriteStage([{ $merge: { into: { db: 'x', coll: 'targetCol' } } }])).toEqual({
+      op: '$merge',
+      target: 'targetCol',
+    });
   });
   it('only checks the LAST stage', () => {
     expect(terminalWriteStage([{ $out: 'a' }, { $match: {} }])).toBeNull();
@@ -384,7 +401,9 @@ describe('parseExportFilter', () => {
     const r = parseExportFilter('[{"$match":{"region":"EU"}},{"$out":"archive"}]', id);
     expect(r.available).toBe(false);
     expect(r.stages).toBeNull();
-    expect(r.reason).toBe('The pipeline ends in a write stage ($out/$merge) — exports are read-only.');
+    expect(r.reason).toBe(
+      'The pipeline ends in a write stage ($out/$merge) — exports are read-only.',
+    );
   });
   it('flags a pipeline ending in $merge as unavailable (exports are read-only)', () => {
     const r = parseExportFilter('[{"$group":{"_id":"$x"}},{"$merge":{"into":"target"}}]', id);

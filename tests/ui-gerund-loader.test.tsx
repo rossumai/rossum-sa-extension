@@ -6,8 +6,18 @@ import GerundLoader from '../src/ui/GerundLoader.jsx';
 import styles from '../src/ui/aiInput.module.css';
 
 let root: any;
-afterEach(() => { if (root) { render(null, root); root.remove(); } });
-function mount(props: any) { root = document.createElement('div'); document.body.appendChild(root); render(<GerundLoader {...props} />, root); return root; }
+afterEach(() => {
+  if (root) {
+    render(null, root);
+    root.remove();
+  }
+});
+function mount(props: any) {
+  root = document.createElement('div');
+  document.body.appendChild(root);
+  render(<GerundLoader {...props} />, root);
+  return root;
+}
 
 describe('GerundLoader', () => {
   it('renders the loader wrapper with the first gerund', () => {

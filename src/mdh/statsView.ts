@@ -32,24 +32,34 @@ export function transformDistribution(res: any, fields: string[]) {
 
 export function transformNumeric(res: any, fields: string[]) {
   const r = res.result?.[0] || {};
-  return fields.map((f) => {
-    const s = r[encKey(f)]?.[0];
-    return s ? { field: f, count: s.count, min: s.min, max: s.max, avg: s.avg } : null;
-  }).filter(Boolean);
+  return fields
+    .map((f) => {
+      const s = r[encKey(f)]?.[0];
+      return s ? { field: f, count: s.count, min: s.min, max: s.max, avg: s.avg } : null;
+    })
+    .filter(Boolean);
 }
 
 export function transformDates(res: any, fields: string[]) {
   const r = res.result?.[0] || {};
-  return fields.map((f) => {
-    const s = r[encKey(f)]?.[0];
-    return s ? { field: f, count: s.count, earliest: s.earliest, latest: s.latest } : null;
-  }).filter(Boolean);
+  return fields
+    .map((f) => {
+      const s = r[encKey(f)]?.[0];
+      return s ? { field: f, count: s.count, earliest: s.earliest, latest: s.latest } : null;
+    })
+    .filter(Boolean);
 }
 
 export function transformStorage(res: any) {
   const s = res.result?.[0]?.storageStats;
   if (!s) return null;
-  return { size: s.size, storageSize: s.storageSize, freeStorageSize: s.freeStorageSize, avgObjSize: s.avgObjSize, count: s.count };
+  return {
+    size: s.size,
+    storageSize: s.storageSize,
+    freeStorageSize: s.freeStorageSize,
+    avgObjSize: s.avgObjSize,
+    count: s.count,
+  };
 }
 
 export function transformDocSize(res: any) {
@@ -66,7 +76,7 @@ export function transformDocSize(res: any) {
 // The guard below is the contract — an absent list scopes to nothing.
 export function indexPrefixMap(indexes: any[] | null | undefined) {
   const map = new Map();
-  for (const idx of (indexes || [])) {
+  for (const idx of indexes || []) {
     const first = idx && idx.key ? Object.keys(idx.key)[0] : null;
     if (!first) continue;
     if (!map.has(first)) map.set(first, []);
@@ -107,15 +117,25 @@ export function fieldTypeSummary(res: any, fields: string[]) {
 
 function indexByField(arr: any[]) {
   const m = new Map();
-  for (const x of (arr || [])) m.set(x.field, x);
+  for (const x of arr || []) m.set(x.field, x);
   return m;
 }
 
 // Merge every per-field slice into one profile object per field. Any slice may
 // be null (check still loading or errored) → the corresponding region is null.
-export function buildFieldProfiles(
-  { fields, total, coverage, empties, typeSummary, cardinality, distribution, strings, numeric, dates, sentinels }: Record<string, any>,
-) {
+export function buildFieldProfiles({
+  fields,
+  total,
+  coverage,
+  empties,
+  typeSummary,
+  cardinality,
+  distribution,
+  strings,
+  numeric,
+  dates,
+  sentinels,
+}: Record<string, any>) {
   const cov = indexByField(coverage);
   const emp = indexByField(empties);
   const card = indexByField(cardinality);
@@ -162,7 +182,15 @@ function toTimestamp(d: unknown): number | null {
 
 // All three are nullable: the `== null` guards below are what a stats row with no
 // numeric range actually hits.
-export function rangeBar({ min, max, value }: { min: number | null; max: number | null; value: number | null }) {
+export function rangeBar({
+  min,
+  max,
+  value,
+}: {
+  min: number | null;
+  max: number | null;
+  value: number | null;
+}) {
   if (min == null || max == null) return null;
   if (max === min) return { left: 0, right: 0, avgPct: 50 };
   const clamp = (n: number) => Math.max(0, Math.min(100, n));
@@ -183,14 +211,19 @@ export function spanBar(earliest: unknown, latest: unknown) {
 // other values match exactly (the distribution already grouped by exact value).
 // Preserves the data view's default $sort/$skip/$limit stages so the jumped-to
 // query behaves like a normal paginated query (limit defaults to the page size).
-export function buildValueFilterPipeline(field: string, value: unknown, isPlaceholder: boolean, limit = 50) {
-  const match = (isPlaceholder && typeof value === 'string')
-    ? { $regex: `^\\s*${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, $options: 'i' }
-    : value;
-  return JSON.stringify([
-    { $match: { [field]: match } },
-    { $sort: { _id: -1 } },
-    { $skip: 0 },
-    { $limit: limit },
-  ], null, 2);
+export function buildValueFilterPipeline(
+  field: string,
+  value: unknown,
+  isPlaceholder: boolean,
+  limit = 50,
+) {
+  const match =
+    isPlaceholder && typeof value === 'string'
+      ? { $regex: `^\\s*${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, $options: 'i' }
+      : value;
+  return JSON.stringify(
+    [{ $match: { [field]: match } }, { $sort: { _id: -1 } }, { $skip: 0 }, { $limit: limit }],
+    null,
+    2,
+  );
 }

@@ -7,7 +7,7 @@ const { tokenize, parse, evalNode } = __testing;
 
 describe('tokenize', () => {
   it('produces STRING tokens for single- and double-quoted literals', () => {
-    expect(tokenize("'foo' \"bar\"")).toEqual([
+    expect(tokenize('\'foo\' "bar"')).toEqual([
       { type: 'STRING', value: 'foo' },
       { type: 'STRING', value: 'bar' },
     ]);

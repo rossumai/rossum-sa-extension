@@ -35,8 +35,8 @@ describe('JsonEditor — value prop syncing', () => {
 
   it('editable editor treats value as a seed only — a parent re-render does not clobber edits', async () => {
     const root = mount();
-    const roRef: { current: JsonEditorHandle | null } = { current: null };   // read-only sibling: deterministic "effects flushed" signal
-    const edRef: { current: JsonEditorHandle | null } = { current: null };   // editable editor under test
+    const roRef: { current: JsonEditorHandle | null } = { current: null }; // read-only sibling: deterministic "effects flushed" signal
+    const edRef: { current: JsonEditorHandle | null } = { current: null }; // editable editor under test
 
     render(
       <>

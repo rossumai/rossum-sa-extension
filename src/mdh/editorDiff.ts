@@ -15,7 +15,10 @@
 // ends in the middle of an astral character (the resulting document is exact
 // either way, but this avoids handing CodeMirror a split-pair offset).
 /** The smallest CodeMirror change that turns `a` into `b`, or null if they are equal. */
-export function computeMinimalChange(a: string, b: string): { from: number; to: number; insert: string } | null {
+export function computeMinimalChange(
+  a: string,
+  b: string,
+): { from: number; to: number; insert: string } | null {
   if (a === b) return null;
   const aLen = a.length;
   const bLen = b.length;

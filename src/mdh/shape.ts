@@ -42,8 +42,8 @@ function collectPaths(obj: any, prefix: string, out: Map<string, string>): Map<s
 }
 
 export function deriveShape(docs: any[]): any {
-  const paths = new Map();           // path -> Set<type>
-  const presence = new Map();        // path -> count of docs containing it
+  const paths = new Map(); // path -> Set<type>
+  const presence = new Map(); // path -> count of docs containing it
   const list = Array.isArray(docs) ? docs : [];
   for (const doc of list) {
     if (!doc || typeof doc !== 'object') continue;
@@ -86,16 +86,25 @@ export function validateAgainstShape(docs: any[], shape: any): any {
 
   for (const doc of list) {
     let bad = false;
-    const dp = (doc && typeof doc === 'object') ? collectPaths(doc, '', new Map()) : new Map();
+    const dp = doc && typeof doc === 'object' ? collectPaths(doc, '', new Map()) : new Map();
     for (const [path] of refPaths) {
       // A field only SOME existing records carry cannot be "missing" from a row —
       // requiring it made a non-uniform collection reject its own export (§2.4).
-      if (!dp.has(path) && !optional.has(path)) { missing.add(path); bad = true; }
+      if (!dp.has(path) && !optional.has(path)) {
+        missing.add(path);
+        bad = true;
+      }
     }
     for (const [path, got] of dp) {
-      if (!refPaths.has(path)) { unknown.add(path); unknownTypesRaw.set(path, got); bad = true; continue; }
+      if (!refPaths.has(path)) {
+        unknown.add(path);
+        unknownTypesRaw.set(path, got);
+        bad = true;
+        continue;
+      }
       if (!typeCompatible(refPaths.get(path), got)) {
-        if (!typeMismatch.has(path)) typeMismatch.set(path, { path, expected: [...refPaths.get(path)], got });
+        if (!typeMismatch.has(path))
+          typeMismatch.set(path, { path, expected: [...refPaths.get(path)], got });
         bad = true;
       }
     }
@@ -132,7 +141,11 @@ export function validateAgainstShape(docs: any[], shape: any): any {
   }
 
   return {
-    ok: missing.size === 0 && unknown.size === 0 && typeMismatch.size === 0 && whitespace.length === 0,
+    ok:
+      missing.size === 0 &&
+      unknown.size === 0 &&
+      typeMismatch.size === 0 &&
+      whitespace.length === 0,
     missing: [...missing],
     unknown: [...unknown],
     typeMismatch: [...typeMismatch.values()],

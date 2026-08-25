@@ -10,11 +10,11 @@ describe('chatTitle', () => {
   });
 });
 
-
-
 describe('sanitizeTitle', () => {
   it('strips markdown noise from server summaries', () => {
-    expect(sanitizeTitle('# Summary Cannot summarize without data')).toBe('Summary Cannot summarize without data');
+    expect(sanitizeTitle('# Summary Cannot summarize without data')).toBe(
+      'Summary Cannot summarize without data',
+    );
     expect(sanitizeTitle('**Bold** `code` snake_case')).toBe('Bold code snake_case');
     expect(sanitizeTitle('  ## spaced   out  ')).toBe('spaced out');
   });

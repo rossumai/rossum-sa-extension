@@ -1,9 +1,15 @@
 import { init as initSchemaIds, handleNode as handleSchemaId } from './features/schema-ids.js';
-import { init as initResourceIds, handleNode as handleResourceId } from './features/resource-ids.js';
+import {
+  init as initResourceIds,
+  handleNode as handleResourceId,
+} from './features/resource-ids.js';
 import { handleNode as handleExpandFormulas } from './features/expand-formulas.js';
 import { handleNode as handleExpandReasoning } from './features/expand-reasoning.js';
 import { initScrollLock } from './features/scroll-lock.js';
-import { init as initClosableTooltips, handleNode as handleClosableTooltip } from './features/closable-tooltips.js';
+import {
+  init as initClosableTooltips,
+  handleNode as handleClosableTooltip,
+} from './features/closable-tooltips.js';
 import { init as initDatasetMgmtSuggest } from './features/dataset-mgmt-suggest.js';
 import { init as initTrackViewed } from './features/track-viewed.js';
 import { init as initTrainingQuest } from './features/training-quest.js';

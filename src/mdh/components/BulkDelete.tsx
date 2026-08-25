@@ -21,15 +21,31 @@ type BulkOpen = {
 };
 
 export function openBulkDelete({ collection, mode, ids, filter, onSuccess, fieldsFn }: BulkOpen) {
-  openModal(mode === 'selection' ? `Delete ${ids!.length} record${ids!.length !== 1 ? 's' : ''}` : 'Delete by filter', () => (
-    <Body collection={collection} mode={mode} ids={ids} initialFilter={filter} onSuccess={onSuccess} fieldsFn={fieldsFn} />
-  ));
+  openModal(
+    mode === 'selection'
+      ? `Delete ${ids!.length} record${ids!.length !== 1 ? 's' : ''}`
+      : 'Delete by filter',
+    () => (
+      <Body
+        collection={collection}
+        mode={mode}
+        ids={ids}
+        initialFilter={filter}
+        onSuccess={onSuccess}
+        fieldsFn={fieldsFn}
+      />
+    ),
+  );
 }
 
-function Body(
-  { collection, mode, ids, initialFilter, onSuccess, fieldsFn }:
-  Omit<BulkOpen, 'filter'> & { initialFilter?: any },
-) {
+function Body({
+  collection,
+  mode,
+  ids,
+  initialFilter,
+  onSuccess,
+  fieldsFn,
+}: Omit<BulkOpen, 'filter'> & { initialFilter?: any }) {
   const rootRef = useRef<HTMLElement | null>(null);
   const editorRef = useRef<JsonEditorHandle | null>(null);
   const [filterJson, setFilterJson] = useState(() => JSON.stringify(initialFilter || {}, null, 2));
@@ -58,17 +74,28 @@ function Body(
     setPreviewError(null);
     const ac = new AbortController();
     if (isSelection) {
-      api.aggregate(collection, [{ $match: filt }, { $limit: 5 }], { signal: ac.signal })
+      api
+        .aggregate(collection, [{ $match: filt }, { $limit: 5 }], { signal: ac.signal })
         .then((res) => {
           setSample(res.result || []);
           setCount(ids!.length);
           setPreviewing(false);
         })
-        .catch((err) => { setPreviewError(err.message); setPreviewing(false); });
+        .catch((err) => {
+          setPreviewError(err.message);
+          setPreviewing(false);
+        });
     } else {
       previewMatch(collection, filt, { signal: ac.signal })
-        .then(({ count: c, sample: s }) => { setCount(c); setSample(s); setPreviewing(false); })
-        .catch((err) => { setPreviewError(err.message); setPreviewing(false); });
+        .then(({ count: c, sample: s }) => {
+          setCount(c);
+          setSample(s);
+          setPreviewing(false);
+        })
+        .catch((err) => {
+          setPreviewError(err.message);
+          setPreviewing(false);
+        });
     }
     return () => ac.abort();
   }
@@ -122,9 +149,10 @@ function Body(
     }
   }
 
-  const undoNote = (count as number) > UNDO_LIMIT
-    ? `Undo is unavailable above ${UNDO_LIMIT.toLocaleString()} records.`
-    : 'You’ll have a few seconds to undo.';
+  const undoNote =
+    (count as number) > UNDO_LIMIT
+      ? `Undo is unavailable above ${UNDO_LIMIT.toLocaleString()} records.`
+      : 'You’ll have a few seconds to undo.';
 
   return (
     <ModalBody rootRef={rootRef}>
@@ -152,7 +180,9 @@ function Body(
         )}
         {sample.length > 0 && sample.length < (count as number) && (
           <div class="bulk-preview-sample-note">
-            Preview shows a sample of the first {sample.length} {sample.length === 1 ? 'record' : 'records'} below — the operation will apply to all {count!.toLocaleString()}.
+            Preview shows a sample of the first {sample.length}{' '}
+            {sample.length === 1 ? 'record' : 'records'} below — the operation will apply to all{' '}
+            {count!.toLocaleString()}.
           </div>
         )}
         {sample.length > 0 && (

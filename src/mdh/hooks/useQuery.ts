@@ -46,7 +46,9 @@ export function useQuery() {
     try {
       pipeline = JSON5.parse(resolvedText);
       if (!Array.isArray(pipeline)) return;
-    } catch { return; }
+    } catch {
+      return;
+    }
 
     // Capture and immediately consume the one-shot cache flag so it stays
     // bound to *this* call. Without this, a slow query A could supersede,

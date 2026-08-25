@@ -111,7 +111,9 @@ function labelTileIndex(node: HTMLElement, name: string) {
 function displayResourceId(node: HTMLElement, id: string, variant?: string) {
   if (node.querySelector('.rossum-sa-extension-resource-id') != null) return;
   const span = document.createElement('span');
-  span.className = 'rossum-sa-extension-resource-id' + (variant != null ? ` rossum-sa-extension-resource-id--${variant}` : '');
+  span.className =
+    'rossum-sa-extension-resource-id' +
+    (variant != null ? ` rossum-sa-extension-resource-id--${variant}` : '');
   span.textContent = id;
   span.title = 'Click to copy';
   span.addEventListener('click', (e) => {
@@ -120,7 +122,9 @@ function displayResourceId(node: HTMLElement, id: string, variant?: string) {
     navigator.clipboard.writeText(id).then(() => {
       const original = span.textContent;
       span.textContent = '\u2713 copied';
-      setTimeout(() => { span.textContent = original; }, 1000);
+      setTimeout(() => {
+        span.textContent = original;
+      }, 1000);
     });
   });
   node.appendChild(span);
@@ -132,10 +136,12 @@ export function handleNode(node: HTMLElement): void {
   if (node.matches('[data-cy="workspace"]')) {
     const name = node.querySelector('[data-cy="sidebar-heading"] span')?.textContent.trim();
     if (name) {
-      fetchRossumApi('/api/v1/workspaces?page_size=100').then((data) => {
-        const ws = data.results?.find((w: any) => w.name === name);
-        if (ws) displayResourceId(node, String(ws.id));
-      }).catch(() => {});
+      fetchRossumApi('/api/v1/workspaces?page_size=100')
+        .then((data) => {
+          const ws = data.results?.find((w: any) => w.name === name);
+          if (ws) displayResourceId(node, String(ws.id));
+        })
+        .catch(() => {});
     }
   }
 
@@ -194,17 +200,19 @@ export function handleNode(node: HTMLElement): void {
     const nameEl = node.querySelector('.MuiChip-label');
     const name = nameEl?.textContent.trim();
     if (name) {
-      fetchRossumApi('/api/v1/labels?page_size=100').then((data) => {
-        const matches = (data.results ?? []).filter((l: any) => l.name === name);
-        if (matches.length === 0) return;
-        const inLabelList = node.closest('[data-sentry-component="TileContent"]') != null;
-        if (matches.length === 1 || !inLabelList) {
-          displayResourceId(node, String(matches[0].id));
-          return;
-        }
-        const i = labelTileIndex(node, name);
-        displayResourceId(node, String(matches[Math.min(i, matches.length - 1)].id));
-      }).catch(() => {});
+      fetchRossumApi('/api/v1/labels?page_size=100')
+        .then((data) => {
+          const matches = (data.results ?? []).filter((l: any) => l.name === name);
+          if (matches.length === 0) return;
+          const inLabelList = node.closest('[data-sentry-component="TileContent"]') != null;
+          if (matches.length === 1 || !inLabelList) {
+            displayResourceId(node, String(matches[0].id));
+            return;
+          }
+          const i = labelTileIndex(node, name);
+          displayResourceId(node, String(matches[Math.min(i, matches.length - 1)].id));
+        })
+        .catch(() => {});
     }
   }
 

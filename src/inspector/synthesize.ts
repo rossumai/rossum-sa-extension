@@ -41,10 +41,14 @@ type StreamCallbacks = {
   signal?: AbortSignal;
 };
 
-export async function runSynthesis(
-  { agentApi, evidence, annotation, onPhase = () => {}, onText = () => {}, signal }:
-  { agentApi: any; evidence: any; annotation: any } & StreamCallbacks,
-) {
+export async function runSynthesis({
+  agentApi,
+  evidence,
+  annotation,
+  onPhase = () => {},
+  onText = () => {},
+  signal,
+}: { agentApi: any; evidence: any; annotation: any } & StreamCallbacks) {
   onPhase('thinking');
   const chatId = await agentApi.createChat();
   await agentApi.streamMessage(chatId, '/persona cautious', { onEvent: () => {}, signal });
@@ -55,9 +59,15 @@ export async function runSynthesis(
     signal,
     onEvent: (ev: unknown) => {
       foldEvents(acc, [ev]);
-      if (acc.status && acc.status !== lastStatus) { lastStatus = acc.status; onPhase(acc.status); }
+      if (acc.status && acc.status !== lastStatus) {
+        lastStatus = acc.status;
+        onPhase(acc.status);
+      }
       const t = replyText(acc);
-      if (t !== lastText) { lastText = t; onText(t); }
+      if (t !== lastText) {
+        lastText = t;
+        onText(t);
+      }
     },
   });
   return { text: replyText(acc), reasoning: acc.reasoning, tools: acc.tools.slice(), chatId };
@@ -73,10 +83,14 @@ export function buildFollowupPrompt(question: string) {
   ].join('\n\n');
 }
 
-export async function continueSynthesis(
-  { agentApi, chatId, question, onPhase = () => {}, onText = () => {}, signal }:
-  { agentApi: any; chatId: string; question: string } & StreamCallbacks,
-) {
+export async function continueSynthesis({
+  agentApi,
+  chatId,
+  question,
+  onPhase = () => {},
+  onText = () => {},
+  signal,
+}: { agentApi: any; chatId: string; question: string } & StreamCallbacks) {
   onPhase('thinking');
   const acc = newAcc();
   let lastStatus = 'thinking';
@@ -85,9 +99,15 @@ export async function continueSynthesis(
     signal,
     onEvent: (ev: unknown) => {
       foldEvents(acc, [ev]);
-      if (acc.status && acc.status !== lastStatus) { lastStatus = acc.status; onPhase(acc.status); }
+      if (acc.status && acc.status !== lastStatus) {
+        lastStatus = acc.status;
+        onPhase(acc.status);
+      }
       const t = replyText(acc);
-      if (t !== lastText) { lastText = t; onText(t); }
+      if (t !== lastText) {
+        lastText = t;
+        onText(t);
+      }
     },
   });
   return { text: replyText(acc), reasoning: acc.reasoning, tools: acc.tools.slice() };

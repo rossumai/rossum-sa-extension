@@ -3,39 +3,75 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { h, render } from 'preact';
 import JSON5 from 'json5';
 
-const mock = vi.hoisted(() => ({ text: '', onChange: null, onValidChange: null as any, onToggleStage: null as any }));
+const mock = vi.hoisted(() => ({
+  text: '',
+  onChange: null,
+  onValidChange: null as any,
+  onToggleStage: null as any,
+}));
 
-globalThis.chrome = ({
-  storage: { local: { get: (k: any, cb: any) => { if (cb) { cb({}); return; } return Promise.resolve({}); }, set: () => Promise.resolve(), remove: () => Promise.resolve() } },
+globalThis.chrome = {
+  storage: {
+    local: {
+      get: (k: any, cb: any) => {
+        if (cb) {
+          cb({});
+          return;
+        }
+        return Promise.resolve({});
+      },
+      set: () => Promise.resolve(),
+      remove: () => Promise.resolve(),
+    },
+  },
   runtime: { onMessage: { addListener: () => {} } } as any,
-} as any);
+} as any;
 
 vi.mock('../src/mdh/api.js');
 
 vi.mock('../src/mdh/components/PipelineEditor.jsx', () => ({
   default: ({ editorRef, onChange, onValidChange, onToggleStage }: any) => {
-    mock.onChange = onChange; mock.onValidChange = onValidChange; mock.onToggleStage = onToggleStage;
+    mock.onChange = onChange;
+    mock.onValidChange = onValidChange;
+    mock.onToggleStage = onToggleStage;
     if (editorRef) {
       editorRef.current = {
         getValue: () => mock.text,
-        setValue: (v: any) => { mock.text = v; },
-        isValid: () => { try { JSON5.parse(mock.text); return true; } catch { return false; } },
+        setValue: (v: any) => {
+          mock.text = v;
+        },
+        isValid: () => {
+          try {
+            JSON5.parse(mock.text);
+            return true;
+          } catch {
+            return false;
+          }
+        },
         getParsed: () => JSON5.parse(mock.text),
-        focus: () => {}, refresh: () => {},
+        focus: () => {},
+        refresh: () => {},
       };
     }
     return <div data-testid="editor" />;
   },
 }));
-vi.mock('../src/mdh/components/RecordList.jsx', () => ({ default: () => <div data-testid="recordlist" /> }));
-vi.mock('../src/mdh/components/PipelineDebug.jsx', () => ({ default: () => <div data-testid="debug" /> }));
+vi.mock('../src/mdh/components/RecordList.jsx', () => ({
+  default: () => <div data-testid="recordlist" />,
+}));
+vi.mock('../src/mdh/components/PipelineDebug.jsx', () => ({
+  default: () => <div data-testid="debug" />,
+}));
 
 import * as api from '../src/mdh/api.js';
 import * as cache from '../src/mdh/cache.js';
 import DataPanel from '../src/mdh/components/DataPanel.jsx';
 import { selectedCollection, records } from '../src/mdh/store.js';
 
-async function tick() { await new Promise((r) => setTimeout(r, 0)); await new Promise((r) => setTimeout(r, 0)); }
+async function tick() {
+  await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 0));
+}
 
 // Poll for a condition rather than sleeping a fixed span. DataPanel loads its
 // default pipeline from a setTimeout(50ms); under full-suite CPU load a fixed
@@ -46,9 +82,14 @@ async function waitFor(condition: any, description = 'condition', timeoutMs = 30
   const start = Date.now();
   for (;;) {
     let ok = false;
-    try { ok = condition(); } catch { ok = false; }
+    try {
+      ok = condition();
+    } catch {
+      ok = false;
+    }
     if (ok) return;
-    if (Date.now() - start > timeoutMs) throw new Error(`Timeout waiting for ${description} after ${timeoutMs}ms`);
+    if (Date.now() - start > timeoutMs)
+      throw new Error(`Timeout waiting for ${description} after ${timeoutMs}ms`);
     await new Promise((r) => setTimeout(r, 5));
   }
 }
@@ -65,8 +106,12 @@ async function mountDataPanel() {
 
 // Real query aggregations only (exclude the $count / $collStats probes).
 function queryAggregations() {
-  return vi.mocked(api.aggregate).mock.calls
-    .filter(([, pl]) => Array.isArray(pl) && !pl.some((s) => s && s.$count) && !pl.some((s) => s && s.$collStats))
+  return vi
+    .mocked(api.aggregate)
+    .mock.calls.filter(
+      ([, pl]) =>
+        Array.isArray(pl) && !pl.some((s) => s && s.$count) && !pl.some((s) => s && s.$collStats),
+    )
     .map(([, pl]) => pl);
 }
 
@@ -98,7 +143,8 @@ describe('DataPanel — disable-stage wiring', () => {
     await mountDataPanel();
 
     // entry 1 is the disabled $sort block.
-    mock.text = '[\n  { "$match": {} },\n  /* @disabled-stage\n  { "$sort": { "a": -1 } } */\n  { "$limit": 50 }\n]';
+    mock.text =
+      '[\n  { "$match": {} },\n  /* @disabled-stage\n  { "$sort": { "a": -1 } } */\n  { "$limit": 50 }\n]';
     mock.onToggleStage(1); // enable it
     await tick();
 
@@ -108,7 +154,7 @@ describe('DataPanel — disable-stage wiring', () => {
 
   it('runs [{ $match: {} }] when every stage is disabled', async () => {
     await mountDataPanel();
-    await tick();              // let the default-load query finish before clearing
+    await tick(); // let the default-load query finish before clearing
     vi.mocked(api.aggregate).mockClear(); // drop the default-load aggregations
 
     mock.text = '[ /* @disabled-stage\n{ "$match": { "x": 1 } } */ ]';
@@ -130,7 +176,8 @@ describe('DataPanel — disable-stage wiring', () => {
   it('preserves a freehand comment through a stage toggle (minimal-edit wiring)', async () => {
     await mountDataPanel();
 
-    mock.text = '[\n  // only active vendors\n  { "$match": { "active": true } },\n  { "$skip": 0 },\n  { "$limit": 50 }\n]';
+    mock.text =
+      '[\n  // only active vendors\n  { "$match": { "active": true } },\n  { "$skip": 0 },\n  { "$limit": 50 }\n]';
     mock.onToggleStage(1); // disable $skip via the same minimal-edit core that sort/filter use
     await tick();
 

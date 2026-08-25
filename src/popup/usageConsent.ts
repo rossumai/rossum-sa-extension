@@ -21,7 +21,10 @@ export const defaultDeps = {
   removeSession: (keys: string[]) => chrome.storage.session.remove(keys),
 };
 
-export function writeConsent(value: boolean, deps: Partial<typeof defaultDeps> = {}): Promise<unknown> {
+export function writeConsent(
+  value: boolean,
+  deps: Partial<typeof defaultDeps> = {},
+): Promise<unknown> {
   const d = { ...defaultDeps, ...deps };
   if (value === true) return d.setLocal({ usageConsent: true });
 

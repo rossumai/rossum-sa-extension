@@ -9,18 +9,29 @@ export default function ResultsTable() {
   const ctx = makeCtx();
 
   if (loading.value && all.length === 0) return <div class="results-empty">Loading…</div>;
-  if (!loading.value && all.length === 0) return <div class="results-empty">No records match the current filters.</div>;
+  if (!loading.value && all.length === 0)
+    return <div class="results-empty">No records match the current filters.</div>;
 
   return (
     <div class="results-wrap">
       <table class="results-table">
-        <thead><tr>{desc.columns.map((c: any) => <th class={c.cls}>{c.label}</th>)}</tr></thead>
+        <thead>
+          <tr>
+            {desc.columns.map((c: any) => (
+              <th class={c.cls}>{c.label}</th>
+            ))}
+          </tr>
+        </thead>
         <tbody>
           {all.map((r) => (
-            <tr key={String(r._idx)}
-                class={'result-row' + (selectedRow.value === r._idx ? ' expanded' : '')}
-                onClick={() => (selectedRow.value = selectedRow.value === r._idx ? null : r._idx)}>
-              {desc.columns.map((c: any) => <td class={c.cls}>{c.render(r, ctx)}</td>)}
+            <tr
+              key={String(r._idx)}
+              class={'result-row' + (selectedRow.value === r._idx ? ' expanded' : '')}
+              onClick={() => (selectedRow.value = selectedRow.value === r._idx ? null : r._idx)}
+            >
+              {desc.columns.map((c: any) => (
+                <td class={c.cls}>{c.render(r, ctx)}</td>
+              ))}
             </tr>
           ))}
         </tbody>

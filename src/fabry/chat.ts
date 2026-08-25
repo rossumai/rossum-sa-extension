@@ -59,7 +59,10 @@ export async function openChat(chatId: string, { restore = false }: { restore?: 
     store.files.value = detail.files || [];
   } catch (err: any) {
     if (id !== loadId) return;
-    if (err?.status === 401) { store.error.value = err.message; return; }
+    if (err?.status === 401) {
+      store.error.value = err.message;
+      return;
+    }
     if (err?.status === 404) {
       // Chat is gone (expired/deleted). Reset to the greeting rather than
       // leaving a dead activeChatId + a raw 404 — the reset also clears the
@@ -84,7 +87,18 @@ function pushTurn(turn: any) {
   store.thread.value = [...store.thread.value, turn];
 }
 
-const BLANK_TURN = { chip: false, command: false, images: [], feedback: null, reasoning: '', tools: [], interrupted: false, questions: null, unhandled: null, error: null };
+const BLANK_TURN = {
+  chip: false,
+  command: false,
+  images: [],
+  feedback: null,
+  reasoning: '',
+  tools: [],
+  interrupted: false,
+  questions: null,
+  unhandled: null,
+  error: null,
+};
 
 async function streamTurn(
   chatId: string,
@@ -106,9 +120,14 @@ async function streamTurn(
 
 function accTurn(acc: any, interrupted: boolean) {
   return {
-    ...BLANK_TURN, role: 'assistant', text: replyText(acc), reasoning: acc.reasoning, tools: acc.tools, interrupted,
+    ...BLANK_TURN,
+    role: 'assistant',
+    text: replyText(acc),
+    reasoning: acc.reasoning,
+    tools: acc.tools,
+    interrupted,
     questions: acc.questions || null,
-    unhandled: (acc.unhandled && acc.unhandled.length) ? acc.unhandled : null,
+    unhandled: acc.unhandled && acc.unhandled.length ? acc.unhandled : null,
     error: acc.error || null,
   };
 }
@@ -129,7 +148,13 @@ export async function sendMessage(text: string, images: any[] = []) {
       if (id !== loadId) return false;
       store.activeChatId.value = chatId;
       if (store.personaChoice.value === 'cautious') {
-        pushTurn({ ...BLANK_TURN, role: 'user', chip: true, command: true, text: '/persona cautious' });
+        pushTurn({
+          ...BLANK_TURN,
+          role: 'user',
+          chip: true,
+          command: true,
+          text: '/persona cautious',
+        });
         const prime = await streamTurn(chatId, '/persona cautious', { signal });
         if (id !== loadId) return false;
         pushTurn(accTurn(prime, false));
@@ -145,11 +170,19 @@ export async function sendMessage(text: string, images: any[] = []) {
       const result = await runDeepTurn({
         question: text,
         images,
-        onPhase: (p) => { store.deepPhase.value = p; },
+        onPhase: (p) => {
+          store.deepPhase.value = p;
+        },
         // One user+assistant exchange in the MAIN chat. Reviewer messages
         // start with the marker → chip (display) but NOT command (Task 2).
         sendMainTurn: async (content, imgs) => {
-          pushTurn({ ...BLANK_TURN, role: 'user', chip: content.startsWith(REVIEWER_MARKER), text: content, images: imgs || [] });
+          pushTurn({
+            ...BLANK_TURN,
+            role: 'user',
+            chip: content.startsWith(REVIEWER_MARKER),
+            text: content,
+            images: imgs || [],
+          });
           const acc = await streamTurn(chatId, content, { images: imgs, signal });
           if (id !== loadId) return null;
           pushTurn(accTurn(acc, false));
@@ -163,7 +196,10 @@ export async function sendMessage(text: string, images: any[] = []) {
           if (id !== loadId) return null;
           const fold = async (content: string) => {
             const acc = newAcc();
-            await agentApi.streamMessage(criticId, content, { signal, onEvent: (e) => foldEvents(acc, [e]) });
+            await agentApi.streamMessage(criticId, content, {
+              signal,
+              onEvent: (e) => foldEvents(acc, [e]),
+            });
             return replyText(acc);
           };
           try {
@@ -193,7 +229,18 @@ export async function sendMessage(text: string, images: any[] = []) {
         const turns = store.thread.value;
         for (let i = turns.length - 1; i >= 0; i -= 1) {
           if (turns[i].role === 'assistant') {
-            store.thread.value = turns.map((t, j) => (j === i ? { ...t, deep: { verdict: result.verdict, issues: result.issues, criticText: result.criticText } } : t));
+            store.thread.value = turns.map((t, j) =>
+              j === i
+                ? {
+                    ...t,
+                    deep: {
+                      verdict: result.verdict,
+                      issues: result.issues,
+                      criticText: result.criticText,
+                    },
+                  }
+                : t,
+            );
             break;
           }
         }
@@ -207,7 +254,10 @@ export async function sendMessage(text: string, images: any[] = []) {
       // stopStreaming already kept the partial turn
       return false;
     }
-    if (err?.status === 401) { store.error.value = err.message; return false; }
+    if (err?.status === 401) {
+      store.error.value = err.message;
+      return false;
+    }
     store.sendError.value = friendly(err);
     return false;
   } finally {

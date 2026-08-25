@@ -15,7 +15,11 @@
 const API_PREFIX = '/api/v1/';
 
 function sameOrigin(url: string, origin: string): boolean {
-  try { return new URL(url).origin === new URL(origin).origin; } catch { return false; }
+  try {
+    return new URL(url).origin === new URL(origin).origin;
+  } catch {
+    return false;
+  }
 }
 
 // href → a normalized `/api/v1/…` path on the connected org, or null.
@@ -78,7 +82,8 @@ export function splitResourceView(apiPath: unknown): { path: string; view: Resou
   const view = params.get(VIEW_PARAM);
   // Widened for the membership test: `view` here is an arbitrary query-string value, and
   // it is this check that earns the `as ResourceView` two lines down.
-  if (!view || !(RESOURCE_VIEWS as readonly string[]).includes(view)) return { path: raw, view: null };
+  if (!view || !(RESOURCE_VIEWS as readonly string[]).includes(view))
+    return { path: raw, view: null };
   params.delete(VIEW_PARAM);
   const rest = params.toString();
   return { path: raw.slice(0, qi) + (rest ? `?${rest}` : ''), view: view as ResourceView };
@@ -101,11 +106,14 @@ export function withResourceView(apiPath: unknown, view: ResourceView | null): s
 // carries `config: { runtime: "python3.12", code: "def rossum_hook_request_handler(...)" }`,
 // while a webhook carries `config: { url }` and no code at all. So: if there is code, show
 // the code; otherwise show the JSON. `runtime` names the language rather than assuming it.
-const RUNTIME_LANG: [RegExp, string][] = [[/^python/i, 'python'], [/^node|^js/i, 'javascript']];
+const RUNTIME_LANG: [RegExp, string][] = [
+  [/^python/i, 'python'],
+  [/^node|^js/i, 'javascript'],
+];
 
 export function runtimeLanguage(runtime: unknown): string {
   for (const [re, lang] of RUNTIME_LANG) if (re.test(String(runtime || ''))) return lang;
-  return 'python';   // the only runtime Rossum offers for function hooks today
+  return 'python'; // the only runtime Rossum offers for function hooks today
 }
 
 // Raw response text → what the viewer should display.
@@ -128,11 +136,20 @@ export type FormattedResource = {
 
 export function formatResource(raw: unknown, view: ResourceView | null = null): FormattedResource {
   let obj: any;
-  try { obj = JSON.parse(raw as string); } catch { return { text: String(raw ?? ''), language: 'plaintext', note: '', view: null, views: [] }; }
+  try {
+    obj = JSON.parse(raw as string);
+  } catch {
+    return { text: String(raw ?? ''), language: 'plaintext', note: '', view: null, views: [] };
+  }
   const rawCode = obj && obj.config && obj.config.code;
   const code = typeof rawCode === 'string' && rawCode.trim() ? rawCode : null;
   const views: ResourceView[] = code ? ['code', 'json'] : ['json'];
-  const json = (): Omit<FormattedResource, 'note'> => ({ text: JSON.stringify(obj, null, 2), language: 'json', view: 'json', views });
+  const json = (): Omit<FormattedResource, 'note'> => ({
+    text: JSON.stringify(obj, null, 2),
+    language: 'json',
+    view: 'json',
+    views,
+  });
 
   if (view === 'json') {
     // Name it only when there is something to be confused WITH: on a webhook or a queue the
@@ -158,19 +175,29 @@ export function formatResource(raw: unknown, view: ResourceView | null = null): 
 // One small fetcher rather than a dependency on another app's client: the Rossum core
 // API takes `Token <key>`, unlike Data Storage's Bearer (a difference the training
 // code documents the hard way). Read-only by construction — GET, no body.
-export function createResourceFetcher(
-  { domain, token, fetchImpl }: {
-    domain: string;
-    token: string;
-    /**
-     * Only `ok`, `status`, `statusText` and `text()` are read off the response, so an injected
-     * seam supplies those rather than a whole Response — the real `fetch` satisfies it too.
-     */
-    fetchImpl?: ((url: string, init?: { headers?: Record<string, string> }) => Promise<{
-      ok: boolean; status?: number; statusText?: string; text: () => Promise<string>;
-    }>) | null;
-  },
-): (apiPath: string) => Promise<FormattedResource> {
+export function createResourceFetcher({
+  domain,
+  token,
+  fetchImpl,
+}: {
+  domain: string;
+  token: string;
+  /**
+   * Only `ok`, `status`, `statusText` and `text()` are read off the response, so an injected
+   * seam supplies those rather than a whole Response — the real `fetch` satisfies it too.
+   */
+  fetchImpl?:
+    | ((
+        url: string,
+        init?: { headers?: Record<string, string> },
+      ) => Promise<{
+        ok: boolean;
+        status?: number;
+        statusText?: string;
+        text: () => Promise<string>;
+      }>)
+    | null;
+}): (apiPath: string) => Promise<FormattedResource> {
   const doFetch = fetchImpl || (typeof fetch === 'function' ? fetch : null);
   // The view marker is OURS: it is removed here, so the request is the plain resource URL and
   // the API never sees a parameter it did not define.

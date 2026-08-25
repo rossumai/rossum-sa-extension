@@ -18,11 +18,22 @@ export type ModalContent = {
 export const modalContent = signal<ModalContent | null>(null);
 
 // ── Presentational building blocks (own the scoped modal-* styles) ──────────
-export function ModalBody(
-  { children, class: cls, style, rootRef }:
-  { children?: ComponentChildren; class?: string; style?: any; rootRef?: any },
-) {
-  return <div class={styles.body + (cls ? ' ' + cls : '')} style={style} ref={rootRef}>{children}</div>;
+export function ModalBody({
+  children,
+  class: cls,
+  style,
+  rootRef,
+}: {
+  children?: ComponentChildren;
+  class?: string;
+  style?: any;
+  rootRef?: any;
+}) {
+  return (
+    <div class={styles.body + (cls ? ' ' + cls : '')} style={style} ref={rootRef}>
+      {children}
+    </div>
+  );
 }
 export function ModalActions({ children }: { children?: ComponentChildren }) {
   return <div class={styles.actions}>{children}</div>;
@@ -30,14 +41,33 @@ export function ModalActions({ children }: { children?: ComponentChildren }) {
 export function ModalMessage({ children }: { children?: ComponentChildren }) {
   return <p class={styles.message}>{children}</p>;
 }
-export function ModalFieldLabel({ children, style }: { children?: ComponentChildren; style?: any }) {
-  return <div class={styles.fieldLabel} style={style}>{children}</div>;
+export function ModalFieldLabel({
+  children,
+  style,
+}: {
+  children?: ComponentChildren;
+  style?: any;
+}) {
+  return (
+    <div class={styles.fieldLabel} style={style}>
+      {children}
+    </div>
+  );
 }
 export function ModalLoading({ children }: { children?: ComponentChildren }) {
-  return <div class={styles.message + ' ' + styles.messageLoading}><span class={styles.inlineSpinner} aria-hidden="true" />{children}</div>;
+  return (
+    <div class={styles.message + ' ' + styles.messageLoading}>
+      <span class={styles.inlineSpinner} aria-hidden="true" />
+      {children}
+    </div>
+  );
 }
 export function ModalClose({ onClick, label }: { onClick: () => void; label?: string }) {
-  return <button type="button" class={styles.close} aria-label={label || 'Close'} onClick={onClick}>{'×'}</button>;
+  return (
+    <button type="button" class={styles.close} aria-label={label || 'Close'} onClick={onClick}>
+      {'×'}
+    </button>
+  );
 }
 // The import wizard's header identity strip (file name · size · rows · cols).
 export function ModalFileTitle({ name, meta }: { name?: string; meta?: ComponentChildren }) {
@@ -74,8 +104,18 @@ export function confirmModal(title: string, message: ComponentChildren, onConfir
         <ModalBody>
           <ModalMessage>{message}</ModalMessage>
           <ModalActions>
-            <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>
-            <button class="btn btn-danger" onClick={() => { confirmed = true; closeModal(); }}>Confirm</button>
+            <button class="btn btn-secondary" onClick={closeModal}>
+              Cancel
+            </button>
+            <button
+              class="btn btn-danger"
+              onClick={() => {
+                confirmed = true;
+                closeModal();
+              }}
+            >
+              Confirm
+            </button>
           </ModalActions>
         </ModalBody>
       ),
@@ -93,9 +133,18 @@ export function confirmModal(title: string, message: ComponentChildren, onConfir
 // invoked first and may keep the modal open for async validation.
 export function promptModal(
   title: string,
-  { placeholder, initialValue, submitLabel, submitClass, message }: {
-    placeholder?: string; initialValue?: string; submitLabel?: string;
-    submitClass?: string; message?: ComponentChildren;
+  {
+    placeholder,
+    initialValue,
+    submitLabel,
+    submitClass,
+    message,
+  }: {
+    placeholder?: string;
+    initialValue?: string;
+    submitLabel?: string;
+    submitClass?: string;
+    message?: ComponentChildren;
   },
   onSubmit?: (value: string, hint?: any) => unknown,
 ) {
@@ -107,18 +156,36 @@ export function promptModal(
     };
     modalContent.value = {
       title,
-      render: () => <PromptBody message={message} placeholder={placeholder} initialValue={initialValue} submitLabel={submitLabel} submitClass={submitClass} onSubmit={wrappedSubmit} />,
+      render: () => (
+        <PromptBody
+          message={message}
+          placeholder={placeholder}
+          initialValue={initialValue}
+          submitLabel={submitLabel}
+          submitClass={submitClass}
+          onSubmit={wrappedSubmit}
+        />
+      ),
       onClose: () => resolve(submittedValue),
     };
   });
 }
 
-function PromptBody(
-  { message, placeholder, initialValue, submitLabel, submitClass, onSubmit }: {
-    message?: ComponentChildren; placeholder?: string; initialValue?: string;
-    submitLabel?: string; submitClass?: string; onSubmit: (value: string, hint?: any) => unknown;
-  },
-) {
+function PromptBody({
+  message,
+  placeholder,
+  initialValue,
+  submitLabel,
+  submitClass,
+  onSubmit,
+}: {
+  message?: ComponentChildren;
+  placeholder?: string;
+  initialValue?: string;
+  submitLabel?: string;
+  submitClass?: string;
+  onSubmit: (value: string, hint?: any) => unknown;
+}) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const hintRef = useRef<HTMLDivElement | null>(null);
 
@@ -139,7 +206,10 @@ function PromptBody(
       inputRef.current!.focus();
       return;
     }
-    if (val === initialValue) { closeModal(); return; }
+    if (val === initialValue) {
+      closeModal();
+      return;
+    }
     onSubmit(val, hintRef.current);
   }
 
@@ -152,12 +222,18 @@ function PromptBody(
         style="width:100%"
         placeholder={placeholder || ''}
         value={initialValue || ''}
-        onKeyDown={(e) => { if (e.key === 'Enter') doSubmit(); }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') doSubmit();
+        }}
       />
       <div ref={hintRef} class="input-hint"></div>
       <ModalActions>
-        <button class="btn btn-secondary" onClick={closeModal}>Cancel</button>
-        <button class={`btn ${submitClass || 'btn-primary'}`} onClick={doSubmit}>{submitLabel || 'OK'}</button>
+        <button class="btn btn-secondary" onClick={closeModal}>
+          Cancel
+        </button>
+        <button class={`btn ${submitClass || 'btn-primary'}`} onClick={doSubmit}>
+          {submitLabel || 'OK'}
+        </button>
       </ModalActions>
     </ModalBody>
   );
@@ -233,7 +309,9 @@ export default function Modal() {
   return (
     <div
       class={styles.overlay}
-      onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) closeModal();
+      }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => e.preventDefault()}
     >
@@ -246,7 +324,9 @@ export default function Modal() {
         ref={cardRef}
       >
         <div class={styles.header}>
-          <span class={styles.title} id="modal-title">{modal.title}</span>
+          <span class={styles.title} id="modal-title">
+            {modal.title}
+          </span>
           <ModalClose onClick={closeModal} />
         </div>
         {modal.render()}

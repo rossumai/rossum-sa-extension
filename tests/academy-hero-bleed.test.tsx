@@ -99,7 +99,8 @@ describe('AcademyApp — error strip inset applied only where .entry no longer p
   });
 
   it('applies the .entryError inset on the not-connected branch (a direct .entry child)', async () => {
-    store.error.value = "Open the Rossum Console from this extension's popup on a Rossum tab to access the Academy.";
+    store.error.value =
+      "Open the Rossum Console from this extension's popup on a Rossum tab to access the Academy.";
     render(<AcademyApp connected={false} />, document.body);
     await waitFor(() => document.querySelector('[role="alert"]'));
     const strip = document.querySelector('[role="alert"]');

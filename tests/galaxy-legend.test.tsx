@@ -6,7 +6,13 @@ import * as store from '../src/galaxy/store.js';
 
 beforeEach(() => {
   // Reset visibility to all-visible before each test.
-  store.visibleTypes.value = { organization: true, workspace: true, queue: true, hook: true, engine: true };
+  store.visibleTypes.value = {
+    organization: true,
+    workspace: true,
+    queue: true,
+    hook: true,
+    engine: true,
+  };
 });
 
 describe('Legend', () => {
@@ -41,7 +47,9 @@ describe('Legend', () => {
 
     // First render: all visible.
     render(<Legend />, root);
-    const queueBtnBefore = [...root.querySelectorAll('.galaxy-legend-item')].find((b) => b.textContent.trim() === 'Queue');
+    const queueBtnBefore = [...root.querySelectorAll('.galaxy-legend-item')].find(
+      (b) => b.textContent.trim() === 'Queue',
+    );
     expect(queueBtnBefore!.classList.contains('hidden')).toBe(false);
 
     // Toggle queue hidden via the store signal directly (simulates the click effect).
@@ -49,7 +57,9 @@ describe('Legend', () => {
     // Re-render with updated signal.
     render(<Legend />, root);
 
-    const queueBtnAfter = [...root.querySelectorAll('.galaxy-legend-item')].find((b) => b.textContent.trim() === 'Queue');
+    const queueBtnAfter = [...root.querySelectorAll('.galaxy-legend-item')].find(
+      (b) => b.textContent.trim() === 'Queue',
+    );
     expect(queueBtnAfter!.classList.contains('hidden')).toBe(true);
 
     document.body.removeChild(root);

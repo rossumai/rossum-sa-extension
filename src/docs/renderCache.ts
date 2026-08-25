@@ -11,7 +11,12 @@
 // were requested, and whether a diagram renderer was available at render time — that last one
 // matters because a document rendered before the bundle arrived has code fences where it should
 // have diagrams, and must not be served afterwards.
-import { createMarkdownRenderer, wrapStandaloneImages, MERMAID_LIGHT, MERMAID_DARK } from './render.js';
+import {
+  createMarkdownRenderer,
+  wrapStandaloneImages,
+  MERMAID_LIGHT,
+  MERMAID_DARK,
+} from './render.js';
 import { reportDocWarnings } from './docWarnings.js';
 import { sanitizeBody, markLinksForPane } from './sanitize.js';
 
@@ -24,11 +29,26 @@ const cache = new Map<string, Entry>();
 let hits = 0;
 let misses = 0;
 
-export function cacheKey(
-  { id, text, dark, syncLines, withMermaid }:
-  { id?: string; text?: string | null; dark?: boolean; syncLines?: boolean; withMermaid?: boolean },
-) {
-  return [id || '', dark ? 'd' : 'l', syncLines ? 's' : '-', withMermaid ? 'm' : '-', String(text ?? '')].join('\u0000');
+export function cacheKey({
+  id,
+  text,
+  dark,
+  syncLines,
+  withMermaid,
+}: {
+  id?: string;
+  text?: string | null;
+  dark?: boolean;
+  syncLines?: boolean;
+  withMermaid?: boolean;
+}) {
+  return [
+    id || '',
+    dark ? 'd' : 'l',
+    syncLines ? 's' : '-',
+    withMermaid ? 'm' : '-',
+    String(text ?? ''),
+  ].join('\u0000');
 }
 
 export function cacheStats() {
@@ -43,10 +63,19 @@ export function clearRenderCache() {
 
 // Returns { body, warnings } — `body` is a DETACHED element whose children callers import
 // (never adopt directly, or the cached tree would be emptied by its first consumer).
-export function renderDocument(
-  { id, text, mermaid = null, dark = false, syncLines = false }:
-  { id?: string; text?: string | null; mermaid?: any; dark?: boolean; syncLines?: boolean },
-): Entry {
+export function renderDocument({
+  id,
+  text,
+  mermaid = null,
+  dark = false,
+  syncLines = false,
+}: {
+  id?: string;
+  text?: string | null;
+  mermaid?: any;
+  dark?: boolean;
+  syncLines?: boolean;
+}): Entry {
   const key = cacheKey({ id, text, dark, syncLines, withMermaid: !!mermaid });
   const hit = cache.get(key);
   if (hit) {
@@ -71,7 +100,10 @@ export function renderDocument(
     entry = { body: markLinksForPane(sanitizeBody(html)), warnings };
   } catch (err) {
     // A render failure is returned, not cached — a transient throw must not become permanent.
-    return { body: null, warnings: [`render failed: ${err && (err as any).message ? (err as any).message : err}`] };
+    return {
+      body: null,
+      warnings: [`render failed: ${err && (err as any).message ? (err as any).message : err}`],
+    };
   }
 
   if (cache.size >= CACHE_CAP) cache.delete(cache.keys().next().value!);
@@ -79,6 +111,12 @@ export function renderDocument(
   return entry;
 }
 
-export function isRendered(args: { id?: string; text?: string | null; mermaid?: any; dark?: boolean; syncLines?: boolean }) {
+export function isRendered(args: {
+  id?: string;
+  text?: string | null;
+  mermaid?: any;
+  dark?: boolean;
+  syncLines?: boolean;
+}) {
   return cache.has(cacheKey({ ...args, withMermaid: !!args.mermaid }));
 }

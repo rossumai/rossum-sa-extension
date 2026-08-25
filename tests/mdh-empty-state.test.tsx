@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { h, render } from 'preact';
 
 vi.mock('../src/mdh/components/Sidebar.jsx', () => ({
-  showCreateModal: vi.fn()
+  showCreateModal: vi.fn(),
 }));
 
 import CollectionEmptyState from '../src/mdh/components/CollectionEmptyState.jsx';

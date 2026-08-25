@@ -8,14 +8,20 @@
 import hljs from './hljs.js';
 
 export function escapeHtml(s: unknown): string {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 export function highlightCode(text: unknown, language?: string | null): string {
   const lang = language || 'json';
   if (hljs.getLanguage(lang)) {
-    try { return hljs.highlight(String(text ?? ''), { language: lang, ignoreIllegals: true }).value; }
-    catch { /* fall through to plain text */ }
+    try {
+      return hljs.highlight(String(text ?? ''), { language: lang, ignoreIllegals: true }).value;
+    } catch {
+      /* fall through to plain text */
+    }
   }
   return escapeHtml(text);
 }

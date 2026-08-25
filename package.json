@@ -13,6 +13,8 @@
     "build": "node build.js",
     "dev": "node build.js --watch",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json",
+    "format": "prettier --write \"{src,tests}/**/*.{ts,tsx,css}\"",
+    "format:check": "prettier --check \"{src,tests}/**/*.{ts,tsx,css}\"",
     "test": "vitest run"
   },
   "devDependencies": {
@@ -20,6 +22,7 @@
     "@types/node": "^24.13.3",
     "esbuild": "^0.28.2",
     "jsdom": "^29.1.1",
+    "prettier": "3.9.6",
     "typescript": "7.0.2",
     "vitest": "^4.1.11"
   },

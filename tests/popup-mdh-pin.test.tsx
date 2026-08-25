@@ -21,9 +21,16 @@ beforeEach(() => {
   vi.stubGlobal('chrome', {
     // Token-less context: the card settles on a message without any network.
     scripting: {
-      executeScript: vi.fn(async () => [{
-        result: { token: null, domain: 'https://org.rossum.app', annotationId: null, queueId: null },
-      }]),
+      executeScript: vi.fn(async () => [
+        {
+          result: {
+            token: null,
+            domain: 'https://org.rossum.app',
+            annotationId: null,
+            queueId: null,
+          },
+        },
+      ]),
     },
     storage: {
       local: { get: vi.fn(async () => ({})), set: vi.fn(async () => {}) },

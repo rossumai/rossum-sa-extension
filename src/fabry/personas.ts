@@ -9,8 +9,16 @@
 export type Persona = { value: 'cautious' | 'default'; label: string; hint: string };
 
 export const PERSONAS: Persona[] = [
-  { value: 'cautious', label: 'Cautious', hint: 'Plans first, asks clarifying questions, verifies as it goes' },
-  { value: 'default', label: 'Autonomous', hint: 'Acts on its own, asks only when truly ambiguous' },
+  {
+    value: 'cautious',
+    label: 'Cautious',
+    hint: 'Plans first, asks clarifying questions, verifies as it goes',
+  },
+  {
+    value: 'default',
+    label: 'Autonomous',
+    hint: 'Acts on its own, asks only when truly ambiguous',
+  },
 ];
 
 export function personaLabel(value: string): string {

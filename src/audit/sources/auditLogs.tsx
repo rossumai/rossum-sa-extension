@@ -4,7 +4,16 @@ import JsonTree from '../components/JsonTree.jsx';
 const ACTIONS_BY_TYPE: Record<string, string[]> = {
   document: ['create'],
   annotation: ['update-status'],
-  user: ['create', 'delete', 'purge', 'update', 'destroy', 'app_load', 'reset-password', 'change-password'],
+  user: [
+    'create',
+    'delete',
+    'purge',
+    'update',
+    'destroy',
+    'app_load',
+    'reset-password',
+    'change-password',
+  ],
 };
 
 function statusClass(s: any) {
@@ -23,10 +32,19 @@ export const auditLogs = {
   paginationMode: 'cursor',
   supportsServerSearch: false,
   filters: [
-    { name: 'object_type', kind: 'select', label: 'Object type *', required: true,
-      options: () => ['annotation', 'document', 'user'] },
-    { name: 'action', kind: 'select', label: 'Action',
-      options: (st: any) => ACTIONS_BY_TYPE[st.object_type] || [] },
+    {
+      name: 'object_type',
+      kind: 'select',
+      label: 'Object type *',
+      required: true,
+      options: () => ['annotation', 'document', 'user'],
+    },
+    {
+      name: 'action',
+      kind: 'select',
+      label: 'Action',
+      options: (st: any) => ACTIONS_BY_TYPE[st.object_type] || [],
+    },
     { name: 'object_id', kind: 'text', label: 'Object ID' },
     { name: 'username', kind: 'text', label: 'Username' },
     { name: 'timestamp_after', kind: 'datetime', label: 'After' },
@@ -41,29 +59,63 @@ export const auditLogs = {
     timestamp_before: st.timestamp_before,
   }),
   columns: [
-    { key: 'timestamp', label: 'Timestamp', cls: 'col-time mono', render: (r: any) => fmtTime(r.timestamp) },
+    {
+      key: 'timestamp',
+      label: 'Timestamp',
+      cls: 'col-time mono',
+      render: (r: any) => fmtTime(r.timestamp),
+    },
     { key: 'username', label: 'User', cls: 'col-user', render: (r: any) => r.username || dash() },
-    { key: 'object_type', label: 'Type', cls: 'col-type',
-      render: (r: any) => <span class={'type-pill type-' + (r.object_type || 'unknown')}>{r.object_type || '—'}</span> },
-    { key: 'action', label: 'Action', cls: 'col-action mono', render: (r: any) => r.action || dash() },
-    { key: 'object', label: 'Object', cls: 'col-id mono',
-      render: (r: any, ctx: any) => objectLink(r, ctx) },
-    { key: 'status', label: 'Status', cls: 'col-status mono',
-      render: (r: any) => { const s = r.content?.status_code; return <span class={statusClass(s)}>{s ?? '—'}</span>; } },
+    {
+      key: 'object_type',
+      label: 'Type',
+      cls: 'col-type',
+      render: (r: any) => (
+        <span class={'type-pill type-' + (r.object_type || 'unknown')}>{r.object_type || '—'}</span>
+      ),
+    },
+    {
+      key: 'action',
+      label: 'Action',
+      cls: 'col-action mono',
+      render: (r: any) => r.action || dash(),
+    },
+    {
+      key: 'object',
+      label: 'Object',
+      cls: 'col-id mono',
+      render: (r: any, ctx: any) => objectLink(r, ctx),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      cls: 'col-status mono',
+      render: (r: any) => {
+        const s = r.content?.status_code;
+        return <span class={statusClass(s)}>{s ?? '—'}</span>;
+      },
+    },
   ],
   detail: (r: any) => {
     // Strip our internal positional key so the panel shows the faithful API record.
     const { _idx, ...record } = r;
     const json = JSON.stringify(record, null, 2);
     return [
-      { title: 'Raw JSON', body: (
-        <div>
-          <div style="margin-bottom:6px"><CopyBtn text={json} label="Copy JSON" /></div>
-          <JsonTree data={record} />
-        </div>) },
+      {
+        title: 'Raw JSON',
+        body: (
+          <div>
+            <div style="margin-bottom:6px">
+              <CopyBtn text={json} label="Copy JSON" />
+            </div>
+            <JsonTree data={record} />
+          </div>
+        ),
+      },
     ];
   },
-  refs: (r: any) => (r.object_id != null && r.object_type ? [{ type: r.object_type, id: r.object_id }] : []),
+  refs: (r: any) =>
+    r.object_id != null && r.object_type ? [{ type: r.object_type, id: r.object_id }] : [],
 };
 
 // Shared cell helpers (re-used by other descriptors).
@@ -74,14 +126,26 @@ export function fmtTime(ts: any) {
   const p = (n: any) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
-export function dash() { return <span class="muted">—</span>; }
+export function dash() {
+  return <span class="muted">—</span>;
+}
 export function CopyBtn({ text, label }: { text: string; label?: string }) {
   if (!text) return null;
-  return <button class="btn btn-sm" onClick={() => navigator.clipboard.writeText(String(text))}>{label || 'Copy'}</button>;
+  return (
+    <button class="btn btn-sm" onClick={() => navigator.clipboard.writeText(String(text))}>
+      {label || 'Copy'}
+    </button>
+  );
 }
 // annotation/document/user object link in audit rows.
 function objectLink(r: any, ctx: any) {
   if (r.object_id == null) return dash();
   const url = ctx.deeplink(r.object_type, r.object_id);
-  return url ? <a href={url} target="_blank" rel="noopener noreferrer">{r.object_id}</a> : String(r.object_id);
+  return url ? (
+    <a href={url} target="_blank" rel="noopener noreferrer">
+      {r.object_id}
+    </a>
+  ) : (
+    String(r.object_id)
+  );
 }

@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { runInTab, openConsoleTab, detectSite, findRossumTabs, activateTab, isConsoleTab } from '../src/popup/utils.js';
+import {
+  runInTab,
+  openConsoleTab,
+  detectSite,
+  findRossumTabs,
+  activateTab,
+  isConsoleTab,
+} from '../src/popup/utils.js';
 
 let executeScriptMock: any;
 let storageSetMock: any;
@@ -12,7 +19,9 @@ let windowCloseSpy: any;
 
 beforeEach(() => {
   executeScriptMock = vi.fn();
-  storageSetMock = vi.fn((_obj, cb) => { cb && cb(); });
+  storageSetMock = vi.fn((_obj, cb) => {
+    cb && cb();
+  });
   tabsCreateMock = vi.fn();
   tabsQueryMock = vi.fn();
   tabsUpdateMock = vi.fn().mockResolvedValue(undefined);
@@ -32,7 +41,9 @@ beforeEach(() => {
 
 describe('runInTab', () => {
   it('forwards tabId, function, and args to chrome.scripting.executeScript', async () => {
-    const fn = function () { return 7; };
+    const fn = function () {
+      return 7;
+    };
     executeScriptMock.mockResolvedValue([{ result: 'ok' }]);
 
     const out = await runInTab(42, fn, ['a', 'b']);
@@ -92,7 +103,11 @@ describe('openConsoleTab', () => {
   });
 
   it('stages app:"audit" when opened for the Audit Log Viewer', () => {
-    openConsoleTab({ id: 7, index: 2 } as any, { token: 'a', domain: 'https://x.rossum.app' }, 'audit');
+    openConsoleTab(
+      { id: 7, index: 2 } as any,
+      { token: 'a', domain: 'https://x.rossum.app' },
+      'audit',
+    );
     const entry: any = storageSetMock.mock.calls[0][0]['consoleAuth_uuid-1'];
     expect(entry.app).toBe('audit');
     expect(tabsCreateMock).toHaveBeenCalledWith({
@@ -193,7 +208,7 @@ describe('activateTab', () => {
 });
 
 describe('isConsoleTab', () => {
-  it('matches this extension\'s Console page, with or without a query string', () => {
+  it("matches this extension's Console page, with or without a query string", () => {
     expect(isConsoleTab('chrome-extension://abc/console/console.html')).toBe(true);
     expect(isConsoleTab('chrome-extension://abc/console/console.html?authId=x')).toBe(true);
   });
