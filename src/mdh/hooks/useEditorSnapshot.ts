@@ -26,10 +26,10 @@ export function useEditorSnapshot(
   computeFn: (text: string) => Record<string, unknown>,
 ): [Snapshot, () => void] {
   const [snapshot, setSnapshot] = useState<Snapshot>({ text: '', placeholders: [], parsed: null });
-  const timerRef = useRef<number | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function recompute(): void {
-    clearTimeout(timerRef.current as number);
+    clearTimeout(timerRef.current!);
     timerRef.current = setTimeout(() => {
       if (!editorRef.current) return;
       const text = editorRef.current.getValue();
@@ -50,7 +50,7 @@ export function useEditorSnapshot(
   // it no-ops harmlessly if the editor isn't mounted yet).
   useEffect(() => {
     recompute();
-    return () => clearTimeout(timerRef.current as number);
+    return () => clearTimeout(timerRef.current!);
   }, []);
 
   return [snapshot, recompute];

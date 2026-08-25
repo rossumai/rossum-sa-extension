@@ -24,7 +24,7 @@ export function enrichRows(rows: any[], payload: any): any[] {
   const anns = new Map<string, any>((payload?.results || []).map((a: any) => [String(a.id), a]));
   const docs = new Map<string, any>((payload?.documents || []).map((d: any) => [d.url, d]));
   const queues = new Map<string, any>((payload?.queues || []).map((q: any) => [q.url, q]));
-  return (rows || []).map((r: any) => {
+  return (rows || []).map((r) => {
     const a = anns.get(String(r.id));
     if (!a) return r;
     return {
@@ -38,7 +38,9 @@ export function enrichRows(rows: any[], payload: any): any[] {
 
 // Compact relative time for the recents table ("just now", "12 min ago",
 // "2 h ago", "yesterday", "5 d ago"). Pure; null when no usable timestamp.
-export function relativeTime(at: number, now = Date.now()): string | null {
+// `unknown`, because the guard below is the contract: anything that is not a finite
+// number has no relative time and reports null rather than NaN.
+export function relativeTime(at: unknown, now = Date.now()): string | null {
   const t = typeof at === 'number' ? at : NaN;
   if (!Number.isFinite(t)) return null;
   const s = Math.max(0, Math.round((now - t) / 1000));

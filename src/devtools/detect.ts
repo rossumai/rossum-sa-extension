@@ -43,7 +43,7 @@ function queueFromDocumentsSearch(search: string) {
   return /^\d+$/.test(id) ? id : null;
 }
 
-export function detectResource(location: { pathname?: string; search?: string } /*, document */) {
+export function detectResource(location: { pathname?: string; search?: string } | null /*, document */) {
   const path = (location && location.pathname) || '';
   const search = (location && location.search) || '';
 

@@ -21,7 +21,7 @@ export default function FabryNarrative(
   const blocks = parseNarrative(text, streaming);
   const out: any[] = [];
   let bullets: any[] = [];
-  const seg = (segments: any[]) => segments.map((s: any) => <Segment seg={s} resolveCite={resolveCite} />);
+  const seg = (segments: any[]) => segments.map((s) => <Segment seg={s} resolveCite={resolveCite} />);
   const flush = () => { if (bullets.length) { out.push(<ul class={styles.list}>{bullets}</ul>); bullets = []; } };
   for (const b of blocks) {
     if (b.type === 'li') bullets.push(<li>{seg(b.segments)}</li>);

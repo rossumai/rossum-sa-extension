@@ -4,6 +4,11 @@ import { hoveredStage, editorHoverStage, caretStage, stagesAutoscroll } from '..
 import { computeStageLink, edgeArrowPath } from '../stageLink.js';
 import type { JsonEditorHandle } from './JsonEditor.jsx';
 
+/** The slice of the editor handle this overlay drives — every call below is optional-
+ *  chained, so the parts are optional here too and a stub need only provide what it uses. */
+type OverlayEditor = Partial<Pick<JsonEditorHandle,
+  'highlightStage' | 'revealStage' | 'stageScreenRect' | 'clipRect'>>;
+
 // SVG connector drawn over the data panel: from the hovered Stages-view section to
 // that stage's code line in the pipeline editor. Reads the `hoveredStage` signal so
 // only this small overlay re-renders on hover (not the whole DataPanel). The editor
@@ -21,7 +26,7 @@ import type { JsonEditorHandle } from './JsonEditor.jsx';
 // Auto-scroll is off and the stage sits off-screen — the line hides in that case
 // (stageScreenRect returns null), but the band is waiting when the user scrolls to it.
 export default function StageLinkOverlay(
-  { editorRef, panelRef }: { editorRef: { current: JsonEditorHandle | null }; panelRef: { current: any } },
+  { editorRef, panelRef }: { editorRef: { current: OverlayEditor | null }; panelRef: { current: any } },
 ) {
   const [pts, setPts] = useState<any>(null);
   const hv = hoveredStage.value;      // a Stages-view section is hovered

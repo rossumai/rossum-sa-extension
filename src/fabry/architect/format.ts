@@ -38,7 +38,7 @@ export function summaryLine(text: unknown, max = 120): string {
   return clean.length > max ? clean.slice(0, max - 1) + '…' : clean;
 }
 
-export function relativeTime(ms: number, now?: number): string {
+export function relativeTime(ms: number | null, now?: number): string {
   if (!ms) return '';
   const diff = Math.max(0, (now || 0) - ms);
   if (diff < 45_000) return 'just now';

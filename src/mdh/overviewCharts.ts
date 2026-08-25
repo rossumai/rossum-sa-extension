@@ -25,13 +25,14 @@ function lerp3(a: Rgb, b: Rgb, t: number): Rgb { return [lerp(a[0], b[0], t), le
 function toHex(c: number) { const s = c.toString(16); return s.length < 2 ? `0${s}` : s; }
 
 // ratio (0..∞) → [r,g,b], clamped at 1.0 (100%+ index overhead = the top stop).
-function overheadRgb(ratio: number): Rgb {
-  const t = Math.max(0, Math.min(1, Number.isFinite(ratio) ? ratio : 0));
+// `Number.isFinite` is the guard: a missing ratio colours as zero overhead.
+function overheadRgb(ratio: number | null | undefined): Rgb {
+  const t = Math.max(0, Math.min(1, Number.isFinite(ratio) ? (ratio as number) : 0));
   const [lo, mid, hi] = SCALE_STOPS;
   return t < 0.5 ? lerp3(lo, mid, t / 0.5) : lerp3(mid, hi, (t - 0.5) / 0.5);
 }
 
-export function overheadColor(ratio: number): string {
+export function overheadColor(ratio: number | null | undefined): string {
   const c = overheadRgb(ratio);
   return `#${toHex(c[0])}${toHex(c[1])}${toHex(c[2])}`;
 }
@@ -67,12 +68,12 @@ export function scaleArea(bytes: number, mode: string): number {
 // aggregated "Other (k)" item folding the long tail (or none if it fits).
 export function treemapItems(rows: any[], topN = TOP_N): any[] {
   const valid = (rows || []).filter(
-    (r: any) => r && !r.error && typeof r.storageSize === 'number' && r.storageSize > 0,
+    (r) => r && !r.error && typeof r.storageSize === 'number' && r.storageSize > 0,
   );
-  const sorted = valid.slice().sort((a: any, b: any) => b.storageSize - a.storageSize);
+  const sorted = valid.slice().sort((a, b) => b.storageSize - a.storageSize);
   const head = sorted.slice(0, topN);
   const tail = sorted.slice(topN);
-  const items: any[] = head.map((r: any) => ({
+  const items: any[] = head.map((r) => ({
     name: r.name,
     storageSize: r.storageSize,
     totalIndexSize: r.totalIndexSize,
@@ -81,8 +82,8 @@ export function treemapItems(rows: any[], topN = TOP_N): any[] {
     row: r,
   }));
   if (tail.length) {
-    const storageSize = tail.reduce((s: number, r: any) => s + r.storageSize, 0);
-    const totalIndexSize = tail.reduce((s: number, r: any) => s + (r.totalIndexSize || 0), 0);
+    const storageSize = tail.reduce((s: number, r) => s + r.storageSize, 0);
+    const totalIndexSize = tail.reduce((s: number, r) => s + (r.totalIndexSize || 0), 0);
     items.push({
       name: `Other (${tail.length})`,
       storageSize,
@@ -98,11 +99,11 @@ export function treemapItems(rows: any[], topN = TOP_N): any[] {
 // Squarified treemap (Bruls, Huizing & van Wijk). `items` carry a numeric
 // `value` (already area-scaled); returns each item augmented with {x,y,w,h}.
 export function squarify(items: any[], width: number, height: number): any[] {
-  const positive = (items || []).filter((it: any) => it.value > 0);
+  const positive = (items || []).filter((it) => it.value > 0);
   if (positive.length === 0 || width <= 0 || height <= 0) return [];
-  const total = positive.reduce((s: number, it: any) => s + it.value, 0);
+  const total = positive.reduce((s: number, it) => s + it.value, 0);
   const scale = (width * height) / total;
-  const vals = positive.map((it: any) => ({ it, a: it.value * scale }));
+  const vals = positive.map((it) => ({ it, a: it.value * scale }));
 
   let x = 0; let y = 0; let w = width; let h = height;
   const out: any[] = [];
@@ -144,7 +145,7 @@ export function buildTreemap(
   rows: any[],
   { width, height, topN = TOP_N, mode = 'linear' }: { width: number; height: number; topN?: number; mode?: string } = {} as any,
 ) {
-  const items = treemapItems(rows, topN).map((it: any) => ({ ...it, value: scaleArea(it.storageSize, mode) }));
+  const items = treemapItems(rows, topN).map((it) => ({ ...it, value: scaleArea(it.storageSize, mode) }));
   return squarify(items, width, height).map((t) => ({
     ...t,
     color: t.isOther ? null : overheadColor(t.overhead),
@@ -198,13 +199,13 @@ export function buildScatter(
   const ph = Math.max(1, (height || 0) - M.t - M.b);
   const plot = { ...M, pw, ph, width: width || 0, height: height || 0 };
 
-  const pts = (rows || []).filter((r: any) => r && !r.error && r.count > 0 && r.avgObjSize > 0);
+  const pts = (rows || []).filter((r) => r && !r.error && r.count > 0 && r.avgObjSize > 0);
   if (pts.length === 0 || !width || !height) return { points: [], xTicks: [], yTicks: [], plot };
 
-  const xScale = axisScale(pts.map((r: any) => r.count), mode, M.l, M.l + pw);
-  const yScale = axisScale(pts.map((r: any) => r.avgObjSize), mode, M.t + ph, M.t); // y grows upward
+  const xScale = axisScale(pts.map((r) => r.count), mode, M.l, M.l + pw);
+  const yScale = axisScale(pts.map((r) => r.avgObjSize), mode, M.t + ph, M.t); // y grows upward
 
-  const points = pts.map((r: any) => {
+  const points = pts.map((r) => {
     const overhead = indexOverhead(r);
     return {
       name: r.name,

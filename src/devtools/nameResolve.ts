@@ -6,7 +6,9 @@ const DEFAULT_CAP = 6;
 
 function nameable(url: string): string | null {
   const r = resourceFromApiUrl(url);
-  return r && r.id && !r.readOnly ? r.apiPath : null;
+  // `apiPath` is optional only on an unresolved `via` descriptor, which detectResource
+  // builds and resourceFromApiUrl never returns — so on this branch it is always set.
+  return r && r.id && !r.readOnly ? r.apiPath! : null;
 }
 
 // NOTE: `pending`/`queue`/`active` are per-resolver-instance while the cache is a

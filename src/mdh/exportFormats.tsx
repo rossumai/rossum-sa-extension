@@ -73,25 +73,42 @@ function XmlControls({ opts, setOpt }: ControlsProps) {
   );
 }
 
-export const EXPORT_FORMATS = [
+/**
+ * One export format's descriptor. The optionality is per-format and load-bearing:
+ * JSON/JSONL build a serializer from nothing, XML reads only `opts`, and only CSV and
+ * XLSX use `columns` — while XLSX renders a grid preview and so has no buildPreviewText.
+ */
+export type ExportFormat = {
+  id: string;
+  label: string;
+  ext: string;
+  needsColumns: boolean;
+  defaultOpts: Record<string, any>;
+  OptionsControls: any;
+  previewKind: string;
+  buildSerializer: (opts?: any, columns?: any) => any;
+  buildPreviewText?: (sample: any, columns?: any, opts?: any) => string;
+};
+
+export const EXPORT_FORMATS: ExportFormat[] = [
   {
     id: 'json', label: 'JSON', ext: 'json', needsColumns: false, defaultOpts: {},
     OptionsControls: null, previewKind: 'text',
     buildSerializer: () => buildJsonSerializer(),
-    buildPreviewText: (sample: any) => '[\n' + sample.map(formatJsonDoc).join(',\n') + '\n]',
+    buildPreviewText: (sample) => '[\n' + sample.map(formatJsonDoc).join(',\n') + '\n]',
   },
   {
     id: 'jsonl', label: 'JSON Lines', ext: 'jsonl', needsColumns: false, defaultOpts: {},
     OptionsControls: null, previewKind: 'text',
     buildSerializer: () => buildNdjsonSerializer(),
-    buildPreviewText: (sample: any) => sample.map((d: any) => JSON.stringify(d)).join('\n'),
+    buildPreviewText: (sample) => sample.map((d: any) => JSON.stringify(d)).join('\n'),
   },
   {
     id: 'csv', label: 'CSV', ext: 'csv', needsColumns: true,
     defaultOpts: { delimiter: ',', header: true, bom: false },
     OptionsControls: CsvControls, previewKind: 'text',
-    buildSerializer: (opts: any, columns: any) => buildCsvSerializer({ dialect: { delimiter: opts.delimiter }, header: opts.header, bom: opts.bom, columns }),
-    buildPreviewText: (sample: any, columns: any, opts: any) => {
+    buildSerializer: (opts, columns) => buildCsvSerializer({ dialect: { delimiter: opts.delimiter }, header: opts.header, bom: opts.bom, columns }),
+    buildPreviewText: (sample, columns, opts) => {
       const dialect = { delimiter: opts.delimiter };
       return (opts.header ? csvHeader(columns, dialect) + '\n' : '') + sample.map((d: any) => csvRow(d, columns, dialect)).join('\n');
     },
@@ -100,14 +117,14 @@ export const EXPORT_FORMATS = [
     id: 'xlsx', label: 'Excel', ext: 'xlsx', needsColumns: true,
     defaultOpts: { sheetName: 'Sheet1', header: true },
     OptionsControls: XlsxControls, previewKind: 'grid',
-    buildSerializer: (opts: any, columns: any) => buildXlsxSerializer({ sheetName: opts.sheetName, header: opts.header, columns }),
+    buildSerializer: (opts, columns) => buildXlsxSerializer({ sheetName: opts.sheetName, header: opts.header, columns }),
   },
   {
     id: 'xml', label: 'XML', ext: 'xml', needsColumns: false,
     defaultOpts: { rootName: 'records', recordName: 'record' },
     OptionsControls: XmlControls, previewKind: 'text',
-    buildSerializer: (opts: any) => buildXmlSerializer({ rootName: opts.rootName, recordName: opts.recordName }),
-    buildPreviewText: (sample: any, _columns: any, opts: any) => {
+    buildSerializer: (opts) => buildXmlSerializer({ rootName: opts.rootName, recordName: opts.recordName }),
+    buildPreviewText: (sample, _columns, opts) => {
       const root = toXmlName(opts.rootName);
       return `<?xml version="1.0" encoding="UTF-8"?>\n<${root}>\n` + sample.map((d: any) => '  ' + docToXml(d, opts.recordName)).join('\n') + `\n</${root}>\n`;
     },

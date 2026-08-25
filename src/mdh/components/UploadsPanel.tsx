@@ -241,7 +241,7 @@ function formatBucketTooltip(b: any, range: any) {
 
 function ActivitySparkline({ buckets, range }: { buckets: any[]; range?: any }) {
   if (!buckets.length || !range) return null;
-  const max = Math.max(1, ...buckets.map((b: any) => b.success + b.failed + b.running));
+  const max = Math.max(1, ...buckets.map((b) => b.success + b.failed + b.running));
   const W = 192, H = 28, GAP = 1;
   const barW = (W - (buckets.length - 1) * GAP) / buckets.length;
   const [hover, setHover] = useState<any>(null);
@@ -256,7 +256,7 @@ function ActivitySparkline({ buckets, range }: { buckets: any[]; range?: any }) 
         role="img"
         aria-label={`Activity over ${range.label}`}
       >
-        {buckets.map((b: any, i: any) => {
+        {buckets.map((b, i) => {
           const total = b.success + b.failed + b.running;
           const x = i * (barW + GAP);
           const bars = [];

@@ -81,8 +81,8 @@ export function computeStageLink(
   // All five are measured from live DOM/CodeMirror and any of them can be absent — the
   // guard below is the contract, so the signature says so rather than the callers casting.
   editorLineRect: Box | null | undefined, sectionRect: Box | null | undefined,
-  panelRect: Box | null | undefined, paneRect: Box | null | undefined,
-  clipRect: Box | null | undefined,
+  panelRect: Box | null | undefined, paneRect?: Box | null,
+  clipRect?: Box | null,
 ) {
   if (!editorLineRect || !sectionRect || !panelRect) return null;
   const x1 = editorLineRect.left - panelRect.left + START_GAP; // a bit right of the '{'
@@ -112,7 +112,7 @@ export function computeStageLink(
 // training quest card's tether; the up/down guard stays HERE because it is this
 // caller's contract, not the shape's — `edge` is only ever 'up' | 'down' | null,
 // and null must keep meaning "unclamped, draw the dot instead".
-export function edgeArrowPath(x: number, y: number, edge: string): string | null {
+export function edgeArrowPath(x: number, y: number, edge: string | null): string | null {
   if (edge !== 'up' && edge !== 'down') return null;
   return arrowHeadPath(x, y, edge);
 }

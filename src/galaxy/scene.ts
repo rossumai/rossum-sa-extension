@@ -161,7 +161,7 @@ export function createScene(container: HTMLElement) {
   }
 
   function fitToView(ease?: boolean) {
-    const vis = nodes.filter((n: any) => isVisible(n.type));
+    const vis = nodes.filter((n) => isVisible(n.type));
     if (!vis.length) return;
     let cx = 0, cy = 0, cz = 0;
     for (const n of vis) { cx += n.x; cy += n.y; cz += n.z; }
@@ -300,7 +300,7 @@ export function createScene(container: HTMLElement) {
   // simNodes without mutating the render `links` (positions resolve via nodeById).
   function runSim(simNodes: any[], simLinks: any[]) {
     if (sim) sim.stop();
-    const fresh = simLinks.map((l: any) => ({ source: endId(l.source), target: endId(l.target) }));
+    const fresh = simLinks.map((l) => ({ source: endId(l.source), target: endId(l.target) }));
     sim = forceSimulation(simNodes, 3)
       .force('charge', forceManyBody().strength(-140).distanceMax(400))
       .force('link', forceLink(fresh).id((d: any) => d.id).distance(45))
@@ -443,7 +443,7 @@ export function createScene(container: HTMLElement) {
         const type = typeById.get(id);
         if (type === 'queue') {
           // forward through run_after from the queue's hook neighbours (chain heads)
-          const seeds = [...highlight].filter((x: any) => typeById.get(x) === 'hook');
+          const seeds = [...highlight].filter((x) => typeById.get(x) === 'hook');
           bfsInto(seeds, [raFwd]);
         } else if (type === 'hook') {
           bfsInto([id], [raFwd, raRev]); // the whole chain this hook belongs to
@@ -497,7 +497,7 @@ export function createScene(container: HTMLElement) {
   if (themeMq && themeMq.addEventListener) themeMq.addEventListener('change', onThemeChange);
 
   function focusOn(id: string | null) {
-    const n = nodes.find((x: any) => x.id === id);
+    const n = nodes.find((x) => x.id === id);
     if (!n) { clickCb(null); return; }
     // Frame the clicked node AND its direct neighbors so the whole local picture
     // stays visible, rather than zooming tightly onto the single node.
@@ -538,8 +538,8 @@ export function createScene(container: HTMLElement) {
       }
       // Reflow: re-run the layout on only the visible nodes so the remaining ones
       // spread into the space freed by the hidden types.
-      const visNodes = nodes.filter((n: any) => isVisible(n.type));
-      const visLinks = links.filter((l: any) => isVisible(typeById.get(endId(l.source))) && isVisible(typeById.get(endId(l.target))));
+      const visNodes = nodes.filter((n) => isVisible(n.type));
+      const visLinks = links.filter((l) => isVisible(typeById.get(endId(l.source))) && isVisible(typeById.get(endId(l.target))));
       runSim(visNodes, visLinks);
     },
     destroy() {

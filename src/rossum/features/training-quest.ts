@@ -107,7 +107,7 @@ function renderCard(progress: Progress, active: { mission: Mission; step: TrackS
   card.appendChild(el('div', 'rossum-sa-extension-tq-mission', active.mission.title));
 
   const done = active.mission.steps.filter(
-    (s: any) => ['passed', 'self'].includes(stepState(progress, active.mission.id, s.id) as string)).length;
+    (s) => ['passed', 'self'].includes(stepState(progress, active.mission.id, s.id) as string)).length;
   const bar = el('div', 'rossum-sa-extension-tq-bar');
   const fill = el('i');
   fill.style.width = `${Math.round((done / active.mission.steps.length) * 100)}%`;
@@ -328,7 +328,7 @@ async function start(deps: QuestDeps) {
     if (!active) { renderCard(progress, null); hideTether(); return; }
 
     if (progress.missions[active.mission.id]?.baseline == null) {
-      const checks = active.mission.steps.filter((s: any) => s.kind === 'api').map((s: any) => CHECKS[s.check!]);
+      const checks = active.mission.steps.filter((s) => s.kind === 'api').map((s) => CHECKS[s.check!]);
       const baseline: Record<string, unknown> = {};
       let captured = true;
       for (const c of checks) {

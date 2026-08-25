@@ -444,7 +444,8 @@ export function configUsesLineItems(cfg: any, rowValues: Record<string, any>): b
 // target table, so we fall back to the table the config's own row placeholders
 // come from — the most-referenced one, document order breaking ties. Returns
 // null when nothing about the config is row-scoped.
-export function rowScopeForConfig(cfg: any, tables: any[]) {
+// The guard below is the contract — an absent list scopes to nothing.
+export function rowScopeForConfig(cfg: any, tables: any[] | null | undefined) {
   const list = Array.isArray(tables) ? tables : [];
   if (list.length === 0) return null;
   const scope = (t: any) => ({ tableSchemaId: t.schemaId, rowCount: t.rowCount });

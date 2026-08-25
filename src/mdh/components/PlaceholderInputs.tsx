@@ -130,7 +130,7 @@ export default function PlaceholderInputs({ names, values, types, onSetValue, on
               class="input placeholder-input"
               value={value}
               onInput={(e: any) => { onSetValue(name, e.target.value); }}
-              onKeyDown={(e: any) => { if (e.key === 'Enter') onRunQuery(); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') onRunQuery(); }}
             />
             <select
               class="placeholder-type-select"

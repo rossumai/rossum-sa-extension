@@ -87,7 +87,7 @@ export default function RecordTable({
     const ths = headRow ? headRow.querySelectorAll('th.record-table-th') : null;
     const lastIdx = columns.length - 1;
     const frozen: Record<string, number> = {};
-    columns.forEach((c: any, idx: any) => {
+    columns.forEach((c, idx) => {
       if (idx === lastIdx) return; // last column is the computed filler
       const el = ths && ths[idx];
       frozen[c] = el ? Math.round(el.getBoundingClientRect().width) : DEFAULT_COL_WIDTH;
@@ -274,7 +274,7 @@ export default function RecordTable({
   const resized = Object.keys(colWidths).length > 0;
   let widthArr = null;
   if (resized && columns.length > 0) {
-    const nonLastWidths = columns.slice(0, -1).map((c: any) => colWidths[c] || DEFAULT_COL_WIDTH);
+    const nonLastWidths = columns.slice(0, -1).map((c) => colWidths[c] || DEFAULT_COL_WIDTH);
     widthArr = computeColumnWidths({
       availW,
       selectionW: selecting ? 36 : 0,
@@ -288,14 +288,14 @@ export default function RecordTable({
       <table class="record-table">
         <colgroup>
           {selecting && <col style="width:36px" />}
-          {columns.map((col: any, idx: any) => (
+          {columns.map((col, idx) => (
             <col key={col} style={`width:${widthArr ? widthArr[idx] : DEFAULT_COL_WIDTH}px`} />
           ))}
         </colgroup>
         <thead>
           <tr>
             {selecting && <th class="record-table-check" aria-label="select"></th>}
-            {columns.map((col: any, idx: any) => (
+            {columns.map((col, idx) => (
               <th key={col} class="record-table-th" onClick={() => onSort(col)} title="Click to sort">
                 {col}{sortBadge(col)}
                 {idx !== columns.length - 1 && (
@@ -312,7 +312,7 @@ export default function RecordTable({
           </tr>
         </thead>
         <tbody>
-          {records.map((rec: any, i: any) => (
+          {records.map((rec, i) => (
             <tr key={i} class={selecting && isRecordSelected(rec) ? 'record-table-row-selected' : undefined}>
               {selecting && (
                 <td class="record-table-check">
@@ -320,7 +320,7 @@ export default function RecordTable({
                     onClick={(e) => { e.stopPropagation(); toggleRecordSelection(rec); }} onChange={() => {}} aria-label="Select record" />
                 </td>
               )}
-              {columns.map((col: any) => renderCell(rec, col, i))}
+              {columns.map((col) => renderCell(rec, col, i))}
             </tr>
           ))}
         </tbody>

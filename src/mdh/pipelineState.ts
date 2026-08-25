@@ -17,12 +17,12 @@ export type PipelineState = {
   placeholderTypes?: Record<string, string | undefined>;
 };
 
-export function savePipelineState(collection: string, state: PipelineState): void {
+export function savePipelineState(collection: string | null, state: PipelineState): void {
   if (!collection) return;
   stateByCollection.set(collection, state);
 }
 
-export function getPipelineState(collection: string): PipelineState | null {
+export function getPipelineState(collection: string | null | undefined): PipelineState | null {
   if (!collection) return null;
   return stateByCollection.get(collection) || null;
 }

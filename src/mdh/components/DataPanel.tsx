@@ -611,7 +611,7 @@ export default function DataPanel() {
   const rawStages = rawEntries && rawEntries.length === debugEntries.length
     ? rawEntries.filter((e) => !e.disabled).map((e) => e.stage)
     : null;
-  const pipelineVariables = (placeholderNames as string[]).map((name: any) => {
+  const pipelineVariables = (placeholderNames as string[]).map((name) => {
     const values = pipeline.placeholderValues.value;
     const raw = values[name];
     return {
@@ -686,13 +686,13 @@ export default function DataPanel() {
           onToggleStage={handleToggleStage}
           onSort={handleSort}
           onFilter={handleFilter}
-          onPageChange={(dir: any) => {
+          onPageChange={(dir) => {
             dir === 'next' ? pagination.goNext() : pagination.goPrev();
             mutatePipelineText((p: any) => applySkipToPipeline(p, skip.value));
             runQuery();
           }}
-          onEdit={(record: any) => openRecordEditor('edit', record, invalidateAndRun, currentFields)}
-          onDelete={(record: any, idx: any) => {
+          onEdit={(record) => openRecordEditor('edit', record, invalidateAndRun, currentFields)}
+          onDelete={(record, idx) => {
             const deleteId = record._id?.$oid || record._id || '?';
             confirmModal('Delete record?', `Delete record with _id "${deleteId}"? You'll have a few seconds to undo.`, async () => {
               const snapshot = record;

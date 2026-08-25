@@ -11,7 +11,9 @@ import type { TrackStep } from './track.js';
 // A `visit` step names a resource TYPE from the live-verified route table in
 // src/devtools/detect.js. `detail: true` requires a detail route (the
 // descriptor carries an id); `detail: false` requires a list route.
-export function evaluateVisit(step: TrackStep, location: { pathname: string; search?: string }): boolean {
+// Only `target` is read, so that is all this asks for — a full TrackStep satisfies it,
+// and a caller testing route matching does not have to invent an id, kind and hint.
+export function evaluateVisit(step: Pick<TrackStep, 'target'>, location: { pathname: string; search?: string }): boolean {
   const found = detectResource(location);
   if (!found) return false;
   const want: { type?: string; detail?: string | boolean } = step.target || {};

@@ -144,7 +144,7 @@ export function arrayLeafPaths(records: any[]): string[] {
 }
 
 // ---- collection hints ($facet + search indexes, cached per collection) -----
-function getPath(o: any, p: string) { return p.split('.').reduce((a: any, k: string) => (a == null ? a : a[k]), o); }
+function getPath(o: any, p: string) { return p.split('.').reduce((a, k: string) => (a == null ? a : a[k]), o); }
 function inMemDistinct(records: any[], field: string) {
   const s = new Set();
   for (const r of records) { const v = getPath(r, field); if (v != null) s.add(v); if (s.size > MAX_DISTINCT) return s.size; }
@@ -176,10 +176,10 @@ async function fetchCollectionHints(api: any, collection: string, records: any[]
   for (const [k, arr] of Object.entries(row) as [string, any[]][]) {
     const m = meta[k]; if (!m) continue;
     if (m.kind === 'kv') {
-      const vals = (arr || []).map((x: any) => x._id).filter((v: any) => v != null && v !== '');
-      if (vals.length > 0 && vals.length <= MAX_DISTINCT) knownValues[m.field] = vals.sort((a: any, b: any) => String(a).localeCompare(String(b)));
+      const vals = (arr || []).map((x) => x._id).filter((v) => v != null && v !== '');
+      if (vals.length > 0 && vals.length <= MAX_DISTINCT) knownValues[m.field] = vals.sort((a, b) => String(a).localeCompare(String(b)));
     } else if (m.kind === 'tv') {
-      const vals = (arr || []).map((x: any) => x._id).filter((v: any) => v != null && v !== '');
+      const vals = (arr || []).map((x) => x._id).filter((v) => v != null && v !== '');
       if (vals.length > 0) topValues[m.field] = { values: vals.slice(0, TOP_N), more: Math.max(0, vals.length - TOP_N) };
     } else if (m.kind === 'rg') {
       const r = (arr || [])[0];
@@ -191,7 +191,7 @@ async function fetchCollectionHints(api: any, collection: string, records: any[]
 
 // Returns { knownValues, topValues, ranges, numericStringFields, searchIndexes,
 // fieldTypes, arrayPaths }. Never throws (degrades to empties).
-export async function getSchemaHints(api: any, collection: string, records: any[]) {
+export async function getSchemaHints(api: any, collection: string | null, records: any[]) {
   const recs = Array.isArray(records) ? records : [];
   const numericStringFields = detectNumericStringFields(recs);
   const fieldTypes = leafFieldTypes(recs);

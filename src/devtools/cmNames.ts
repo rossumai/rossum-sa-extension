@@ -59,6 +59,6 @@ export function rossumNames(
       }
       return builder.finish();
     }
-  }, { decorations: (v: any) => v.decorations });
+  }, { decorations: (v) => v.decorations });
   return [plugin, EditorView.theme({ '.rawjson-name': { opacity: '0.55', fontStyle: 'italic', marginLeft: '1.5em', userSelect: 'none' } })];
 }

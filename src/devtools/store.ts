@@ -33,7 +33,11 @@ export const toast = signal<Toast | null>(null);
 const TOAST_MS = 2_500;
 
 let toastId = 0;
-let toastTimer: number | null = null;
+// `setTimeout`'s handle is a number in the browser and an opaque object in Node. The
+// test program loads @types/node for the meta-guards, so both overloads are in scope
+// there; ReturnType keeps this one spelling correct under either. Same idiom as
+// JsonEditor.tsx's validChangeTimer.
+let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
 function clearToastTimer() {
   if (toastTimer) {
@@ -66,7 +70,9 @@ export const curlMenu = signal(false);
 let seq = 0;
 export function nextTabId() { seq += 1; return `t${seq}`; }
 
-export function keyOf(resource: ResourceDescriptor | null | undefined): string {
+// Every field this reads is optional on a descriptor and each branch guards, so it keys
+// a PARTIAL one too — which is what an unresolved `via` descriptor is.
+export function keyOf(resource: Partial<ResourceDescriptor> | null | undefined): string {
   if (!resource) return '';
   if (resource.via === 'queue') return `schema-via-queue:${resource.queueId}`;
   if (resource.via === 'queue-inbox') return `inbox-via-queue:${resource.queueId}`;
@@ -146,7 +152,7 @@ export function syncPageTab(resource: ResourceDescriptor | null) {
   return { tab: pageTab, changed: false };
 }
 
-export function moveTab(dragId: string, dropId: string) {
+export function moveTab(dragId: string | null, dropId: string | null) {
   if (!dragId || !dropId || dragId === dropId) return;
   const arr = tabs.value;
   const drag = arr.find((t) => t.id === dragId);

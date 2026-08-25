@@ -44,7 +44,7 @@ function classifyTier(key: string, value: unknown, indexedPaths: Set<string>): n
   return 4; // nested object, array, null, empty string
 }
 
-export function rankFields(record: any, { indexes }: { indexes?: any[] } = {}) {
+export function rankFields(record: any, { indexes }: { indexes?: any[] | null } = {}) {
   const keys = Object.keys(record);
   if (keys.length === 0) return [];
   const indexedPaths = indexedTopLevelPaths(indexes as any[]);

@@ -14,7 +14,7 @@ export function initCodeCopy(root: HTMLElement): () => void {
     btn.className = 'code-copy-btn';
     btn.textContent = 'Copy';
     btn.setAttribute('aria-label', 'Copy code to clipboard');
-    var resetTimer: number | null = null;
+    var resetTimer: ReturnType<typeof setTimeout> | null = null;
     function flash(state: string, label: string) {
       btn.classList.remove('copied', 'failed');
       btn.classList.add(state);

@@ -36,7 +36,8 @@ export default function ConfigBlock({
   rowValues: Record<string, any[]>;
   tables: any[];
   types: Record<string, string>;
-  annotationModifiedAt?: string | number;
+  /** `null` when the annotation has never been modified. */
+  annotationModifiedAt?: string | number | null;
   rowByTable: Record<string, number>;
   onRowChange: (table: string, index: number) => void;
   forceRefreshNonce?: unknown;

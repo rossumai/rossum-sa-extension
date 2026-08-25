@@ -45,12 +45,13 @@ export function touchSession(session: EditSession, now: number): EditSession {
 // always kept: it is the only copy of where the document started, and unlike every later
 // revision it cannot be reconstructed from what survives. Same reasoning as
 // storage.js pruneOrgs never evicting a record that holds a receipt.
-export function prunePlan(revisions: any[], cap = CAP): string[] {
+// The guard below is the contract — an absent list scopes to nothing.
+export function prunePlan(revisions: any[] | null | undefined, cap = CAP): string[] {
   const list = (revisions || [])
-    .filter((r: any) => r && r.id != null)
+    .filter((r) => r && r.id != null)
     // newest first; id breaks ties so the plan is deterministic for equal timestamps
-    .sort((a: any, b: any) => (b.at || 0) - (a.at || 0) || String(a.id).localeCompare(String(b.id)));
+    .sort((a, b) => (b.at || 0) - (a.at || 0) || String(a.id).localeCompare(String(b.id)));
   if (list.length <= cap || cap < 1) return [];
-  const keep = new Set([list[list.length - 1].id, ...list.slice(0, cap - 1).map((r: any) => r.id)]);
-  return list.filter((r: any) => !keep.has(r.id)).map((r: any) => r.id);
+  const keep = new Set([list[list.length - 1].id, ...list.slice(0, cap - 1).map((r) => r.id)]);
+  return list.filter((r) => !keep.has(r.id)).map((r) => r.id);
 }

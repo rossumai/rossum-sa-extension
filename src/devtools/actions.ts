@@ -129,11 +129,13 @@ export function openResourceTab(resource: any, deps: any) {
 export function openRequestPath(rawInput: unknown, domain: string, deps: any) {
   const norm = normalizeRequestInput(rawInput, domain);
   if (!norm) return null;
-  // Casts, not `in` or a guard: `'error' in norm` and an added null check both emit
-  // different code, and this function is meant to be types-only.
-  if ((norm as any).error) return { error: (norm as any).error };
-  const single = (norm as any).apiPath.includes('?') ? null : resourceFromApiUrl((norm as any).apiPath);
-  const resource = single || genericResourceFromPath((norm as any).apiPath);
+  // NormalizedRequest is discriminated on the absent key, so reading `.error` narrows the
+  // rest of this function to the apiPath arm — no `in` test, no guard, nothing emitted.
+  // Truthiness (not `!== undefined`) so the emit is unchanged — which leaves `apiPath`
+  // merely optional to TypeScript, hence the assertions rather than four `as any`.
+  if (norm.error) return { error: norm.error };
+  const single = norm.apiPath!.includes('?') ? null : resourceFromApiUrl(norm.apiPath!);
+  const resource = single || genericResourceFromPath(norm.apiPath!);
   if (!resource) return { error: 'Could not parse that path.' };
   const tab = openResourceTab(resource, deps);
   return { tab };

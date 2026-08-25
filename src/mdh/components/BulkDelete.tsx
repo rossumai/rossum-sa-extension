@@ -13,7 +13,8 @@ const PREVIEW_DEBOUNCE_MS = 400;
 type BulkOpen = {
   collection: string;
   mode: string;
-  ids?: string[];
+  /** A Data Storage _id is a string or an EJSON `{ $oid }` wrapper. */
+  ids?: Array<string | { $oid: string }>;
   filter?: any;
   onSuccess?: () => unknown;
   fieldsFn?: () => any;

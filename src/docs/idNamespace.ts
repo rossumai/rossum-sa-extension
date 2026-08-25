@@ -14,7 +14,7 @@ export const prefixFor = (slug: unknown) => `${String(slug || '')}--`;
 // Only ids move. Authored hrefs are left exactly as written: prefixing `#2.1` to `#slug--2.1` would
 // defeat the forgiving matching below (the real id is `slug--21-entities`), and an untouched href
 // keeps the deliverable's text round-trippable.
-export function namespaceSection(sectionEl: Element, prefix: string): Map<string, string> {
+export function namespaceSection(sectionEl: Element | null, prefix: string): Map<string, string> {
   const map = new Map<string, string>();
   if (!sectionEl || !prefix) return map;
   for (const el of sectionEl.querySelectorAll('[id]')) {
@@ -37,7 +37,7 @@ function headingsIn(scope: ParentNode, prefix: string) {
 
 // The reader's own section wins first: with a colliding id, "the one I am looking at" is what a
 // fragment written in that document means.
-export function resolveInPage(root: ParentNode, fragment: string, currentPrefix = ''): Element | null {
+export function resolveInPage(root: ParentNode | null, fragment: string, currentPrefix = ''): Element | null {
   if (!root || !fragment) return null;
   const sections = [...root.querySelectorAll('[data-slug]')] as HTMLElement[];
   const scopes: [ParentNode, string][] = [];

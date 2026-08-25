@@ -9,7 +9,7 @@ export const PRINT_PREFIX = 'docPrint_';
 
 // Pure + testable: the staging entry and the target URL for printing `html`.
 export function buildPrintRequest(
-  { html, title, uuid, now }: { html: string; title: string; uuid: string; now: number },
+  { html, title, uuid, now }: { html: string; title?: string; uuid: string; now: number },
 ) {
   return {
     key: `${PRINT_PREFIX}${uuid}`,
@@ -19,11 +19,14 @@ export function buildPrintRequest(
 }
 
 const realDeps = {
-  uuid: () => crypto.randomUUID(),
+  // Annotated `string`: randomUUID() is typed as a branded template literal, and a
+  // `typeof realDeps` seam would otherwise demand that brand from a test stub.
+  uuid: (): string => crypto.randomUUID(),
   now: () => Date.now(),
   getURL: (p: string) => chrome.runtime.getURL(p),
   sessionSet: (obj: Record<string, unknown>) => chrome.storage.session.set(obj),
-  getCurrentTab: () => chrome.tabs.getCurrent(),
+  // Only index and windowId are read (both guarded), so that is what the seam promises.
+  getCurrentTab: (): Promise<{ index?: number; windowId?: number } | undefined> => chrome.tabs.getCurrent(),
   tabsCreate: (opts: chrome.tabs.CreateProperties) => chrome.tabs.create(opts),
 };
 
@@ -31,7 +34,7 @@ const realDeps = {
 // key on read, so a stale entry cannot pile up; session storage is cleared with the browser
 // session in any case.
 export async function openPrintTab(
-  { html, title }: { html: string; title: string },
+  { html, title }: { html: string; title?: string },
   deps: typeof realDeps = realDeps,
 ) {
   if (!html) return null;

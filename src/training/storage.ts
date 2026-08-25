@@ -39,11 +39,15 @@ export const MAX_ORGS = 3;
 // Precondition unchanged: `keepOrigin` must already be a key of `all` — if it
 // is not, it is NOT added, so the "always included" guarantee silently does not
 // hold (pinned by tests; unreachable via writeProgress, which merges first).
-export function pruneOrgs(
-  all: ProgressByOrigin | null | undefined,
+// Generic in the entry type, and honestly so: the body reaches for `receipt` and
+// `startedAt` through `?.` and otherwise passes values straight through, so it prunes a map
+// of anything that MAY carry those. A ProgressByOrigin in still gives a ProgressByOrigin
+// out, and a test can rank two-field stand-ins without inventing a whole Progress.
+export function pruneOrgs<T extends { startedAt?: number; receipt?: unknown }>(
+  all: Record<string, T> | null | undefined,
   keepOrigin: string,
   max: number = MAX_ORGS,
-): ProgressByOrigin {
+): Record<string, T> {
   const src = all || {};
   const entries = Object.entries(src);
   if (entries.length <= max) return src;
@@ -54,7 +58,7 @@ export function pruneOrgs(
     .filter(([k]) => !kept.has(k))
     .sort((a, b) => (b[1]?.startedAt || 0) - (a[1]?.startedAt || 0));
   for (const [k] of ranked.slice(0, Math.max(0, max - reserved))) kept.add(k);
-  const out: ProgressByOrigin = {};
+  const out: Record<string, T> = {};
   for (const [k, v] of entries) if (kept.has(k)) out[k] = v;
   return out;
 }

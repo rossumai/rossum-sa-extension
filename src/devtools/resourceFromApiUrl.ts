@@ -22,11 +22,19 @@ export type ResourceDescriptor = {
   type: string;
   /** Absent on a generic list/query descriptor, which has no single id. */
   id?: string;
-  apiPath: string;
+  /**
+   * Absent on an UNRESOLVED `via` descriptor: detectResource can see only the queue id in
+   * the URL, so `loadResource` must fetch the queue first and read the real path off it.
+   * `keyOf` and the curl buttons already guard for that; the type says so now too.
+   */
+  apiPath?: string;
   label: string;
   readOnly?: boolean;
+  /** Set when the descriptor is unresolved: how to reach the real resource. */
   via?: string;
   queueId?: string;
+  /** The queue to fetch first, for `via: 'queue'` and `via: 'queue-inbox'`. */
+  queueApiPath?: string;
 };
 
 export function resourceFromApiUrl(url: unknown): ResourceDescriptor | null {

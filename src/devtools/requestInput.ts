@@ -4,7 +4,14 @@
 function hostOf(u: string) { try { return new URL(u).host; } catch { return ''; } }
 
 /** Either an accepted path, or a message to show. `null` means "nothing typed yet". */
-export type NormalizedRequest = { apiPath: string } | { error: string };
+/**
+ * Discriminated on purpose: declaring the absent key as `?: undefined` on each arm lets a
+ * caller read `norm.error` / `norm.apiPath` and have TypeScript narrow from that alone —
+ * no `in` test, no guard, and so no emitted code. Same device as DeepOutcome's `skipped?: false`.
+ */
+export type NormalizedRequest =
+  | { apiPath: string; error?: undefined }
+  | { apiPath?: undefined; error: string };
 
 export function normalizeRequestInput(raw: unknown, currentDomain: string): NormalizedRequest | null {
   if (typeof raw !== 'string') return null;

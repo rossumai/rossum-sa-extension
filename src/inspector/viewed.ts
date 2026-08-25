@@ -10,8 +10,12 @@ export const MAX_VIEWED = 12; // stored cap (landing shows fewer, filtered per o
 /** One recently-viewed annotation, deduped by (origin, id). */
 export type ViewedEntry = { id: string; origin: string; at: number };
 
+/** What callers HAND to mergeViewed. A Rossum annotation id arrives as a number, and the
+ *  `String(entry.id)` below is the normalisation that makes a stored entry's id a string. */
+export type ViewedInput = Omit<ViewedEntry, 'id'> & { id: string | number };
+
 export function mergeViewed(
-  list: ViewedEntry[] | null | undefined, entry: ViewedEntry, max = MAX_VIEWED,
+  list: ViewedEntry[] | null | undefined, entry: ViewedInput | null, max = MAX_VIEWED,
 ): ViewedEntry[] {
   if (!entry || entry.id == null) return Array.isArray(list) ? list : [];
   const id = String(entry.id);

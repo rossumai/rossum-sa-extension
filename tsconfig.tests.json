@@ -1,0 +1,18 @@
+{
+  // The test suite, type-checked as a SECOND program. It is separate from tsconfig.json
+  // rather than a wider `include` there for one reason: `types`. Tests are the only code
+  // in this repo that runs in Node — the meta-guards read `src/` off disk with node:fs —
+  // so they need @types/node, and src/ must NOT. Keeping the base program node-free means
+  // a `process.env` or a `Buffer` that strays into a browser bundle is still a type error.
+  //
+  // Everything else is inherited, `strict` included: a mock is annotated `any` where it
+  // genuinely is one, never checked more loosely than the code it stands in for.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["chrome", "node"]
+  },
+  // src/types/*.d.ts declares `three`, `d3-force-3d` and `*.module.css`. The base program
+  // picks them up through `src/**/*.ts`; this one imports src as a dependency, so it has to
+  // name them or every CSS-Module import in a component under test is an unresolved module.
+  "include": ["tests/**/*.ts", "src/types/**/*.d.ts"]
+}

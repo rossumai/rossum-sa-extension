@@ -51,7 +51,7 @@ export function bevelPath(A: Point, B: Point, C: Point, D: Point): string {
 const ARROW_H = 6, ARROW_W = 5;
 export type ArrowDir = 'up' | 'down' | 'left' | 'right';
 
-export function arrowHeadPath(x: number, y: number, dir: string): string | null {
+export function arrowHeadPath(x: number, y: number, dir: string | null): string | null {
   if (dir === 'up' || dir === 'down') {
     const d = dir === 'up' ? -1 : 1;
     return 'M ' + f(x) + ' ' + f(y + d * ARROW_H)

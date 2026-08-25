@@ -66,16 +66,16 @@ function dotClass(r: any) {
 function Summary({ ds, results, running }: { ds: Deliverable[]; results: Record<string, any>; running?: boolean }) {
   const total = ds.length;
   if (!total) return null;
-  const done = ds.map((d: any) => results[d.id]).filter((r: any) => r && !r.running && r.verdict);
+  const done = ds.map((d) => results[d.id]).filter((r) => r && !r.running && r.verdict);
   if (running) {
     return <div class="fabry-arch-summary">{done.length}{' / '}{total} checked</div>;
   }
   if (!done.length) {
     return <div class="fabry-arch-summary">{total}{' '}deliverable{total === 1 ? '' : 's'}{' · not yet run'}</div>;
   }
-  const met = done.filter((r: any) => r.verdict === 'pass').length;
-  const notmet = done.filter((r: any) => r.verdict === 'fail').length;
-  const unc = done.filter((r: any) => r.verdict === 'uncertain').length;
+  const met = done.filter((r) => r.verdict === 'pass').length;
+  const notmet = done.filter((r) => r.verdict === 'fail').length;
+  const unc = done.filter((r) => r.verdict === 'uncertain').length;
   return (
     <div class="fabry-arch-summary">
       {total}{' '}deliverable{total === 1 ? '' : 's'}

@@ -16,8 +16,9 @@ esbuild bundles ES modules from `src/` into `dist/`. No transpilation, no other 
 
 - `npm run build` — clean build into `dist/`
 - `npm run dev` — watch mode (JS only; re-run the full build for CSS/HTML changes)
-- `npm run typecheck` — `tsc --noEmit`. See TypeScript below.
-- `npm test` — Vitest. `tests/dead-code.test.js` is a repo-hygiene guard, not a behaviour
+- `npm run typecheck` — `tsc --noEmit` for `src/`, then `-p tsconfig.tests.json` for `tests/`.
+  Two programs, not one: see TypeScript below for why.
+- `npm test` — Vitest. `tests/dead-code.test.ts` is a repo-hygiene guard, not a behaviour
   test: it derives the entry points from `build.js` and fails on an unreachable module, an
   export nothing imports, or an unused local/import. Its header lists what it deliberately
   cannot see — chiefly dead CSS, and code reachable only from a test.
@@ -26,7 +27,8 @@ esbuild bundles ES modules from `src/` into `dist/`. No transpilation, no other 
 
 ## TypeScript
 
-**Every file under `src/` is TypeScript: 199 `.ts` + 159 `.tsx` + 1 `.d.ts`, zero `.js`/`.jsx`.**
+**Every file in the repo is TypeScript: `src/` is 203 `.ts` + 159 `.tsx` + 1 `.d.ts`, and `tests/`
+is 322 `.test.ts` plus `setup.ts` and `support/`. Zero `.js`/`.jsx` in either.**
 Adopted for readability, not bug-finding — `tsc --checkJs` over the pre-migration repo found no
 runtime defect. Why each decision was made, and the defects the work surfaced, is in the four
 migration commit messages; this section is only the rules that still bind.
@@ -34,6 +36,14 @@ migration commit messages; this section is only the rules that still bind.
 Rules, all in `tsconfig.json`:
 
 - **`checkJs: false`** — was the migration ratchet; now vacuous, and guards only a future `.js`.
+- **Two programs.** `tsconfig.json` covers `src/`; `tsconfig.tests.json` extends it for `tests/`
+  and adds ONE thing — `@types/node`. That separation is the point: tests are the only code here
+  that runs in Node (the meta-guards read `src/` off disk with `node:fs`), so `src/` stays
+  node-free and a stray `process.env` in a browser bundle is still a type error. The tests program
+  also has to name `src/types/**/*.d.ts` explicitly, since it reaches `src/` through imports rather
+  than through `include`.
+- **`setTimeout` returns a different type in each program**, so a stored handle is
+  `ReturnType<typeof setTimeout>`, never `number`.
 - **`strict: true`** — `noImplicitAny` is the point.
 - **`erasableSyntaxOnly`** — no `enum`, `namespace` or parameter properties. A `.ts` file here is
   JavaScript plus annotations, nothing else. Still enforced on TypeScript 7.
@@ -56,6 +66,15 @@ Conventions:
   `x as string` over `String(x)`, `a!.b` over `a?.b`, `(window as any).f` over hoisting a `const`,
   and keep an `= {}` default rather than dropping it. Never add a guard, an operator or an
   argument to satisfy a type.
+- **Do not annotate a CONTEXTUALLY typed parameter.** A callback handed straight to `map`,
+  `filter`, `vi.fn` or a typed prop already has a type; writing `: any` on it is the only thing
+  that takes it away. ~260 such annotations were removed on 2026-08-25 by stripping every
+  contextual `: any` and putting back only the positions `tsc` then reported as implicit — the
+  same two-pass check is how to keep it honest next time. Two places the annotation is still
+  right, both measured: an event handler that reads `e.target` (see the `e.target` rule below —
+  the alternative, `e.currentTarget`, is a different runtime object), and a mock destructuring an
+  options bag the real signature marks OPTIONAL, since a required parameter is not assignable
+  where the target's is optional.
 - **`any` is fine where the wire genuinely is untyped** — a parsed JSON body, a raw Rossum API
   object, a Data Storage record, a markdown-it token. Say why at a **module boundary**; a callback
   over such an array (`records.map((r: any) => …)`) needs no comment. Most of the ~1,560 `any`
@@ -85,7 +104,33 @@ Components (`.tsx`):
 - **`e.target.value` needs the handler parameter annotated**, not each access guarded.
 - **CSS Modules** have no types; `src/types/vendor.d.ts` declares `*.module.css` as
   `Record<string, string>`. Exact key sets would need a build step ahead of tsc, and
-  `tests/css-class-collision-boundary.test.js` already checks the BUILT stylesheet.
+  `tests/css-class-collision-boundary.test.ts` already checks the BUILT stylesheet.
+
+Tests (`tests/**/*.test.ts`):
+
+- **`h()`, not JSX.** Vitest transforms `.ts` as TypeScript, not TSX, so components are mounted
+  with `h(Component, props)`. That is why the suite is `.test.ts` and not `.test.tsx`; moving a
+  file to `.tsx` to write JSX is a deliberate choice, not a tidy-up.
+- **`vi.mocked(x)` around a module mock.** `vi.mock('./api.js')` leaves the import typed as the
+  REAL function, so `api.foo.mockResolvedValue(…)` does not type-check. `vi.mocked` is identity
+  at runtime and the only thing that makes the mock surface visible.
+- **A mock needs the parameters it is asserted on.** `vi.fn(async () => {})` gives
+  `mock.calls[0]` an empty tuple, so `calls[0][0]` is a type error — declare `(_opts: any)`.
+- **Assert null-ness ONCE, where the value is produced.** `const btn = root.querySelector('.x')!;`
+  then plain `btn.click()` — not `btn!` at every use. 736 of the suite's 1,666 assertions were
+  redundant on that measure (2026-08-25) and were removed by stripping every `!` and restoring
+  only the positions `tsc` still objected to; run that same two-pass check rather than eyeballing
+  it. Watch the binding when hoisting: `await f()!` asserts the PROMISE, so it has to be
+  `(await f())!`. In `src/` the same sweep removed nothing — all 149 there are load-bearing.
+- **Shared fixtures live in `tests/support/`.** A repo type with required fields gets a factory
+  there (`deliverable()`, `track()`, `rect()`) rather than a partial literal per test, so a
+  fixture cannot drift from the type the real loader produces.
+- **When a test proves a function tolerates junk, widen the FUNCTION — but only if the body
+  actually guards.** Half of what this migration turned up was a parameter typed `T` whose body
+  opens with `if (!x)` or `Array.isArray(x)`; those signatures were simply narrower than their
+  contracts. Verify by widening and re-running `tsc`: if a body does not really guard, it says so
+  immediately. Where the input is deliberately malformed (`'not a pipeline'`, a doc with no id),
+  cast at the CALL with a comment saying that is the point of the assertion.
 
 ## Architecture
 
@@ -177,7 +222,7 @@ Enforced by tests, not by convention. Do not weaken them.
   implement loop) may send `mcp_mode: 'read-write'`, and only the transport
   `src/agent/agentApi.ts` may name it. There is **no server-side write-lock** — the backend
   honours whatever the client sends, so the boundary is entirely client-side. Guarded by
-  `tests/fabry-write-boundary.test.js` plus a `dist/` grep.
+  `tests/fabry-write-boundary.test.ts` plus a `dist/` grep.
 - **Training never mutates** — no request the onboarding track makes can change the org. That is
   not the same as "only GETs": mission 5 POSTs to `/svc/data-storage/api/v1/collections/list`
   because that service takes queries as JSON bodies. It is a list query. Do not "fix" it into a
@@ -194,7 +239,7 @@ Enforced by tests, not by convention. Do not weaken them.
   unique only among THEMSELVES — not against hand-written classes. A generated `.k` once painted
   a 320px blurred hero blob across the Inspector's `class="k"` cells. What keeps it safe is that
   no bare short class names remain, asserted against the BUILT stylesheet by
-  `tests/css-class-collision-boundary.test.js`.
+  `tests/css-class-collision-boundary.test.ts`.
 
 ## Conventions & traps
 
@@ -232,7 +277,7 @@ Enforced by tests, not by convention. Do not weaken them.
 - **esbuild READS `tsconfig.json`**, so a compiler option can change what ships (see
   `alwaysStrict` under TypeScript). Verify a "types only" change by diffing built output.
 - **A test that names or walks a source file by extension goes blind when that file is renamed**
-  — and blind looks exactly like passing. `tests/fabry-write-boundary.test.js` once passed while
+  — and blind looks exactly like passing. `tests/fabry-write-boundary.test.ts` once passed while
   ignoring four `read-write` mentions in the transport it exists to guard. Three shapes do it: an
   extension filter, an allowlist literal, and a direct `readFileSync`. Mutation-test a guard
   after touching what it scans.
@@ -317,6 +362,8 @@ and all their classes are prefixed `rossum-sa-extension-*`.
 - **json5** — lenient parsing for the pipeline editor (trailing commas, unquoted keys)
 - **beautiful-mermaid** — diagrams; one flat ~1.5MB module, so it ships as its own lazy entry
 - **three** + **d3-force-3d** — Galaxy (~360KB)
+- **@types/node** (dev) — for the tests program only; see Two programs under TypeScript. Pin it
+  to the major of the Node in use, or it types APIs the runtime does not have.
 - **typescript** (dev) — type-checking only; esbuild does the building. After a major bump,
   confirm your tsconfig options are still ENFORCED (plant an `enum`); zero errors is equally
   consistent with an option having been dropped.

@@ -167,7 +167,7 @@ export default function ExportWizard({
             <PreviewCaption sample={preview.sample} columns={columns} />
             <div class="csv-preview-scroll">
               <table class="csv-preview-table">
-                {effOpts.header && columns && <thead><tr>{columns.map((c: any) => <th key={c}>{c}</th>)}</tr></thead>}
+                {effOpts.header && columns && <thead><tr>{columns.map((c) => <th key={c}>{c}</th>)}</tr></thead>}
                 <tbody>
                   {preview.sample.map((d, i) => {
                     const flat = d == null ? {} : flattenDoc(d);

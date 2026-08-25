@@ -210,7 +210,9 @@ export function decodeBytes(buffer: ArrayBuffer | Uint8Array, encoding = 'utf-8'
 // a string (used as-is — handy for tests). On a tokenizer error, returns
 // whatever rows were recovered (for preview) plus the error so the caller can
 // block the import.
-export function parseCsv(buffer: ArrayBuffer | Uint8Array, options: Record<string, any> = {}) {
+// `string` is in the union because the first line branches on it: callers hand this both
+// decoded text and raw bytes.
+export function parseCsv(buffer: ArrayBuffer | Uint8Array | string, options: Record<string, any> = {}) {
   const text = typeof buffer === 'string' ? buffer : decodeBytes(buffer, options.encoding);
   const { rows, error } = tokenizeCsv(text, options);
   const { docs, columns, warnings } = rowsToDocs(rows, options);

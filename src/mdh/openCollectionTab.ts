@@ -22,11 +22,14 @@ export function buildOpenTabRequest(
 }
 
 const realDeps = {
-  uuid: () => crypto.randomUUID(),
+  // Annotated `string`: randomUUID() is typed as a branded template literal, and a
+  // `typeof realDeps` seam would otherwise demand that brand from a test stub.
+  uuid: (): string => crypto.randomUUID(),
   now: () => Date.now(),
   getURL: (p: string) => chrome.runtime.getURL(p),
   storageSet: (obj: Record<string, unknown>) => chrome.storage.local.set(obj),
-  getCurrentTab: () => chrome.tabs.getCurrent(),
+  // Only index and windowId are read (both guarded), so that is what the seam promises.
+  getCurrentTab: (): Promise<{ index?: number; windowId?: number } | undefined> => chrome.tabs.getCurrent(),
   tabsCreate: (opts: chrome.tabs.CreateProperties) => chrome.tabs.create(opts),
 };
 

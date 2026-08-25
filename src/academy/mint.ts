@@ -32,7 +32,7 @@ type MintDeps = {
   now: () => Date;
 };
 
-async function mint({ get, whoami, now }: MintDeps) {
+async function mint({ get, whoami, now }: MintDeps): Promise<MintResult> {
   let progress = store.progress.value as Progress;
   const origin = store.getOrigin();
 
@@ -113,7 +113,16 @@ async function mint({ get, whoami, now }: MintDeps) {
 // the LAST action of the whole track. Without this, that rejection escapes into
 // the click handler, the panel's `busy` is never cleared, and the button sits
 // disabled reading "Checking…" forever with nothing said.
-export async function mintReceipt({ get, whoami, now = () => new Date() }: Partial<MintDeps> & Pick<MintDeps, 'get' | 'whoami'>) {
+/**
+ * What mintReceipt reports. Each arm declares the other arm's keys as `?: undefined`, so a
+ * caller can read `.text` / `.failedStep` / `.message` and narrow from the value it finds —
+ * the same device NormalizedRequest and DeepOutcome use.
+ */
+export type MintResult =
+  | { ok: true; text: string; reason?: undefined; failedStep?: undefined; message?: undefined }
+  | { ok: false; reason: string; failedStep?: string; message?: string; text?: undefined };
+
+export async function mintReceipt({ get, whoami, now = () => new Date() }: Partial<MintDeps> & Pick<MintDeps, 'get' | 'whoami'>): Promise<MintResult> {
   try {
     return await mint({ get, whoami, now });
   } catch (e) {

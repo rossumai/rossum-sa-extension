@@ -25,7 +25,7 @@ function CodeBlock({ lang, text }: { lang?: string; text: string }) {
   return (
     <div class={styles.codewrap}>
       {lang ? <span class={styles.lang}>{lang}</span> : null}
-      <pre class={styles.code}><code>{tokens.map((t: any, i: number) => (t.type === 'plain' ? t.text : <span key={i} class={styles['hl-' + t.type]}>{t.text}</span>))}</code></pre>
+      <pre class={styles.code}><code>{tokens.map((t, i: number) => (t.type === 'plain' ? t.text : <span key={i} class={styles['hl-' + t.type]}>{t.text}</span>))}</code></pre>
     </div>
   );
 }

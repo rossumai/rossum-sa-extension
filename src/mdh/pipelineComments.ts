@@ -214,7 +214,7 @@ function insertEdit(segments: any[], k: number, stage: any, arrayStart: number) 
     return { start: prevActiveEnd, end: prevActiveEnd, replacement: `,\n  ${body}` };
   }
   // No active stage precedes k: the new stage becomes the first visible element.
-  const hasNextActive = segments.slice(k).some((s: any) => s.kind === 'active');
+  const hasNextActive = segments.slice(k).some((s) => s.kind === 'active');
   const at = arrayStart + 1;
   return { start: at, end: at, replacement: `\n  ${body}${hasNextActive ? ',' : ''}` };
 }
@@ -232,7 +232,7 @@ export function applyMutationToText(text: string, mutator: (stages: any[]) => vo
     const work0: any[] = [];
     mutator(work0);
     if (work0.length === 0) return text;
-    return '[\n  ' + work0.map((s: any) => reindentStage(s)).join(',\n  ') + '\n]';
+    return '[\n  ' + work0.map((s) => reindentStage(s)).join(',\n  ') + '\n]';
   }
 
   // Identity-stable work array: active stages BY REFERENCE (pipelineOps never

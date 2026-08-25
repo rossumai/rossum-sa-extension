@@ -34,7 +34,7 @@ export function get(collection: string, field: string): any {
   return f.value;
 }
 
-export function stats(collection: string) {
+export function stats(collection?: string | null) {
   // Total cached fields across all collections
   let fieldCount = 0;
   for (const entry of entries.values()) {

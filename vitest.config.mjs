@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitest/config';
 
 // Match build.js: classic Preact JSX with explicit `h` factory.
-// Each .tsx file imports { h } from 'preact' at the top.
+// Each .tsx file imports { h } from 'preact' at the top; tests call h() directly.
 // Vite 8 uses oxc for JSX transforms, not esbuild — set the oxc.jsx option.
 export default defineConfig({
   oxc: {
@@ -18,8 +18,8 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['tests/**/*.test.js'],
-    setupFiles: ['./tests/setup.js'],
+    include: ['tests/**/*.test.ts'],
+    setupFiles: ['./tests/setup.ts'],
     // 17 test files mount CodeMirror, whose construction is heavy and
     // synchronous. It runs in ~200ms unloaded, but on a contended runner
     // (CI is 2-vCPU) it has been observed to blow past the 5s default and

@@ -64,7 +64,8 @@ export async function runInTab(tabId: number, func: (...a: any[]) => any, args: 
 // console reads consoleAuth_<uuid> on boot and consumes it; pending* pipeline
 // prefill fields ride along inside authData. Cleaned up by the console's
 // purgeStaleAuthEntries on subsequent boots.
-export function openConsoleTab(tab: chrome.tabs.Tab, authData: Record<string, unknown>, app: string): void {
+// Only `index` is read — the new tab opens beside the current one.
+export function openConsoleTab(tab: { index: number }, authData: Record<string, unknown>, app: string): void {
   const authId = crypto.randomUUID();
   chrome.storage.local.set(
     { [`consoleAuth_${authId}`]: { ...authData, app, createdAt: Date.now() } },

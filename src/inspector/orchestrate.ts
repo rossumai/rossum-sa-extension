@@ -98,19 +98,19 @@ export async function orchestrateAttributions(
       const msg = classifyMessage((d.annotation.messages || [])[f.payload.index]);
       const c = correlateMessage(msg, { hookLogs, ruleLogs, hooksById });
       if (c) { setDone(f.key, { culprit: c.culprit, confidence: null, explanation: '' }, c.reliability); continue; }
-      ai.push({ key: f.key, run: (onPhase: (phase: string) => void) => gatherMessageContext({ api, store: s, message: f.payload }).then((context: any) => runAttribution({ agentApi, kind: 'message', context, onPhase, signal })) });
+      ai.push({ key: f.key, run: (onPhase: (phase: string) => void) => gatherMessageContext({ api, store: s, message: f.payload }).then((context) => runAttribution({ agentApi, kind: 'message', context, onPhase, signal })) });
     } else if (f.kind === 'field') {
       const c = correlateField(f.payload.schemaId, { ruleLogs, rules });
       if (c) { setDone(f.key, { culprit: c.culprit, confidence: null, explanation: '' }, c.reliability); continue; }
       fieldItems.push({ key: f.key, schemaId: f.payload.schemaId, value: f.payload.value });
     } else if (f.kind === 'blocker') {
-      ai.push({ key: f.key, run: (onPhase: (phase: string) => void) => gatherBlockerContext({ api, store: s, blocker: f.payload }).then((context: any) => runAttribution({ agentApi, kind: 'blocker', context, onPhase, signal })) });
+      ai.push({ key: f.key, run: (onPhase: (phase: string) => void) => gatherBlockerContext({ api, store: s, blocker: f.payload }).then((context) => runAttribution({ agentApi, kind: 'blocker', context, onPhase, signal })) });
     } else if (f.kind === 'export') {
-      ai.push({ key: f.key, run: (onPhase: (phase: string) => void) => gatherExportContext({ api, store: s, error: f.payload.error }).then((context: any) => runAttribution({ agentApi, kind: 'export', context, onPhase, signal })) });
+      ai.push({ key: f.key, run: (onPhase: (phase: string) => void) => gatherExportContext({ api, store: s, error: f.payload.error }).then((context) => runAttribution({ agentApi, kind: 'export', context, onPhase, signal })) });
     } else if (f.kind === 'reject') {
-      ai.push({ key: f.key, run: (onPhase: (phase: string) => void) => gatherRejectContext({ api, store: s, reason: f.payload.reason }).then((context: any) => runAttribution({ agentApi, kind: 'reject', context, onPhase, signal })) });
+      ai.push({ key: f.key, run: (onPhase: (phase: string) => void) => gatherRejectContext({ api, store: s, reason: f.payload.reason }).then((context) => runAttribution({ agentApi, kind: 'reject', context, onPhase, signal })) });
     } else if (f.kind === 'label') {
-      ai.push({ key: f.key, run: (onPhase: (phase: string) => void) => gatherLabelContext({ api, store: s, labelId: f.payload.id, labelName: f.payload.name }).then((context: any) => runAttribution({ agentApi, kind: 'label', context, onPhase, signal })) });
+      ai.push({ key: f.key, run: (onPhase: (phase: string) => void) => gatherLabelContext({ api, store: s, labelId: f.payload.id, labelName: f.payload.name }).then((context) => runAttribution({ agentApi, kind: 'label', context, onPhase, signal })) });
     }
   }
 
@@ -124,8 +124,8 @@ export async function orchestrateAttributions(
     s.setAttribution(item.key, { status: 'loading', phase: 'thinking', source: 'ai' });
     const onPhase = (phase: string) => { if (aborted()) return; const cur = s.attributions.value[item.key]; if (cur && cur.status === 'loading' && cur.phase !== phase) s.setAttribution(item.key, { status: 'loading', phase, source: 'ai' }); };
     pending.push(item.run(onPhase)
-      .then(({ verdict }: any) => { if (!aborted()) s.setAttribution(item.key, { status: 'done', verdict, source: 'ai' }); })
-      .catch((e: any) => { if (!aborted() && e?.name !== 'AbortError') s.setAttribution(item.key, { status: 'error', error: e?.message || 'failed', source: 'ai' }); }));
+      .then(({ verdict }) => { if (!aborted()) s.setAttribution(item.key, { status: 'done', verdict, source: 'ai' }); })
+      .catch((e) => { if (!aborted() && e?.name !== 'AbortError') s.setAttribution(item.key, { status: 'error', error: e?.message || 'failed', source: 'ai' }); }));
   }
 
   // Batched field AI (one call for all residual fields).
@@ -133,8 +133,8 @@ export async function orchestrateAttributions(
     for (const it of fieldItems) s.setAttribution(it.key, { status: 'loading', phase: 'thinking', source: 'ai' });
     const onPhase = (phase: string) => { if (aborted()) return; for (const it of fieldItems) { const cur = s.attributions.value[it.key]; if (cur && cur.status === 'loading' && cur.phase !== phase) s.setAttribution(it.key, { status: 'loading', phase, source: 'ai' }); } };
     pending.push(gatherFieldsContext({ api, store: s })
-      .then((context: any) => runFieldBatchAttribution({ agentApi, items: fieldItems, context, onPhase, signal }))
-      .then(({ verdicts }: any) => {
+      .then((context) => runFieldBatchAttribution({ agentApi, items: fieldItems, context, onPhase, signal }))
+      .then(({ verdicts }) => {
         if (aborted()) return;
         const byId = new Map<string, any>(verdicts.map((v: any) => [v.schema_id, v]));
         for (const it of fieldItems) {
@@ -142,7 +142,7 @@ export async function orchestrateAttributions(
           s.setAttribution(it.key, { status: 'done', verdict: v ? { culprit: v.culprit, confidence: v.confidence, explanation: v.explanation } : { culprit: null, confidence: 'low', explanation: '' }, source: 'ai' });
         }
       })
-      .catch((e: any) => { if (!aborted() && e?.name !== 'AbortError') for (const it of fieldItems) s.setAttribution(it.key, { status: 'error', error: e?.message || 'failed', source: 'ai' }); }));
+      .catch((e) => { if (!aborted() && e?.name !== 'AbortError') for (const it of fieldItems) s.setAttribution(it.key, { status: 'error', error: e?.message || 'failed', source: 'ai' }); }));
   }
 
   await Promise.allSettled(pending);

@@ -11,7 +11,7 @@ function hasKey(stage: any, key: string): boolean {
 }
 
 function findIndexBy(pipeline: any[], key: string): number {
-  return pipeline.findIndex((s: any) => hasKey(s, key));
+  return pipeline.findIndex((s) => hasKey(s, key));
 }
 
 // Apply the UI sort state to an existing pipeline. If `sortSpec` has keys,
@@ -30,7 +30,7 @@ export function applySortToPipeline(pipeline: any[], sortSpec: any): any[] {
       if (hasKey(pipeline[i], '$match')) { insertAt = i + 1; break; }
     }
     if (insertAt === -1) {
-      const pagIdx = pipeline.findIndex((s: any) => hasKey(s, '$skip') || hasKey(s, '$limit'));
+      const pagIdx = pipeline.findIndex((s) => hasKey(s, '$skip') || hasKey(s, '$limit'));
       insertAt = pagIdx >= 0 ? pagIdx : pipeline.length;
     }
     pipeline.splice(insertAt, 0, stage);
@@ -79,7 +79,9 @@ export function applySkipToPipeline(pipeline: any[], skipValue: number): any[] {
 // Only primitive-valued `$match` entries become filter chips; operator-valued
 // entries like `{price: {$gt: 10}}` can't be toggled from the UI, so they
 // stay in the pipeline as-is without a chip.
-export function extractUIStateFromPipeline(pipeline: any[]) {
+// Takes `unknown` because it VALIDATES: the Array.isArray guard below is the contract,
+// and callers hand it whatever came out of the editor.
+export function extractUIStateFromPipeline(pipeline: unknown) {
   const sorts: Record<string, number> = {};
   const filters: Record<string, any> = {};
   if (!Array.isArray(pipeline)) return { sorts, filters };
@@ -125,8 +127,9 @@ export function pipelineReducesResultSet(stages: any[]): boolean {
 // Used by the debug panel so count/preview probes never execute a write.
 // Stripping is safe: the count entering a write stage equals the docs-that-
 // would-be-written, which is meaningful; non-write pipelines are unaffected.
-export function stripWriteStages(stages: any[]): any[] {
-  return (stages || []).filter((s: any) => {
+// `(stages || [])` is the contract: a missing pipeline strips to nothing.
+export function stripWriteStages(stages: any[] | null | undefined): any[] {
+  return (stages || []).filter((s) => {
     if (!s || typeof s !== 'object') return true;
     const k = Object.keys(s)[0];
     return k !== '$out' && k !== '$merge';
@@ -166,7 +169,9 @@ export function terminalWriteStage(stages: any[]): WriteStage | null {
 // Used by the download flow: the editor's trailing pagination stages are for
 // paging the on-screen preview, not for the export — the downloader appends
 // its own `$skip` / `$limit` per batch.
-export function stripPaginationStages(pipeline: any[]): any[] {
+// Takes `unknown` and THROWS on anything that is not an array — that rejection is the
+// documented behaviour, so the signature must let a caller reach it.
+export function stripPaginationStages(pipeline: unknown): any[] {
   if (!Array.isArray(pipeline)) {
     throw new Error('Pipeline must be a JSON array');
   }

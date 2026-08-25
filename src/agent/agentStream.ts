@@ -90,12 +90,31 @@ export function createSseParser() {
   };
 }
 
-export function newAcc() {
+/**
+ * The stream accumulator. Named because the initial literal alone would infer `never[]` for
+ * every list and the literal `null` for every slot — types that forbid exactly what
+ * foldEvents goes on to store in them, and that only ever type-checked because `acc` is
+ * threaded through as `any`.
+ */
+export type StreamAcc = {
+  reasoning: string;
+  text: string;
+  finalAnswer: string | null;
+  status: string;
+  done: boolean;
+  tools: any[];
+  questions: unknown[] | null;
+  /** Unknown `data-*` events, deduped by type, so a new server event is visible not silent. */
+  unhandled: Array<{ type: string; data: unknown }>;
+  error: string | null;
+};
+
+export function newAcc(): StreamAcc {
   return { reasoning: '', text: '', finalAnswer: null, status: '', done: false, tools: [], questions: null, unhandled: [], error: null };
 }
 
 // Fold a batch of events into a mutable accumulator.
-export function foldEvents(acc: any, events: any[]) {
+export function foldEvents(acc: StreamAcc, events: any[]) {
   for (const e of events) {
     switch (e && e.type) {
       case 'reasoning-start': acc.status = 'thinking'; break;
@@ -115,7 +134,7 @@ export function foldEvents(acc: any, events: any[]) {
         // interactive element) is captured so the UI can show a named notice
         // instead of rendering nothing. Known data-* are handled above.
         if (typeof e?.type === 'string' && e.type.startsWith('data-') && !BENIGN_DATA_PARTS.has(e.type)
-          && !acc.unhandled.some((u: any) => u.type === e.type)) {
+          && !acc.unhandled.some((u) => u.type === e.type)) {
           acc.unhandled.push({ type: e.type, data: e.data });
         }
         break;

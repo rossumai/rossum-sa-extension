@@ -11,7 +11,7 @@ export default function ConnectionBar({ connected }: { connected: boolean | null
     let last = '';
     const compute = () => {
       const col = selectedCollection.value;
-      const s = cache.stats(col as string);
+      const s = cache.stats(col);
       if (s.fieldCount === 0) return 'cache: empty';
       if (s.age !== null) {
         const secs = Math.round(s.age / 1000);

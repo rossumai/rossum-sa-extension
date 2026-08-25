@@ -63,7 +63,7 @@ const CONSTRAINTS = ['unique', 'sparse', 'expireAfterSeconds', 'partialFilterExp
 // strict prefix of another index's. A compound superset fully serves the prefix
 // index's queries, so dropping the plain prefix loses nothing.
 export function redundantIndexNames(indexes: any[]): Set<string> {
-  const objs = (indexes || []).filter((i: any) => i && typeof i === 'object' && i.key);
+  const objs = (indexes || []).filter((i) => i && typeof i === 'object' && i.key);
   const sig = (i: any) => Object.entries(i.key).map(([k, v]) => `${k}:${v}`);
   const plain = (i: any) => CONSTRAINTS.every((c: string) => i[c] === undefined);
   // A superset only truly covers the prefix index's queries if it indexes the
@@ -77,7 +77,7 @@ export function redundantIndexNames(indexes: any[]): Set<string> {
   for (const a of objs) {
     if (a.name === '_id_' || !plain(a)) continue;
     const as = sig(a);
-    const isPrefixOfCoveringSuperset = objs.some((b: any) => {
+    const isPrefixOfCoveringSuperset = objs.some((b) => {
       if (b === a || !coversFully(b)) return false;
       const bs = sig(b);
       return bs.length > as.length && as.every((seg, i) => seg === bs[i]);

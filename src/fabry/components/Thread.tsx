@@ -8,7 +8,7 @@ function UserTurn({ turn }: { turn: Turn }) {
   if (turn.chip) return <div class="fabry-turn-chip">{turn.text}</div>;
   return (
     <div class="fabry-turn-user">
-      {turn.images.map((img: any, idx: any) => <img key={idx} class="fabry-turn-img" src={`data:${img.media_type};base64,${img.data}`} alt="attachment" />)}
+      {turn.images.map((img, idx) => <img key={idx} class="fabry-turn-img" src={`data:${img.media_type};base64,${img.data}`} alt="attachment" />)}
       <div class="fabry-turn-user-text">{turn.text}</div>
     </div>
   );

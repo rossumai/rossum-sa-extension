@@ -234,7 +234,7 @@ export default function RecordList({
               onFilter={onFilter}
             />
           )}
-          {records.length > 0 && view === 'list' && records.map((record: any, i: any) => (
+          {records.length > 0 && view === 'list' && records.map((record, i) => (
             <RecordCard
               key={i}
               record={record}
@@ -390,9 +390,9 @@ function SelectionToolbar({
 }) {
   const ids = selectedIds.value;
   const total = ids.size;
-  const pageIds = records.map((r: any) => r._id?.$oid || String(r._id));
-  const allOnPageSelected = pageIds.length > 0 && pageIds.every((id: any) => ids.has(id));
-  const anyOnPageSelected = pageIds.some((id: any) => ids.has(id));
+  const pageIds = records.map((r) => r._id?.$oid || String(r._id));
+  const allOnPageSelected = pageIds.length > 0 && pageIds.every((id) => ids.has(id));
+  const anyOnPageSelected = pageIds.some((id) => ids.has(id));
   const headerState = allOnPageSelected ? 'all' : anyOnPageSelected ? 'some' : 'none';
   const [popoverOpen, setPopoverOpen] = useState(false);
 

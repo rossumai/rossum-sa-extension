@@ -10,7 +10,27 @@ export const annotationId = signal<string | null>(null);
 
 // Core report data + lazily-loaded best-effort enrichment + live re-eval result.
 export const data = signal<any>(null); // { annotation, blocker, content, resolved }
-export const enrichment = signal({
+/**
+ * One lazily-loaded enrichment source: `null` until it is requested, then the loaded rows,
+ * or the string 'unavailable' when the feature is off for this org (index.tsx:201).
+ */
+export type EnrichmentSource = any[] | 'unavailable' | null;
+
+export type Enrichment = {
+  audit: EnrichmentSource;
+  hookLogs: EnrichmentSource;
+  ruleLogs: EnrichmentSource;
+  workflow: EnrichmentSource;
+  notes: EnrichmentSource;
+};
+
+// The type parameter is load-bearing. Inferred from the initialiser this signal would be
+// `Signal<{ audit: null; hookLogs: null; ... }>` — every field permanently null — and the
+// only reason that ever type-checked is that index.tsx writes through a COMPUTED key
+// (`{ ...value, [kind]: v }`), which TypeScript does not check against the target. So the
+// whole enrichment flow was unchecked: the `Array.isArray` guards its readers already
+// carry are the real contract, and this states it.
+export const enrichment = signal<Enrichment>({
   audit: null, hookLogs: null, ruleLogs: null, workflow: null, notes: null,
 });
 export const live = signal<any>(null); // { messages, matchedTriggerRules }
@@ -53,7 +73,7 @@ export const recents = signal<any[]>([]);
 export const loading = signal(false);
 export const error = signal<string | null>(null);
 
-function emptyEnrichment() {
+function emptyEnrichment(): Enrichment {
   return { audit: null, hookLogs: null, ruleLogs: null, workflow: null, notes: null };
 }
 

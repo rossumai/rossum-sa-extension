@@ -82,7 +82,10 @@ export function patchFilters(key: string, patch: Partial<AuditFilters>): void {
 // two keys — otherwise every next-page click reads as a brand new search. Keys
 // are sorted so a patch that merely reorders them is not mistaken for a change.
 const PAGING_KEYS = new Set(['page', 'cursor']);
-export function searchSignature(source: string, bySource?: FiltersBySource | null): string {
+// Signature of the CURRENT search, ignoring paging keys. The body only enumerates the
+// keys of `bySource[source]`, so it works for any filter shape — a FiltersBySource is
+// one, and a test may hand it a two-key stand-in to check ordering.
+export function searchSignature(source: string, bySource?: Record<string, Record<string, unknown>> | null): string {
   const f: Record<string, unknown> = (bySource && bySource[source]) || {};
   const stable: Record<string, unknown> = {};
   for (const k of Object.keys(f).sort()) if (!PAGING_KEYS.has(k)) stable[k] = f[k];

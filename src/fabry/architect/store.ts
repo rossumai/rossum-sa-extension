@@ -102,7 +102,7 @@ export function setSpyTarget(id: string | null) { if (spyTarget.value !== id) sp
 // mutations inside the rail, i.e. work on nearly every frame for a panel nobody can read mid-flight.
 export const RAIL_SETTLE_MS = 120;
 export const settledTarget = signal<string | null>(null);
-let settleTimer: number | null = null;
+let settleTimer: ReturnType<typeof setTimeout> | null = null;
 export function setSettledTarget(id: string | null, { immediate = false }: { immediate?: boolean } = {}) {
   if (settleTimer) { clearTimeout(settleTimer); settleTimer = null; }
   if (immediate || settledTarget.value === null) { settledTarget.value = id; return; }

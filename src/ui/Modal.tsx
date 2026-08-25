@@ -64,7 +64,8 @@ export function closeModal() {
 // Returns a Promise<boolean> that resolves to true on Confirm and false on
 // Cancel / Escape / overlay-click / X. The legacy `onConfirm` callback is
 // still invoked on Confirm so existing call sites keep working.
-export function confirmModal(title: string, message: ComponentChildren, onConfirm: () => void) {
+// `onConfirm` is optional — the body guards it, and most callers just await the promise.
+export function confirmModal(title: string, message: ComponentChildren, onConfirm?: () => void) {
   return new Promise((resolve) => {
     let confirmed = false;
     modalContent.value = {

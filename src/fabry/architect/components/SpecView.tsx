@@ -301,7 +301,7 @@ export function SourceColumn({
       for (const el of secs) {
         const id = el.dataset.deliverable;
         const view = views.current.get(id);
-        const text = (sections.find((x: any) => x.id === id) || {}).text || '';
+        const text = (sections.find((x) => x.id === id) || {}).text || '';
         if (!view) continue;
         // The editor's own top in scroll space, plus CodeMirror's exact offset for the line.
         const base = root.scrollTop + (view.dom.getBoundingClientRect().top - rootTop);
@@ -371,7 +371,7 @@ export function SourceColumn({
         // reader had clicked the second). Preview disambiguates with the id prefix; in source the
         // id itself is the answer, so it travels in the options.
         const ordered = opts.docId
-          ? [...sections.filter((x: any) => x.id === opts.docId), ...sections.filter((x: any) => x.id !== opts.docId)]
+          ? [...sections.filter((x) => x.id === opts.docId), ...sections.filter((x) => x.id !== opts.docId)]
           : sections;
         for (const sec of ordered) {
           const entry = extractOutline(sec.text || '').find((e) => e.slug === slug);
@@ -398,7 +398,7 @@ export function SourceColumn({
   return (
     <div class="docs-pane">
       <div class="docs-root" ref={rootRef}>
-        {sections.map((s: any) => (
+        {sections.map((s) => (
           <section key={s.id} class="docs-section" data-deliverable={s.id} data-slug={s.slug}>
             {headerFor ? headerFor(s) : null}
             {/* `markdown-body` for its BOX only — max-width, centring and upstream's own narrow-column

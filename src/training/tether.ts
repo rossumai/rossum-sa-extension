@@ -48,7 +48,7 @@ function stubFor(span: number): number {
 // visible, but a dashed line ending underneath the very card it starts from
 // points at nothing a trainee can act on, so it is treated the same as
 // invisible rather than drawn anyway.
-export function tetherGeometry(cardRect: Rect, targetRect: Rect, viewport: Viewport) {
+export function tetherGeometry(cardRect: Rect | null, targetRect: Rect | null, viewport: Viewport | null) {
   if (!cardRect || !targetRect || !viewport) return null;
   if (!isOnScreen(targetRect, viewport)) return null;
 
@@ -128,7 +128,7 @@ export function tetherGeometry(cardRect: Rect, targetRect: Rect, viewport: Viewp
 // that is off-screen only horizontally (rare — Rossum pages do not scroll
 // sideways in normal use) still gets a defensible up/down answer from this
 // same rule, since the hint only ever speaks in vertical terms.
-export function offscreenHint(targetRect: Rect, viewport: Viewport): { direction: 'up' | 'down' } | null {
+export function offscreenHint(targetRect: Rect | null, viewport: Viewport | null): { direction: 'up' | 'down' } | null {
   if (!targetRect || !viewport) return null;
   if (isOnScreen(targetRect, viewport)) return null;
   const centerY = (targetRect.top + targetRect.bottom) / 2;

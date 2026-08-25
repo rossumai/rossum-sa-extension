@@ -8,12 +8,14 @@
 // Matches the sticky header's height, so the section being read is the one the rail names.
 export const SPY_OFFSET = 64;
 
-function ordered(list: any[], key: string) {
+// Array.isArray IS the guard, so the parameter admits what it guards against.
+function ordered(list: any[] | null | undefined, key: string) {
   return (Array.isArray(list) ? list : []).filter((t) => t && t[key] != null)
     .slice().sort((a, b) => (a.top || 0) - (b.top || 0));
 }
 
-export function currentSection(tops: any[], scrollTop: number, offset = SPY_OFFSET) {
+// The guard below is the contract — an absent list scopes to nothing.
+export function currentSection(tops: any[] | null | undefined, scrollTop: number, offset = SPY_OFFSET) {
   const list = ordered(tops, 'id');
   if (!list.length) return null;
   const y = Number.isFinite(scrollTop) ? scrollTop : 0;

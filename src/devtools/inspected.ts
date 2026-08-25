@@ -11,15 +11,19 @@ export type InspectedContext = { token: string | null; domain: string; pathname:
 export type BridgeOptions = {
   chromeApi?: any;
   intervalMs?: number;
-  setInterval?: typeof setInterval;
-  clearInterval?: typeof clearInterval;
+  /** Only ever called as `setInterval(read, intervalMs)`, so that is all a test seam has to
+   *  supply — `typeof setInterval` would demand the whole DOM overload set from a stub. */
+  setInterval?: (fn: () => void, ms: number) => unknown;
+  clearInterval?: (handle: any) => void;
 };
 
 export function startBridge(onContext: (ctx: InspectedContext) => void, opts: BridgeOptions = {}) {
   const chromeApi = opts.chromeApi || (typeof chrome !== 'undefined' ? chrome : undefined);
   const intervalMs = opts.intervalMs || 1000;
   const setIntervalFn = opts.setInterval || setInterval;
-  const clearIntervalFn = opts.clearInterval || clearInterval;
+  // Annotated so the handle stays opaque: `opts.clearInterval || clearInterval` would
+  // otherwise union the injected seam with the DOM signature and demand a number.
+  const clearIntervalFn: (handle: any) => void = opts.clearInterval || clearInterval;
   let lastKey: string | null = null;
   let stopped = false;
 

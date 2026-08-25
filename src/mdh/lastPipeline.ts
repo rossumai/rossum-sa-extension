@@ -13,8 +13,8 @@ export function lastPipelineKey(collection: string | null | undefined): string {
 export function saveLastPipeline(
   collection: string | null | undefined,
   pipelineText: string,
-  variables: Record<string, string> | null | undefined,
-  placeholderTypes: Record<string, string | undefined> | null | undefined,
+  variables?: Record<string, string> | null,
+  placeholderTypes?: Record<string, string | undefined> | null,
 ): void {
   try {
     chrome.storage.local.set({

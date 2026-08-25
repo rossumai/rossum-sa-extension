@@ -43,11 +43,13 @@ function dedupKey(collection: any, pipeline: any) {
   return collection + '::' + normalized;
 }
 
-export async function addToHistory(collection: any, pipeline: any, variables: any, placeholderTypes: any) {
+// `placeholderTypes` is optional, and guarded below — matching saveQuery, which has
+// always declared the same trailing parameter optional.
+export async function addToHistory(collection: any, pipeline: any, variables: any, placeholderTypes?: any) {
   return serialize(async () => {
     const queryHistory = await readList('queryHistory');
     const key = dedupKey(collection, pipeline);
-    const filtered = queryHistory.filter((e: any) => dedupKey(e.collection, e.pipeline) !== key);
+    const filtered = queryHistory.filter((e) => dedupKey(e.collection, e.pipeline) !== key);
     const entry: any = { collection, pipeline, ts: Date.now() };
     if (variables && Object.keys(variables).length > 0) entry.variables = variables;
     if (placeholderTypes && Object.keys(placeholderTypes).length > 0) entry.placeholderTypes = placeholderTypes;
@@ -71,14 +73,14 @@ export async function unsaveQuery(collection: any, pipeline: any) {
   return serialize(async () => {
     const savedQueries = await readList('savedQueries');
     const key = dedupKey(collection, pipeline);
-    await writeList('savedQueries', savedQueries.filter((q: any) => dedupKey(q.collection, q.pipeline) !== key));
+    await writeList('savedQueries', savedQueries.filter((q) => dedupKey(q.collection, q.pipeline) !== key));
   });
 }
 
 export async function isSaved(collection: any, pipeline: any) {
   const savedQueries = await readList('savedQueries');
   const key = dedupKey(collection, pipeline);
-  return savedQueries.some((q: any) => dedupKey(q.collection, q.pipeline) === key);
+  return savedQueries.some((q) => dedupKey(q.collection, q.pipeline) === key);
 }
 
 function formatTime(ts: any) {

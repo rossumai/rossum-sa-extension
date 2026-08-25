@@ -91,7 +91,7 @@ export function Panel() {
     const stopBridge = startBridge((ctx) => {
       api.init(ctx.domain, ctx.token as string);
       const next = detectResource({ pathname: ctx.pathname, search: ctx.search });
-      const { tab, changed } = store.syncPageTab(next as any);
+      const { tab, changed } = store.syncPageTab(next);
       if (changed && next) loadResource(tab.id, deps);
     });
 
@@ -214,7 +214,7 @@ function TabBar({ tabs, activeId }: { tabs: any[]; activeId?: string | null }) {
   if (!tabs.length) return null;
   return (
     <div class="rawjson-tabbar">
-      {tabs.map((t: any) => (
+      {tabs.map((t) => (
         <span
           key={t.id}
           class={`rawjson-tab${t.id === activeId ? ' active' : ''}${t.source === 'page' ? ' rawjson-tab--page' : ''}`}

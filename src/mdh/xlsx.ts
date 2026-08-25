@@ -231,12 +231,12 @@ export async function parseXlsx(
     if (!wbBytes) throw new Error('Not a valid .xlsx workbook (missing xl/workbook.xml).');
     const { sheets: defs, date1904 } = readWorkbook(textOf(wbBytes));
     if (defs.length === 0) throw new Error('Workbook has no sheets.');
-    const sheets = defs.map((s: any) => s.name);
+    const sheets = defs.map((s) => s.name);
 
     const relsBytes = files.get('xl/_rels/workbook.xml.rels');
     const rels = relsBytes ? readRels(textOf(relsBytes)) : new Map();
 
-    const def = (sheet ? defs.find((s: any) => s.name === sheet) : defs[0]) || defs[0];
+    const def = (sheet ? defs.find((s) => s.name === sheet) : defs[0]) || defs[0];
     const target = rels.get(def.rid);
     let path;
     if (target) path = target.startsWith('/') ? target.slice(1) : `xl/${target}`;

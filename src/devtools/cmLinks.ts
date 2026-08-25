@@ -40,7 +40,7 @@ export function rossumLinks(
     constructor(view: any) { this.decorations = buildDeco(view); }
     update(u: any) { if (u.docChanged || u.viewportChanged) this.decorations = buildDeco(u.view); }
   }, {
-    decorations: (v: any) => v.decorations,
+    decorations: (v) => v.decorations,
     eventHandlers: {
       mousedown(e, view) {
         if (!(e.metaKey || e.ctrlKey)) return false;

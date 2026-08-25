@@ -372,16 +372,16 @@ function collectKeys(obj: any, prefix: string, fields: Set<string>): void {
 const TOKEN_RE = /"?\${0,2}[\w.]*/;
 const VALID_FOR = /^"?\${0,2}[\w.]*$/;
 
-function fieldNameOptions(fieldsFn: () => string[]) {
+function fieldNameOptions(fieldsFn: (() => string[]) | null) {
   if (!fieldsFn) return [];
   return fieldsFn().filter((f) => !f.startsWith('$')).map((f: string) => ({ label: f, type: 'property', detail: 'field' }));
 }
-function fieldRefOptions(fieldsFn: () => string[]) {
+function fieldRefOptions(fieldsFn: (() => string[]) | null) {
   if (!fieldsFn) return [];
   return fieldsFn().filter((f) => !f.startsWith('$')).map((f: string) => ({ label: '$' + f, type: 'property', detail: 'field' }));
 }
 
-function aggregateSource(fieldsFn: () => string[]) {
+function aggregateSource(fieldsFn: (() => string[]) | null) {
   return (context: any) => {
     const m = context.matchBefore(TOKEN_RE);
     if (!m) return null;
@@ -494,17 +494,17 @@ function getCompletionSets(mode: string) {
   if (mode === 'sort') return [];
   return [LEGACY_QUERY_OPERATORS, LEGACY_UPDATE_OPERATORS, LEGACY_AGGREGATION_STAGES, LEGACY_EXPRESSION_OPERATORS];
 }
-function legacySource(operatorSets: any[], fieldsFn: () => string[]) {
+function legacySource(operatorSets: any[], fieldsFn: (() => string[]) | null) {
   const allOps = operatorSets.flat();
   return (context: any) => {
     const quoted = context.matchBefore(/"\$[\w]*/);
     if (quoted) {
       const prefix = quoted.text.replace(/^"/, '');
-      return { from: quoted.from + 1, options: allOps.filter((op: any) => op.label.startsWith(prefix)) };
+      return { from: quoted.from + 1, options: allOps.filter((op) => op.label.startsWith(prefix)) };
     }
     const unquoted = context.matchBefore(/\$[\w]*/);
     if (unquoted) {
-      return { from: unquoted.from, options: allOps.filter((op: any) => op.label.startsWith(unquoted.text)) };
+      return { from: unquoted.from, options: allOps.filter((op) => op.label.startsWith(unquoted.text)) };
     }
     const fieldQuoted = context.matchBefore(/"[\w.]*/);
     if (fieldQuoted && fieldsFn) {
@@ -521,7 +521,7 @@ function legacySource(operatorSets: any[], fieldsFn: () => string[]) {
   };
 }
 
-export function makeCompletionSource(mode: string, fieldsFn: () => string[]) {
+export function makeCompletionSource(mode: string, fieldsFn: (() => string[]) | null) {
   if (mode === 'aggregate') return aggregateSource(fieldsFn);
   return legacySource(getCompletionSets(mode), fieldsFn);
 }

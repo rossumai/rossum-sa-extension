@@ -30,7 +30,7 @@ export default function AssistantTurn(
         </div>
       ) : null}
       {turn.tools && turn.tools.length ? (
-        <div class="fabry-tools">{turn.tools.map((t: any, idx: any) => <span key={idx} class="fabry-tool-chip" title={t}>{toolLabel(t)}</span>)}</div>
+        <div class="fabry-tools">{turn.tools.map((t: any, idx) => <span key={idx} class="fabry-tool-chip" title={t}>{toolLabel(t)}</span>)}</div>
       ) : null}
       {(streaming || turn.text) ? <FabryMarkdown text={turn.text} streaming={streaming} /> : null}
       {!streaming && turn.questions ? <FabryQuestions questions={turn.questions} onSubmit={(a) => answerQuestions(a)} /> : null}

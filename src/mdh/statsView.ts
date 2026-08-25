@@ -63,7 +63,8 @@ export function transformDocSize(res: any) {
 // for a query/sort on that field alone. Non-prefix compound members are
 // intentionally excluded (a query on them alone can't use the index). Tolerant
 // of empty/missing input and indexes without a `key`.
-export function indexPrefixMap(indexes: any[]) {
+// The guard below is the contract — an absent list scopes to nothing.
+export function indexPrefixMap(indexes: any[] | null | undefined) {
   const map = new Map();
   for (const idx of (indexes || [])) {
     const first = idx && idx.key ? Object.keys(idx.key)[0] : null;
@@ -159,7 +160,9 @@ function toTimestamp(d: unknown): number | null {
   return Number.isNaN(t) ? null : t;
 }
 
-export function rangeBar({ min, max, value }: { min: number; max: number; value: number }) {
+// All three are nullable: the `== null` guards below are what a stats row with no
+// numeric range actually hits.
+export function rangeBar({ min, max, value }: { min: number | null; max: number | null; value: number | null }) {
   if (min == null || max == null) return null;
   if (max === min) return { left: 0, right: 0, avgPct: 50 };
   const clamp = (n: number) => Math.max(0, Math.min(100, n));

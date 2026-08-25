@@ -75,11 +75,16 @@ export function collectionCount(data: any): number {
 
 // A NEW member (or a higher count) appeared. A missing baseline means the
 // mission never started, so nothing can have grown.
-export function grew(before: unknown[] | null | undefined, after: unknown[] | null | undefined): boolean {
+// A baseline is either a LIST of ids or a COUNT, and the numeric branch below is how a
+// count grows — so the union carries both rather than making callers cast.
+export function grew(before: unknown[] | number | null | undefined,
+                     after: unknown[] | number | null | undefined): boolean {
   if (before == null) return false;
   if (typeof before === 'number') return typeof after === 'number' && after > before;
   const seen = new Set(before);
-  return (after || []).some((x: unknown) => !seen.has(x));
+  // `before` is an array on this branch, so `after` is one too; the cast says that without
+  // adding an Array.isArray the emitted code never had.
+  return ((after || []) as unknown[]).some((x: unknown) => !seen.has(x));
 }
 
 // A value the baseline already knew about now differs. New keys are not changes.

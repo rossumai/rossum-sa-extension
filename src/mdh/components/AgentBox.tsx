@@ -12,6 +12,11 @@ import { stripAiComment } from '../llmPipeline.js';
 import FabryInput from '../../ui/fabry/FabryInput.jsx';
 import type { JsonEditorHandle } from './JsonEditor.jsx';
 
+/** All AgentBox ever touches on the editor: it reads the pipeline and writes one back.
+ *  Naming the slice (rather than the whole handle) is what lets a caller — or a test —
+ *  pass something that only does those two things. */
+type EditorSlice = Pick<JsonEditorHandle, 'getValue' | 'setValue'>;
+
 // Playful MongoDB/Rossum gerunds cycled in the loading placeholder.
 const GERUNDS = [
   'Summoning Mr. Fabry', 'Aggregating', 'Unwinding arrays', 'Matching values',
@@ -100,7 +105,7 @@ function Turn({ t }: { t: any }) {
 // the grown transcript back so reopening shows it.
 export function TranscriptModal(
   { session, editorRef, onUpdate }:
-  { session: any; editorRef?: { current: JsonEditorHandle | null }; onUpdate: (next: any) => void },
+  { session: any; editorRef?: { current: EditorSlice | null }; onUpdate: (next: any) => void },
 ) {
   const [turns, setTurns] = useState(session.transcript || []);
   const [input, setInput] = useState('');
@@ -171,7 +176,7 @@ function showTranscript(session: any, editorRef: any, onUpdate: any) {
   openModal('Mr. Fabry — conversation', () => h(TranscriptModal, { session, editorRef, onUpdate }));
 }
 
-export default function AgentBox({ editorRef }: { editorRef?: { current: JsonEditorHandle | null } }) {
+export default function AgentBox({ editorRef }: { editorRef?: { current: EditorSlice | null } }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   // 'generate' | 'run' | 'verify' | 'refine' while loading.

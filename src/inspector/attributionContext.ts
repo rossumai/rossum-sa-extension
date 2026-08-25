@@ -13,8 +13,8 @@ async function queueHookList(api: any, d: any): Promise<any[]> {
     hooks = (await api.listHooks(idFromUrl(d.annotation.queue)).catch(() => [])) || [];
   }
   return hooks
-    .filter((hk: any) => hk && hk.active !== false)
-    .map((hk: any) => ({ id: hk.id, name: hk.name, type: hk.type, events: hk.events || [] }));
+    .filter((hk) => hk && hk.active !== false)
+    .map((hk) => ({ id: hk.id, name: hk.name, type: hk.type, events: hk.events || [] }));
 }
 
 // Annotation reference the agent needs to fetch the rest with its tools.
@@ -59,7 +59,7 @@ export async function gatherExportContext({ api, store, error = null }: { api: a
   try {
     const d = store.data.value;
     const all = d ? await queueHookList(api, d) : [];
-    const exp = all.filter((h: any) => (h.events || []).some((e: unknown) => String(e).startsWith('annotation_content.export')));
+    const exp = all.filter((h) => (h.events || []).some((e: unknown) => String(e).startsWith('annotation_content.export')));
     return { annotation: annotationRef(d), target: { error }, candidates: exp.length ? exp : all };
   } catch { return { annotation: {}, target: { error }, candidates: [] }; }
 }

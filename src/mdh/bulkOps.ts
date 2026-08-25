@@ -9,7 +9,9 @@ export const UNDO_LIMIT = 1000;
 
 const SAMPLE_LIMIT = 5;
 
-export function selectionToFilter(ids: Iterable<string>) {
+// A Data Storage _id is a string or an EJSON `{ $oid }` wrapper, and both go into $in
+// untouched — the selection carries whatever the record list held.
+export function selectionToFilter(ids: Iterable<string | { $oid: string }>) {
   return { _id: { $in: [...ids] } };
 }
 
@@ -79,7 +81,7 @@ export async function runBulkUpdate(collection: string, filter: any, updateExpr:
         // delete + insert uses two well-tested endpoints with no ambiguity.
         // Briefly the docs disappear between the two calls; acceptable for a
         // single-user workflow.
-        const ids = snapshot.map((d: any) => d._id);
+        const ids = snapshot.map((d) => d._id);
         await api.deleteMany(collection, { _id: { $in: ids } });
         await api.insertMany(collection, snapshot, false);
         if (onSuccess) await onSuccess();

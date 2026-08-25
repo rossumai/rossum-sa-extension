@@ -18,7 +18,7 @@ export function healthComponents(
   const n = fields.length;
 
   // Field coverage: average per-field present %.
-  const fieldCoverage = coverage.reduce((sum: number, c: any) => sum + c.pct, 0) / coverage.length;
+  const fieldCoverage = coverage.reduce((sum: number, c) => sum + c.pct, 0) / coverage.length;
 
   // Value completeness: share of fields with no null/empty/missing AND no sentinel strings.
   const affected = new Set<string>();
@@ -33,8 +33,8 @@ export function healthComponents(
   // Whitespace cleanliness: share of string fields without leading/trailing ws.
   let whitespace = 100;
   if (strings) {
-    const wsFields = strings.filter((w: any) => w.leading > 0 || w.trailing > 0).length;
-    const stringFields = strings.filter((w: any) => w.count > 0).length;
+    const wsFields = strings.filter((w) => w.leading > 0 || w.trailing > 0).length;
+    const stringFields = strings.filter((w) => w.count > 0).length;
     whitespace = stringFields > 0 ? ((stringFields - wsFields) / stringFields) * 100 : 100;
   }
 
@@ -48,7 +48,7 @@ export function healthComponents(
 }
 
 export function computeHealthScore(
-  coverage: any[], empties: any[] | null, types: any[] | null, strings: any[] | null, schemaShapes: any[] | null, fields: any[], sentinels: any[] | null = null,
+  coverage: any[] | null, empties: any[] | null, types: any[] | null, strings: any[] | null, schemaShapes: any[] | null, fields: any[], sentinels: any[] | null = null,
 ) {
   if (!coverage || !fields.length) return null;
   const c = healthComponents(coverage, empties, types, strings, schemaShapes, fields, sentinels);
@@ -89,7 +89,7 @@ export function transformStatsResults(rawCache: any, fields: any[]) {
 function transformCoverage(raw: any, fields: any[]) {
   const r = raw.result?.[0] || {};
   const total = r._total || 0;
-  return fields.map((f: any) => {
+  return fields.map((f) => {
     const k = encKey(f);
     const present = r[`f_${k}`] || 0;
     return {
@@ -104,7 +104,7 @@ function transformCoverage(raw: any, fields: any[]) {
 function transformEmpties(raw: any, fields: any[]) {
   const r = raw.result?.[0] || {};
   return fields
-    .map((f: any) => {
+    .map((f) => {
       const k = encKey(f);
       return {
         field: f,
@@ -113,26 +113,26 @@ function transformEmpties(raw: any, fields: any[]) {
         emptyCount: r[`empty_${k}`] || 0,
       };
     })
-    .filter((x: any) => x.nullCount + x.missingCount + x.emptyCount > 0);
+    .filter((x) => x.nullCount + x.missingCount + x.emptyCount > 0);
 }
 
 function transformTypes(raw: any, fields: any[]) {
   const r = raw.result?.[0] || {};
   return fields
-    .map((f: any) => ({
+    .map((f) => ({
       field: f,
       types: (r[encKey(f)] || []).filter((e: any) => e._id !== 'missing'),
     }))
     // Count DISTINCT LOGICAL types: int/long/double/decimal all collapse to
     // "number", so a field with mixed BSON numeric subtypes is not flagged as
     // type-inconsistent (consistent with fieldTypeSummary and the card chip).
-    .filter((x: any) => new Set(x.types.map((e: any) => friendlyType(e._id))).size > 1);
+    .filter((x) => new Set(x.types.map((e: any) => friendlyType(e._id))).size > 1);
 }
 
 function transformStrings(raw: any, fields: any[]) {
   const r = raw.result?.[0] || {};
   return fields
-    .map((f: any) => {
+    .map((f) => {
       const s = r[encKey(f)]?.[0];
       if (!s) return { field: f, count: 0 };
       return {
@@ -145,19 +145,19 @@ function transformStrings(raw: any, fields: any[]) {
         trailing: s.trailing,
       };
     })
-    .filter((x: any) => x.count > 0);
+    .filter((x) => x.count > 0);
 }
 
 function transformSentinels(raw: any, fields: any[]) {
   const r = raw.result?.[0] || {};
   return fields
-    .map((f: any) => {
+    .map((f) => {
       const buckets = r[encKey(f)] || [];
       const values = buckets.map((b: any) => ({ value: b._id, count: b.count }));
       const total = values.reduce((s: any, v: any) => s + v.count, 0);
       return { field: f, total, values };
     })
-    .filter((x: any) => x.total > 0);
+    .filter((x) => x.total > 0);
 }
 
 function transformSchema(raw: any) {

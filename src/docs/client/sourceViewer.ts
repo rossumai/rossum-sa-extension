@@ -63,7 +63,7 @@ export function initSourceViewer(root: HTMLElement, opts?: SourceViewerOptions):
   var viewsEl = doc.getElementById('srcViews') as HTMLElement;
   if (!overlay || !codeEl) return function () {};
 
-  var copyResetTimer: number | null = null;
+  var copyResetTimer: ReturnType<typeof setTimeout> | null = null;
   function flashCopyBtn(state: string, label: string) {
     copyBtn.classList.remove('copied', 'failed');
     copyBtn.classList.add(state);
@@ -136,7 +136,7 @@ export function initSourceViewer(root: HTMLElement, opts?: SourceViewerOptions):
     // Live mode — fetch it.
     codeEl.textContent = 'Loading…';
     resolve(key)
-      .then(function(result: any) {
+      .then(function(result) {
         var payload = (result && typeof result === 'object') ? result : { text: result, language: '', note: '' };
         // Say WHICH part of the resource is on screen, so nobody mistakes a hook's code
         // for the whole object.
@@ -145,7 +145,7 @@ export function initSourceViewer(root: HTMLElement, opts?: SourceViewerOptions):
         else codeEl.textContent = payload.text;
         renderViews(display, payload.view || split.view || null, payload.views);
       })
-      .catch(function(err: any) { codeEl.textContent = 'Failed to load: ' + (err && err.message ? err.message : err); });
+      .catch(function(err) { codeEl.textContent = 'Failed to load: ' + (err && err.message ? err.message : err); });
   }
 
   function closeModal() {

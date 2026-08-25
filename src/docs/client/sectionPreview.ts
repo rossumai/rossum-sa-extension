@@ -41,8 +41,12 @@ export function initSectionPreview(
   var isWindow = (scroller as unknown) === win;
 
   var card: HTMLElement | null = null;
-  var showTimer: number | null = null;
-  var hideTimer: number | null = null;
+  // `setTimeout`'s handle is a number in the browser and an opaque object in Node. The
+  // test program loads @types/node for the meta-guards, so both overloads are in scope
+  // there; ReturnType keeps this one spelling correct under either. Same idiom as
+  // JsonEditor.tsx's validChangeTimer.
+  var showTimer: ReturnType<typeof setTimeout> | null = null;
+  var hideTimer: ReturnType<typeof setTimeout> | null = null;
   var activeLink: HTMLElement | null = null;
 
   function ensureCard() {
@@ -52,7 +56,7 @@ export function initSectionPreview(
     card.innerHTML = '<div class="section-preview-from" hidden></div>' +
                      '<div class="section-preview-body"><div class="section-preview-inner"></div></div>' +
                      '<a class="section-preview-jump" href="#">Jump to section ↗</a>';
-    card.addEventListener('mouseenter', function() { clearTimeout(hideTimer as number); });
+    card.addEventListener('mouseenter', function() { clearTimeout(hideTimer!); });
     card.addEventListener('mouseleave', scheduleHide);
     card.querySelector('.section-preview-jump')!.addEventListener('click', onJump);
     doc.body.appendChild(card);
@@ -164,21 +168,21 @@ export function initSectionPreview(
   }
 
   function scheduleShow(link: HTMLElement) {
-    clearTimeout(showTimer as number);
-    clearTimeout(hideTimer as number);
+    clearTimeout(showTimer!);
+    clearTimeout(hideTimer!);
     showTimer = setTimeout(function() { showFor(link); }, HOVER_DELAY_MS);
   }
   function scheduleHide() {
-    clearTimeout(showTimer as number);
-    clearTimeout(hideTimer as number);
+    clearTimeout(showTimer!);
+    clearTimeout(hideTimer!);
     hideTimer = setTimeout(function() {
       if (card) card.classList.remove('open');
       activeLink = null;
     }, HIDE_DELAY_MS);
   }
   function hideNow() {
-    clearTimeout(showTimer as number);
-    clearTimeout(hideTimer as number);
+    clearTimeout(showTimer!);
+    clearTimeout(hideTimer!);
     if (card) card.classList.remove('open');
     activeLink = null;
   }

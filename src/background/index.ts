@@ -43,7 +43,8 @@ export function openDatasetManagement(
 // on a Rossum tab whose per-tab option has not been written yet (worker restart).
 export async function syncSidePanelTabs(
   deps: {
-    queryTabs: () => Promise<chrome.tabs.Tab[]>;
+    /** Only `id` and `url` are read, so a stub need not build whole chrome Tabs. */
+    queryTabs: () => Promise<Array<{ id?: number; url?: string } | null>>;
     setOptions: (opts: any) => unknown;
   },
 ) {
@@ -54,7 +55,9 @@ export async function syncSidePanelTabs(
   await Promise.all(
     tabs
       .filter((tab) => typeof tab?.id === 'number')
-      .map((tab) => setOptions(panelOptionsFor(tab.id!, tab.url))),
+      // `.filter` is not a type guard, so the null the query can yield survives into the
+      // map as far as TypeScript is concerned — the predicate above is what rules it out.
+      .map((tab) => setOptions(panelOptionsFor(tab!.id!, tab!.url))),
   );
   await setOptions({ enabled: false });
 }
@@ -63,7 +66,9 @@ const realDeps = {
   storageSet: (obj: Record<string, unknown>, cb: () => void) => chrome.storage.local.set(obj, cb),
   tabsCreate: (opts: chrome.tabs.CreateProperties) => chrome.tabs.create(opts),
   getURL: (p: string) => chrome.runtime.getURL(p),
-  uuid: () => crypto.randomUUID(),
+  // Annotated `string`: randomUUID() is typed as a branded template literal, and a
+  // `typeof realDeps` seam would otherwise demand that brand from a test stub.
+  uuid: (): string => crypto.randomUUID(),
   now: () => Date.now(),
 };
 

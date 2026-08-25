@@ -222,7 +222,10 @@ export type JsonEditorHandle = {
 export default function JsonEditor({ value = '', onChange, onValidChange, onToggleStage, onCursorStage, onHoverStage, mode = 'default', fields, compact = false, readOnly = false, onSubmit, editorRef, minHeight = '200px', jsonLines = false }: {
   value?: string;
   onChange?: (next: string) => void;
-  onValidChange?: (valid: boolean) => void;
+  // Fires when the document becomes parseable. It carries NO payload: every call site
+  // is `setTimeout(onValidChange, 500)` and all four consumers declare a zero-arg
+  // handler, so the `valid` parameter it used to declare was never passed or read.
+  onValidChange?: () => void;
   onToggleStage?: (i: number) => void;
   onCursorStage?: (i: number | null) => void;
   onHoverStage?: (i: number | null) => void;
@@ -467,7 +470,7 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
         // already read still sent the editor travelling — owner's report. The
         // decision and the target are pure (smoothScroll.revealScrollTop); only
         // the measuring lives here.
-        revealStage: (entryIndex: any) => {
+        revealStage: (entryIndex) => {
           const view = viewRef.current;
           if (!view) return;
           const r = stageRangesFor(view.state)[entryIndex];
@@ -512,7 +515,7 @@ export default function JsonEditor({ value = '', onChange, onValidChange, onTogg
         // the first ':' on the line — so the connector's first horizontal can run
         // past the operator. null when the line isn't rendered (scrolled out).
         // Measure only — no scroll.
-        stageScreenRect: (entryIndex: any) => {
+        stageScreenRect: (entryIndex) => {
           const view = viewRef.current;
           if (!view) return null;
           const text = view.state.doc.toString();

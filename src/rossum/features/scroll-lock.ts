@@ -8,7 +8,7 @@
 // saved value within a short lock window.
 import { trackOnce } from '../../usage/track.js';
 
-export function initScrollLock(element: HTMLElement): void {
+export function initScrollLock(element: HTMLElement | null): void {
   if (!(element instanceof HTMLElement)) return;
 
   const MIN_SCROLL_POSITION_FOR_LOCK = 50;

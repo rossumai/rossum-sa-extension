@@ -28,7 +28,8 @@ const DEFAULT_UPDATE_VALUE = { $set: {}, $unset: {} };
 type BulkOpen = {
   collection: string;
   mode: string;
-  ids?: string[];
+  /** A Data Storage _id is a string or an EJSON `{ $oid }` wrapper. */
+  ids?: Array<string | { $oid: string }>;
   filter?: any;
   onSuccess?: () => unknown;
   fieldsFn?: () => any;

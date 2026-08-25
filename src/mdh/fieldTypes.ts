@@ -19,8 +19,8 @@ const PRECEDENCE = ['string', 'number', 'boolean', 'null', 'other'];
 // $type buckets ([{_id: bsonType, count}], as buildTypePipeline emits) →
 // FieldTypeInfo, or null when the field has no non-`missing` data.
 export function transformTypeBuckets(buckets: any[]) {
-  const real = (buckets || []).filter((b: any) => b && b._id !== 'missing');
-  const total = real.reduce((s: number, b: any) => s + (b.count || 0), 0);
+  const real = (buckets || []).filter((b) => b && b._id !== 'missing');
+  const total = real.reduce((s: number, b) => s + (b.count || 0), 0);
   if (total === 0) return null;
   const byCat = new Map();
   const bsonByCat = new Map();
@@ -40,7 +40,7 @@ export function transformTypeBuckets(buckets: any[]) {
     dominant,
     dominantBson: bsonByCat.get(dominant),
     share: dominantCount / total,
-    distribution: real.map((b: any) => ({ bsonType: b._id, count: b.count, pct: Math.round((b.count / total) * 100) })),
+    distribution: real.map((b) => ({ bsonType: b._id, count: b.count, pct: Math.round((b.count / total) * 100) })),
     mixed: byCat.size > 1,
   };
 }

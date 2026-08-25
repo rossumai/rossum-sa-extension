@@ -60,7 +60,9 @@ export function isResourceHref(href: unknown, origin: unknown): boolean {
 export const VIEW_PARAM = 'view';
 // Order matters: it is the order the modal's switcher renders, and `code` leads because a
 // function hook's implementation is what an SA usually opens.
-export const RESOURCE_VIEWS = ['code', 'json'];
+// `as const` so iterating this yields ResourceView, not string — withResourceView takes
+// the union, and a plain string[] would make every round-trip over it a type error.
+export const RESOURCE_VIEWS = ['code', 'json'] as const;
 
 // apiPath -> { path, view }. The marker is claimed ONLY when its value is one of ours, so a
 // real `view` query parameter (Rossum has none today) would still be passed through to the
@@ -74,7 +76,9 @@ export function splitResourceView(apiPath: unknown): { path: string; view: Resou
   if (qi < 0) return { path: raw, view: null };
   const params = new URLSearchParams(raw.slice(qi + 1));
   const view = params.get(VIEW_PARAM);
-  if (!view || !RESOURCE_VIEWS.includes(view)) return { path: raw, view: null };
+  // Widened for the membership test: `view` here is an arbitrary query-string value, and
+  // it is this check that earns the `as ResourceView` two lines down.
+  if (!view || !(RESOURCE_VIEWS as readonly string[]).includes(view)) return { path: raw, view: null };
   params.delete(VIEW_PARAM);
   const rest = params.toString();
   return { path: raw.slice(0, qi) + (rest ? `?${rest}` : ''), view: view as ResourceView };
@@ -155,7 +159,17 @@ export function formatResource(raw: unknown, view: ResourceView | null = null): 
 // API takes `Token <key>`, unlike Data Storage's Bearer (a difference the training
 // code documents the hard way). Read-only by construction — GET, no body.
 export function createResourceFetcher(
-  { domain, token, fetchImpl }: { domain: string; token: string; fetchImpl?: typeof fetch | null },
+  { domain, token, fetchImpl }: {
+    domain: string;
+    token: string;
+    /**
+     * Only `ok`, `status`, `statusText` and `text()` are read off the response, so an injected
+     * seam supplies those rather than a whole Response — the real `fetch` satisfies it too.
+     */
+    fetchImpl?: ((url: string, init?: { headers?: Record<string, string> }) => Promise<{
+      ok: boolean; status?: number; statusText?: string; text: () => Promise<string>;
+    }>) | null;
+  },
 ): (apiPath: string) => Promise<FormattedResource> {
   const doFetch = fetchImpl || (typeof fetch === 'function' ? fetch : null);
   // The view marker is OURS: it is removed here, so the request is the plain resource URL and

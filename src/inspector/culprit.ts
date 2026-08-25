@@ -233,7 +233,7 @@ function hookInPhase(h: any, phaseEvent: string) {
 // Order hooks by run_after DAG (run_after holds full hook URLs). Rank = longest
 // predecessor chain among hooks in the set; ties keep id order. Cycle-safe.
 function rankByRunAfter(hooks: any[]) {
-  const byId = new Map<number, any>(hooks.map((h: any) => [h.id, h]));
+  const byId = new Map<number, any>(hooks.map((h) => [h.id, h]));
   const idOf = (url: unknown) => { const m = String(url).match(/\/(\d+)\/?$/); return m ? Number(m[1]) : null; };
   const memo = new Map();
   const rank = (h: any, seen: Set<any>): number => {
@@ -310,7 +310,7 @@ export function labelAttribution(
     { annotation?: any; labelsById?: Record<string, any>; labelRules?: any[] } = {},
 ) {
   const def = (id: any) => labelsById[id] || null;
-  const ruleFor = (id: any) => labelRules.find((lr: any) => lr.labelIds.includes(id)) || null;
+  const ruleFor = (id: any) => labelRules.find((lr) => lr.labelIds.includes(id)) || null;
   const appliedIds = (annotation.labels || []).map((u: unknown) => idFromUrl(u)).filter(Boolean);
 
   const applied = appliedIds.map((id: any) => {
