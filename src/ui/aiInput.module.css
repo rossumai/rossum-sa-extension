@@ -56,7 +56,7 @@
   color: transparent;
 }
 @property --ai-angle {
-  syntax: "<angle>";
+  syntax: '<angle>';
   initial-value: 0deg;
   inherits: false;
 }

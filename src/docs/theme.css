@@ -132,7 +132,7 @@ body {
   scrollbar-width: thin;
   padding: 20px 12px 20px 16px;
   box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   font-size: 12px;
   line-height: 1.5;
 }
@@ -190,7 +190,7 @@ body {
   background: var(--state-bg);
   color: var(--state-fg);
   /* Absolute values — the badge must not inherit the heading's size or weight. */
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   font-size: 12px;
   font-weight: 500;
   line-height: 1.5;
@@ -220,7 +220,7 @@ body {
   border: 1px solid #d0d7de;
   border-radius: 8px;
   background: #f6f8fa;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   font-size: 12px;
   line-height: 1.4;
 }
@@ -254,7 +254,7 @@ body {
   top: 6px;
   right: 6px;
   padding: 3px 9px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   font-size: 11px;
   line-height: 1.4;
   color: #656d76;
@@ -415,7 +415,7 @@ body {
   overflow: hidden;
 }
 .source-modal-title {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: #1f2328;
@@ -424,7 +424,7 @@ body {
   text-overflow: ellipsis;
 }
 .source-modal-path {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 12px;
   color: #656d76;
   margin-top: 2px;
@@ -460,7 +460,7 @@ body {
 .source-view-btn:hover {
   color: var(--color-fg-default, #1f2328);
 }
-.source-view-btn[aria-pressed="true"] {
+.source-view-btn[aria-pressed='true'] {
   background: var(--color-canvas-default, #fff);
   color: var(--color-fg-default, #1f2328);
   box-shadow: 0 1px 2px rgba(31, 35, 40, 0.1);
@@ -474,7 +474,7 @@ body {
   border-radius: 6px;
   background: #ffffff;
   color: #1f2328;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   font-size: 12px;
   font-weight: 500;
   line-height: 1;
@@ -526,7 +526,7 @@ body {
 .source-modal-body pre {
   margin: 0;
   padding: 16px 20px;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 13px;
   line-height: 1.6;
   color: #1f2328;
@@ -628,7 +628,7 @@ body {
   position: relative;
 }
 .section-preview-body::after {
-  content: "";
+  content: '';
   position: absolute;
   left: 0;
   right: 0;
@@ -640,7 +640,7 @@ body {
 .section-preview-jump {
   display: block;
   padding: 6px 12px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   font-size: 12px;
   color: #0969da;
   text-decoration: none;
@@ -950,7 +950,7 @@ body {
    from another deliverable apart from their own text at a glance. */
 .section-preview-from {
   padding: 6px 14px 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;

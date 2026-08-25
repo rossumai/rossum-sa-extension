@@ -37,16 +37,25 @@ Prettier owns `src/` and `tests/`, and only `*.ts` / `*.tsx` / `*.css` there. Co
   record under `docs/superpowers/` keep their hand-wrapped prose), the 12 `.html`, the JSON and
   YAML, and — a consequence worth knowing — `build.js` and `vitest.config.mjs`, the only two
   non-TypeScript code files in the repo.
-- **`tests/fixtures/` is in `.prettierignore`.** Those `.md` files are upstream localpages' own
-  examples, and `expected/*.html` is the byte-exact output upstream produces from them.
-  Reformatting the inputs would change that output and retire the "ported verbatim" claim
-  `tests/docs-render-equivalence.test.ts` exists to make checkable. They are outside the format
-  globs already; the ignore entry is so widening those globs cannot rewrite them by accident.
-- **CSS keeps double quotes** (`singleQuote: false` in an override) because `build.js` COPIES
-  all five hand-written sheets rather than compiling them, so their formatting ships literally —
-  and two of them (`doc-theme.css`, `print.css`) are verbatim ports of upstream's sheets, where
-  `"Segoe UI"` staying `"Segoe UI"` keeps a future re-port diffable. The cost is that
-  `popup.css`'s hand-written single quotes became double.
+- **`tests/fixtures/` is in `.prettierignore`.** They are golden inputs: `expected/*.html` is
+  the byte-exact rendering of those `.md` files, so reformatting an input silently invalidates
+  its golden and `tests/docs-render-equivalence.test.ts` starts failing for a reason that has
+  nothing to do with the renderer. A golden is only evidence while its input is frozen. They are
+  outside the format globs already; the ignore entry is so widening those globs cannot rewrite
+  them by accident.
+- **No per-language overrides — CSS is single-quoted like everything else.** An override kept
+  CSS double-quoted in `9b0f9c3` so `doc-theme.css` and `print.css` stayed byte-faithful to
+  upstream localpages' sheets; the owner removed it on 2026-08-25, accepting divergence from
+  upstream as the direction. So `'Segoe UI'`, `[aria-pressed='true']` and `content: ''` are now
+  the house style, and a future re-port of those sheets is a delimiter flip away from upstream
+  rather than identical to it. Only the delimiter moved: shipped CSS was verified identical
+  under a canonicalisation that neutralises quotes, and identical under one that does NOT
+  except for the quotes themselves.
+- **The delimiter only reaches the browser for the five COPIED sheets.** `build.js` copies
+  `console.css` (the monolith), `theme.css`, `print.css`, `panel.css` and `popup.css` verbatim, so
+  their formatting ships. Every `*.module.css` goes through esbuild, which reprints quotes as
+  double (`content:"\2316"`, zero single quotes in the generated `dist/console/console.css`) —
+  so formatting a CSS Module cannot change what ships at all.
 - **First formatting of a file may need two passes.** Prettier 3.9.6 is not idempotent on
   `vi.fn().mockResolvedValue({…})`: pass one splits the member chain, pass two collapses it back
   (the better form) and it is stable after that. Six test files did this. `format:check` is what
@@ -388,7 +397,9 @@ Also linked, all build artifacts rather than source: `github-markdown.css` (copi
 `github-markdown-css` package), `hljs-github.css` (light + dark concatenated by `build.js`) and
 `doc-theme.css` (copied from `src/docs/theme.css`, the ported localpages sheet — no longer a
 superset of upstream's since **DELTA H**, 2026-08-20, pruned 38 rules whose features this port
-dropped; its header says which, and a re-port must drop them again). These are scoped
+dropped, and since 2026-08-25 its string delimiters are Prettier's single quotes rather than
+upstream's double). Its header still describes re-porting from upstream; that is history, not a
+plan — see Localpages divergence below. These are scoped
 in practice to `.markdown-body`/`.docs-*`/`.source-*` — before adding a bare class to either
 side, check it cannot leak. The print page has its own `src/docs/print.css`.
 
@@ -404,8 +415,10 @@ and all their classes are prefixed `rossum-sa-extension-*`.
   editor, and the Architect's per-deliverable Markdown source editors
 - **markdown-it** + **markdown-it-github-alerts** + **markdown-it-anchor** + **highlight.js** +
   **github-markdown-css** — the document renderer. **Pinned to EXACT versions, no carets**: a
-  golden-file test compares byte-for-byte against upstream localpages' own output, so a minor
-  bump could change rendering with no code change. That guard is NARROW — two fixtures, ~124
+  golden-file test compares the renderer byte-for-byte against checked-in fixtures, so a minor
+  bump could change rendering with no code change. The pins outlive the retired upstream-fidelity
+  claim (see Localpages divergence below) — they were always about silent render drift, never
+  about matching upstream — but nobody has decided whether they can relax now, so ask first. That guard is NARROW — two fixtures, ~124
   lines — so it is necessary, not sufficient: markdown-it 14 -> 15 passed it while still changing
   linkify behaviour it cannot see. When one of these moves, probe the specific behaviour the code
   compensates for, not just the fixtures.
@@ -477,6 +490,9 @@ older ones as history. Currently authoritative per area:
   `2026-07-14-architect-implement-loop-design.md`, plus
   `2026-07-13-fabry-architect-design.md` for the data model and check loop (its UI is superseded)
 - **Document rendering, print, PDF** — `2026-08-17-localpages-port-architect-design.md`
+  (still the base record for the renderer, sanitizer, print and PDF; but every part of it that
+  treats matching upstream localpages as a requirement is retired — see Localpages divergence
+  below)
 - **Usage data** — `2026-08-19-usage-tracking-simplification-design.md`, a delta on
   `2026-08-03-feature-usage-measurement-design.md` (kept as the base record)
 - **Fabry Chat** — `2026-07-10-fabry-chat-console-design.md`,
@@ -492,3 +508,33 @@ older ones as history. Currently authoritative per area:
 - **Popup** — `2026-07-16-popup-unlock-reviewing-annotation-design.md`
 - **Galaxy** — `2026-06-04-galaxy-3d-org-birdview-design.md`
 - **Release automation** — `2026-06-12-chrome-web-store-auto-release-design.md`
+
+## Localpages divergence
+
+`src/docs/` began as a port of an upstream tool called localpages, and for a while matching it
+byte-for-byte was an explicit goal. **It is not any more.** On 2026-08-25 the owner ended it for
+the stylesheets by dropping the Prettier CSS quote override, then confirmed the divergence
+"applies to everything", the renderer included. Both landed in the commit this section arrived in.
+
+What that does and does not change:
+
+- **A divergence is a decision to record, not a bug to fix.** Nothing needs to be justified
+  against upstream any more, and no toolchain choice here should bend to keep upstream fidelity.
+- **`tests/docs-render-equivalence.test.ts` keeps every assertion.** Only its claim changed: the
+  fixtures are OUR goldens now, not evidence of a match. It is still the only thing that catches
+  drift in markdown-it, the plugins, slugify, alert markup, figure wrapping and the `.md`→`.html`
+  rewrite. Regenerate the goldens when rendering changes ON PURPOSE and say why; never re-derive
+  them from a newer upstream, which would quietly re-adopt upstream's choices as our expectations.
+- **`tests/fixtures/localpages/` stays.** It has a second consumer the decision does not touch:
+  `tests/docs-sanitize.test.ts` uses `expected/*.html` as a realistic corpus for sanitizer
+  idempotence — worth having whoever rendered it, and what caught `tabindex="-1"` disappearing
+  from every heading. Deleting the fixtures as "upstream leftovers" would take that guard too.
+  The directory name is provenance, not a live dependency.
+- **The EXACT pins on the render family are UNDECIDED.** The golden test was their stated reason,
+  but the reason was always silent render drift rather than upstream fidelity, so retiring
+  fidelity weakens the argument without removing the risk — and the guard admits it is narrow
+  (markdown-it 14 -> 15 passed it while changing linkify behaviour it cannot see). Ask before
+  turning any of them into a caret.
+- Prose that still frames a decision as upstream fidelity — the `theme.css` header, parts of
+  `2026-08-17-localpages-port-architect-design.md` — is history. Read it as why the code looks the
+  way it does, not as a constraint to preserve.

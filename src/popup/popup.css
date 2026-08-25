@@ -16,8 +16,8 @@
   --warning-border: rgba(217, 119, 6, 0.35);
   --toggle-off: #c8c8d4;
   --radius: 8px;
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  --font-mono: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -543,7 +543,7 @@ body.popup-wide .mdh-card {
 }
 
 .toggle-track::after {
-  content: "";
+  content: '';
   position: absolute;
   top: 3px;
   left: 3px;
@@ -873,7 +873,7 @@ body.popup-wide .mdh-card {
   opacity: 0.85;
 }
 .mdh-row-table::before {
-  content: "·";
+  content: '·';
   margin-right: 4px;
 }
 
