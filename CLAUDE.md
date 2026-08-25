@@ -28,7 +28,7 @@ esbuild bundles ES modules from `src/` into `dist/`. No transpilation, no other 
 ## TypeScript
 
 **Every file in the repo is TypeScript: `src/` is 203 `.ts` + 159 `.tsx` + 1 `.d.ts`, and `tests/`
-is 322 `.test.ts` plus `setup.ts` and `support/`. Zero `.js`/`.jsx` in either.**
+is 202 `.test.ts` + 120 `.test.tsx` plus `setup.ts` and `support/`. Zero `.js`/`.jsx` in either.**
 Adopted for readability, not bug-finding — `tsc --checkJs` over the pre-migration repo found no
 runtime defect. Why each decision was made, and the defects the work surfaced, is in the four
 migration commit messages; this section is only the rules that still bind.
@@ -108,9 +108,14 @@ Components (`.tsx`):
 
 Tests (`tests/**/*.test.ts`):
 
-- **`h()`, not JSX.** Vitest transforms `.ts` as TypeScript, not TSX, so components are mounted
-  with `h(Component, props)`. That is why the suite is `.test.ts` and not `.test.tsx`; moving a
-  file to `.tsx` to write JSX is a deliberate choice, not a tidy-up.
+- **A component test is `.test.tsx` and renders JSX**; everything else stays `.test.ts`. The
+  split is not cosmetic — only `.tsx` is JSX-transformed, and `.ts` keeps `<T>` reading as a type
+  assertion. Both extensions are covered by the vitest glob and the tests tsconfig.
+- **JSX checks props that `h()` does not.** `h(Comp, { … })` resolves through an overload that
+  accepts an excess property; `<Comp … />` goes through `IntrinsicAttributes` and rejects it.
+  Converting the suite (2026-08-25) turned up exactly one — a `rowCount` prop left on
+  ConfigBlock after the row-scope fix moved the count to per-table `scope.rowCount`. So this is
+  the reason to prefer JSX in a test, not the style.
 - **`vi.mocked(x)` around a module mock.** `vi.mock('./api.js')` leaves the import typed as the
   REAL function, so `api.foo.mockResolvedValue(…)` does not type-check. `vi.mocked` is identity
   at runtime and the only thing that makes the mock surface visible.

@@ -14,5 +14,5 @@
   // src/types/*.d.ts declares `three`, `d3-force-3d` and `*.module.css`. The base program
   // picks them up through `src/**/*.ts`; this one imports src as a dependency, so it has to
   // name them or every CSS-Module import in a component under test is an unresolved module.
-  "include": ["tests/**/*.ts", "src/types/**/*.d.ts"]
+  "include": ["tests/**/*.ts", "tests/**/*.tsx", "src/types/**/*.d.ts"]
 }
