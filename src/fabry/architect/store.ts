@@ -4,6 +4,7 @@ import { signal } from '@preact/signals';
 // Data Storage. Only content-free navigation is persisted in the browser:
 // fabryMode + activeId (the open deliverable id, per-tab via fabryArchitectActive
 // so it survives a page refresh — see src/fabry/index.jsx).
+import { createArchitectAssetStore } from './assetApi.js';
 import type { Deliverable } from './collectionPlan.js';
 import type { CheckResult, ImplementState } from './api.js';
 
@@ -260,3 +261,14 @@ export function cacheRevisionText(revisionId: string, text: string) {
 // (see collectionPlan.js). { count, collection } | null. Purely informational: both are
 // read, and each deliverable is written back to wherever it lives.
 export const legacyNotice = signal<any>(null);
+
+// ── Assets (2026-08-24) ────────────────────────────────────────────────────────
+// ONE instance for the whole Architect, shared by the document column (SpecView → DocView) and
+// by the rail's Assets panel.
+//
+// It MUST be one: `pinned` is a single Set per store, replaced wholesale by whichever syncAssets
+// pass ran last (assets.js, ruling 16). Two instances would each unpin what the other has
+// painted, and the unbounded fetch/evict loop that ruling closed would come back through a new
+// door. The byte cache is the second reason — two instances would fetch and hold every asset
+// twice, against a budget each of them believes it owns.
+export const assets = createArchitectAssetStore();

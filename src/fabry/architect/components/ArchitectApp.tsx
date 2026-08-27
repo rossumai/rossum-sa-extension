@@ -9,6 +9,10 @@ import InspectorRail from './InspectorRail.jsx';
 export default function ArchitectApp() {
   useEffect(() => {
     loadArchitect();
+    // At boot, not when the Assets tab is first opened: the document column resolves its
+    // references against this index, so without it every reference in the specification paints
+    // as "not published" until somebody happens to open that tab. `load()` is memoised.
+    store.assets.load();
   }, []);
 
   // Warm every OTHER deliverable's rendered document in idle time, so switching is instant

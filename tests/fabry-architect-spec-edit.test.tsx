@@ -4,14 +4,20 @@ import { h, render } from 'preact';
 import { act } from 'preact/test-utils';
 
 vi.mock('../src/fabry/architect/actions.js', () => ({ updateDeliverable: vi.fn() }));
+// Every prop each editor was handed, so the wiring the paste path depends on can be asserted
+// without mounting real CodeMirror (which architect-asset-paste.test.tsx does).
+const seen = vi.hoisted(() => [] as any[]);
 vi.mock('../src/fabry/architect/components/SourceEditor.jsx', () => ({
-  default: ({ text, onChange }: any) => (
-    <textarea
-      class="cm-mock"
-      value={text}
-      onInput={(e: Event) => onChange && onChange((e.currentTarget as HTMLTextAreaElement).value)}
-    />
-  ),
+  default: ({ text, onChange, ...rest }: any) => {
+    seen.push(rest);
+    return (
+      <textarea
+        class="cm-mock"
+        value={text}
+        onInput={(e: Event) => onChange && onChange((e.currentTarget as HTMLTextAreaElement).value)}
+      />
+    );
+  },
 }));
 
 vi.mock('../src/mdh/smoothScroll.js', async (orig) => ({
@@ -44,6 +50,7 @@ function type(el: any, value: any) {
   });
 }
 beforeEach(() => {
+  seen.length = 0;
   vi.clearAllMocks();
   vi.useRealTimers();
   document.body.innerHTML = '';
@@ -110,6 +117,38 @@ describe('edit mode', () => {
       store.deliverables.value = [deliverable({ ...D[0], text: '# One\n\nrestored\n' }), D[1]];
     });
     expect(fields(root)[0].value).toBe('# One\n\nrestored\n');
+  });
+
+  // A paste reaches the ONE asset store and reports through this view's note channel (design
+  // §5.5). Nothing else can catch a missed prop here: the store's own guard cannot see a component
+  // that simply never received it.
+  it('hands every editor the one asset store and the note channel', () => {
+    mount();
+    expect(seen.length).toBeGreaterThanOrEqual(2);
+    expect(seen.every((p) => p.assets === store.assets)).toBe(true);
+    expect(seen.every((p) => typeof p.onNote === 'function')).toBe(true);
+  });
+
+  // ONE carrier for the whole column, cleared by the × and by nothing else. Every deliverable has
+  // an editor and they all report into this one note, so a failure pasted into one has to survive a
+  // success pasted into another — and dismissing is the only evidence the reader saw it.
+  it('shares one failure carrier across editors and clears it on dismiss', () => {
+    const root = mount();
+    const carrier = seen[0].failures;
+    expect(carrier).toBeTruthy();
+    expect(seen.every((p) => p.failures === carrier)).toBe(true);
+
+    carrier.current = { lines: ['x.png could not be added: 502 from the gateway'], hidden: 2 };
+    act(() => {
+      seen[0].onNote('Added assets/y.png · x.png could not be added: 502 from the gateway');
+    });
+    expect(root.querySelector('.fabry-arch-doc-note')!.textContent).toMatch(/could not be added/);
+
+    act(() => {
+      (root.querySelector('.fabry-arch-doc-warn-x') as HTMLElement).click();
+    });
+    expect(carrier.current).toEqual({ lines: [], hidden: 0 });
+    expect(root.querySelector('.fabry-arch-doc-note')).toBeNull();
   });
 
   it('keeps the same chrome as preview mode', () => {

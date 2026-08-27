@@ -3,14 +3,20 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { h, render } from 'preact';
 import { act } from 'preact/test-utils';
 vi.mock('../src/fabry/architect/pdfAction.js', () => ({ openPdfFlow: vi.fn() }));
+// Every prop each editor was handed, so the note slot it shares with the PDF flow can be driven
+// without mounting real CodeMirror (which architect-asset-paste.test.tsx does).
+const editorProps = vi.hoisted(() => [] as any[]);
 vi.mock('../src/fabry/architect/components/SourceEditor.jsx', () => ({
-  default: ({ text, onChange }: any) => (
-    <textarea
-      class="cm-mock"
-      value={text}
-      onInput={(e: Event) => onChange && onChange((e.currentTarget as HTMLTextAreaElement).value)}
-    />
-  ),
+  default: ({ text, onChange, ...rest }: any) => {
+    editorProps.push(rest);
+    return (
+      <textarea
+        class="cm-mock"
+        value={text}
+        onInput={(e: Event) => onChange && onChange((e.currentTarget as HTMLTextAreaElement).value)}
+      />
+    );
+  },
 }));
 
 vi.mock('../src/mdh/smoothScroll.js', async (orig) => ({
@@ -60,6 +66,7 @@ beforeEach(() => {
   // to a component that has since been unmounted, so invoking them does nothing and the assertion
   // fails for a reason that has nothing to do with the code under test.
   vi.clearAllMocks();
+  editorProps.length = 0;
   document.body.innerHTML = '';
   store.deliverables.value = D;
   store.results.value = { d1: { verdict: 'pass', evidence: 'ok', stale: false, chatId: null } };
@@ -192,6 +199,41 @@ describe('the document bar owns Download PDF', () => {
       root.querySelector<HTMLElement>('.fabry-arch-doc-warn-x')!.click();
     });
     expect(root.querySelector('.fabry-arch-doc-note')).toBe(null);
+  });
+
+  it('its note carries an upload failure the reader has not dismissed', () => {
+    // Task 7 made an upload failure survive until dismissed, but it rides INSIDE the note string —
+    // one slot — and the PDF flow is the second writer to it. Replacing the line wholesale would
+    // hide a failure with an unrelated success, which is exactly the "silently lost while reporting
+    // success" shape this feature keeps producing.
+    store.docView.value = 'edit';
+    const root = mount();
+    expect(editorProps.length).toBeGreaterThan(0);
+    editorProps[0].failures.current = {
+      lines: ['shot.png could not be added: over the 40 MB limit'],
+      hidden: 2,
+    };
+    act(() => {
+      root.querySelector<HTMLElement>('[data-act="pdf"]')!.click();
+    });
+    const { onNote } = vi.mocked(openPdfFlow).mock.calls[0][1] as any;
+
+    // `busy` is a SENTINEL and passes through untouched: the button keys its label and its disabled
+    // state off that exact literal, and the strip stays hidden.
+    act(() => {
+      onNote('busy');
+    });
+    expect(root.querySelector<HTMLElement>('[data-act="pdf"]')!.textContent).toMatch(/Preparing/);
+    expect(root.querySelector<HTMLButtonElement>('[data-act="pdf"]')!.disabled).toBe(true);
+    expect(root.querySelector('.fabry-arch-doc-note')).toBe(null);
+
+    act(() => {
+      onNote('print view opened');
+    });
+    const note = root.querySelector('.fabry-arch-doc-note')!.textContent!;
+    expect(note).toMatch(/print view opened/);
+    expect(note).toMatch(/over the 40 MB limit/);
+    expect(note).toMatch(/2 earlier failures not shown/);
   });
 });
 

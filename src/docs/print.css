@@ -105,3 +105,40 @@
   margin-bottom: 0;
   padding-bottom: 0;
 }
+
+/* Assets on paper. Colour literals, like every other rule in this file: paper has no theme, and
+   the design tokens console.css owns never reach this page — it links the three document
+   stylesheets, not the Console's.
+
+   An asset whose bytes could not be baked into the page says so WHERE THE PICTURE WOULD HAVE BEEN,
+   and the dashed outline reads as an absence rather than as content. A blank space is the one
+   outcome this feature cannot afford: an image silently missing from a printed specification is
+   indistinguishable from one that was never referenced. */
+.print-asset-missing {
+  display: inline-block;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 4px 10px;
+  border: 1px dashed #cf222e;
+  border-radius: 6px;
+  color: #cf222e;
+}
+/* A link cannot be followed on paper, so the file it points at is named beside it. */
+.print-asset-file {
+  color: #656d76;
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+@media (prefers-color-scheme: dark) {
+  .print-asset-file {
+    color: #9198a1;
+  }
+  /* The marker is the one thing here that must not be missable, so it gets the dark pair too — a
+     #cf222e outline on a dark preview is nearly invisible. #f85149 is the pairing theme.css already
+     documents for #cf222e. */
+  .print-asset-missing {
+    border-color: #f85149;
+    color: #f85149;
+  }
+}

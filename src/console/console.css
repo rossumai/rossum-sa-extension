@@ -8892,6 +8892,14 @@ tbody.uploads-row-failed tr {
 .fabry-spec-cm .cm-content {
   min-height: 0 !important;
 }
+/* A file dragged over an editor: the same outline the Assets tab paints, so the two drop targets
+   read as one gesture (they share useFileDrop). */
+.fabry-spec-cm.dragging {
+  outline: 2px dashed var(--accent);
+  outline-offset: 4px;
+  border-radius: var(--radius);
+  background: var(--info-bg);
+}
 
 /* A diff sent out of the rail, where there is room to read it. */
 .fabry-spec-review {
@@ -9584,4 +9592,261 @@ tbody.uploads-row-failed tr {
   color: var(--accent);
   border-left-color: var(--accent);
   font-weight: 600;
+}
+
+/* ── The Assets tab (2026-08-24) ─────────────────────────────────────────────
+   The organization's files, in the inspector rail. Three groups, one row each,
+   actions on hover. The whole panel is the drop target, which is why the
+   dragging state paints the panel rather than a strip inside it. */
+.fabry-arch-asset {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 180px;
+}
+.fabry-arch-asset.dragging {
+  outline: 2px dashed var(--accent);
+  outline-offset: 4px;
+  border-radius: var(--radius);
+  background: var(--info-bg);
+}
+.fabry-arch-asset-hd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.fabry-arch-asset-count {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.fabry-arch-asset-sp {
+  flex: 1;
+}
+.fabry-arch-asset-btn {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.fabry-arch-asset-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.fabry-arch-asset-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.fabry-arch-asset-btn.danger {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+}
+.fabry-arch-asset-filter {
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.fabry-arch-asset-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fabry-arch-asset-group-t {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  padding: 4px 0 2px;
+}
+.fabry-arch-asset-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 3px 4px;
+  border-radius: 6px;
+}
+.fabry-arch-asset-row:hover {
+  background: var(--bg-hover);
+}
+.fabry-arch-asset-ext {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 4px;
+  flex: none;
+}
+.fabry-arch-asset-name {
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.fabry-arch-asset-meta,
+.fabry-arch-asset-in {
+  font-size: 10.5px;
+  color: var(--text-secondary);
+  flex: none;
+}
+.fabry-arch-asset-in {
+  flex-basis: 100%;
+  padding-left: 30px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fabry-arch-asset-pill {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  padding: 1px 6px;
+  flex: none;
+  color: var(--text-secondary);
+  background: var(--bg-code);
+}
+.fabry-arch-asset-pill.unused,
+.fabry-arch-asset-pill.reused {
+  color: var(--warning-fg);
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+}
+.fabry-arch-asset-pill.added {
+  color: var(--success-fg);
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+}
+.fabry-arch-asset-pill.failed {
+  color: var(--danger-fg);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+}
+/* Revealed on hover, and on keyboard focus — otherwise the actions are
+   unreachable without a pointer. */
+.fabry-arch-asset-acts {
+  display: flex;
+  gap: 2px;
+  flex: none;
+  visibility: hidden;
+}
+.fabry-arch-asset-row:hover .fabry-arch-asset-acts,
+.fabry-arch-asset-row:focus-within .fabry-arch-asset-acts {
+  visibility: visible;
+}
+.fabry-arch-asset-act {
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.fabry-arch-asset-act:hover {
+  color: var(--accent);
+  background: var(--bg-card);
+}
+.fabry-arch-asset-confirm {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 4px 0 2px;
+  padding: 6px 8px;
+  border: 1px solid var(--danger-border);
+  background: var(--danger-bg);
+  border-radius: 6px;
+}
+.fabry-arch-asset-confirm-t {
+  flex: 1 1 100%;
+  font-size: 11.5px;
+  color: var(--danger-fg);
+}
+.fabry-arch-asset-log {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 22px 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-sidebar);
+}
+.fabry-arch-asset-log-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.fabry-arch-asset-log-more {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.fabry-arch-asset-note {
+  position: relative;
+  margin: 0;
+  padding: 6px 22px 6px 8px;
+  font-size: 11.5px;
+  color: var(--info-fg);
+  background: var(--info-bg);
+  border: 1px solid var(--info-border);
+  border-radius: 6px;
+}
+.fabry-arch-asset-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 6px 8px;
+  font-size: 11.5px;
+  color: var(--danger-fg);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+  border-radius: 6px;
+}
+.fabry-arch-asset-x {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.fabry-arch-asset-empty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
 }

@@ -9,8 +9,11 @@ import { displayTitle } from '../format.js';
 import { currentSection, activeHeadingAt } from '../specTarget.js';
 import { animateScrollTop, SCROLL_MS } from '../../../mdh/smoothScroll.js';
 import { openPdfFlow } from '../pdfAction.js';
+import { downloadAsset } from '../assetApi.js';
 import { extractOutline } from '../../../docs/outline.js';
 import SourceEditor, { scrollLineIntoView } from './SourceEditor.jsx';
+import type { EditorAssetStore } from './SourceEditor.jsx';
+import { noteWith, keepBusy, NO_FAILURES, type NoteFailures } from '../noteText.js';
 import RefineDock from './RefineDock.jsx';
 import HistoryPanel from './HistoryPanel.jsx';
 import { updateDeliverable } from '../actions.js';
@@ -120,6 +123,11 @@ export default function SpecView() {
   const mode = store.docView.value;
   const [note, setNote] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<any[]>([]);
+  // Upload failures the reader has not dismissed. They ride INSIDE the note — one slot, and for an
+  // editor upload it is the only record there is — so they are held here, beside it, and cleared by
+  // the same × that clears it. Every editor in the column shares this one object: a failure pasted
+  // into one deliverable must survive a success pasted into another.
+  const failures = useRef<NoteFailures>(NO_FAILURES);
   const docRef = useRef<any>(null);
   const rafRef = useRef(0);
   // Switching mode unmounts one column and mounts another, so the new scroller starts at the top —
@@ -208,6 +216,29 @@ export default function SpecView() {
     [],
   );
 
+  // The PDF flow OWNS the `busy` sentinel, so it is the one writer allowed to replace it. Its own
+  // messages would otherwise replace an upload failure the reader has not dismissed — they ride
+  // inside the note string — so every message it sends carries them along. `busy` is passed through
+  // UNTOUCHED: the PDF button keys its disabled state and its label off that exact literal.
+  const pdfNote = (msg: string) => setNote(msg === 'busy' ? msg : noteWith(msg, failures.current));
+
+  // An asset link clicked in the document column. It was a raw `setNote` on both branches, which
+  // cost two things: a successful download returns `null`, and `setNote(null)` wiped the whole strip
+  // — taking an editor paste's held failures with it, and for an editor upload that note is the only
+  // record there is (ruling 31); and either branch cleared the `busy` sentinel mid-print.
+  //
+  // So a SUCCESS clears its own line and nothing else: `noteWith('')` drops the empty message and
+  // renders whatever is still held, which is `null` — no strip — when nothing is. Handing `null`
+  // straight to `setNote` would have been the reported bug again, one writer along.
+  const assetNote = (msg: string | null) =>
+    setNote((prev) => keepBusy(prev, noteWith(msg ?? '', failures.current) || null));
+
+  // The editors compose their own line — they know which files were added and read the same held
+  // failures — so this adds only the guard. A success swallowed while a print is being prepared is
+  // the deliberate cost; the failures are held, not dropped, and the PDF flow's next message says
+  // them.
+  const editorNote = (msg: string) => setNote((prev) => keepBusy(prev, msg));
+
   const review = store.reviewTarget.value;
   const headerFor = (s: any) => {
     const d = byId.get(s.id);
@@ -253,7 +284,7 @@ export default function SpecView() {
             openPdfFlow(
               ds.find((d) => d.id === (store.pinnedTarget.value || store.settledTarget.value)) ||
                 ds[0],
-              { onNote: setNote, onWarnings: (w) => setWarnings((prev) => [...w, ...prev]) },
+              { onNote: pdfNote, onWarnings: (w) => setWarnings((prev) => [...w, ...prev]) },
             )
           }
         >
@@ -283,6 +314,7 @@ export default function SpecView() {
             onClick={() => {
               setWarnings([]);
               setNote(null);
+              failures.current = NO_FAILURES;
             }}
           >
             {'×'}
@@ -297,6 +329,18 @@ export default function SpecView() {
           onScroll={onScroll}
           domain={fstore.domain.value}
           token={fstore.token.value}
+          // The SAME instance the rail's Assets panel uses — see store.assets for why there can
+          // only be one. A file reference downloads rather than navigating anywhere: the bytes
+          // live in a Rossum document only a token-holding fetch can read.
+          assets={store.assets}
+          onAssetOpen={(href) => {
+            downloadAsset(store.assets, href).then(
+              (err) => assetNote(err),
+              // The store resolves rather than rejects, but the declared type permits a
+              // rejection — unhandled it would be a console error and a silent no-op click.
+              () => assetNote(`${href} could not be downloaded`),
+            );
+          }}
           resolveDoc={(slug) => {
             const hit = ds.find((d) => (slugs.get(d.id) || d.id) === slug);
             return hit ? { title: displayTitle(hit), text: hit.text || '' } : null;
@@ -312,6 +356,12 @@ export default function SpecView() {
           headerFor={headerFor}
           docRef={docRef}
           onScroll={onScroll}
+          // The SAME instance the rail's Assets panel and the Preview column use — see
+          // store.assets for why there can only be one. A file pasted into an editor goes
+          // through it, and reports through this view's own note channel (design §5.5).
+          assets={store.assets}
+          onNote={editorNote}
+          failures={failures}
         />
       )}
     </div>
@@ -330,11 +380,17 @@ export function SourceColumn({
   headerFor,
   docRef,
   onScroll,
+  assets,
+  onNote,
+  failures,
 }: {
   sections: SourceSection[];
   headerFor?: (s: any) => any;
   docRef?: { current: any };
   onScroll?: (info: any) => void;
+  assets?: EditorAssetStore;
+  onNote?: (msg: string) => void;
+  failures?: { current: NoteFailures };
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const views = useRef(new Map()); // deliverable id -> EditorView, for exact line geometry
@@ -503,6 +559,9 @@ export function SourceColumn({
               <SourceEditor
                 text={s.text}
                 onChange={(t) => onEdit(s.id, t)}
+                assets={assets}
+                onNote={onNote}
+                failures={failures}
                 viewRef={{
                   get current() {
                     return views.current.get(s.id) || null;

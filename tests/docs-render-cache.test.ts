@@ -65,6 +65,22 @@ describe('renderDocument cache', () => {
     // is that nothing is cached when the pipeline throws outright.
     expect(bad.body || bad.warnings.length).toBeTruthy();
   });
+
+  // Controller ruling 15: `renderDocument` and `isRendered` know nothing about assets at all —
+  // review found the earlier design (an `assetsVersion` in the key) made a warmed entry
+  // unmatchable the instant a caller supplied a store, defeating the "preload so page switching
+  // is instant" promise this module opens with. This pins that both call shapes — the one
+  // preload.js uses, and the one DocView uses once it is ready to sync assets against the result
+  // — key identically.
+  it('a warmed entry is still a hit once a caller is ready to sync assets against it', () => {
+    const text = '# Doc\n\n![shot](assets/diagram.png)\n';
+    renderDocument({ id: 'warm', text, syncLines: true }); // what preload.js warms
+    expect(isRendered({ id: 'warm', text, syncLines: true })).toBe(true);
+    const before = cacheStats().hits;
+    const { body } = renderDocument({ id: 'warm', text, syncLines: true }); // what DocView asks for
+    expect(cacheStats().hits).toBe(before + 1);
+    expect(body!.querySelector('img[data-asset-ref]')).toBeTruthy();
+  });
 });
 
 describe('preloadDeliverables', () => {

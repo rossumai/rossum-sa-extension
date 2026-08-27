@@ -11,6 +11,16 @@
 // were requested, and whether a diagram renderer was available at render time — that last one
 // matters because a document rendered before the bundle arrived has code fences where it should
 // have diagrams, and must not be served afterwards.
+//
+// Assets are deliberately NOT part of this cache (controller ruling 15, superseding an earlier
+// design that put an `assetsVersion` in the key): this cache is shared across every caller, but
+// an asset's availability is per-store, per-moment state — not a property of the rendered text.
+// Keying on it made a warmed entry unmatchable the instant any caller supplied a store, and
+// routed every resolved fetch through the adopt effect that owns the source-preview modal,
+// closing it out from under the reader. A relative image reference is marked here with
+// `data-asset-ref` and NO `src`, so the browser never requests an unresolvable path — resolving
+// it against a live store is `assetSync.js`'s job, run against the LIVE DOM, never this cached
+// detached one.
 import {
   createMarkdownRenderer,
   wrapStandaloneImages,
@@ -19,6 +29,7 @@ import {
 } from './render.js';
 import { reportDocWarnings } from './docWarnings.js';
 import { sanitizeBody, markLinksForPane } from './sanitize.js';
+import { needsAssetStore } from './assetRef.js';
 
 // Rendered documents hold a full DOM tree plus any diagram SVGs, so the cap is a memory
 // decision rather than a hit-rate one: a large SOW is tens of documents, and holding ~24 of
@@ -49,6 +60,20 @@ export function cacheKey({
     withMermaid ? 'm' : '-',
     String(text ?? ''),
   ].join('\u0000');
+}
+
+// Runs on the DETACHED tree before it is cached — see the module comment above: a cached tree is
+// never touched again, and this attaches no store, so the same marked-up tree is correct for
+// every caller regardless of whether (or which) assets store they end up paired with.
+function markAssetRefs(body: HTMLElement): void {
+  for (const img of [...body.querySelectorAll('img[src]')] as HTMLImageElement[]) {
+    const src = img.getAttribute('src') || '';
+    // ONE copy of the rule (assetRef.ts), shared with the print path. It used to be written out
+    // here and again, differently, over there — and the disagreement was silent on paper.
+    if (!needsAssetStore(src)) continue;
+    img.removeAttribute('src');
+    img.setAttribute('data-asset-ref', src);
+  }
 }
 
 export function cacheStats() {
@@ -96,8 +121,11 @@ export function renderDocument({
     const warnings: string[] = [];
     reportDocWarnings(env, 'this deliverable', (m) => warnings.push(m));
     for (const e of env.mermaidErrors) warnings.push(`mermaid: ${e}`);
-    // markLinksForPane mutates, so it runs BEFORE caching: a cached tree is never touched again.
-    entry = { body: markLinksForPane(sanitizeBody(html)), warnings };
+    // markLinksForPane and markAssetRefs mutate, so both run BEFORE caching: a cached tree is
+    // never touched again.
+    const body = markLinksForPane(sanitizeBody(html));
+    markAssetRefs(body);
+    entry = { body, warnings };
   } catch (err) {
     // A render failure is returned, not cached — a transient throw must not become permanent.
     return {

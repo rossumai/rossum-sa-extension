@@ -97,16 +97,17 @@ describe('InspectorRail', () => {
     expect(root.querySelector('.fabry-rail-held')).toBeTruthy();
   });
 
-  it('shows the verdict for its target and offers the four tabs', () => {
+  it('shows the verdict for its target and offers every tab', () => {
     const root = mount();
     expect(root.textContent).toMatch(/Met/);
-    expect(root.querySelectorAll('.fabry-rail-tab').length).toBe(4);
+    // Check, Refine, Implement, History, Assets — the fifth is the organization's files.
+    expect(root.querySelectorAll('.fabry-rail-tab').length).toBe(5);
   });
 
   it('hides the Implement tab when the loop is not available', () => {
     fstore.implementAllowed.value = false;
     const root = mount();
-    expect(root.querySelectorAll('.fabry-rail-tab').length).toBe(3);
+    expect(root.querySelectorAll('.fabry-rail-tab').length).toBe(4);
     expect(root.textContent).not.toMatch(/Implement/);
   });
 

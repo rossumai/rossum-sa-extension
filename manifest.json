@@ -8,6 +8,7 @@
     "48": "icons/48-blue-crunch.png",
     "128": "icons/128-blue-crunch.png"
   },
+  "minimum_chrome_version": "114",
   "permissions": ["storage", "activeTab", "scripting", "sidePanel"],
   "side_panel": { "default_path": "sidepanel/sidepanel.html" },
   "background": { "service_worker": "background.js" },

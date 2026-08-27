@@ -9,6 +9,7 @@ import CheckPanel from './CheckPanel.jsx';
 import ImplementPanel from './ImplementPanel.jsx';
 import RefineDock from './RefineDock.jsx';
 import HistoryPanel from './HistoryPanel.jsx';
+import AssetsPanel from './AssetsPanel.jsx';
 
 // The per-deliverable inspector, beside the one continuous specification (spec 2026-08-19 §6).
 //
@@ -59,6 +60,7 @@ export default function InspectorRail() {
     ['refine', '✦ Refine'],
     ...(implAllowed ? [['implement', '▷ Implement']] : []),
     ['history', '↺ History'],
+    ['assets', '⧉ Assets'],
   ];
   const active = TABS.some(([k]) => k === tab) ? tab : 'check';
 
@@ -154,6 +156,12 @@ export default function InspectorRail() {
           <ImplementPanel key={d.id} deliverable={d} />
         ) : null}
         {!wideHere && active === 'history' ? <HistoryPanel key={d.id} deliverable={d} /> : null}
+        {/* NO `key`, unlike every panel above it: this list is the ORGANIZATION's files, not the
+            deliverable's. A remount would refetch only after a FAILED read (a successful one is
+            memoised in the singleton store), but it would always discard the filter text, the
+            upload log and any open delete confirmation, on every scroll between sections. It takes
+            the target as a prop instead, and re-sorts (D4). */}
+        {active === 'assets' ? <AssetsPanel currentId={d.id} /> : null}
         {!wideHere && (active === 'refine' || active === 'history') ? (
           // A word-diff in a 322px rail is unreadable, so it can be sent to the document column,
           // which is where the width is (spec §6).

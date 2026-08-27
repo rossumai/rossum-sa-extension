@@ -18,6 +18,50 @@ function fail(message: string) {
   if (hint) hint.textContent = message;
 }
 
+// A ceiling on the wait, not a target. Every image here is a `data:` URI already in memory, so this
+// resolves in a frame or two in practice; the timer exists because an image that never settles at
+// all would otherwise hold the print dialog shut forever, which is strictly worse than printing a
+// page with one picture missing.
+const IMAGE_SETTLE_MS = 5000;
+
+/**
+ * Resolve once every `<img>` under `root` has either decoded or given up.
+ *
+ * New with assets, and the only reason it is needed: until this task no image ever reached this page
+ * — a relative reference had no bytes and an absolute one was a 401 — so `document.fonts.ready` plus
+ * two frames was the whole of "laid out". A multi-megabyte `data:` screenshot decodes on the same
+ * renderer, and nothing above awaits it, so the dialog could plausibly open over a document whose
+ * pictures had not painted.
+ *
+ * Both events, because `error` is the one a `data:` URI Chrome cannot decode fires, and waiting only
+ * for `load` would hand every such page to the timer instead.
+ */
+export function whenImagesSettle(
+  root: HTMLElement | null,
+  timeout: number = IMAGE_SETTLE_MS,
+): Promise<void> {
+  const pending = [...(root ? root.querySelectorAll('img') : [])].filter((img) => !img.complete);
+  if (!pending.length) return Promise.resolve();
+  return new Promise<void>((done) => {
+    let left = pending.length;
+    const finish = () => {
+      clearTimeout(timer);
+      done();
+    };
+    const one = () => {
+      left -= 1;
+      if (left <= 0) finish();
+    };
+    // Declared after `finish` and read inside it: nothing can call `finish` before the listeners
+    // below are attached, which is after this line.
+    const timer = setTimeout(finish, timeout);
+    for (const img of pending) {
+      img.addEventListener('load', one, { once: true });
+      img.addEventListener('error', one, { once: true });
+    }
+  });
+}
+
 async function boot() {
   const id = new URLSearchParams(location.search).get('printId');
   if (!id) {
@@ -50,11 +94,12 @@ async function boot() {
   document.getElementById('again')!.addEventListener('click', openDialog);
 
   // Wait for layout before printing, or the dialog can capture a half-laid-out document.
-  // Two frames plus the font-loading promise is enough in practice; the manual link stays as
-  // the fallback for anything that blocks it.
+  // Fonts, then images, then two frames; the manual link stays as the fallback for anything
+  // that blocks it.
   const ready = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
   ready
     .catch(() => {})
+    .then(() => whenImagesSettle(document.getElementById('doc')))
     .then(() =>
       requestAnimationFrame(() =>
         requestAnimationFrame(() => {

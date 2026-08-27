@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { createMarkdownRenderer, wrapStandaloneImages } from '../render.js';
 import { sanitizeBody } from '../sanitize.js';
 import { renderDocument } from '../renderCache.js';
+import { syncAssets } from '../assetSync.js';
 import { initCodeCopy } from '../client/codeCopy.js';
 import { initSectionPreview } from '../client/sectionPreview.js';
 import { initSourceViewer } from '../client/sourceViewer.js';
@@ -30,6 +31,21 @@ import type { SourceSection } from '../specDocument.js';
 // torn down before each re-render — a page-scoped IIFE never had to unwind itself.
 
 const MERMAID_FENCE = /^[ \t]*```[ \t]*mermaid[ \t]*$/m;
+
+// Decoupled from `assets.ts`'s own `AssetRow`/`Held` shapes on purpose, matching how
+// assetSync.js already types its own local store contract rather than importing one — DocView
+// only ever tests these for truthiness or passes them through. `resolve` and `pin` are not in
+// the brief's original prop list, which predates controller rulings 15 and 16: `syncAssets` is
+// what actually starts a fetch now (DocView never calls `resolve` itself) and pins whatever it
+// just painted (ruling 16, so a resolve on one asset can never evict another the reader is still
+// looking at) — both need to be on the store DocView hands it.
+type AssetsProp = {
+  lookup: (href: string) => unknown | null;
+  peek: (href: string) => unknown | null;
+  resolve: (href: string) => Promise<unknown> | void;
+  pin: (hrefs: string[]) => void;
+  version: () => number;
+};
 
 // Rendered siblings, for the cross-deliverable hover preview. Keyed by slug + the exact
 // text, so an edit invalidates its own entry and nothing goes stale; small cap because a
@@ -137,6 +153,8 @@ export default function DocView({
   resolveDoc,
   onScroll: onSpy,
   docRef,
+  assets = null,
+  onAssetOpen,
 }: {
   sections?: SourceSection[] | null;
   headerFor?: ((s: any) => any) | null;
@@ -149,6 +167,8 @@ export default function DocView({
   resolveDoc?: (slug: string) => any;
   onScroll?: (info: any) => void;
   docRef?: { current: any };
+  assets?: AssetsProp | null;
+  onAssetOpen?: (href: string) => void;
 }) {
   const paneRef = useRef<HTMLDivElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -164,6 +184,19 @@ export default function DocView({
   onNavigateRef.current = onNavigate;
   const onSpyRef = useRef(onSpy);
   onSpyRef.current = onSpy;
+  const assetsRef = useRef(assets);
+  assetsRef.current = assets;
+  const onAssetOpenRef = useRef(onAssetOpen);
+  onAssetOpenRef.current = onAssetOpen;
+  // Read UNCONDITIONALLY, every render: `assets.version()` is backed by a @preact/signals signal
+  // (see assets.ts), and reading its `.value` here is what wakes this component when a fetch
+  // completes. It deliberately does NOT feed the `rendered` memo or the adopt effect below —
+  // controller ruling 15: that used to route every resolved fetch through `body.replaceChildren()`,
+  // which tears down `initSourceViewer` (closing the very modal this task opens) and cancels the
+  // hover-preview timer mid-hover. Instead `assetsVersion` only drives the asset-sync effect
+  // further down, which patches the LIVE DOM in place and never touches the adopted tree's
+  // lifecycle.
+  const assetsVersion = assets ? assets.version() : 0;
   const dark = usePrefersDark();
   const list = useMemo(
     () => (sections && sections.length ? sections : [{ id: docId, slug: '', text }]),
@@ -356,6 +389,16 @@ export default function DocView({
     };
   }, [rendered, domain, token]);
 
+  // Resolves asset references against the LIVE DOM, separate from the adopt effect above on
+  // purpose (controller ruling 15). `rendered` here only re-triggers this after a genuine content
+  // swap (the adopt effect already ran and rebuilt the tree this operates on); `assetsVersion`
+  // re-triggers it on its own whenever the store changes — a resolve, a failure, an upload, a
+  // remove — WITHOUT `rendered` changing identity, so the adopt effect's own dependency array
+  // never sees a change and never tears down the modal or the hover timer mid-use.
+  useEffect(() => {
+    syncAssets(rootRef.current, assetsRef.current);
+  }, [rendered, assetsVersion]);
+
   // A relative link (`architecture.md`, or `.html` after an export round-trip) means
   // "a sibling document". On a page that is a navigation; in a pane it would replace
   // the whole Console, so it is intercepted and reported to the host, which opens the
@@ -383,6 +426,12 @@ export default function DocView({
       );
       e.preventDefault();
       jumpTo(rootRef.current!, target);
+      return;
+    }
+
+    if (assetsRef.current && assetsRef.current.lookup(href)) {
+      e.preventDefault();
+      onAssetOpenRef.current?.(href);
       return;
     }
 

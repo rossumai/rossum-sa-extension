@@ -17,3 +17,8 @@ export const COLLECTION = '_SA_EXTENSION__fabry_architect';
 // migrates it (verified: docs survive), and where the rename cannot happen the Architect
 // keeps reading and writing it unchanged. See collectionPlan.js for the four states.
 export const LEGACY_COLLECTION = '__mrfabry_architect';
+
+// Files referenced by deliverables: one row per file, mapping the reference an author writes to the
+// Rossum document that holds the bytes. Same `_SA_EXTENSION__` prefix, so `isHiddenCollection`
+// already keeps it out of Dataset Management with no change there.
+export const ASSET_COLLECTION = '_SA_EXTENSION__fabry_architect_assets';
