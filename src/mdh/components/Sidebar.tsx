@@ -8,6 +8,7 @@ import * as cache from '../cache.js';
 import { showUndo } from '../undo.js';
 import { UNDO_LIMIT } from '../bulkOps.js';
 import { openCollectionTab } from '../openCollectionTab.js';
+import { filterCollections, splitByMatch } from '../collectionFilter.js';
 
 async function loadCollections() {
   try {
@@ -45,7 +46,10 @@ function showOverview() {
   activeView.value = 'overview';
 }
 
-function showCreateModal() {
+// `onSelected` runs after the created/renamed collection becomes the selection. The sidebar
+// passes it a filter-clear: the new name almost certainly does not match whatever is typed in
+// the filter box, and leaving it would show an active selection with no row on screen.
+function showCreateModal(onSelected?: () => void) {
   promptModal('New Collection', {
     placeholder: 'Collection name...',
     submitLabel: 'Create',
@@ -59,6 +63,7 @@ function showCreateModal() {
       closeModal();
       await loadCollections();
       selectCollection(name);
+      onSelected?.();
     } catch (err: any) {
       loading.value = false;
       hint.textContent = err.message;
@@ -66,7 +71,7 @@ function showCreateModal() {
   });
 }
 
-function showRenameModal(oldName: any) {
+function showRenameModal(oldName: any, onSelected?: () => void) {
   promptModal('Rename Collection', {
     placeholder: 'New name...',
     initialValue: oldName,
@@ -82,6 +87,7 @@ function showRenameModal(oldName: any) {
         selectedCollection.value = newName;
       }
       await loadCollections();
+      onSelected?.();
     } catch (err: any) {
       loading.value = false;
       hint.textContent = err.message;
@@ -255,6 +261,11 @@ export default function Sidebar() {
   const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState<any>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  // Name filter over the listed collections. Deliberately component state and NOT persisted:
+  // an org here can have ninety collections, and a filter restored from a previous session
+  // would show a fraction of them with no memory of why. It costs one keystroke to retype.
+  const [nameFilter, setNameFilter] = useState('');
+  const clearFilter = () => setNameFilter('');
 
   // Close the kebab menu on outside click or any scroll (which would leave
   // the fixed-positioned menu detached from its trigger).
@@ -294,7 +305,19 @@ export default function Sidebar() {
   // holding the org token; it is decluttering, and it must stay reachable because the MDH
   // record editor is the only way to hand-edit a deliverable or read a stored version.
   const hiddenCols = hiddenCollections.value;
+  // The filter narrows BOTH lists — a name the user is hunting for may be one of ours, and a
+  // box that silently skips a group is worse than no box. While it is active the group is
+  // forced open (without persisting that), so a match cannot hide behind a collapsed caret.
+  const filtering = nameFilter.trim().length > 0;
+  const shownCols = filterCollections(cols, nameFilter);
+  const shownHiddenCols = filterCollections(hiddenCols, nameFilter);
+  const groupOpen = showHidden || filtering;
   function toggleHidden() {
+    // Inert while filtering: `groupOpen` is forced true there, so a flip could not change
+    // what is on screen — but it WOULD persist mdhShowHiddenCollections, and the user would
+    // find the group expanded next session having just asked to collapse it. The button is
+    // also `disabled` in that state, so this guard is the belt to that braces.
+    if (filtering) return;
     const next = !showHiddenCollections.value;
     showHiddenCollections.value = next;
     try { chrome.storage.local.set({ mdhShowHiddenCollections: next }); } catch { /* no storage (tests) */ }
@@ -321,7 +344,11 @@ export default function Sidebar() {
           setMenuOpenFor(name);
         }}
       >
-        <span class="collection-item-name" title={name}>{name}</span>
+        <span class="collection-item-name" title={name}>
+          {splitByMatch(name, nameFilter).map((seg) => (
+            seg.hit ? <b class="collection-item-hit">{seg.text}</b> : seg.text
+          ))}
+        </span>
         <span class="collection-item-actions">
           <button
             class="collection-action-btn collection-action-menu-btn"
@@ -335,34 +362,70 @@ export default function Sidebar() {
   }
 
   return (
-    <aside id="sidebar" class="sidebar">
+    <aside id="sidebar" class={'sidebar' + (filtering ? ' sidebar-filtering' : '')}>
       <div class="sidebar-header">
         <div class="sidebar-title-group">
           <span class="sidebar-title">Collections</span>
-          <span class="sidebar-count">({cols.length})</span>
+          <span class="sidebar-count">({filtering ? `${shownCols.length} / ${cols.length}` : cols.length})</span>
         </div>
         <div class="sidebar-header-actions">
-          <button class="icon-btn" title="New collection" onClick={showCreateModal}>+</button>
+          <button class="icon-btn" title="New collection" onClick={() => showCreateModal(clearFilter)}>+</button>
           <button class="icon-btn" title="Refresh" onClick={() => { cache.invalidateAll(); loadCollections(); }}>{'\u21bb'}</button>
         </div>
       </div>
-      <div class="collection-list">
-        {cols.map((name) => collectionRow(name))}
+      {(cols.length > 0 || hiddenCols.length > 0) && (
+        <div class="collection-filter">
+          <div class={'collection-filter-wrap' + (filtering ? ' has-value' : '')}>
+            <svg class="collection-filter-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              class="collection-filter-input"
+              type="text"
+              placeholder="Filter by name..."
+              aria-label="Filter collections by name"
+              value={nameFilter}
+              onInput={(e: any) => setNameFilter(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setNameFilter(''); }}
+              title={filtering ? `Filtering by "${nameFilter}" \u2014 press Escape or click \u00d7 to clear` : ''}
+            />
+            {filtering && (
+              <button
+                class="collection-filter-clear"
+                title="Clear filter"
+                aria-label="Clear filter"
+                onClick={() => setNameFilter('')}
+              >{'\u00d7'}</button>
+            )}
+          </div>
+        </div>
+      )}
+      {/* Above the list, not after it: `.collection-list` is `flex: 1`, so a sibling below it
+          is pushed to the bottom of the sidebar, away from the box that caused it. */}
+      {filtering && shownCols.length === 0 && shownHiddenCols.length === 0 && (
+        <div class="collection-filter-empty">No collection matches "{nameFilter.trim()}".</div>
+      )}
+      <div class={'collection-list' + (shownCols.length === 0 ? ' is-empty' : '')}>
+        {shownCols.map((name) => collectionRow(name))}
       </div>
-      {hiddenCols.length > 0 && (
-        <div class={'collection-hidden-group' + (showHidden ? ' open' : '')}>
+      {shownHiddenCols.length > 0 && (
+        <div class={'collection-hidden-group' + (groupOpen ? ' open' : '')}>
           <button
             type="button"
             class="collection-hidden-toggle"
-            aria-expanded={showHidden}
-            title="Collections created by this extension"
+            aria-expanded={groupOpen}
+            disabled={filtering}
+            title={filtering
+              ? 'Kept open while a filter is active'
+              : 'Collections created by this extension'}
             onClick={toggleHidden}
           >
-            <span class="collection-hidden-caret">{showHidden ? '\u25be' : '\u25b8'}</span>
+            <span class="collection-hidden-caret">{groupOpen ? '\u25be' : '\u25b8'}</span>
             <span class="collection-hidden-label">Extension collections</span>
-            <span class="sidebar-count">({hiddenCols.length})</span>
+            <span class="sidebar-count">({filtering ? `${shownHiddenCols.length} / ${hiddenCols.length}` : hiddenCols.length})</span>
           </button>
-          {showHidden && <div class="collection-list">{hiddenCols.map((name) => collectionRow(name))}</div>}
+          {groupOpen && <div class="collection-list">{shownHiddenCols.map((name) => collectionRow(name))}</div>}
         </div>
       )}
       {menuOpenFor && menuPos && (
@@ -381,7 +444,7 @@ export default function Sidebar() {
           >Copy name</button>
           <button
             class="toolbar-menu-item"
-            onClick={() => { const n = menuOpenFor; setMenuOpenFor(null); showRenameModal(n); }}
+            onClick={() => { const n = menuOpenFor; setMenuOpenFor(null); showRenameModal(n, clearFilter); }}
           >Rename</button>
           <button
             class="toolbar-menu-item toolbar-menu-danger"
