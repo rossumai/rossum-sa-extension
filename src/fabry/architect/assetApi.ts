@@ -176,7 +176,12 @@ async function deleteDocument(documentId: number): Promise<void> {
 }
 
 async function sha256Hex(buf: ArrayBuffer): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', buf);
+  // A VIEW, never the bare ArrayBuffer: `digest` checks a raw buffer against its own realm's
+  // `ArrayBuffer.prototype` on Node 20 (fixed in 22), and under jsdom every buffer a test makes —
+  // including the one `File.arrayBuffer()` returns — belongs to the jsdom realm, so CI rejected
+  // what Chrome and newer Node accept. `isArrayBufferView` is a V8 type check, realm-agnostic
+  // everywhere, and the wrapper copies nothing.
+  const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(buf));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
