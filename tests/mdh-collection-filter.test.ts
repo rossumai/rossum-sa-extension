@@ -1,14 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { filterCollections, splitByMatch } from '../src/mdh/collectionFilter.js';
 
-// Real shape of the problem this exists for: an org whose 90 collections share a
-// long prefix, so the distinguishing part sits in the middle or at the end.
+// The shape of the problem this exists for: an org whose ninety collections share a long
+// prefix, so the distinguishing part sits in the middle or at the end. Placeholder names
+// only — never a real organisation's; see the customer-identifiers rule in CLAUDE.md.
 const NAMES = [
-  'wc_po_eurofins_dev',
-  'wc_po_eurofins_uat',
-  'wc_supplier_eurofins_dev',
-  'wc_supplier_eurofins_uat',
-  'wc_supplier_master',
+  'acme_po_north_dev',
+  'acme_po_north_uat',
+  'acme_supplier_master',
+  'acme_supplier_north_dev',
+  'acme_supplier_north_uat',
 ];
 
 describe('filterCollections', () => {
@@ -19,16 +20,16 @@ describe('filterCollections', () => {
 
   it('keeps the names containing the query as a substring, in the given order', () => {
     expect(filterCollections(NAMES, 'supplier')).toEqual([
-      'wc_supplier_eurofins_dev',
-      'wc_supplier_eurofins_uat',
-      'wc_supplier_master',
+      'acme_supplier_master',
+      'acme_supplier_north_dev',
+      'acme_supplier_north_uat',
     ]);
   });
 
   it('matches anywhere in the name, not just at the start', () => {
     expect(filterCollections(NAMES, '_uat')).toEqual([
-      'wc_po_eurofins_uat',
-      'wc_supplier_eurofins_uat',
+      'acme_po_north_uat',
+      'acme_supplier_north_uat',
     ]);
   });
 
@@ -39,9 +40,9 @@ describe('filterCollections', () => {
 
   it('trims the query, so a trailing space from typing does not blank the list', () => {
     expect(filterCollections(NAMES, ' supplier ')).toEqual([
-      'wc_supplier_eurofins_dev',
-      'wc_supplier_eurofins_uat',
-      'wc_supplier_master',
+      'acme_supplier_master',
+      'acme_supplier_north_dev',
+      'acme_supplier_north_uat',
     ]);
   });
 
@@ -63,10 +64,10 @@ describe('filterCollections', () => {
 
 describe('splitByMatch', () => {
   it('brackets the matched run so a caller can emphasise it', () => {
-    expect(splitByMatch('wc_supplier_eurofins_uat', 'supplier')).toEqual([
-      { text: 'wc_', hit: false },
+    expect(splitByMatch('acme_supplier_north_uat', 'supplier')).toEqual([
+      { text: 'acme_', hit: false },
       { text: 'supplier', hit: true },
-      { text: '_eurofins_uat', hit: false },
+      { text: '_north_uat', hit: false },
     ]);
   });
 
@@ -108,8 +109,8 @@ describe('splitByMatch', () => {
   });
 
   it('reassembles to exactly the input, whatever the query', () => {
-    for (const q of ['', 'w', 'wc_', 'uat', 'ZZZ', '_']) {
-      const name = 'wc_supplier_eurofins_uat';
+    for (const q of ['', 'a', 'acme_', 'uat', 'ZZZ', '_']) {
+      const name = 'acme_supplier_north_uat';
       expect(
         splitByMatch(name, q)
           .map((s) => s.text)

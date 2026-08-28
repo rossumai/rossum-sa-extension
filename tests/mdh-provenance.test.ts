@@ -604,7 +604,7 @@ describe('hookConfigs', () => {
   });
 });
 
-// ── loadMdhHooksForQueue (the ANWB false-negative bug) ─
+// ── loadMdhHooksForQueue (the legacy-`configs` false-negative bug) ─
 
 describe('loadMdhHooksForQueue', () => {
   const withFetch = async (results: any, run: any) => {
@@ -619,12 +619,12 @@ describe('loadMdhHooksForQueue', () => {
 
   const dmv2Hook = {
     id: 435212,
-    name: 'Data Matching v2 - non PO AX - TEST',
+    name: 'Data Matching v2 - TEST',
     type: 'webhook',
     active: true,
     settings: {
-      // ANWB's live hook uses the legacy `configs` key, which the panel
-      // previously missed (it only read the modern `configurations`).
+      // Shape taken from a live hook that used the legacy `configs` key, which the
+      // panel previously missed (it only read the modern `configurations`).
       configs: [
         {
           name: 'Supplier by VAT number',
@@ -640,7 +640,7 @@ describe('loadMdhHooksForQueue', () => {
 
   it('recognizes a webhook MDH hook whose cascade lives under settings.configs', async () => {
     const hooks = await withFetch([dmv2Hook], () =>
-      loadMdhHooksForQueue('https://anwb.rossum.app', 'token', 1030099),
+      loadMdhHooksForQueue('https://acme.rossum.app', 'token', 1030099),
     );
     expect(hooks).toHaveLength(1);
     expect(hooks[0].id).toBe(435212);

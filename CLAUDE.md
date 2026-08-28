@@ -289,6 +289,21 @@ Enforced by tests, not by convention. Do not weaken them.
   enforces the pairing. Only `src/usage/ga4Config.ts` may name `google-analytics.com`.
 - A **read-only agent framing** (cautious persona, standing notices) is defense-in-depth, never a
   guarantee.
+- **No customer identifies itself in this repo.** It is PUBLIC and shipped to the Chrome Web
+  Store, so every fixture, comment, spec, commit message and PR body has to be readable by the
+  customer sitting next to the one it came from. That covers organisation names, their
+  `<org>.rossum.app` hostnames, the name of one of their hooks, and their dataset naming
+  convention — a distinctive prefix identifies an org as surely as its name does. A bug found on
+  a real org is described by its SHAPE: "ninety collections sharing a long prefix", "a hook whose
+  cascade sits under the legacy `configs` key" — never by whose org it was. Use the placeholders
+  already in the suite: `acme` / `example` / `x` / `y` / `org`, and `partner-sandbox.rossum.app`
+  where a realistic host is wanted. `elis.rossum.ai` is Rossum's own dashboard, not a customer.
+  **Deliberately NOT test-enforced**, unlike everything else in this section: the only mechanical
+  check is a denylist of customer names, and committing that list to a public repo is precisely
+  the disclosure it would exist to prevent. A positive check (hosts must match the placeholder
+  allowlist) catches hostnames but not an `acme_po_north_uat`-shaped name, so this one is
+  read-and-comply — grep the diff before pushing, and remember that a merged commit cannot be
+  taken back out of a public history.
 - **Retiring a feature must never delete customer data** — stop reading a field, do not drop it.
 - **No bare single-letter class names in JSX.** `minify: true` shortens CSS Modules' local class
   names to one or two characters in the emitted `console.css`, and esbuild guarantees those are
