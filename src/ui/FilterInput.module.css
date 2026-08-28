@@ -1,0 +1,94 @@
+/* Shared filter/search box — the design system's plain text input: a leading magnifier, an
+   accent "engaged" state, and a clear button. Two consumers today, the MDH sidebar's
+   collection filter and the Operation Logs toolbar filter, which until this module shared a
+   hand-written rule in the monolith by appending selectors to it. That is the pattern the
+   AI-input family was refactored out of in July, and it cost twice: a height change to one
+   surface needed a sidebar-only override to avoid reshaping the other, and neither call site
+   was on a font token so both shipped in Arial. The primitive owns the dressing; only the
+   WIDTH stays with the call site, since a toolbar box is fixed and a sidebar box fills its
+   column. */
+
+/* No `width` here on purpose, and `flex` rather than `inline-flex`. The module sheet is linked
+   AFTER the monolith, so a width in here would outrank a consumer's own class at equal
+   specificity — the call site could not set its box width without a specificity fight. As a
+   block-level flex container it fills whatever it is dropped into (the sidebar column), and a
+   consumer that needs a fixed box states it on the class it passes in (the uploads toolbar). */
+.wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.icon {
+  position: absolute;
+  left: 8px;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+/* 23px tall: 12px text on --font-sans with 3px of vertical padding, matching the AI input.
+   The font-family is load-bearing, not decoration — without it Chrome's UA sheet applies
+   `input { font: 400 13.333px Arial }`, which is how both call sites shipped in Arial. And it
+   cannot be adopted on its own: the system stack has a taller line box than Arial at 12px, so
+   the token alone makes the box TALLER (measured 27px at the old 5px padding). Font and
+   padding are one decision. Measured in headless Chrome against the built sheet; jsdom has no
+   layout and cannot see any of this. */
+.input {
+  width: 100%;
+  padding: 3px 26px 3px 28px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-input, var(--bg-main));
+  color: var(--text-primary);
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.input::placeholder {
+  color: var(--text-secondary);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-bg, rgba(80, 130, 255, 0.18));
+}
+
+/* Engaged: the call site decides what counts (the sidebar trims, the uploads filter matches a
+   bare space), and the same flag drives both the accent and the clear button. */
+.hasValue .input {
+  border-color: var(--accent);
+  background: var(--accent-bg, rgba(80, 130, 255, 0.1));
+  font-weight: 500;
+}
+
+.hasValue .icon {
+  color: var(--accent);
+}
+
+.clear {
+  position: absolute;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.clear:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}

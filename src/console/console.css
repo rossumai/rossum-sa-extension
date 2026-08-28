@@ -176,8 +176,8 @@ body {
   gap: 2px;
 }
 
-/* Collections name filter. Sits under the sidebar header, above the list; the input itself
-   is dressed by the shared filter rules further down (see .ops-search-wrap). */
+/* Collections name filter — the sidebar's own layout around the shared <FilterInput>; the
+   box itself is owned by src/ui/FilterInput.module.css. */
 .collection-filter {
   padding: 0 10px 8px;
 }
@@ -3563,91 +3563,11 @@ tbody.uploads-row-failed tr {
   border-bottom: 1px solid var(--border-light, var(--border));
 }
 
-.ops-search-wrap,
-.collection-filter-wrap {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-}
-
-/* The ops filter is a fixed box in a toolbar; the sidebar one fills its column. */
-.ops-search-wrap {
+/* Width only. The Operation Logs filter is a fixed box in a toolbar, while the sidebar one
+   fills its column; everything else about both boxes — height, font, states, the clear
+   button — is owned by src/ui/FilterInput.module.css, which they now render through. */
+.uploads-ops-filter {
   width: 280px;
-}
-.collection-filter-wrap {
-  width: 100%;
-}
-
-.ops-search-icon,
-.collection-filter-icon {
-  position: absolute;
-  left: 8px;
-  color: var(--text-secondary);
-  pointer-events: none;
-}
-
-.ops-search,
-.collection-filter-input {
-  padding: 5px 26px 5px 28px;
-  font-size: 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-input, var(--bg-main));
-  color: var(--text-primary);
-  width: 100%;
-  transition:
-    border-color 120ms ease,
-    background-color 120ms ease,
-    box-shadow 120ms ease;
-}
-
-.ops-search::placeholder,
-.collection-filter-input::placeholder {
-  color: var(--text-secondary);
-}
-
-.ops-search:focus,
-.collection-filter-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-bg, rgba(80, 130, 255, 0.18));
-}
-
-.ops-search-wrap.has-value .ops-search,
-.collection-filter-wrap.has-value .collection-filter-input {
-  border-color: var(--accent);
-  background: var(--accent-bg, rgba(80, 130, 255, 0.1));
-  font-weight: 500;
-}
-
-.ops-search-wrap.has-value .ops-search-icon,
-.collection-filter-wrap.has-value .collection-filter-icon {
-  color: var(--accent);
-}
-
-.ops-search-clear,
-.collection-filter-clear {
-  position: absolute;
-  right: 4px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.ops-search-clear:hover,
-.collection-filter-clear:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
 }
 
 /* ── JSON Editor (CodeMirror wrapper) ─────────── */

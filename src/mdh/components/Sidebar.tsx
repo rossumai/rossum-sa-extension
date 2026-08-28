@@ -26,6 +26,7 @@ import { showUndo } from '../undo.js';
 import { UNDO_LIMIT } from '../bulkOps.js';
 import { openCollectionTab } from '../openCollectionTab.js';
 import { filterCollections, splitByMatch } from '../collectionFilter.js';
+import FilterInput from '../../ui/FilterInput.jsx';
 
 async function loadCollections() {
   try {
@@ -474,49 +475,24 @@ export default function Sidebar() {
       </div>
       {(cols.length > 0 || hiddenCols.length > 0) && (
         <div class="collection-filter">
-          <div class={'collection-filter-wrap' + (filtering ? ' has-value' : '')}>
-            <svg
-              class="collection-filter-icon"
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <circle cx="11" cy="11" r="7" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              class="collection-filter-input"
-              type="text"
-              placeholder="Filter by name..."
-              aria-label="Filter collections by name"
-              value={nameFilter}
-              onInput={(e: any) => setNameFilter(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') setNameFilter('');
-              }}
-              title={
-                filtering
-                  ? `Filtering by "${nameFilter}" \u2014 press Escape or click \u00d7 to clear`
-                  : ''
-              }
-            />
-            {filtering && (
-              <button
-                class="collection-filter-clear"
-                title="Clear filter"
-                aria-label="Clear filter"
-                onClick={() => setNameFilter('')}
-              >
-                {'\u00d7'}
-              </button>
-            )}
-          </div>
+          {/* `active={filtering}` rather than letting the primitive derive it from the value:
+              whitespace-only is not filtering here, because filterCollections trims. */}
+          <FilterInput
+            value={nameFilter}
+            onInput={setNameFilter}
+            onClear={clearFilter}
+            active={filtering}
+            placeholder="Filter by name..."
+            ariaLabel="Filter collections by name"
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setNameFilter('');
+            }}
+            title={
+              filtering
+                ? `Filtering by "${nameFilter}" \u2014 press Escape or click \u00d7 to clear`
+                : ''
+            }
+          />
         </div>
       )}
       {/* Above the list, not after it: `.collection-list` is `flex: 1`, so a sibling below it

@@ -20,6 +20,7 @@ import * as api from '../src/mdh/api.js';
 import * as store from '../src/mdh/store.js';
 import Sidebar from '../src/mdh/components/Sidebar.jsx';
 import { COLLECTION, LEGACY_COLLECTION } from '../src/fabry/architect/collectionNames.js';
+import fstyles from '../src/ui/FilterInput.module.css';
 
 // A query that hits the extension's own collection and nothing the customer owns. Derived
 // rather than hardcoded, so a rename of COLLECTION cannot silently make it match 'vendors'
@@ -53,8 +54,8 @@ async function mount() {
 
 const names = (root: any) =>
   [...root.querySelectorAll('.collection-item-name')].map((e) => e.textContent);
-const input = (root: any) => root.querySelector('.collection-filter-input') as HTMLInputElement;
-const clearBtn = (root: any) => root.querySelector('.collection-filter-clear');
+const input = (root: any) => root.querySelector('input.' + fstyles.input) as HTMLInputElement;
+const clearBtn = (root: any) => root.querySelector('.' + fstyles.clear);
 
 async function type(root: any, value: string) {
   const el = input(root);
@@ -435,7 +436,7 @@ describe('Sidebar — filter the collection list by name', () => {
 
     await type(root, '   ');
     expect(names(root)).toEqual(['items', 'vendors']);
-    expect(root.querySelector('.collection-filter-wrap')!.className).not.toContain('has-value');
+    expect(root.querySelector('.' + fstyles.wrap)!.className).not.toContain(fstyles.hasValue);
     expect(input(root).getAttribute('title')).toBe('');
     expect(clearBtn(root)).toBe(null);
   });

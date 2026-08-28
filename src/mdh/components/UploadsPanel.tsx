@@ -13,6 +13,7 @@ import {
 } from '../store.js';
 import * as api from '../api.js';
 import FlashOnChange from './FlashOnChange.jsx';
+import FilterInput from '../../ui/FilterInput.jsx';
 
 const DEFAULT_COL_WIDTHS: Record<string, number> = {
   status: 130,
@@ -823,41 +824,16 @@ export default function UploadsPanel() {
           </div>
         )}
         <span style="flex:1" />
-        <div class={'ops-search-wrap' + (search ? ' has-value' : '')}>
-          <svg
-            class="ops-search-icon"
-            width="13"
-            height="13"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <circle cx="11" cy="11" r="7" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input
-            class="ops-search"
-            type="text"
-            placeholder="Filter by dataset, filename, type, or error…"
-            value={search}
-            onInput={(e: any) => setSearch(e.target.value)}
-            title={search ? `Filtering by "${search}" — click × to clear` : ''}
-          />
-          {search && (
-            <button
-              class="ops-search-clear"
-              title="Clear filter"
-              aria-label="Clear filter"
-              onClick={() => setSearch('')}
-            >
-              {'×'}
-            </button>
-          )}
-        </div>
+        {/* No `active`: unlike the sidebar this filter genuinely matches on a bare space, so
+            a non-empty value IS engaged — the primitive's default. */}
+        <FilterInput
+          className="uploads-ops-filter"
+          value={search}
+          onInput={setSearch}
+          onClear={() => setSearch('')}
+          placeholder="Filter by dataset, filename, type, or error…"
+          title={search ? `Filtering by "${search}" — click × to clear` : ''}
+        />
         <button class="icon-btn" title="Refresh" onClick={() => loadOperations()}>
           {'\u21bb'}
         </button>
