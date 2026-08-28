@@ -28,7 +28,7 @@ export default function CollectionEmptyState({ connected }: { connected: boolean
           Master Data Hub keeps your reference data in collections you can browse and query. This
           organization doesn't have any yet.
         </p>
-        <button class="btn btn-success" onClick={showCreateModal}>
+        <button class="btn btn-success" onClick={() => showCreateModal()}>
           Create collection
         </button>
       </div>

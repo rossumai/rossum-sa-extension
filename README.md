@@ -24,7 +24,7 @@ All features are configurable via the extension popup and can be toggled on or o
 - **MDH side panel** — opens the "MDH on this screen" lookup debugger in Chrome's side panel, where it stays put while you scroll and click through the annotation screen (the popup version closes as soon as you click away)
 - **Dev features toggle** — enables `devFeaturesEnabled` flag
 - **Dev debug toggle** — enables `devDebugEnabled` flag
-- **Dataset Management** — browse, query, edit, and delete records in Data Storage collections; manage indexes and Atlas Search indexes
+- **Dataset Management** — browse, query, edit, and delete records in Data Storage collections; filter the collection list by name; manage indexes and Atlas Search indexes
 - **Onboarding training** — a guided, gamified track for new partners: missions
   verified from the page you reach and from read-only API state, XP and badges,
   and a completion receipt with a per-person code. Experimental, and off by

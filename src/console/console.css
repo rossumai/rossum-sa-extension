@@ -176,6 +176,21 @@ body {
   gap: 2px;
 }
 
+/* Collections name filter. Sits under the sidebar header, above the list; the input itself
+   is dressed by the shared filter rules further down (see .ops-search-wrap). */
+.collection-filter {
+  padding: 0 10px 8px;
+}
+
+.collection-filter-empty {
+  padding: 4px 12px 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
 .collection-list {
   flex: 1;
   overflow-y: auto;
@@ -218,6 +233,17 @@ body {
   white-space: nowrap;
   font-family: var(--font-mono);
   font-size: 12px;
+}
+
+/* The run a name filter matched. Weight and one step of contrast, nothing more: across
+   ninety rows a heavy bold reads as noise rather than as a hint. On the selected row the
+   colour is inherited, since white-on-accent already has all the contrast there is. */
+.collection-item-hit {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.collection-item.active .collection-item-hit {
+  color: inherit;
 }
 
 .collection-item-actions {
@@ -1800,6 +1826,28 @@ body {
   flex: none;
   margin-top: auto;
   border-top: 1px solid var(--border);
+}
+/* `margin-top: auto` parks the group at the foot of the sidebar, which is right when it is a
+   footer under a full list. While filtering it can hold the ONLY match, and three rules then
+   conspire to strand that row ~500px below the box that produced it: the empty main list
+   absorbs the slack as `flex: 1`, and the auto margin pushes the group past it. So when a
+   filter is active AND the main list is empty, the list stops growing and the group loses its
+   margin — with the slack handed to the nav footer instead, which keeps it pinned to the
+   bottom rather than floating up under the group. Only that case changes; a filtered list
+   WITH rows keeps `flex: 1`, since it owns the scroll range. */
+.sidebar-filtering .collection-list.is-empty {
+  flex: none;
+}
+.sidebar-filtering .collection-list.is-empty ~ .collection-hidden-group {
+  margin-top: 0;
+}
+.sidebar-filtering .collection-list.is-empty ~ .sidebar-footer {
+  margin-top: auto;
+}
+/* Inert while filtering (the group is force-open there), so it should not read as clickable.
+   Kept at full opacity: it is still the label for rows that are on screen. */
+.collection-hidden-toggle:disabled {
+  cursor: default;
 }
 .collection-hidden-toggle {
   display: flex;
@@ -3515,21 +3563,31 @@ tbody.uploads-row-failed tr {
   border-bottom: 1px solid var(--border-light, var(--border));
 }
 
-.ops-search-wrap {
+.ops-search-wrap,
+.collection-filter-wrap {
   position: relative;
   display: inline-flex;
   align-items: center;
-  width: 280px;
 }
 
-.ops-search-icon {
+/* The ops filter is a fixed box in a toolbar; the sidebar one fills its column. */
+.ops-search-wrap {
+  width: 280px;
+}
+.collection-filter-wrap {
+  width: 100%;
+}
+
+.ops-search-icon,
+.collection-filter-icon {
   position: absolute;
   left: 8px;
   color: var(--text-secondary);
   pointer-events: none;
 }
 
-.ops-search {
+.ops-search,
+.collection-filter-input {
   padding: 5px 26px 5px 28px;
   font-size: 12px;
   border: 1px solid var(--border);
@@ -3543,27 +3601,32 @@ tbody.uploads-row-failed tr {
     box-shadow 120ms ease;
 }
 
-.ops-search::placeholder {
+.ops-search::placeholder,
+.collection-filter-input::placeholder {
   color: var(--text-secondary);
 }
 
-.ops-search:focus {
+.ops-search:focus,
+.collection-filter-input:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-bg, rgba(80, 130, 255, 0.18));
 }
 
-.ops-search-wrap.has-value .ops-search {
+.ops-search-wrap.has-value .ops-search,
+.collection-filter-wrap.has-value .collection-filter-input {
   border-color: var(--accent);
   background: var(--accent-bg, rgba(80, 130, 255, 0.1));
   font-weight: 500;
 }
 
-.ops-search-wrap.has-value .ops-search-icon {
+.ops-search-wrap.has-value .ops-search-icon,
+.collection-filter-wrap.has-value .collection-filter-icon {
   color: var(--accent);
 }
 
-.ops-search-clear {
+.ops-search-clear,
+.collection-filter-clear {
   position: absolute;
   right: 4px;
   display: inline-flex;
@@ -3581,7 +3644,8 @@ tbody.uploads-row-failed tr {
   cursor: pointer;
 }
 
-.ops-search-clear:hover {
+.ops-search-clear:hover,
+.collection-filter-clear:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
 }
