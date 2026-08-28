@@ -83,14 +83,14 @@ beforeEach(() => {
 describe('Sidebar — filter the collection list by name', () => {
   it('narrows the list as characters are typed, and reports how many of how many', async () => {
     vi.mocked(api.listCollections).mockResolvedValue({
-      result: ['wc_po_eurofins_uat', 'wc_supplier_eurofins_uat', 'wc_supplier_master'],
+      result: ['acme_po_north_uat', 'acme_supplier_north_uat', 'acme_supplier_master'],
     });
     const root = await mount();
     await waitFor(() => root.querySelectorAll('.collection-item').length === 3);
     expect(root.querySelector('.sidebar-count')!.textContent).toBe('(3)');
 
     await type(root, 'supplier');
-    expect(names(root)).toEqual(['wc_supplier_eurofins_uat', 'wc_supplier_master']);
+    expect(names(root)).toEqual(['acme_supplier_master', 'acme_supplier_north_uat']);
     expect(root.querySelector('.sidebar-count')!.textContent).toBe('(2 / 3)');
   });
 
@@ -210,7 +210,7 @@ describe('Sidebar — filter the collection list by name', () => {
   });
 
   it('emphasises the matched run inside each name, and only that run', async () => {
-    vi.mocked(api.listCollections).mockResolvedValue({ result: ['wc_supplier_eurofins_uat'] });
+    vi.mocked(api.listCollections).mockResolvedValue({ result: ['acme_supplier_north_uat'] });
     const root = await mount();
     await waitFor(() => root.querySelectorAll('.collection-item').length === 1);
     // nothing emphasised while the list is unfiltered
@@ -221,7 +221,7 @@ describe('Sidebar — filter the collection list by name', () => {
     // the name's own casing survives, not the query's
     expect(hits).toEqual(['supp']);
     // and the row still reads as the whole, unaltered name
-    expect(names(root)).toEqual(['wc_supplier_eurofins_uat']);
+    expect(names(root)).toEqual(['acme_supplier_north_uat']);
   });
 
   it('emphasises every occurrence in a name', async () => {
