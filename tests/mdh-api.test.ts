@@ -135,12 +135,10 @@ describe('MDH API client', () => {
       [() => api.listIndexes('col'), '/indexes/list'],
       [() => api.createIndex('col', 'idx1', { name: 1 }), '/indexes/create'],
       [() => api.dropIndex('col', 'idx1'), '/indexes/drop'],
-      [() => api.listSearchIndexes('col'), '/search_indexes/list'],
       [
-        () => api.createSearchIndex('col', { indexName: 'si', mappings: {} }),
-        '/search_indexes/create',
+        () => api.listSearchIndexes('col'),
+        '/svc/master-data-hub/api/v2/datasets/col/search_indexes',
       ],
-      [() => api.dropSearchIndex('col', 'si'), '/search_indexes/drop'],
     ] as Array<[() => Promise<unknown>, string]>;
 
     for (const [fn, expectedPath] of cases) {
@@ -398,5 +396,65 @@ describe('data-matching dataset API', () => {
         },
       }),
     ).resolves.toMatchObject({ status: 'finished' });
+  });
+});
+
+// Search indexes moved to Master Data Hub V2. The Data Storage paths still answer
+// but are served by MDH's compatibility router and carry Sunset: 2027-12-31, and
+// their operation ids are invisible to the Data Storage operation_status endpoint.
+describe('search indexes on MDH V2', () => {
+  it('lists with GET against the master-data-hub base and returns the bare array', async () => {
+    fetchMock.mockResolvedValue(ok([{ name: 'default' }]));
+
+    const rows = await api.listSearchIndexes('example');
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'https://example.rossum.app/svc/master-data-hub/api/v2/datasets/example/search_indexes',
+    );
+    expect(fetchMock.mock.calls[0][1].method).toBe('GET');
+    expect(rows).toEqual([{ name: 'default' }]);
+  });
+
+  it('puts one index with the definition as the whole body and the name in the URL', async () => {
+    fetchMock.mockResolvedValue(ok({ message: 'declared', type: 'info' }));
+
+    await api.putSearchIndex('example', 'by_name', { mappings: { dynamic: true } });
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'https://example.rossum.app/svc/master-data-hub/api/v2/datasets/example/search_indexes/by_name',
+    );
+    expect(fetchMock.mock.calls[0][1].method).toBe('PUT');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ mappings: { dynamic: true } });
+  });
+
+  it('deletes one index with DELETE and no body', async () => {
+    fetchMock.mockResolvedValue(ok({ message: 'deleted', type: 'info' }));
+
+    await api.deleteSearchIndex('example', 'by_name');
+
+    expect(fetchMock.mock.calls[0][1].method).toBe('DELETE');
+    expect(fetchMock.mock.calls[0][1].body).toBeUndefined();
+  });
+
+  it('percent-encodes the collection and index names', async () => {
+    fetchMock.mockResolvedValue(ok([]));
+
+    await api.listSearchIndexes('a b');
+
+    expect(fetchMock.mock.calls[0][0]).toContain('/datasets/a%20b/search_indexes');
+  });
+
+  it('surfaces the MDH {message,type} error body', async () => {
+    fetchMock.mockResolvedValue(err(404, { message: "Dataset 'x' not found", type: 'error' }));
+
+    await expect(api.listSearchIndexes('x')).rejects.toThrow("Dataset 'x' not found");
+  });
+
+  it('attaches no operationId — V2 writes have no operation to poll', async () => {
+    fetchMock.mockResolvedValue(ok({ message: 'declared', type: 'info' }));
+
+    const res = await api.putSearchIndex('example', 'by_name', { mappings: {} });
+
+    expect(res).not.toHaveProperty('operationId');
   });
 });

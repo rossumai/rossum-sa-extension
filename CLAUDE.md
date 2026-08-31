@@ -227,6 +227,11 @@ An app-switcher rail over six apps. Adding one touches three hardcoded switch po
   records, a CodeMirror+JSON5 aggregation-pipeline editor, indexes, one import and one export
   wizard, and a Stages view that debugs a pipeline stage by stage. Signals in `store.ts`, REST in
   `api.ts`, plus an LRU cache, background prefetch and streamed export.
+  **Search indexes are the exception: they speak Master Data Hub V2**
+  (`{domain}/svc/master-data-hub/api/v2/datasets/{name}/search_indexes`), not Data Storage,
+  whose `search_indexes/*` endpoints carry `Sunset: 2027-12-31`. V2 returns no operation id for
+  writes, so progress is polled off the resource by `hooks/useIndexReconcile.ts` rather than
+  `useOperationStatus`. Everything else in the app is still Data Storage.
 - **Audit Log Viewer** (`src/audit/`) — one generic shell driven by per-source descriptors in
   `sources/`. Only `audit_logs` is registered; the descriptor shape exists to host more.
 - **Galaxy** (`src/galaxy/`) — the live org as a 3D force graph on raw three.js + d3-force-3d.
@@ -515,7 +520,8 @@ older ones as history. Currently authoritative per area:
   `2026-08-11-fabry-public-single-gate-design.md`
 - **Onboarding training** — `2026-08-07-partner-onboarding-training-design.md` + `-verification.md`
 - **Inspector** — `2026-07-03-inspector-overhaul-design.md`
-- **MDH** — `2026-08-12-mdh-stage-link-highlight-design.md`,
+- **MDH** — `2026-08-28-mdh-search-index-v2-migration-design.md` (search indexes),
+  `2026-08-12-mdh-stage-link-highlight-design.md`,
   `2026-08-07-mdh-provenance-side-panel-design.md`,
   `2026-06-30-unified-dataset-import-design.md`, `2026-07-04-export-unify-design.md`
 - **DevTools panel** — `2026-07-10-devtools-rossum-panel-design.md`,

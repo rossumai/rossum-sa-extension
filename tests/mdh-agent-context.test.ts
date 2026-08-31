@@ -41,9 +41,9 @@ describe('schema-hint detectors (pure, from in-memory records)', () => {
           name: 'dyn',
           queryable: true,
           status: 'READY',
-          latest_definition: { mappings: { dynamic: true } },
+          definition: { mappings: { dynamic: true } },
         },
-        { name: 'stopped', queryable: false, latest_definition: {} },
+        { name: 'stopped', queryable: false, definition: {} },
       ]),
     ).toEqual([{ name: 'dyn', fields: 'all', synonyms: false }]);
   });
@@ -60,7 +60,7 @@ describe('getSchemaHints', () => {
       aggregate: vi.fn(async () => ({
         result: [{ status: [{ _id: 'open' }, { _id: 'closed' }] }],
       })),
-      listSearchIndexes: vi.fn(async () => ({ result: [] })),
+      listSearchIndexes: vi.fn(async () => []),
     };
     const h = await getSchemaHints(api, 'c', [{ status: 'open', amount: 5, vendorId: '10' }]);
     expect(h.knownValues.status).toEqual(['closed', 'open']); // sorted distinct
@@ -82,6 +82,24 @@ describe('getSchemaHints', () => {
     expect(h.knownValues).toEqual({});
     expect(h.searchIndexes).toEqual([]);
     expect(h.fieldTypes.a).toBe('number'); // free detector still works
+  });
+
+  it('summarises search indexes from the V2 `definition` field', async () => {
+    const api = {
+      aggregate: vi.fn(async () => ({ result: [{}] })),
+      listSearchIndexes: vi.fn(async () => [
+        {
+          name: 'by_name',
+          status: 'READY',
+          queryable: true,
+          definition: { mappings: { dynamic: false, fields: { name: {}, city: {} } } },
+        },
+      ]),
+    };
+    const h = await getSchemaHints(api, 'c3', [{ name: 'a' }]);
+    expect(h.searchIndexes).toEqual([
+      { name: 'by_name', fields: ['name', 'city'], synonyms: false },
+    ]);
   });
 
   it('returns free detectors only when no collection is selected (no API calls)', async () => {

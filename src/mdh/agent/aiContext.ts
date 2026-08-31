@@ -88,7 +88,7 @@ export function summarizeSearchIndexes(rawList: any): any[] {
   return rawList
     .filter((i) => i && i.queryable !== false && (i.status === undefined || i.status === 'READY'))
     .map((i) => {
-      const def = i.latest_definition || {};
+      const def = i.definition || {};
       const mappings = def.mappings || {};
       const fields = mappings.dynamic === true ? 'all' : Object.keys(mappings.fields || {});
       return {
@@ -223,7 +223,7 @@ async function fetchCollectionHints(api: any, collection: string, records: any[]
     ).catch(() => ({})),
     api
       .listSearchIndexes(collection)
-      .then((r: any) => summarizeSearchIndexes(r?.result || r))
+      .then((rows: any) => summarizeSearchIndexes(rows))
       .catch(() => []),
   ]);
 

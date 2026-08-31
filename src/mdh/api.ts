@@ -156,6 +156,50 @@ async function get(path: string, { signal: externalSignal }: RequestOpts = {}): 
   return data;
 }
 
+// Master Data Hub V2 is a second service with a different envelope: REST verbs, a
+// bare JSON body, and a {message, type} error shape rather than Data Storage's
+// {code, message, result}. post()/get() are hard-wired to serviceBase and that
+// envelope, so V2 needs its own helper. It deliberately does NOT attach an
+// operationId — V2 writes return 202 with no operation to poll, and inventing one
+// would be a lie (see hooks/useIndexReconcile.ts).
+async function mdhRequest(
+  method: string,
+  path: string,
+  body?: unknown,
+  { signal: externalSignal }: RequestOpts = {},
+): Promise<any> {
+  const { signal, timer } = combinedSignal(externalSignal);
+  let res: Response;
+  try {
+    res = await fetch(`${baseDomain}/svc/master-data-hub${path}`, {
+      method,
+      headers: {
+        Authorization: authHeader,
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal,
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    if ((err as Error).name === 'AbortError') {
+      if (externalSignal?.aborted) throw err;
+      throw new Error('Request timed out after 30s');
+    }
+    throw err;
+  }
+  clearTimeout(timer);
+  if (res.status === 401) {
+    throw apiError(
+      'Session expired. Open a Rossum page and click Data Storage again to reconnect.',
+      401,
+    );
+  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw apiError(data?.message || `API error ${res.status}`, res.status);
+  return data;
+}
+
 function apiError(message: string, status?: number): ApiError {
   const e = new Error(message) as ApiError;
   e.status = status;
@@ -328,44 +372,49 @@ export function dropIndex(collectionName: string, indexName: string): Promise<an
   return post('/indexes/drop', { collectionName, indexName });
 }
 
-export function listSearchIndexes(
-  collectionName: string,
-  nameOnly = false,
-  { signal }: RequestOpts = {},
-): Promise<any> {
-  return post('/search_indexes/list', { collectionName, nameOnly }, { signal });
+// Search indexes live on Master Data Hub V2, not Data Storage. The Data Storage
+// paths still answer but are served by MDH's compatibility router and carry
+// Sunset: 2027-12-31; their async operation ids also land in MDH's operation
+// store, which the Data Storage operation_status endpoint cannot see.
+function searchIndexPath(collectionName: string, indexName?: string): string {
+  const base = `/api/v2/datasets/${encodeURIComponent(collectionName)}/search_indexes`;
+  return indexName === undefined ? base : `${base}/${encodeURIComponent(indexName)}`;
 }
 
-export type SearchIndexDefinition = {
-  indexName?: string;
-  mappings?: Record<string, unknown>;
-  analyzer?: unknown;
-  analyzers?: unknown;
-  searchAnalyzer?: unknown;
-  synonyms?: unknown;
+/**
+ * A search index as MDH V2 reports it: the registry declaration overlaid with the
+ * live engine fields. `definition` is snake_case when a declaration exists and the
+ * engine's own camelCase when the index exists only on the engine — both are valid
+ * input to putSearchIndex, so neither needs converting.
+ * `latest_definition_version` is absent between a PUT and the changelog write.
+ */
+export type SearchIndex = {
+  name: string;
+  definition: Record<string, any>;
+  queryable: boolean;
+  status: string;
+  latest_definition_version?: { version: number; created_at?: string } | null;
 };
 
-export function createSearchIndex(
+export function listSearchIndexes(
   collectionName: string,
-  {
-    indexName,
-    mappings,
-    analyzer,
-    analyzers,
-    searchAnalyzer,
-    synonyms,
-  }: SearchIndexDefinition = {},
-): Promise<any> {
-  const body: Record<string, unknown> = { collectionName, indexName, mappings };
-  if (analyzer) body.analyzer = analyzer;
-  if (analyzers) body.analyzers = analyzers;
-  if (searchAnalyzer) body.searchAnalyzer = searchAnalyzer;
-  if (synonyms) body.synonyms = synonyms;
-  return post('/search_indexes/create', body);
+  { signal }: RequestOpts = {},
+): Promise<SearchIndex[]> {
+  return mdhRequest('GET', searchIndexPath(collectionName), undefined, { signal });
 }
 
-export function dropSearchIndex(collectionName: string, indexName: string): Promise<any> {
-  return post('/search_indexes/drop', { collectionName, indexName });
+// Upsert: creates when the name is new, replaces the declaration when it is not.
+// 202 with no operation id — the caller observes progress by re-reading the list.
+export function putSearchIndex(
+  collectionName: string,
+  indexName: string,
+  definition: Record<string, unknown>,
+): Promise<any> {
+  return mdhRequest('PUT', searchIndexPath(collectionName, indexName), definition);
+}
+
+export function deleteSearchIndex(collectionName: string, indexName: string): Promise<any> {
+  return mdhRequest('DELETE', searchIndexPath(collectionName, indexName));
 }
 
 export function checkOperationStatus(operationId: string): Promise<any> {

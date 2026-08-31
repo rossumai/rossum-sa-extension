@@ -1,26 +1,40 @@
-import { h } from 'preact';
+import { h, Fragment } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { selectedCollection, activePanel, loading, error } from '../store.js';
 import { openModal, closeModal, ModalBody, ModalActions, ModalFieldLabel } from './Modal.jsx';
 import JsonEditor from './JsonEditor.jsx';
 import IndexCard from './IndexCard.jsx';
-import { toCreateSearchIndexDefinition } from '../searchIndexDef.js';
-import useOperationStatus from '../hooks/useOperationStatus.js';
+import {
+  toSearchIndexDefinition,
+  statusBadge,
+  syncSummary,
+  isTransitional,
+  summarizeDefinition,
+  splitPastedDefinition,
+  firstValidationLine,
+} from '../searchIndexDef.js';
+import { formatTime, parseUtcTimestamp } from '../relativeTime.js';
+import useIndexReconcile from '../hooks/useIndexReconcile.js';
 import * as api from '../api.js';
 import * as cache from '../cache.js';
 import type { JsonEditorHandle } from './JsonEditor.jsx';
 
-function defaultTemplate() {
-  return JSON.stringify({ indexName: 'my_search_index', mappings: { dynamic: true } }, null, 2);
-}
-
 export default function SearchIndexPanel() {
   const [indexes, setIndexes] = useState<any[]>([]);
-  const { track, clear } = useOperationStatus();
+  const [checkedAt, setCheckedAt] = useState<number | null>(null);
+  // V2 writes return no operation id, so progress is only visible by re-reading
+  // the list. This is what makes a PENDING_CREATE badge become READY on its own.
+  const { watch, stop } = useIndexReconcile((rows, at) => {
+    setIndexes(rows);
+    setCheckedAt(at);
+  });
 
   async function loadSearchIndexes() {
     const collection = selectedCollection.value as string;
-    if (!collection) return;
+    // A slash in the name cannot be addressed through the V2 path even
+    // percent-encoded — the router 404s. Say so rather than fire a request whose
+    // "not found" would be a lie about a collection that plainly exists.
+    if (!collection || collection.includes('/')) return;
 
     const cached = cache.get(collection, 'searchIndexes');
     if (cached !== null) {
@@ -34,12 +48,15 @@ export default function SearchIndexPanel() {
         loading.value = true;
         error.value = null;
       }
-      const res = await api.listSearchIndexes(collection, false);
-      const result = res.result || [];
+      const result = await api.listSearchIndexes(collection);
       cache.set(collection, 'searchIndexes', result);
       if (isVisible) loading.value = false;
       if (selectedCollection.value !== collection) return;
       setIndexes(result);
+      setCheckedAt(Date.now());
+      // Opening the panel onto a build already in flight has to resume the poll,
+      // or the badge sits at "pending create" until someone hits Refresh.
+      if (result.some((r: any) => isTransitional(r?.status))) watch(collection);
     } catch (err: any) {
       if (isVisible) {
         error.value = { message: err.message };
@@ -48,70 +65,91 @@ export default function SearchIndexPanel() {
     }
   }
 
-  // Clear any in-flight op poll on collection/panel switch so a previous
-  // collection's operation can't surface its result here.
   useEffect(() => {
-    clear();
+    stop();
     loadSearchIndexes();
   }, [selectedCollection.value, activePanel.value]);
 
-  function openCreateModal() {
+  function openIndexModal({
+    mode,
+    name: initialName = '',
+    definition: initialDefinition,
+  }: {
+    mode: 'create' | 'edit';
+    name?: string;
+    definition?: any;
+  }) {
     const editorRef: { current: JsonEditorHandle | null } = { current: null };
+    const isEdit = mode === 'edit';
+    const initialJson = JSON.stringify(
+      initialDefinition ?? { mappings: { dynamic: true } },
+      null,
+      2,
+    );
 
-    openModal('Create Search Index', () => {
+    openModal(isEdit ? 'Edit Search Index' : 'Create Search Index', () => {
       const hintRef = useRef<HTMLDivElement | null>(null);
+      const nameRef = useRef<HTMLInputElement | null>(null);
 
-      async function handleCreate() {
+      async function handleSubmit() {
         if (!editorRef.current?.isValid()) {
           if (hintRef.current) hintRef.current.textContent = 'Invalid JSON';
           return;
         }
-        const parsed = editorRef.current.getParsed();
-        const { indexName, mappings, analyzer, analyzers, searchAnalyzer, synonyms } = parsed;
-        if (!indexName || !mappings) {
-          if (hintRef.current) hintRef.current.textContent = 'indexName and mappings are required';
+        // A snippet copied from the build that emitted {indexName, mappings}
+        // still pastes: the name is lifted out rather than sent in the body,
+        // where V2 rejects it as an extra key.
+        const split = splitPastedDefinition(editorRef.current.getParsed());
+        if (!isEdit && split.name && nameRef.current && !nameRef.current.value.trim()) {
+          nameRef.current.value = split.name;
+        }
+        const indexName = (nameRef.current?.value || '').trim();
+        if (!indexName) {
+          if (hintRef.current) hintRef.current.textContent = 'A name is required';
+          nameRef.current?.focus();
           return;
         }
-
-        const opts: Record<string, any> = { indexName, mappings };
-        if (analyzer) opts.analyzer = analyzer;
-        if (analyzers) opts.analyzers = analyzers;
-        if (searchAnalyzer) opts.searchAnalyzer = searchAnalyzer;
-        if (synonyms) opts.synonyms = synonyms;
+        const definition = split.definition;
+        if (!definition || typeof definition !== 'object' || !definition.mappings) {
+          if (hintRef.current)
+            hintRef.current.textContent = 'The definition needs a "mappings" object';
+          return;
+        }
 
         try {
           loading.value = true;
           error.value = null;
-          const res = await api.createSearchIndex(selectedCollection.value as string, opts);
+          await api.putSearchIndex(selectedCollection.value as string, indexName, definition);
           cache.invalidate(selectedCollection.value as string, 'searchIndexes');
           loading.value = false;
           closeModal();
-          const opId = res.operationId;
-          if (opId)
-            track(opId, {
-              label: `Creating search index "${indexName}"`,
-              onFinished: loadSearchIndexes,
-            });
-          else loadSearchIndexes();
+          watch(selectedCollection.value as string);
         } catch (err: any) {
           loading.value = false;
-          if (hintRef.current) hintRef.current.textContent = err.message;
+          if (hintRef.current) hintRef.current.textContent = firstValidationLine(err.message);
         }
       }
 
       return (
         <ModalBody>
-          <ModalFieldLabel>
-            collectionName is set automatically from the selected collection
-          </ModalFieldLabel>
-          <JsonEditor value={defaultTemplate()} minHeight="250px" editorRef={editorRef} />
+          <ModalFieldLabel>{isEdit ? 'Name (cannot be changed)' : 'Name'}</ModalFieldLabel>
+          <input
+            ref={nameRef}
+            class={'input' + (isEdit ? ' input-locked' : '')}
+            style="width:100%"
+            placeholder="my_search_index"
+            value={initialName}
+            readOnly={isEdit}
+          />
+          <ModalFieldLabel style="margin-top:8px">Definition</ModalFieldLabel>
+          <JsonEditor value={initialJson} minHeight="250px" editorRef={editorRef} />
           <div ref={hintRef} class="input-hint"></div>
           <ModalActions>
             <button class="btn btn-secondary" onClick={closeModal}>
               Cancel
             </button>
-            <button class="btn btn-primary" onClick={handleCreate}>
-              Create Search Index
+            <button class="btn btn-primary" onClick={handleSubmit}>
+              {isEdit ? 'Save & rebuild' : 'Create Search Index'}
             </button>
           </ModalActions>
         </ModalBody>
@@ -123,27 +161,40 @@ export default function SearchIndexPanel() {
     try {
       loading.value = true;
       error.value = null;
-      const res = await api.dropSearchIndex(selectedCollection.value as string, indexName);
+      await api.deleteSearchIndex(selectedCollection.value as string, indexName);
       cache.invalidate(selectedCollection.value as string, 'searchIndexes');
       loading.value = false;
-      const opId = res.operationId;
-      if (opId)
-        track(opId, {
-          label: `Dropping search index "${indexName}"`,
-          onFinished: loadSearchIndexes,
-        });
-      else loadSearchIndexes();
+      watch(selectedCollection.value as string);
     } catch (err: any) {
       error.value = { message: err.message };
       loading.value = false;
     }
   }
 
+  const sync = syncSummary(indexes, checkedAt);
+
+  if (((selectedCollection.value as string) || '').includes('/')) {
+    return (
+      <div class="panel">
+        <div style="padding:16px;color:var(--text-secondary);font-size:12px">
+          Search indexes cannot be managed for a collection whose name contains a slash {'\u2014'}{' '}
+          Master Data Hub addresses the collection in the URL path.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div class="panel">
       <div class="toolbar">
-        <span style="flex:1;font-weight:500">Search Indexes (Atlas Search)</span>
-        <button class="btn btn-success btn-sm" onClick={openCreateModal}>
+        <span class="toolbar-stack">
+          <span style="font-weight:500">Search Indexes (Atlas Search)</span>
+          <span class="toolbar-sync">
+            {sync.working ? <span class="spin" /> : <span class="dot" />}
+            {sync.text}
+          </span>
+        </span>
+        <button class="btn btn-success btn-sm" onClick={() => openIndexModal({ mode: 'create' })}>
           + Create
         </button>
         <button
@@ -167,27 +218,46 @@ export default function SearchIndexPanel() {
             const isObj = typeof idx === 'object' && idx !== null;
             const name = isObj ? idx.name || '(unnamed)' : String(idx);
             const badges = [];
-            const status = isObj && idx.status ? String(idx.status).toUpperCase() : null;
-            const isFailed = status === 'FAILED' || status === 'STALE';
-            if (isObj && idx.status) {
-              const cls =
-                status === 'READY'
-                  ? 'index-badge-ready'
-                  : status === 'PENDING' || status === 'BUILDING'
-                    ? 'index-badge-pending'
-                    : isFailed
-                      ? 'index-badge-failed'
-                      : '';
-              badges.push({ text: idx.status.toLowerCase(), cls });
-            }
-            if (isObj && idx.type) badges.push({ text: idx.type });
+            const badge = isObj ? statusBadge(idx.status) : null;
+            const isFailed = badge?.cls === 'index-badge-failed';
+            if (badge) badges.push(badge);
             if (isObj && idx.queryable === false)
               badges.push({ text: 'not queryable', cls: 'index-badge-warning' });
+
+            const definition = isObj ? toSearchIndexDefinition(idx) : null;
+            const ver = isObj ? idx.latest_definition_version : null;
+            const declaredAt = ver ? parseUtcTimestamp(ver.created_at) : null;
+            const meta = ver
+              ? `v${ver.version}${declaredAt ? ` · declared ${formatTime(declaredAt)}` : ''}`
+              : null;
+            // FAILED does not mean down: a failed re-declaration leaves the
+            // previous build serving and `queryable` stays true (verified live).
+            // Without this line the red card reads as an outage.
+            const stillServing =
+              isObj && String(idx.status).toUpperCase() === 'FAILED' && idx.queryable;
+            const openEdit = () =>
+              openIndexModal({ mode: 'edit', name, definition: definition || undefined });
+            const notice = stillServing ? (
+              <>
+                <span class="record-card-notice-text">
+                  The engine rejected v{ver ? ver.version : '?'}. The previous version is still
+                  serving.
+                </span>
+                <button class="btn btn-sm" onClick={openEdit}>
+                  Edit definition
+                </button>
+              </>
+            ) : null;
+
             return (
               <IndexCard
                 name={name}
                 badges={badges}
-                definition={isObj ? toCreateSearchIndexDefinition(idx) : null}
+                summary={definition ? summarizeDefinition(definition) : ''}
+                definition={definition}
+                meta={meta}
+                notice={notice}
+                onEdit={openEdit}
                 canDrop
                 onDrop={() => doDropSearchIndex(name)}
                 cardClass={(isFailed ? 'record-card-failed' : null) as string | undefined}

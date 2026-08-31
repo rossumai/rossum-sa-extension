@@ -63,9 +63,9 @@ async function prefetchIndexes(collection: string, signal?: AbortSignal) {
 async function prefetchSearchIndexes(collection: string, signal?: AbortSignal) {
   if (cache.get(collection, 'searchIndexes') !== null) return;
   try {
-    const res = await api.listSearchIndexes(collection, false, { signal });
+    const rows = await api.listSearchIndexes(collection, { signal });
     if (signal?.aborted) return;
-    cache.set(collection, 'searchIndexes', res.result || []);
+    cache.set(collection, 'searchIndexes', rows || []);
   } catch (err) {
     if (!isAbort(err)) {
       /* silent */

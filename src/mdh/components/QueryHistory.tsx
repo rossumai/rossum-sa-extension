@@ -3,6 +3,7 @@ import { useState, useEffect } from 'preact/hooks';
 import JSON5 from 'json5';
 import { selectedCollection, scopeSuffix } from '../store.js';
 import { parseEntries } from '../pipelineComments.js';
+import { formatTime } from '../relativeTime.js';
 
 const MAX_HISTORY = 30;
 
@@ -100,14 +101,6 @@ export async function isSaved(collection: any, pipeline: any) {
   const savedQueries = await readList('savedQueries');
   const key = dedupKey(collection, pipeline);
   return savedQueries.some((q) => dedupKey(q.collection, q.pipeline) === key);
-}
-
-function formatTime(ts: any) {
-  const diff = Date.now() - ts;
-  if (diff < 60_000) return 'just now';
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-  return new Date(ts).toLocaleDateString();
 }
 
 function QueryRow({

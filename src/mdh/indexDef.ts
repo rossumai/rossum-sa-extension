@@ -10,7 +10,8 @@ const OUTPUT_ONLY = new Set(['key', 'name', 'v', 'ns', 'textIndexVersion', '2dsp
 // name, ...options }`) into the flat shape the Create Index modal parses and
 // api.createIndex sends: `{ indexName, keys, options? }`. Option siblings are
 // gathered under `options`; `options` is omitted when empty so a plain index
-// copies clean. Mirrors searchIndexDef.toCreateSearchIndexDefinition.
+// copies clean. (Search indexes no longer need an equivalent: MDH V2 hands back a
+// definition that is already valid input — see searchIndexDef.toSearchIndexDefinition.)
 export function toCreateIndexDefinition(idx: any): Record<string, any> | null {
   if (!idx || typeof idx !== 'object') return idx;
   const options: Record<string, any> = {};

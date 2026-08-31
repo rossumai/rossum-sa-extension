@@ -38,7 +38,7 @@ describe('prefetch system', () => {
   });
 
   it('prefetchForPanel("search-indexes") loads search index list', async () => {
-    vi.mocked(api.listSearchIndexes).mockResolvedValue({ result: [{ name: 'search1' }] });
+    vi.mocked(api.listSearchIndexes).mockResolvedValue([{ name: 'search1' }] as any);
 
     await prefetchForPanel('test_col', 'search-indexes');
 
@@ -90,7 +90,7 @@ describe('prefetch system', () => {
       return Promise.resolve({ result: [] });
     });
     vi.mocked(api.listIndexes).mockResolvedValue({ result: [] });
-    vi.mocked(api.listSearchIndexes).mockResolvedValue({ result: [] });
+    vi.mocked(api.listSearchIndexes).mockResolvedValue([]);
 
     await prefetchAll('test_col');
 
