@@ -18,6 +18,7 @@ import {
   STATS_CHECKS,
   MAX_FIELDS,
   TOP_VALUES,
+  SCHEMA_GROUP_LIMIT,
 } from '../src/mdh/statsPipelines.js';
 
 describe('field discovery', () => {
@@ -149,6 +150,24 @@ describe('pipeline builders', () => {
     expect(p[1].$group).toHaveProperty('empty_name');
   });
 
+  it('buildEmptyValuesPipeline keeps a MISSING field out of the null counter', () => {
+    // A missing field path is widely held to compare equal to null in an
+    // aggregation expression, which would make a bare $eq count absent
+    // documents as null — and disagree with computeEmpties, which counts the
+    // two separately. The $type guard is correct under both readings: a no-op
+    // if $eq already excludes missing, a fix if it does not.
+    const p = buildEmptyValuesPipeline(['name']);
+    expect(p[1].$group.null_name).toEqual({
+      $sum: {
+        $cond: [
+          { $and: [{ $ne: [{ $type: '$name' }, 'missing'] }, { $eq: ['$name', null] }] },
+          1,
+          0,
+        ],
+      },
+    });
+  });
+
   it('buildTypePipeline uses $facet with encoded keys', () => {
     const p = buildTypePipeline(fields);
     expect(p[1]).toHaveProperty('$facet');
@@ -191,11 +210,12 @@ describe('pipeline builders', () => {
     expect(group).toHaveProperty('latest');
   });
 
-  it('buildSchemaConsistencyPipeline returns valid pipeline', () => {
+  it('buildSchemaConsistencyPipeline groups on the key array, not a field count', () => {
     const p = buildSchemaConsistencyPipeline();
     expect(p.length).toBeGreaterThan(0);
     expect(p[0].$project).toHaveProperty('_keys');
-    expect(p[p.length - 1]).toEqual({ $limit: 20 });
+    expect(p[2]).toEqual({ $group: { _id: '$fields', count: { $sum: 1 } } });
+    expect(p[p.length - 1]).toEqual({ $limit: SCHEMA_GROUP_LIMIT });
   });
 
   it('SENTINEL_STRINGS is the broad placeholder set in normalized form', () => {

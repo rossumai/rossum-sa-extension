@@ -1,6 +1,7 @@
 // src/mdh/store.ts
 import { signal } from '@preact/signals';
 import { visibleCollections } from './hiddenCollections.js';
+import { STATS_MODES, STATS_MODE_SAMPLE } from './statsPipelines.js';
 
 export const domain = signal('');
 export const token = signal('');
@@ -170,6 +171,15 @@ export const stagesSourceOpen = signal(false);
 export function coerceStageSampleSize(v: unknown): number {
   const n = typeof v === 'number' ? v : parseInt(v as string, 10);
   return STAGE_SAMPLE_SIZES.includes(n) ? n : 10;
+}
+
+// Whether the Collection Stats tab samples or reads everything (persisted as
+// mdhStatsMode). The SIZE is not a preference — it is derived from a byte budget
+// and the collection's own average document size; see analysisPlan.
+export const statsMode = signal(STATS_MODE_SAMPLE);
+
+export function coerceStatsMode(v: unknown): string {
+  return STATS_MODES.includes(v as string) ? (v as string) : STATS_MODE_SAMPLE;
 }
 
 // Suffix that namespaces per-org client state (saved/recent/last queries) so it

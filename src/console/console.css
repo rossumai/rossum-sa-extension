@@ -1084,6 +1084,13 @@ body {
 .view-seg-opt.on:hover {
   background: var(--accent);
 }
+.view-seg-opt:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.view-seg-opt:disabled:hover {
+  background: var(--bg-card);
+}
 
 .toolbar-more-menu {
   position: absolute;
@@ -3922,11 +3929,14 @@ tbody.uploads-row-failed tr {
   font-size: 13px;
 }
 
-.stats-warn {
+/* States what happened rather than warning about it, so it carries the info
+   token family: 7.5:1 in both themes, where --text-secondary on --bg-card
+   measures 4.21:1 at this size. */
+.stats-note {
   font-size: 11px;
-  color: var(--warning-fg);
-  background: var(--warning-bg);
-  border: 1px solid var(--warning);
+  color: var(--info-fg);
+  background: var(--info-bg);
+  border: 1px solid var(--info-border);
   border-radius: var(--radius);
   padding: 6px 10px;
   margin-bottom: 8px;
@@ -7136,22 +7146,13 @@ tbody.uploads-row-failed tr {
 /* ── collection band ── */
 .stats-schema-line {
   font-size: 12px;
-  color: var(--text-secondary);
-  font-family: var(--font-mono);
-}
-.stats-shape-toggle {
-  background: none;
-  border: 0;
+  /* --text-primary, not --text-secondary: this line carries the section's verdict
+     and is now always visible, and --text-secondary measures 3.74:1 here, under
+     the 4.5:1 floor. Same fix as .stats-fcard-meta and ModalFieldLabel (a9ed60a).
+     The mono face and size keep it subordinate to the band label without
+     relying on colour to do it. */
   color: var(--text-primary);
-  cursor: pointer;
-  font-size: 12px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-.stats-shape-chevron {
-  color: var(--text-secondary);
+  font-family: var(--font-mono);
 }
 .stats-shape-baseline {
   font-size: 11px;
@@ -7166,7 +7167,19 @@ tbody.uploads-row-failed tr {
 }
 .stats-shape-col {
   flex: 1;
-  min-width: 150px;
+  /* 180px, not 150: measured against the longest realistic header
+     ("Shape 1 · most common" over "19 fields · 8,214 · 71%"), below which the
+     shape label wraps and the header grows from 52px to 85px. The container
+     already has overflow-x: auto, so several shapes in a narrow panel now
+     scroll — which also keeps the columns aligned, and that alignment is the
+     whole point of showing them side by side. */
+  min-width: 180px;
+  /* 260px: measured as the width at which the longest realistic field name
+     (33 characters) stops being clipped — the rows are nowrap inside an
+     overflow: hidden column, so a name that does not fit is cut. Past 260 the
+     extra width buys nothing, and with only two shapes flex: 1 would otherwise
+     stretch each column across half the panel. */
+  max-width: 260px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-card);
@@ -7203,7 +7216,7 @@ tbody.uploads-row-failed tr {
   gap: 5px;
   white-space: nowrap;
 }
-.stats-shape-col li .mk {
+.stats-shape-col li .stats-shape-mark {
   width: 9px;
   flex: none;
   text-align: center;
@@ -7214,13 +7227,65 @@ tbody.uploads-row-failed tr {
   background: var(--success-bg);
   color: var(--success-fg);
 }
-.stats-shape-col li.is-add .mk {
+.stats-shape-col li.is-add .stats-shape-mark {
   color: var(--success-fg);
 }
 .stats-shape-col li.is-gone {
-  color: #b9bdc9;
+  background: var(--danger-bg);
+  color: var(--danger-fg);
   text-decoration: line-through;
-  font-style: italic;
+}
+.stats-shape-col li.is-gone .stats-shape-mark {
+  color: var(--danger-fg);
+}
+.stats-schema-more {
+  padding: 1px 10px;
+}
+.stats-schema-more button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  padding: 2px 4px;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  color: var(--accent);
+  text-decoration: underline;
+}
+.stats-schema-more button:hover {
+  color: var(--accent-hover);
+}
+.stats-schema-chev {
+  /* Flex centres the element boxes, not the glyphs inside them, and U+25BE's
+     ink sits ~1.2px below the label's ink centre in this repo's mono stack
+     (measured from canvas actualBoundingBox metrics). U+2304, used before,
+     sat 3.7px low — a nudge that large would not survive a font substitution,
+     which is why the glyph changed rather than the offset growing. */
+  position: relative;
+  top: -1px;
+  line-height: 1;
+}
+.stats-shape-records {
+  margin-top: 4px;
+  align-self: flex-start;
+  font: inherit;
+  font-size: 10.5px;
+  padding: 2px 8px;
+  cursor: pointer;
+  color: var(--accent);
+  background: var(--bg-card);
+  /* --info-border, not --accent-border: undefined in this stylesheet. */
+  border: 1px solid var(--info-border);
+  border-radius: 5px;
+}
+.stats-shape-records:hover {
+  background: var(--accent);
+  color: #fff;
 }
 
 /* ── field grid ── */
@@ -7329,11 +7394,11 @@ tbody.uploads-row-failed tr {
   justify-content: space-between;
   gap: 8px;
   font-size: 11px;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font-family: var(--font-mono);
 }
 .stats-fcard-meta b {
-  color: var(--text-primary);
+  font-weight: 600;
 }
 
 /* top-values mini bars */

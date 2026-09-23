@@ -152,6 +152,7 @@ export async function initMdh({
     'mdhStagesShowDef',
     'mdhStagesSourceOpen',
     'mdhShowHiddenCollections',
+    'mdhStatsMode',
   ]);
 
   // Navigation state is per-tab: prefer this tab's sessionStorage, fall back to
@@ -178,6 +179,9 @@ export async function initMdh({
   }
   if (stored.mdhStagesSampleSize != null) {
     store.stagesSampleSize.value = store.coerceStageSampleSize(stored.mdhStagesSampleSize);
+  }
+  if (stored.mdhStatsMode != null) {
+    store.statsMode.value = store.coerceStatsMode(stored.mdhStatsMode);
   }
   if (typeof stored.mdhStagesShowDef === 'boolean') {
     store.stagesShowDef.value = stored.mdhStagesShowDef;
@@ -253,6 +257,9 @@ export async function initMdh({
   });
   effect(() => {
     chrome.storage.local.set({ mdhStagesSampleSize: store.stagesSampleSize.value });
+  });
+  effect(() => {
+    chrome.storage.local.set({ mdhStatsMode: store.statsMode.value });
   });
   effect(() => {
     chrome.storage.local.set({ mdhStagesShowDef: store.stagesShowDef.value });

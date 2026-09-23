@@ -126,6 +126,7 @@ function indexByField(arr: any[]) {
 export function buildFieldProfiles({
   fields,
   total,
+  analyzed,
   coverage,
   empties,
   typeSummary,
@@ -163,7 +164,11 @@ export function buildFieldProfiles({
       types: ts[field]?.types || [],
       isMixed: ts[field]?.isMixed || false,
       distinct,
-      diversityPct: total > 0 ? Math.round((distinct / total) * 100) : 0,
+      // `total` is the collection; `analyzed` is what the numbers were computed
+      // from, which on a sampled run is the sample size. Dividing a sample's
+      // distinct count by the collection size reports every field as 0% diverse.
+      diversityPct:
+        (analyzed ?? total) > 0 ? Math.round((distinct / (analyzed ?? total)) * 100) : 0,
       topValues,
       fullyDistinct: topValues.length > 0 && (topValues[0].count ?? 0) <= 1,
       string: str.get(field) ? (({ field: _f, ...rest }) => rest)(str.get(field)) : null,
@@ -223,6 +228,44 @@ export function buildValueFilterPipeline(
       : value;
   return JSON.stringify(
     [{ $match: { [field]: match } }, { $sort: { _id: -1 } }, { $skip: 0 }, { $limit: limit }],
+    null,
+    2,
+  );
+}
+
+// Filter to documents whose top-level key set is EXACTLY this shape's.
+export function buildShapeFilterPipeline(
+  fields: string[],
+  absentFields: string[] = [],
+  limit = 50,
+) {
+  // A shape is an exact key set, and the obvious way to express that —
+  // $setEquals over $objectToArray — is the slowest possible query: $expr
+  // disables every index, and $objectToArray builds a key/value pair for each
+  // field of each document before the keys are even used.
+  //
+  // This form is equally exact and mostly index-friendly. A document holding
+  // all N of the shape's fields AND exactly N + 1 top-level fields (the + 1 is
+  // _id) can only have this shape's key set. The $exists clauses are ordinary
+  // predicates the planner can serve from an index — including the wildcard
+  // index some collections carry — and any document failing one is rejected
+  // before $objectToArray runs at all.
+  //
+  // `absentFields` are fields that differ between shapes and are NOT in this
+  // one. They are not needed for correctness, but they are the most selective
+  // predicates available, and they are what makes a RARE shape fast rather
+  // than a full scan.
+  //
+  // The trailing $expr/$size clause cannot be dropped as a later "optimisation":
+  // it is the ONLY thing rejecting a document that carries every field of this
+  // shape plus one extra — every $exists clause above would still pass such a
+  // document. Without it, a shape filter silently matches its own supersets.
+  const match: any[] = [];
+  for (const f of absentFields) match.push({ [f]: { $exists: false } });
+  for (const f of fields) match.push({ [f]: { $exists: true } });
+  match.push({ $expr: { $eq: [{ $size: { $objectToArray: '$$ROOT' } }, fields.length + 1] } });
+  return JSON.stringify(
+    [{ $match: { $and: match } }, { $sort: { _id: -1 } }, { $skip: 0 }, { $limit: limit }],
     null,
     2,
   );

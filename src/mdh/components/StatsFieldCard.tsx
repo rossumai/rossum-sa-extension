@@ -124,10 +124,13 @@ export default function StatsFieldCard({
   profile,
   indexedBy,
   dimmed,
+  sampled,
 }: {
   profile: any;
   indexedBy?: any;
   dimmed?: boolean;
+  /** Sample size the field-level numbers came from, or null on an exact run. */
+  sampled?: number | null;
 }) {
   const indexed = Array.isArray(indexedBy) && indexedBy.length > 0;
   const flagged = !!(
@@ -170,6 +173,15 @@ export default function StatsFieldCard({
         )}
         <TypeChip profile={profile} />
       </div>
+      {profile.distinct > 0 && (
+        <div class="stats-fcard-meta">
+          <span>
+            {sampled != null ? '≥ ' : ''}
+            <b>{profile.distinct.toLocaleString()}</b> distinct
+          </span>
+          {sampled != null && <span>in {sampled.toLocaleString()} sampled</span>}
+        </div>
+      )}
       {profile.numeric && (
         <Tip
           block

@@ -29,9 +29,12 @@ function sortProfiles(profiles: any, sort: any) {
 export default function StatsFieldGrid({
   profiles,
   indexMap,
+  sampled,
 }: {
   profiles: any[];
   indexMap?: Record<string, any>;
+  /** Sample size the field-level numbers came from, or null on an exact run. */
+  sampled?: number | null;
 }) {
   const [sort, setSort] = useState('issues');
   const [filter, setFilter] = useState('');
@@ -71,6 +74,7 @@ export default function StatsFieldGrid({
             profile={p}
             indexedBy={indexMap && indexMap.get(p.field)}
             dimmed={!!f && !matches(p)}
+            sampled={sampled}
           />
         ))}
       </div>

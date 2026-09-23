@@ -170,7 +170,18 @@ export function buildEmptyValuesPipeline(fields: string[]): any[] {
   for (const f of fields) {
     const k = encKey(f);
     group[`null_${k}`] = {
-      $sum: { $cond: [{ $eq: [`$${f}`, null] }, 1, 0] },
+      $sum: {
+        $cond: [
+          // A missing field path compares equal to null in an aggregation
+          // expression, so a bare $eq would count absent documents as null and
+          // disagree with computeEmpties, which counts the two separately. This
+          // form is correct either way: a no-op if $eq already excludes missing,
+          // a fix if it does not.
+          { $and: [{ $ne: [{ $type: `$${f}` }, 'missing'] }, { $eq: [`$${f}`, null] }] },
+          1,
+          0,
+        ],
+      },
     };
     group[`missing_${k}`] = {
       $sum: { $cond: [{ $eq: [{ $type: `$${f}` }, 'missing'] }, 1, 0] },
@@ -292,24 +303,20 @@ export function buildDateRangePipeline(fields: string[]): any[] {
   return [fieldsOnly(fields), { $facet: facet }];
 }
 
+// Shapes are distinct STRUCTURES, so group on the key array itself. Key ORDER can
+// differ between writers, which would split one real shape into several — equal
+// sets are merged in transformSchema instead. Normalising here would need
+// $sortArray (MongoDB 5.2+) and Data Storage's version is unverified, so the extra
+// headroom below is what makes the client-side merge lossless in practice.
+export const SCHEMA_GROUP_LIMIT = 50;
+
 export function buildSchemaConsistencyPipeline() {
   return [
     { $project: { _keys: { $objectToArray: '$$ROOT' } } },
-    {
-      $project: {
-        fieldCount: { $subtract: [{ $size: '$_keys' }, 1] },
-        fields: { $map: { input: '$_keys', as: 'k', in: '$$k.k' } },
-      },
-    },
-    {
-      $group: {
-        _id: '$fieldCount',
-        count: { $sum: 1 },
-        sampleFields: { $first: '$fields' },
-      },
-    },
+    { $project: { fields: { $map: { input: '$_keys', as: 'k', in: '$$k.k' } } } },
+    { $group: { _id: '$fields', count: { $sum: 1 } } },
     { $sort: { count: -1 } },
-    { $limit: 20 },
+    { $limit: SCHEMA_GROUP_LIMIT },
   ];
 }
 
@@ -343,4 +350,103 @@ export function buildAllPipelines(fields: string[]) {
     docSize: buildDocSizePipeline(),
     sentinels: buildSentinelStringsPipeline(fields),
   };
+}
+
+// ── Sampling ────────────────────────────────────
+//
+// The "Exact" setting. 0 is not a sample size; it means run the existing
+// full-collection pipelines whatever the collection holds.
+export const STATS_EXACT = 0;
+
+// Bytes one analysis may pull into the browser — and, because $sample drawing more
+// than 5% of a collection buffers the drawn documents for a random sort capped at
+// 100MB (this API cannot pass allowDiskUse), the ceiling on that buffer too.
+//
+// Budgeting in BYTES rather than rows is the whole point. It makes the row count
+// `floor(BUDGET / avgObjSize)`, so `rows * avgObjSize <= BUDGET` holds by
+// construction — the sort buffer can never exceed the budget, and the zone where
+// the sample is more than 5% of the collection but less than all of it becomes
+// safe to use instead of forbidden. That zone is exactly where the old
+// fraction-of-the-collection rule produced its 20x cliff.
+export const SAMPLE_BYTE_BUDGET = 64 * 1024 * 1024;
+// Absolute ceiling on rows, independent of the byte budget above it and the
+// cell ceiling below it.
+export const SAMPLE_MAX_ROWS = 100_000;
+
+// The byte budget bounds TRANSFER and the $sample sort buffer. It does not bound
+// the client-side profiling, whose cost is O(rows × fields) across nine passes —
+// and because rows is INVERSELY proportional to document size, the byte budget's
+// protection runs backwards here: the smaller the documents, the more rows fit
+// and the longer the main thread is blocked. Measured on V8: 65,536 rows × 50
+// fields froze the Console for 12.3s, 100,000 × 50 for 17.2s. This ceiling bounds
+// the product instead, at roughly 1.5s of profiling.
+export const SAMPLE_MAX_CELLS = 400_000;
+
+export const STATS_MODE_SAMPLE = 'sample';
+export const STATS_MODE_EXACT = 'exact';
+export const STATS_MODES = [STATS_MODE_SAMPLE, STATS_MODE_EXACT];
+
+// Round down to a readable multiple of 1,000. DOWN specifically: the returned
+// count is what keeps `rows * avgObjSize` inside SAMPLE_BYTE_BUDGET, and so
+// inside MongoDB's 100MB $sample sort cap, and only a floor preserves that —
+// rounding 1,001 up to 2,000 would nearly double the budget. Below 1,000 the
+// exact count is returned, because rounding a few hundred rows to thousands
+// would floor them to zero.
+const SAMPLE_ROUNDING = 1000;
+
+function roundRows(rows: number): number {
+  return rows >= SAMPLE_ROUNDING ? Math.floor(rows / SAMPLE_ROUNDING) * SAMPLE_ROUNDING : rows;
+}
+
+// How many documents one analysis can afford, bounded by transfer (bytes) and by
+// client-side profiling (cells) at once. Deliberately does NOT take `total`:
+// EVERY term here is independent of collection size, which is what makes
+// `min(total, affordableRows(...))` monotonic in it.
+export function affordableRows(avgObjSize: number, fieldCount: number): number {
+  const byBytes = Math.floor(SAMPLE_BYTE_BUDGET / avgObjSize);
+  const byCells = fieldCount > 0 ? Math.floor(SAMPLE_MAX_CELLS / fieldCount) : SAMPLE_MAX_ROWS;
+  return roundRows(Math.min(byBytes, byCells, SAMPLE_MAX_ROWS));
+}
+
+// The path decision in one place. `size` is how many documents will be analysed
+// either way, so callers report it without re-deriving it.
+export function analysisPlan(
+  total: number,
+  avgObjSize: number,
+  fieldCount: number,
+  mode: string,
+): { sampled: boolean; size: number } {
+  if (mode === STATS_MODE_EXACT) return { sampled: false, size: total };
+  // Without a document size we cannot bound either the transfer or the sort
+  // buffer, so the byte invariant would not hold by construction. Read exactly.
+  if (!(avgObjSize > 0)) return { sampled: false, size: total };
+  const rows = affordableRows(avgObjSize, fieldCount);
+  return total <= rows ? { sampled: false, size: total } : { sampled: true, size: rows };
+}
+
+export function statsModeLabel(mode: string): string {
+  return mode === STATS_MODE_EXACT ? 'Exact' : 'Sample';
+}
+
+// The single read that replaces eleven full-collection scans. `_topKeys`
+// carries the top-level key NAMES so the schema-shape check survives the
+// projection — shipping whole documents to the browser is the cost this whole
+// design exists to avoid. It includes `_id`, matching the server pipeline,
+// which derives fieldCount as $size(_keys) - 1.
+export function buildSampleReadPipeline(fields: string[], size: number): any[] {
+  const project: Record<string, any> = { _id: 0 };
+  for (const f of fields) project[f] = 1;
+  project._topKeys = {
+    $map: { input: { $objectToArray: '$$ROOT' }, as: 'k', in: '$$k.k' },
+  };
+  return [{ $sample: { size } }, { $project: project }];
+}
+
+// The single-flight key for the sampled analysis read. StatsPanel and the
+// background prefetch both race to run it for the same collection and sample
+// size, so both must derive the same key from the same two values rather than
+// each writing the template literal — a mismatch there would silently defeat
+// the dedupe it exists to provide.
+export function sampledStatsKey(collection: string, size: number): string {
+  return `statsSampled::${collection}::${size}`;
 }

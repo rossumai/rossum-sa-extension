@@ -3,8 +3,6 @@ import { healthLabel } from '../statsSummary.js';
 import { formatBytes } from './StatsBits.jsx';
 import Tip from '../../ui/Tip.jsx';
 
-const LARGE_COLLECTION_WARN = 100000;
-
 function healthColor(score: any) {
   if (score >= 90) return 'var(--success)';
   if (score >= 75) return 'var(--accent)';
@@ -80,6 +78,7 @@ export default function StatsSummary({
   fieldsTotal,
   storage,
   docSize,
+  sampled,
 }: {
   health?: number | null;
   components?: any;
@@ -89,7 +88,9 @@ export default function StatsSummary({
   fieldsTotal: number;
   /** $collStats storage figures; each card is guarded on the object being present. */
   storage?: { size: number; freeStorageSize: number; storageSize: number } | null;
-  docSize?: { min: number; max: number; avg: number } | null;
+  docSize?: { min: number | null; max: number | null; avg: number } | null;
+  /** Sample size the field-level numbers came from, or null on an exact run. */
+  sampled?: number | null;
 }) {
   const tone = health != null ? healthColor(health) : 'var(--text-secondary)';
   return (
@@ -116,9 +117,9 @@ export default function StatsSummary({
             <div
               class="stats-overview-card"
               title={
-                (fieldsTotal > fieldCount
+                fieldsTotal > fieldCount
                   ? `Analyzing the ${fieldCount} most common of ${fieldsTotal} fields found`
-                  : null) as string | undefined
+                  : undefined
               }
             >
               <div class="stats-metric-value">{fieldCount}</div>
@@ -136,7 +137,11 @@ export default function StatsSummary({
             {docSize && (
               <div
                 class="stats-overview-card"
-                title={`Min: ${formatBytes(docSize.min)} · Max: ${formatBytes(docSize.max)}`}
+                title={
+                  docSize.min != null && docSize.max != null
+                    ? `Min: ${formatBytes(docSize.min)} · Max: ${formatBytes(docSize.max)}`
+                    : undefined
+                }
               >
                 <div class="stats-metric-value">{formatBytes(docSize.avg)}</div>
                 <div class="stats-metric-label">Avg doc</div>
@@ -177,10 +182,10 @@ export default function StatsSummary({
         </div>
       </div>
 
-      {total > LARGE_COLLECTION_WARN && (
-        <div class="stats-warn" style={{ marginTop: '10px' }}>
-          This collection has {total.toLocaleString()} documents. Some checks may be slow or time
-          out.
+      {sampled != null && (
+        <div class="stats-note" style={{ marginTop: '10px' }}>
+          Estimated from a random sample of <b>{sampled.toLocaleString()}</b> of{' '}
+          {total.toLocaleString()} documents. Document count and storage are exact.
         </div>
       )}
     </div>

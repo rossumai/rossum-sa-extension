@@ -174,12 +174,26 @@ function transformSentinels(raw: any, fields: any[]) {
     .filter((x) => x.total > 0);
 }
 
+// Shapes are now exact, not $first-sampled: raw._id is the key array itself,
+// which is why the output key below is `fields`, not `sampleFields`. Key order
+// can differ between writers and between the raw and sampled paths, so equal
+// key SETS are merged here — the one place normalisation happens — before
+// taking the top SCHEMA_SHAPE_LIMIT by document count.
+const SCHEMA_SHAPE_LIMIT = 20;
+
 function transformSchema(raw: any) {
-  return (raw.result || []).map((r: any) => ({
-    fieldCount: r._id,
-    docCount: r.count,
-    sampleFields: (r.sampleFields || []).filter((f: any) => f !== '_id').sort(),
-  }));
+  const merged = new Map<string, { fields: string[]; docCount: number }>();
+  for (const r of raw.result || []) {
+    const fields = (r._id || []).filter((f: any) => f !== '_id').sort();
+    const key = fields.join('\u0000');
+    const seen = merged.get(key);
+    if (seen) seen.docCount += r.count;
+    else merged.set(key, { fields, docCount: r.count });
+  }
+  return [...merged.values()]
+    .sort((a, b) => b.docCount - a.docCount)
+    .slice(0, SCHEMA_SHAPE_LIMIT)
+    .map((s) => ({ fieldCount: s.fields.length, docCount: s.docCount, fields: s.fields }));
 }
 
 // Reads the cached stats outputs for `collection`, computes the health

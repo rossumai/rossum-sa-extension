@@ -8,6 +8,9 @@ const MAX_ENTRIES = 200;
 
 // Map preserves insertion order — last entry is most recently used
 const entries = new Map();
+// Single-flight promises, keyed independently of `entries` — see `single()` at
+// the bottom of the file. Declared here so `invalidateAll` can clear it.
+const inFlight = new Map<string, Promise<any>>();
 let hits = 0;
 let misses = 0;
 
@@ -96,6 +99,10 @@ export function invalidateData(collection?: string | null): void {
 
 export function invalidateAll() {
   entries.clear();
+  // Results and work in progress have to go together: a promise left here
+  // after the results were dropped would let a fresh run join an
+  // already-settled — or already-aborted — run it cannot see the inputs of.
+  inFlight.clear();
 }
 
 function evict() {
@@ -106,4 +113,16 @@ function evict() {
     if (oldest === undefined) break;
     entries.delete(oldest);
   }
+}
+
+// Single-flight: callers racing for the same key share one run instead of
+// duplicating it. The entry is released on BOTH settle paths, so one failure
+// cannot wedge every later attempt. Deliberately NOT keyed to the cache
+// entries above — this is about work in progress, not results at rest.
+export function single<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const running = inFlight.get(key);
+  if (running) return running as Promise<T>;
+  const p = fn().finally(() => inFlight.delete(key));
+  inFlight.set(key, p);
+  return p;
 }

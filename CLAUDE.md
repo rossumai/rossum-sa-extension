@@ -384,9 +384,9 @@ Enforced by tests, not by convention. Do not weaken them.
   only the Academy, mirrored live via `chrome.storage.onChanged`.
 - **Auth staging** — `consoleAuth_<uuid>`: single-use, 24h TTL, removed on read.
 - **Global prefs** — `mdhPipelineWidth`, `mdhSidebarWidth`, `mdhUploadsColumnWidths`,
-  `mdhOverviewChartsScale`, `mdhResultsView`, `mdhStages*`, `mdhShowHiddenCollections`,
-  `mdhProvenanceFilter`, `fabrySidebarWidth`, `fabryArchDocView`, `fabryArchRailOpen`,
-  `fabryArchRailWidth`, `fabryArchPdfOptions`.
+  `mdhOverviewChartsScale`, `mdhResultsView`, `mdhStages*`, `mdhStatsMode`,
+  `mdhShowHiddenCollections`, `mdhProvenanceFilter`, `fabrySidebarWidth`,
+  `fabryArchDocView`, `fabryArchRailOpen`, `fabryArchRailWidth`, `fabryArchPdfOptions`.
 - **Per-tab navigation**, read session-first from `sessionStorage` with a `chrome.storage.local`
   seed (`src/console/tabState.ts`), all content-free — `consoleActiveApp`, `mdhActiveView`,
   `mdhSelectedCollection`, `mdhActivePanel`, `mdhOpsSearch`, `fabryActiveChat`, `fabryMode`,
@@ -410,10 +410,17 @@ Enforced by tests, not by convention. Do not weaken them.
 The Console ships **two** stylesheets, linked in that order by `console.html`:
 
 - `src/console/console.css` → **`dist/console/console.base.css`** — the legacy hand-written
-  monolith, holding the shared tokens (every colour, surface and type variable, plus semantic
-  `--accent`/`--success`/`--warning`/`--danger` with `-hover`/`-bg`/`-fg`/`-border`). Dark mode
-  overrides `:root` under `@media (prefers-color-scheme: dark)`. It shrinks as components move
-  their rules into CSS Modules, and is eventually retired.
+  monolith, holding the shared tokens (every colour, surface and type variable). The semantic
+  families are uneven: `--success` and `--danger` each carry the full `-hover`/`-bg`/`-fg`/
+  `-border` set; `--warning` carries `-bg`/`-fg`/`-border` but no `-hover`; `--accent` carries
+  only `-hover` — **no `--accent-bg`, `--accent-fg` or `--accent-border` exist**. The
+  accent-paired tint is a separate family, `--info-bg`/`--info-fg`/`--info-border` (no base
+  `--info`, no `--info-hover`). So an accent-coloured control on a tinted background must reach
+  for a status family or a surface token (`--bg-card`), not an accent tint — and `--info-bg`
+  itself measures under the 4.5:1 floor for `--accent` text in light mode (4.05:1, measured; see
+  `.stats-schema-more button` in `console.css`). Dark mode overrides `:root` under
+  `@media (prefers-color-scheme: dark)`. It shrinks as components move their rules into CSS
+  Modules, and is eventually retired.
 - **`dist/console/console.css`** — emitted by esbuild from imported `*.module.css` CSS Modules
   (self-contained component styles; the design-system direction). Do not confuse the names: in
   `dist/`, `console.css` is the *generated* sheet, not the monolith.
@@ -548,7 +555,9 @@ older ones as history. Currently authoritative per area:
   `2026-08-11-fabry-public-single-gate-design.md`
 - **Onboarding training** — `2026-08-07-partner-onboarding-training-design.md` + `-verification.md`
 - **Inspector** — `2026-07-03-inspector-overhaul-design.md`
-- **MDH** — `2026-09-01-mdh-regular-index-guidance-design.md` (regular-index presets and wildcard guidance),
+- **MDH** — `2026-09-22-mdh-stats-sampling-design.md` (Collection Stats: budgeted-sample profiling,
+  current record for the Stats tab), `2026-09-01-mdh-regular-index-guidance-design.md` (regular-index
+  presets and wildcard guidance),
   `2026-08-31-mdh-fuzzy-index-builder-design.md` (search-index presets and Check),
   `2026-08-28-mdh-search-index-v2-migration-design.md` (search indexes),
   `2026-08-12-mdh-stage-link-highlight-design.md`,

@@ -327,7 +327,7 @@ describe('transformStatsResults', () => {
     ]);
   });
 
-  it('maps schema shapes and strips _id from sampleFields', () => {
+  it('maps schema shapes from the raw key array, stripping _id and sorting the fields', () => {
     const raw = {
       coverage: { result: [{ _total: 10 }] },
       empties: { result: [{}] },
@@ -335,16 +335,55 @@ describe('transformStatsResults', () => {
       strings: { result: [{}] },
       schema: {
         result: [
-          { _id: 3, count: 100, sampleFields: ['_id', 'name', 'age'] },
-          { _id: 2, count: 5, sampleFields: ['_id', 'name'] },
+          { _id: ['_id', 'name', 'age'], count: 100 },
+          { _id: ['_id', 'name'], count: 5 },
         ],
       },
     };
     const out = transformStatsResults(raw, fields);
     expect(out.schemaShapes).toEqual([
-      { fieldCount: 3, docCount: 100, sampleFields: ['age', 'name'] },
-      { fieldCount: 2, docCount: 5, sampleFields: ['name'] },
+      { fieldCount: 2, docCount: 100, fields: ['age', 'name'] },
+      { fieldCount: 1, docCount: 5, fields: ['name'] },
     ]);
+  });
+
+  it('treats two shapes with the same field COUNT but different NAMES as two shapes', () => {
+    // The defect this task fixes: grouping on a field count would have
+    // collapsed these into one shape and shown whichever arrived first.
+    const raw = {
+      coverage: { result: [{ _total: 10 }] },
+      empties: { result: [{}] },
+      types: { result: [{}] },
+      strings: { result: [{}] },
+      schema: {
+        result: [
+          { _id: ['_id', 'name', 'age'], count: 6 },
+          { _id: ['_id', 'name', 'email'], count: 4 },
+        ],
+      },
+    };
+    const out = transformStatsResults(raw, fields);
+    expect(out.schemaShapes).toEqual([
+      { fieldCount: 2, docCount: 6, fields: ['age', 'name'] },
+      { fieldCount: 2, docCount: 4, fields: ['email', 'name'] },
+    ]);
+  });
+
+  it('merges key-order variants of the same set, summing their counts', () => {
+    const raw = {
+      coverage: { result: [{ _total: 10 }] },
+      empties: { result: [{}] },
+      types: { result: [{}] },
+      strings: { result: [{}] },
+      schema: {
+        result: [
+          { _id: ['_id', 'name', 'age'], count: 6 },
+          { _id: ['_id', 'age', 'name'], count: 4 },
+        ],
+      },
+    };
+    const out = transformStatsResults(raw, fields);
+    expect(out.schemaShapes).toEqual([{ fieldCount: 2, docCount: 10, fields: ['age', 'name'] }]);
   });
 
   it('transformSentinels rolls up buckets per field and filters clean fields', () => {
@@ -402,7 +441,7 @@ describe('transformStatsResults', () => {
       empties: { result: [{}] },
       types: null,
       strings: { result: [{}] },
-      schema: { result: [{ _id: 2, count: 10, sampleFields: ['name', 'age'] }] },
+      schema: { result: [{ _id: ['name', 'age'], count: 10 }] },
     };
     const out = transformStatsResults(raw, fields);
     expect(out.coverage).not.toBeNull();
@@ -436,7 +475,7 @@ describe('updateStatsSummary', () => {
       ],
     });
     cache.set(col, 'stats_schema', {
-      result: [{ _id: 2, count: 100, sampleFields: ['_id', 'name', 'age'] }],
+      result: [{ _id: ['_id', 'name', 'age'], count: 100 }],
     });
   }
 
@@ -477,7 +516,7 @@ describe('updateStatsSummary', () => {
     cache.set(col, 'stats_types', { result: [{}] });
     cache.set(col, 'stats_strings', { result: [{}] });
     cache.set(col, 'stats_schema', {
-      result: [{ _id: 2, count: 100, sampleFields: ['name', 'age'] }],
+      result: [{ _id: ['name', 'age'], count: 100 }],
     });
     updateStatsSummary(col);
     // Deterministic from the fixture above:
@@ -499,7 +538,7 @@ describe('updateStatsSummary', () => {
     cache.set(col, 'stats_types', { result: [{}] });
     cache.set(col, 'stats_strings', { result: [{}] });
     cache.set(col, 'stats_schema', {
-      result: [{ _id: 2, count: 100, sampleFields: ['name', 'age'] }],
+      result: [{ _id: ['name', 'age'], count: 100 }],
     });
     // "age" is 100 % the literal string "null" → counts as present in coverage,
     // but is flagged as a sentinel field.

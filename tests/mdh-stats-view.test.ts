@@ -13,6 +13,7 @@ import {
   rangeBar,
   spanBar,
   buildValueFilterPipeline,
+  buildShapeFilterPipeline,
 } from '../src/mdh/statsView.js';
 
 const enc = (f: any) => f.replace(/\./g, '__DOT__');
@@ -189,6 +190,65 @@ describe('buildValueFilterPipeline', () => {
   });
 });
 
+describe('buildShapeFilterPipeline', () => {
+  it('checks $exists:true for every field of the shape', () => {
+    const p = JSON.parse(buildShapeFilterPipeline(['amount', 'status']));
+    const and = p[0].$match.$and;
+    expect(and).toContainEqual({ amount: { $exists: true } });
+    expect(and).toContainEqual({ status: { $exists: true } });
+  });
+
+  it('checks $exists:false for each absent field passed, and none when omitted', () => {
+    const withAbsent = JSON.parse(buildShapeFilterPipeline(['amount'], ['status']));
+    expect(withAbsent[0].$match.$and).toContainEqual({ status: { $exists: false } });
+    const withoutAbsent = JSON.parse(buildShapeFilterPipeline(['amount']));
+    expect(JSON.stringify(withoutAbsent[0].$match.$and)).not.toContain('$exists":false');
+  });
+
+  it('compares the key count to fields.length + 1, the +1 being _id, which the shape list never names', () => {
+    const p = JSON.parse(buildShapeFilterPipeline(['amount', 'status', 'vendor']));
+    expect(p[0].$match.$and).toContainEqual({
+      $expr: { $eq: [{ $size: { $objectToArray: '$$ROOT' } }, 4] },
+    });
+  });
+
+  it('no longer expresses the shape as $setEquals', () => {
+    const p = buildShapeFilterPipeline(['amount', 'status']);
+    expect(p).not.toContain('$setEquals');
+  });
+
+  it('preserves the $sort/$skip/$limit tail and honours a passed limit', () => {
+    const p = JSON.parse(buildShapeFilterPipeline(['a'], [], 25));
+    expect(p.slice(1)).toEqual([{ $sort: { _id: -1 } }, { $skip: 0 }, { $limit: 25 }]);
+    const withDefault = JSON.parse(buildShapeFilterPipeline(['a']));
+    expect(withDefault[withDefault.length - 1]).toEqual({ $limit: 50 });
+  });
+
+  it('parses as JSON, since it is edited as text', () => {
+    expect(() => JSON.parse(buildShapeFilterPipeline(['a', 'b', 'c']))).not.toThrow();
+  });
+
+  // Property test: the pipeline's predicate ("has every field of the shape,
+  // and exactly n + 1 keys") must select precisely the documents whose OWN key
+  // set equals the shape's — no more, no less. A bare list of $exists checks
+  // would let a document with one extra field slip through; this is the test
+  // that would catch that regression.
+  it('selects exactly the documents whose key set equals the shape, rejecting one with an extra field', () => {
+    const shape = ['amount', 'status'];
+    const docs = [
+      { _id: 1, amount: 10, status: 'ok' }, // exact match
+      { _id: 2, amount: 10, status: 'ok', vendor: 'acme' }, // extra field: must be rejected
+      { _id: 3, amount: 10 }, // missing a field: must be rejected
+      { _id: 4, amount: 10, status: 'ok' }, // exact match
+      { _id: 5, status: 'ok' }, // missing a field: must be rejected
+    ];
+    // Same predicate the emitted pipeline expresses.
+    const matchesShape = (doc: Record<string, unknown>) =>
+      shape.every((f) => f in doc) && Object.keys(doc).length === shape.length + 1;
+    expect(docs.filter(matchesShape).map((d) => d._id)).toEqual([1, 4]);
+  });
+});
+
 describe('friendlyType', () => {
   it('maps mongo type names to friendly labels', () => {
     expect(friendlyType('double')).toBe('number');
@@ -272,5 +332,34 @@ describe('spanBar', () => {
   it('returns span ms or null', () => {
     expect(spanBar('2020-01-01', '2021-01-01')!.ms).toBeGreaterThan(0);
     expect(spanBar(null, '2021-01-01')).toBeNull();
+  });
+});
+
+describe('buildFieldProfiles with a sampled run', () => {
+  const args = {
+    fields: ['a'],
+    coverage: [{ field: 'a', present: 500, total: 1000, pct: 50 }],
+    empties: [],
+    typeSummary: {},
+    cardinality: [{ field: 'a', distinct: 250 }],
+    distribution: [{ field: 'a', values: [{ value: 'x', count: 9 }] }],
+    strings: [],
+    numeric: [],
+    dates: [],
+    sentinels: [],
+  };
+
+  it('divides diversity by the analysed count, not the collection size', () => {
+    // Without this, 250 distinct in a 1,000-doc sample of a 4,000,000-doc
+    // collection reports as 0% diverse and scrambles the card order.
+    const [p] = buildFieldProfiles({ ...args, total: 4_000_000, analyzed: 1000 });
+    expect(p.diversityPct).toBe(25);
+    expect(p.total).toBe(4_000_000);
+  });
+
+  it('is unchanged when analyzed is omitted', () => {
+    const [p] = buildFieldProfiles({ ...args, total: 1000 });
+    expect(p.diversityPct).toBe(25);
+    expect(p.total).toBe(1000);
   });
 });

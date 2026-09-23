@@ -63,8 +63,11 @@ describe('prefetch system', () => {
     await prefetchForPanel('test_col', 'stats');
 
     expect(cache.get('test_col', 'statsFields')).toEqual(['age', 'name']);
-    // 1 sample query + 12 stat pipelines = 13 aggregate calls
-    expect(api.aggregate).toHaveBeenCalledTimes(13);
+    // 1 discovery sample + 1 total-count check + 1 storage probe (which decides
+    // the path, and here reports no avgObjSize, so the run reads exactly) + 11
+    // stat pipelines = 14 aggregate calls. Eleven, not twelve: `storage` is
+    // already cached by the probe, so the per-check loop skips it.
+    expect(api.aggregate).toHaveBeenCalledTimes(14);
     // Stat results should be cached
     expect(cache.get('test_col', 'stats_coverage')).toEqual({ result: [] });
     expect(cache.get('test_col', 'stats_types')).toEqual({ result: [] });
@@ -137,6 +140,30 @@ describe('prefetch system', () => {
     expect(store.statsSummary.value.collection).toBe('test_col');
     expect(store.statsSummary.value.health).toBeGreaterThanOrEqual(90);
     expect(store.statsSummary.value.label).toBe('Excellent');
+  });
+
+  it('prefetchForPanel("stats") falls back to storageStats.count when the count aggregate fails', async () => {
+    // StatsPanel already falls back to storageStats.count on this failure; the
+    // background prefetch used to return outright on a null totalCount, so on
+    // such a collection the tab-bar dot never appeared until the panel was
+    // opened.
+    vi.mocked(api.aggregate).mockImplementation((_col, pipeline) => {
+      if (pipeline[0]?.$sample) {
+        return Promise.resolve({ result: [{ name: 'Alice', age: 30 }] });
+      }
+      if (pipeline[0]?.$collStats?.count) return Promise.reject(new Error('count unavailable'));
+      if (pipeline[0]?.$collStats?.storageStats) {
+        return Promise.resolve({
+          result: [{ storageStats: { avgObjSize: 1024, count: 4_000_000 } }],
+        });
+      }
+      return Promise.resolve({ result: [{}] });
+    });
+
+    await prefetchForPanel('test_col', 'stats');
+
+    expect(cache.get('test_col', 'totalCount')).toBe(4_000_000);
+    expect(store.statsSummary.value).not.toBeNull();
   });
 
   it('prefetchForPanel("stats") leaves statsSummary null when a stats check fails', async () => {

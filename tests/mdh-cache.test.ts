@@ -33,6 +33,9 @@ describe('MDH cache', () => {
     vi.useFakeTimers();
     cache.set('col1', 'statsFields', ['name']);
     cache.set('col1', 'stats_coverage', { result: [] });
+    // The marker recording which sample size produced the entries has to expire
+    // WITH them, or a stale one outlives what it describes.
+    cache.set('col1', 'statsRunSize', 5000);
     cache.set('col1', 'totalCount', 42);
 
     // After 70s: non-stats keys have expired, stats keys still cached.
@@ -40,11 +43,13 @@ describe('MDH cache', () => {
     expect(cache.get('col1', 'totalCount')).toBeNull();
     expect(cache.get('col1', 'statsFields')).toEqual(['name']);
     expect(cache.get('col1', 'stats_coverage')).toEqual({ result: [] });
+    expect(cache.get('col1', 'statsRunSize')).toBe(5000);
 
     // Just past 600s: stats keys also expire.
     vi.advanceTimersByTime(531_000); // total 601s since set
     expect(cache.get('col1', 'statsFields')).toBeNull();
     expect(cache.get('col1', 'stats_coverage')).toBeNull();
+    expect(cache.get('col1', 'statsRunSize')).toBeNull();
   });
 
   it('cleans up expired entries on access', () => {
@@ -94,6 +99,20 @@ describe('MDH cache', () => {
 
     cache.invalidate('col1');
     expect(cache.get('col1', 'b')).toBeNull();
+  });
+
+  it('invalidateAll drops work in progress as well as results', () => {
+    // A promise left in the single-flight map after the results were cleared
+    // lets a fresh run join an already-settled — or already-aborted — run.
+    let runs = 0;
+    const first = cache.single('k', async () => ++runs);
+    cache.invalidateAll();
+    const second = cache.single('k', async () => ++runs);
+    expect(second).not.toBe(first);
+    return Promise.all([first, second]).then(([a, b]) => {
+      expect(a).toBe(1);
+      expect(b).toBe(2);
+    });
   });
 
   it('reports stats', () => {
