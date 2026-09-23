@@ -199,7 +199,7 @@ describe('applyMutationToText (minimal edits preserve comments + formatting)', (
   it('preserves an untouched stage BETWEEN two changed stages (multi-change mutator)', () => {
     // handleSort does applySort + applySkip; a $group sits between $sort and $skip.
     const text =
-      '[\n  { "$match": {} },\n  { "$sort": { "a": 1 } },\n  { "$group": { "_id": "$x" /* keep me */ } },\n  { "$skip": 0 }\n]';
+      '[\n  { "$match": {} },\n  { "$sort": { "a": 1 } },\n  { "$group": { "_id": "$x" /* keep me */ } },\n  { "$skip": 0 },\n  { "$limit": 50 }\n]';
     const out = applyMutationToText(text, (p) => {
       applySortToPipeline(p, { b: -1 });
       applySkipToPipeline(p, 25);
@@ -210,6 +210,7 @@ describe('applyMutationToText (minimal edits preserve comments + formatting)', (
       { $sort: { b: -1 } },
       { $group: { _id: '$x' } },
       { $skip: 25 },
+      { $limit: 50 },
     ]);
   });
 
@@ -268,9 +269,20 @@ describe('applyMutationToText (minimal edits preserve comments + formatting)', (
 
   it('appending a stage after a trailing disabled block stays valid (no double comma)', () => {
     const text = '[\n  { "$match": {} },\n  /* @disabled-stage\n{ "$z": 9 } */\n]';
-    const out = applyMutationToText(text, (p) => applySkipToPipeline(p, 10))!; // appends $skip
+    const out = applyMutationToText(text, (p) => p.push({ $skip: 10 }))!; // appends past the block
     expect(parsePipelineDoc(out).ok).toBe(true);
     expect(JSON5.parse(out)).toEqual([{ $match: {} }, { $skip: 10 }]);
+    expect(parseEntries(out).entries.filter((e) => e.disabled)).toHaveLength(1);
+  });
+
+  it('pages a pipeline whose LAST stage is disabled (the run is still trailing)', () => {
+    // The mutator sees disabled stages as inert stand-ins. One sitting past the
+    // $skip/$limit pair must not read as the end of the trailing run, or paging
+    // would silently do nothing while the controls stay enabled.
+    const text =
+      '[\n  { "$match": {} },\n  { "$skip": 0 },\n  { "$limit": 50 },\n  /* @disabled-stage\n{ "$project": { "a": 1 } } */\n]';
+    const out = applyMutationToText(text, (p) => applySkipToPipeline(p, 50))!;
+    expect(JSON5.parse(out)).toEqual([{ $match: {} }, { $skip: 50 }, { $limit: 50 }]);
     expect(parseEntries(out).entries.filter((e) => e.disabled)).toHaveLength(1);
   });
 

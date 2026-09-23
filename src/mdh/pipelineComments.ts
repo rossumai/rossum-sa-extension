@@ -233,7 +233,14 @@ export function setStageDisabled(text: string, entryIndex: number, disabled: boo
   ]);
 }
 
-const PLACEHOLDER = '__disabledStagePlaceholder__';
+// Inert stand-in a disabled stage rides through the mutator as, holding its slot
+// so active-stage indices stay aligned. It carries NO own keys deliberately: a
+// pipelineOps scan for a *trailing* run (findPaginationWindow) steps over an
+// own-key-less entry, so a disabled stage sitting past the run does not read as
+// its end. A fresh object per slot — the diff below matches by identity.
+function disabledPlaceholder(): Record<string, never> {
+  return {};
+}
 
 // Edit that removes segment k and exactly one separator comma. When the previous
 // segment is ACTIVE the separator comma (and this stage's leading comment, Limit B)
@@ -302,7 +309,7 @@ export function applyMutationToText(text: string, mutator: (stages: any[]) => vo
   // Identity-stable work array: active stages BY REFERENCE (pipelineOps never
   // mutate a stage object in place, only reassign/splice slots, so untouched
   // stages keep their reference); disabled stages ride as inert placeholders.
-  const origWork = segments.map((s) => (s.kind === 'active' ? s.stage : { [PLACEHOLDER]: true }));
+  const origWork = segments.map((s) => (s.kind === 'active' ? s.stage : disabledPlaceholder()));
   const work = origWork.slice();
   mutator(work);
 

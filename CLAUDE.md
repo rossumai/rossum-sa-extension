@@ -555,7 +555,9 @@ older ones as history. Currently authoritative per area:
   `2026-08-11-fabry-public-single-gate-design.md`
 - **Onboarding training** — `2026-08-07-partner-onboarding-training-design.md` + `-verification.md`
 - **Inspector** — `2026-07-03-inspector-overhaul-design.md`
-- **MDH** — `2026-09-22-mdh-stats-sampling-design.md` (Collection Stats: budgeted-sample profiling,
+- **MDH** — `2026-09-23-mdh-pagination-window-design.md` (record pagination: the trailing
+  `$skip`/`$limit` run is the UI's, everything before it is the user's query),
+  `2026-09-22-mdh-stats-sampling-design.md` (Collection Stats: budgeted-sample profiling,
   current record for the Stats tab), `2026-09-01-mdh-regular-index-guidance-design.md` (regular-index
   presets and wildcard guidance),
   `2026-08-31-mdh-fuzzy-index-builder-design.md` (search-index presets and Check),

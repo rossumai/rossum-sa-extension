@@ -25,30 +25,34 @@ export function usePagination() {
     }
   }
 
-  function page() {
-    return Math.floor(skip.value / limit.value) + 1;
+  // `pageSize` is the pipeline's own `$limit` (see findPaginationWindow) — the
+  // page the user is actually looking at. It defaults to the store's page size,
+  // which is only right for a pipeline the UI built itself; a hand-written
+  // `$limit` makes every one of these answers wrong otherwise.
+  function page(pageSize = limit.value) {
+    return Math.floor(skip.value / pageSize) + 1;
   }
 
   function hasPrev() {
     return skip.value > 0;
   }
 
-  function hasNext(recordCount: number, filtered = false) {
+  function hasNext(recordCount: number, filtered = false, pageSize = limit.value) {
     // The $collStats total is the UNFILTERED collection size, so it is only a
     // valid page bound for a full-collection browse. When the pipeline filters
     // or reduces, fall back to the record-count heuristic — otherwise "Next"
     // stays clickable into empty pages.
     const total = totalCount.value;
-    if (!filtered && typeof total === 'number') return skip.value + limit.value < total;
-    return recordCount >= limit.value;
+    if (!filtered && typeof total === 'number') return skip.value + pageSize < total;
+    return recordCount >= pageSize;
   }
 
-  function goNext() {
-    skip.value = skip.value + limit.value;
+  function goNext(pageSize = limit.value) {
+    skip.value = skip.value + pageSize;
   }
 
-  function goPrev() {
-    skip.value = Math.max(0, skip.value - limit.value);
+  function goPrev(pageSize = limit.value) {
+    skip.value = Math.max(0, skip.value - pageSize);
   }
 
   function resetPage() {

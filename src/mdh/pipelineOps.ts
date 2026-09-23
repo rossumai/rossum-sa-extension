@@ -67,17 +67,64 @@ export function applyFilterDeltaToPipeline(
   return pipeline;
 }
 
-// Update or insert a `$skip` stage. When inserting, place it before `$limit`
-// if present so skip/limit pagination semantics are preserved.
-export function applySkipToPipeline(pipeline: any[], skipValue: number): any[] {
-  const skipIdx = findIndexBy(pipeline, '$skip');
-  if (skipIdx >= 0) {
-    pipeline[skipIdx] = { $skip: skipValue };
-    return pipeline;
+// The window the pagination controls own: the contiguous trailing run of
+// `$skip` / `$limit` stages — the same trailing-run rule `stripPaginationStages`
+// below already applies, and for the same reason. Everything before that run is
+// the user's query, so a `$skip` there is load-bearing (a deliberate offset, or
+// a cap before a `$group`) and must never be rewritten as a page offset.
+//
+// Returns null when the run is not one the UI can drive, in which case the
+// caller disables Prev/Next rather than inventing pagination stages:
+//   • no `$limit` in the run — with no page size there is no next page;
+//   • more than one `$skip` or `$limit`, or one stage carrying both;
+//   • the `$skip` sits AFTER the `$limit`, where paging forward could only ever
+//     return an empty page;
+//   • either bound is not a usable count.
+// Takes `unknown` because it VALIDATES: callers hand it whatever parsed out of
+// the editor.
+export type PaginationWindow = {
+  skipIndex: number; // -1 when the run has a `$limit` but no `$skip` yet
+  limitIndex: number;
+  skip: number;
+  limit: number;
+};
+
+export function findPaginationWindow(pipeline: unknown): PaginationWindow | null {
+  if (!Array.isArray(pipeline)) return null;
+  const skips: number[] = [];
+  const limits: number[] = [];
+  for (let i = pipeline.length - 1; i >= 0; i--) {
+    const stage = pipeline[i];
+    if (!stage || typeof stage !== 'object') break;
+    // `applyMutationToText` rides disabled stages through the mutator as inert
+    // objects with no own keys. Step over them, so this scan sees the same
+    // trailing run as a scan over the active stages alone.
+    if (Object.keys(stage).length === 0) continue;
+    const isSkip = '$skip' in stage;
+    const isLimit = '$limit' in stage;
+    if (!isSkip && !isLimit) break;
+    if (isSkip && isLimit) return null;
+    (isSkip ? skips : limits).push(i);
   }
-  const limitIdx = findIndexBy(pipeline, '$limit');
-  if (limitIdx >= 0) pipeline.splice(limitIdx, 0, { $skip: skipValue });
-  else pipeline.push({ $skip: skipValue });
+  if (limits.length !== 1 || skips.length > 1) return null;
+  const limitIndex = limits[0];
+  const skipIndex = skips.length > 0 ? skips[0] : -1;
+  if (skipIndex > limitIndex) return null;
+  const limit = pipeline[limitIndex].$limit;
+  if (!Number.isInteger(limit) || limit <= 0) return null;
+  const skip = skipIndex >= 0 ? pipeline[skipIndex].$skip : 0;
+  if (!Number.isInteger(skip) || skip < 0) return null;
+  return { skipIndex, limitIndex, skip, limit };
+}
+
+// Write the page offset into the pagination window, inserting the `$skip` in
+// front of the window's `$limit` when the pipeline has none yet. A pipeline
+// with no window is returned untouched.
+export function applySkipToPipeline(pipeline: any[], skipValue: number): any[] {
+  const win = findPaginationWindow(pipeline);
+  if (!win) return pipeline;
+  if (win.skipIndex >= 0) pipeline[win.skipIndex] = { $skip: skipValue };
+  else pipeline.splice(win.limitIndex, 0, { $skip: skipValue });
   return pipeline;
 }
 

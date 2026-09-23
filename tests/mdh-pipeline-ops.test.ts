@@ -3,6 +3,7 @@ import {
   applySortToPipeline,
   applyFilterDeltaToPipeline,
   applySkipToPipeline,
+  findPaginationWindow,
   extractUIStateFromPipeline,
   stripPaginationStages,
   pipelineReducesResultSet,
@@ -96,23 +97,99 @@ describe('applyFilterDeltaToPipeline', () => {
   });
 });
 
+describe('findPaginationWindow', () => {
+  it('finds the trailing $skip/$limit pair of the default pipeline', () => {
+    const p = [{ $match: {} }, { $sort: { _id: -1 } }, { $skip: 0 }, { $limit: 50 }];
+    expect(findPaginationWindow(p)).toEqual({ skipIndex: 2, limitIndex: 3, skip: 0, limit: 50 });
+  });
+
+  it('reads the page size and the offset from the pipeline, not from a fixed default', () => {
+    const p = [{ $match: {} }, { $skip: 120 }, { $limit: 10 }];
+    expect(findPaginationWindow(p)).toEqual({ skipIndex: 1, limitIndex: 2, skip: 120, limit: 10 });
+  });
+
+  it('reports a trailing $limit with no $skip as an insert slot', () => {
+    const p = [{ $match: {} }, { $limit: 25 }];
+    expect(findPaginationWindow(p)).toEqual({ skipIndex: -1, limitIndex: 1, skip: 0, limit: 25 });
+  });
+
+  it('ignores a load-bearing $skip that is not part of the trailing run', () => {
+    const p = [
+      { $match: { ok: true } },
+      { $skip: 3 },
+      { $group: { _id: '$k' } },
+      { $skip: 0 },
+      { $limit: 50 },
+    ];
+    expect(findPaginationWindow(p)).toEqual({ skipIndex: 3, limitIndex: 4, skip: 0, limit: 50 });
+  });
+
+  it('returns null when the pipeline has no trailing $skip/$limit run', () => {
+    expect(findPaginationWindow([{ $match: {} }, { $group: { _id: '$k' } }])).toBeNull();
+  });
+
+  it('returns null for a trailing $skip with no $limit — no page size, no pages', () => {
+    expect(findPaginationWindow([{ $match: {} }, { $skip: 10 }])).toBeNull();
+  });
+
+  it('returns null when $skip follows $limit, where paging forward returns nothing', () => {
+    expect(findPaginationWindow([{ $match: {} }, { $limit: 50 }, { $skip: 0 }])).toBeNull();
+  });
+
+  it('returns null for a malformed run (repeated or combined stages)', () => {
+    expect(findPaginationWindow([{ $limit: 50 }, { $limit: 10 }])).toBeNull();
+    expect(findPaginationWindow([{ $skip: 0 }, { $skip: 5 }, { $limit: 10 }])).toBeNull();
+    expect(findPaginationWindow([{ $skip: 0, $limit: 10 }])).toBeNull();
+  });
+
+  it('returns null when the values are not usable page bounds', () => {
+    expect(findPaginationWindow([{ $skip: 0 }, { $limit: 0 }])).toBeNull();
+    expect(findPaginationWindow([{ $skip: 0 }, { $limit: '{n}' }])).toBeNull();
+    expect(findPaginationWindow([{ $skip: -5 }, { $limit: 50 }])).toBeNull();
+  });
+
+  it('returns null for a non-array', () => {
+    expect(findPaginationWindow('not a pipeline' as unknown)).toBeNull();
+  });
+
+  it('steps over the inert stand-in applyMutationToText uses for a disabled stage', () => {
+    // applyMutationToText hands the mutator an own-key-less object in place of
+    // each disabled stage; it must not read as the end of the trailing run.
+    const p = [{ $match: {} }, { $skip: 0 }, { $limit: 50 }, {}];
+    expect(findPaginationWindow(p)).toEqual({ skipIndex: 1, limitIndex: 2, skip: 0, limit: 50 });
+  });
+});
+
 describe('applySkipToPipeline', () => {
-  it('updates an existing $skip value', () => {
+  it('updates the trailing $skip value', () => {
     const p = [{ $match: {} }, { $skip: 0 }, { $limit: 50 }];
     applySkipToPipeline(p, 100);
     expect(p).toEqual([{ $match: {} }, { $skip: 100 }, { $limit: 50 }]);
   });
 
-  it('inserts $skip before $limit when absent', () => {
+  it('inserts $skip before a trailing $limit when absent', () => {
     const p = [{ $match: {} }, { $limit: 50 }];
     applySkipToPipeline(p, 25);
     expect(p).toEqual([{ $match: {} }, { $skip: 25 }, { $limit: 50 }]);
   });
 
-  it('appends $skip when no $limit exists', () => {
-    const p = [{ $match: {} }];
+  it('leaves a mid-pipeline $skip alone and writes the trailing one', () => {
+    const p = [
+      { $match: { ok: true } },
+      { $skip: 3 },
+      { $group: { _id: '$k' } },
+      { $skip: 0 },
+      { $limit: 50 },
+    ];
     applySkipToPipeline(p, 50);
-    expect(p).toEqual([{ $match: {} }, { $skip: 50 }]);
+    expect(p[1]).toEqual({ $skip: 3 });
+    expect(p[3]).toEqual({ $skip: 50 });
+  });
+
+  it('leaves a pipeline with no pagination window untouched', () => {
+    const p = [{ $match: {} }, { $skip: 3 }, { $group: { _id: '$k' } }];
+    applySkipToPipeline(p, 50);
+    expect(p).toEqual([{ $match: {} }, { $skip: 3 }, { $group: { _id: '$k' } }]);
   });
 });
 

@@ -43,6 +43,7 @@ import {
   applySortToPipeline,
   applyFilterDeltaToPipeline,
   applySkipToPipeline,
+  findPaginationWindow,
   extractUIStateFromPipeline,
   parseExportFilter,
   pipelineReducesResultSet,
@@ -420,10 +421,10 @@ export default function DataPanel() {
     selectionPipelineDirty.value = false;
   }
 
-  // Mirror the pipeline text into UI state (column sort arrows, filter chips)
-  // so direct edits to $sort/$match are reflected in the record view. Runs only
-  // after a *valid* parse — invalid intermediate edits leave the last good state
-  // in place instead of flickering.
+  // Mirror the pipeline text into UI state (column sort arrows, filter chips,
+  // the page offset) so direct edits to $sort/$match/$skip are reflected in the
+  // record view. Runs only after a *valid* parse — invalid intermediate edits
+  // leave the last good state in place instead of flickering.
   function syncUIStateFromPipeline() {
     if (!editorRef.current) return;
     try {
@@ -431,6 +432,11 @@ export default function DataPanel() {
       const { sorts, filters } = extractUIStateFromPipeline(parsed);
       pipeline.sortState.value = sorts;
       pipeline.filterState.value = filters;
+      // The text owns the offset: a hand-typed $skip must move "Showing X–Y"
+      // and enable Prev, not sit there while the UI still believes it is on
+      // page 1 and pages backwards on the next click.
+      const win = findPaginationWindow(parsed);
+      skip.value = win ? win.skip : 0;
     } catch {
       /* invalid — keep existing UI state */
     }
@@ -720,6 +726,9 @@ export default function DataPanel() {
 
   const effectiveStages = debugEntries.filter((e) => !e.disabled).map((e) => e.stage);
   const resultsFiltered = pipelineReducesResultSet(effectiveStages);
+  // The trailing $skip/$limit run the pagination controls own, or null when the
+  // pipeline has none and Prev/Next therefore have nothing to drive.
+  const pageWindow = findPaginationWindow(effectiveStages);
   const writeStage = terminalWriteStage(effectiveStages);
 
   return (
@@ -784,6 +793,7 @@ export default function DataPanel() {
           totalCount={pagination.totalCount.value}
           pagination={pagination}
           filtered={resultsFiltered}
+          pageWindow={pageWindow}
           entries={debugEntries}
           rawStages={rawStages}
           variables={pipelineVariables}
@@ -791,7 +801,10 @@ export default function DataPanel() {
           onSort={handleSort}
           onFilter={handleFilter}
           onPageChange={(dir) => {
-            dir === 'next' ? pagination.goNext() : pagination.goPrev();
+            if (!pageWindow) return;
+            dir === 'next'
+              ? pagination.goNext(pageWindow.limit)
+              : pagination.goPrev(pageWindow.limit);
             mutatePipelineText((p: any) => applySkipToPipeline(p, skip.value));
             runQuery();
           }}

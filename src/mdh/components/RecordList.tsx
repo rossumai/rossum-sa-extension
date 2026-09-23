@@ -21,6 +21,7 @@ import * as cache from '../cache.js';
 import { RESERVED_PX, CHAR_WIDTH_PX, MIN_CHAR_BUDGET } from '../recordSummary.js';
 import { ALT_KEY } from '../platform.js';
 import type { SortFilterControls } from '../hooks/usePipeline.js';
+import type { PaginationWindow } from '../pipelineOps.js';
 
 export default function RecordList({
   records,
@@ -46,6 +47,7 @@ export default function RecordList({
   onClearSelection,
   onViewSelected,
   filtered = false,
+  pageWindow = null,
   entries,
   rawStages,
   variables,
@@ -71,6 +73,7 @@ export default function RecordList({
   onClearSelection: () => void;
   onViewSelected: () => void;
   filtered?: boolean;
+  pageWindow?: PaginationWindow | null;
   entries?: any[];
   rawStages?: any[] | null;
   variables?: any[] | null;
@@ -328,12 +331,19 @@ export default function RecordList({
             Click key to sort {'\u00b7'} Click value to filter {'\u00b7'} {ALT_KEY}+click to copy
           </span>
           <div class="pagination-controls">
-            <button disabled={!pagination.hasPrev()} onClick={() => onPageChange('prev')}>
+            <button
+              disabled={!pageWindow || !pagination.hasPrev()}
+              title={pageWindow ? undefined : NO_PAGE_WINDOW_TITLE}
+              onClick={() => onPageChange('prev')}
+            >
               {'\u2190'} Prev
             </button>
-            <span>Page {pagination.page()}</span>
+            <span>Page {pagination.page(pageWindow?.limit)}</span>
             <button
-              disabled={!pagination.hasNext(records.length, filtered)}
+              disabled={
+                !pageWindow || !pagination.hasNext(records.length, filtered, pageWindow.limit)
+              }
+              title={pageWindow ? undefined : NO_PAGE_WINDOW_TITLE}
               onClick={() => onPageChange('next')}
             >
               Next {'\u2192'}
@@ -344,6 +354,12 @@ export default function RecordList({
     </div>
   );
 }
+
+// Paging rewrites the pipeline's TRAILING $skip/$limit run and nothing else, so a
+// pipeline without one has no page to turn. Saying which stages are missing beats
+// a dead button with no explanation.
+const NO_PAGE_WINDOW_TITLE =
+  'This pipeline has no trailing $skip/$limit stages to page through. Add them, or click Reset.';
 
 const STAGES_DISABLED_TITLE =
   'Unavailable in the Stages view — switch to List or Table to use this.';

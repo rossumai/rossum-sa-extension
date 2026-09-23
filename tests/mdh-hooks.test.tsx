@@ -387,6 +387,33 @@ describe('pagination (usePagination)', () => {
     expect(hook.page()).toBe(1);
   });
 
+  it('steps by the pipeline page size rather than the store default', () => {
+    const hook = renderHook(usePagination);
+
+    hook.goNext(10);
+    expect(store.skip.value).toBe(10);
+    expect(hook.page(10)).toBe(2);
+
+    hook.goPrev(10);
+    expect(store.skip.value).toBe(0);
+  });
+
+  it('bounds an unfiltered query by the pipeline page size, not by 50', () => {
+    const hook = renderHook(usePagination);
+    hook.totalCount.value = 25;
+    store.skip.value = 10;
+    // 10 + 10 < 25 -> there is a page 3. With the fixed 50 this read as "no more".
+    expect(hook.hasNext(10, false, 10)).toBe(true);
+    expect(hook.hasNext(10, false)).toBe(false);
+  });
+
+  it('treats a full page as a full page at the pipeline page size', () => {
+    const hook = renderHook(usePagination);
+    hook.totalCount.value = null;
+    expect(hook.hasNext(10, true, 10)).toBe(true);
+    expect(hook.hasNext(9, true, 10)).toBe(false);
+  });
+
   it('goPrev does not go below zero', () => {
     const hook = renderHook(usePagination);
     hook.goPrev();

@@ -180,6 +180,47 @@ describe('RecordList — stages view', () => {
   });
 });
 
+describe('RecordList pagination controls', () => {
+  function pageButtons(root: HTMLElement) {
+    return [...root.querySelectorAll('.pagination-controls button')] as HTMLButtonElement[];
+  }
+
+  it('asks the pagination hook using the pipeline page size', () => {
+    const sizes: any[] = [];
+    const root = renderList({
+      pagination: {
+        hasPrev: () => true,
+        hasNext: (_n: number, _f: boolean, size: number) => {
+          sizes.push(size);
+          return true;
+        },
+        page: (size: number) => {
+          sizes.push(size);
+          return 2;
+        },
+      },
+      pageWindow: { skipIndex: 1, limitIndex: 2, skip: 10, limit: 10 },
+    });
+    const [prev, next] = pageButtons(root);
+    expect(prev.disabled).toBe(false);
+    expect(next.disabled).toBe(false);
+    expect(sizes).not.toHaveLength(0);
+    expect(sizes.every((s) => s === 10)).toBe(true);
+  });
+
+  it('disables Prev/Next, with a reason, when the pipeline has no pagination window', () => {
+    const root = renderList({
+      pagination: { hasPrev: () => true, hasNext: () => true, page: () => 2 },
+      pageWindow: null,
+    });
+    const [prev, next] = pageButtons(root);
+    expect(prev.disabled).toBe(true);
+    expect(next.disabled).toBe(true);
+    expect(prev.title).toMatch(/\$skip[\s\S]*\$limit/);
+    expect(next.title).toBe(prev.title);
+  });
+});
+
 describe('RecordList footer', () => {
   it('shows only "Showing X–Y" — no total count, no timing', () => {
     const root = renderList({ totalCount: 162, lastQueryMs: 277 });
