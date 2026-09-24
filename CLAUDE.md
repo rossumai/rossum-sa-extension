@@ -212,6 +212,54 @@ features, and runs ONE MutationObserver over added subtrees. Each module in
 To add a feature: create the module, add its key to `SETTINGS_KEYS` in `index.ts`, wire
 `init()`/`handleNode()`, add a popup checkbox. Disabled features add zero overhead.
 
+**The observer sees ADDED nodes only — nothing walks the DOM that is already there.** A feature
+targeting something the SPA mounts once, early (the navbar is the case that found this), never
+runs at all: the content script is `document_idle`, so that element already exists and no
+mutation ever reports it. Such a feature needs an `init()` that sweeps the current document, and
+`index.ts` must call it AFTER `observe()` — before, and anything rendered in between is missed by
+both. `org-name-navbar.ts` is the worked example. Features keyed to navigation or to re-rendered
+lists do not need this, which is why nine features did not have it.
+
+**Two features surface the organization's name**, since orgs in one group share a hostname AND a
+white-labelled logo, so nothing on screen says which one you are in. `org-name-navbar` puts it
+after the logo, anchored on `[aria-label="nav-bar-tabs"]` (MUI puts that label on the tablist, not
+the Tabs root) whose `.closest('.MuiTabs-root').parentElement` is the badge row holding Rossum's
+own chips. A second line under the name always names the
+ENVIRONMENT — **PRODUCTION** filled red with white text, **SANDBOX** filled in Rossum's own chip colours
+(`#d5edf2` on `#70cce1`, sampled from a screenshot of the live navbar), so the calm state reads as
+the product's own rather than as a warning that failed to fire; silence is not a state, because silence is exactly
+what Rossum gives production today. `sandbox` rides along on the organization we already fetch,
+and a MISSING flag counts as production. It also HIDES Rossum's own "Sandbox" and "Developer mode"
+chips, matched on their label text, so the bar carries one environment statement — but only once
+ours is painted, since hiding them after a failed lookup would leave the bar saying nothing at
+all. **Centring small caps in a badge is a PIXEL
+problem, and font metrics lie about it.** Canvas `actualBoundingBoxAscent` said the ink was within
+0.3px of centre while it visibly was not; reading rendered rows out of a screenshot showed 2px
+above and 3px below. Two rules fix it, both asserted: `line-height: 1` pins the line box to the
+font size, and the padding must leave an EVEN number of spare pixels (8 rows of capitals in a 12px
+content box gives 2 and 2; 13px can only give 2 and 3). It also means both states carry the SAME
+`font-weight` — they differ by fill against outline — because a heavier weight renders a pixel
+more ink and re-tilts the box. **Those chips can arrive AFTER the navbar
+mounts** — the features behind them resolve
+asynchronously — so `handleNode` matches the chip itself as well as the tablist. Hiding them once,
+at paint time, looked right in a replica and left Rossum's Sandbox chip on screen in the real
+dashboard. `org-name-title` puts it FIRST in the tab title, because browsers truncate from the
+right and Rossum's own title is route-scoped and org-free ("Document List - Rossum"); it owns a
+MutationObserver on `<title>` rather than a `handleNode`, since a title change adds no element,
+and guards re-entry by testing the prefix rather than a flag. Both are behind `orgBadgeEnabled`, and both ship NO stylesheet — the navbar
+label styles inline off `currentColor` — and both cap their footprint: the label is 220px with an
+ellipsis, because NavBar.tsx marks the left group `flexShrink: 0` and an unbounded name pushes the
+tabs off the bar. An earlier version hung off Rossum's "Developer mode" chip, which is
+present on few orgs. That chip does NOT mark an environment (owner, 2026-09-24): it says the
+developer-mode toggle is on, revealing extra features, and it is independent of
+`organization.sandbox`. The bundle's own tooltip calls it "a dev environment", which is
+misleading — do not infer the environment from it. Neither
+has a toggle (owner, 2026-09-23): knowing which org you are in is the default, not a preference.
+`org-name-title` is the only always-on feature that does NOT wait for the storage read — it has no
+settings to read — which puts a SECOND MutationObserver in the content script, so a test stub that
+captures "the" observer callback has to bind on the `document.body` target or it silently gets the
+`<title>` one.
+
 **NetSuite** and **Coupa** are self-contained single files with no observer. Coupa uses two
 strategies: JSON from `#initial_full_react_data` (React pages), and DOM attributes with
 `IGNORE_S_CLASSES` filtering (Rails pages).
@@ -378,8 +426,14 @@ Enforced by tests, not by convention. Do not weaken them.
 
 - **Feature toggles** — `schemaAnnotationsEnabled`, `expandFormulasEnabled`,
   `expandReasoningFieldsEnabled`, `scrollLockEnabled`, `resourceIdsEnabled`,
-  `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled`. `closable-tooltips`,
-  `dataset-mgmt-suggest` and `track-viewed` are always on, with no toggle and no key.
+  `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled` — all DEFAULT OFF, since an absent key
+  reads as disabled. **`orgBadgeEnabled` is the one exception and defaults ON**: absent
+  means enabled and only an explicit `false` disables it, so it is read as `!== false` in
+  `src/rossum/index.ts`, `src/console/index.tsx` and the popup. `!settings.x` would hide it from
+  everyone who has never opened the popup. It is also the one key read on BOTH sides — it governs
+  every place the organization is named: the navbar badge, the tab title and the Console's
+  connection bars. `closable-tooltips`, `dataset-mgmt-suggest` and `track-viewed` are always on,
+  with no toggle and no key.
 - **The one gate** — `experimentalUnlocked`: 5 quick clicks on the popup's version hash, hiding
   only the Academy, mirrored live via `chrome.storage.onChanged`.
 - **Auth staging** — `consoleAuth_<uuid>`: single-use, 24h TTL, removed on read.
