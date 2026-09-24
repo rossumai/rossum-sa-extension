@@ -45,9 +45,10 @@ export function track(name: EventName): undefined {
   return undefined;
 }
 
-// For features driven by the MutationObserver: they act per DOM node, so this
+// For features that act with no deliberate user step — the MutationObserver
+// features (per DOM node) and the Search Index test (per typing pause) — this
 // collapses a whole page's activity into one event. The set lives for the
-// content script instance, i.e. one page load.
+// script instance, i.e. one page load.
 export function trackOnce(name: EventName): undefined {
   if (sentOnce.has(name)) return undefined;
   sentOnce.add(name);

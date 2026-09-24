@@ -95,8 +95,15 @@ function narrowFirstEntry(key: string, value: unknown, charBudget: number): stri
   return `${key}: ${rendered.slice(0, room)}\u2026`;
 }
 
-export function recordSummary(record: any, charBudget: number, opts: { indexes?: any[] } = {}) {
-  const ranked = rankFields(record, opts);
+// `skip` leaves keys out of the summary entirely — for a caller that already
+// shows them beside it (the Search Index test's match line).
+export function recordSummary(
+  record: any,
+  charBudget: number,
+  opts: { indexes?: any[]; skip?: string[] } = {},
+) {
+  const skip = new Set(opts.skip || []);
+  const ranked = rankFields(record, opts).filter((k) => !skip.has(k));
   if (ranked.length === 0) return EMPTY_SENTINEL;
 
   // _id-only fallback: record has nothing but _id.

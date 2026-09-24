@@ -5,7 +5,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from 'preact/hooks';
 // unaliased. This file's own poller, useIndexReconcile(), returns
 // `{ watch, stop }` — no `track` at all — so there is no collision here today;
 // the alias only pre-empts one if useOperationStatus is ever added to this file too.
-import { track as trackUsage } from '../../usage/track.js';
+import { trackOnce } from '../../usage/track.js';
 import { selectedCollection, activePanel, loading, error } from '../store.js';
 import {
   openModal,
@@ -33,7 +33,7 @@ import * as api from '../api.js';
 import * as cache from '../cache.js';
 import type { JsonEditorHandle } from './JsonEditor.jsx';
 import { customPreset, defaultPreset, fuzzyPreset } from '../searchIndexPresets.js';
-import { indexedPaths, checkPipeline } from '../searchIndexCheck.js';
+import { checkPipeline } from '../searchIndexCheck.js';
 import { Segmented } from './ImportControls.jsx';
 import MatchKeyPicker from './MatchKeyPicker.jsx';
 import { discoverLeafPaths } from '../columnDiscovery.js';
@@ -444,16 +444,14 @@ export default function SearchIndexPanel() {
             // serving its previous build, so it stays checkable.
             const isReady = isObj && String(idx.status).toUpperCase() === 'READY';
             const checkable = isReady || stillServing;
-            const declaredPaths = definition ? indexedPaths(definition) : [];
             const onCheck = checkable
-              ? async (value: string, path?: string) => {
-                  // A dynamic index declares no fields, so the strip asked for one. Never
-                  // guess a path and never emit a wildcard — unverified against this cluster.
-                  const paths = declaredPaths.length ? declaredPaths : path ? [path] : [];
-                  trackUsage('sa_mdh_search_index_check');
+              ? async (value: string) => {
+                  // Once per Console page: the check runs as you type, so a call is a
+                  // keystroke pause, not a decision — only "was it used" is honest.
+                  trackOnce('sa_mdh_search_index_check');
                   const res = await api.aggregate(
                     selectedCollection.value as string,
-                    checkPipeline(name, paths, value),
+                    checkPipeline(name, value),
                   );
                   return res?.result || [];
                 }
@@ -485,7 +483,9 @@ export default function SearchIndexPanel() {
                 onDrop={() => doDropSearchIndex(name)}
                 cardClass={(isFailed ? 'record-card-failed' : null) as string | undefined}
                 onCheck={onCheck}
-                checkNeedsPath={declaredPaths.length === 0}
+                checkUnavailable={
+                  isObj && !checkable ? 'Testing opens once the index is READY.' : undefined
+                }
               />
             );
           })

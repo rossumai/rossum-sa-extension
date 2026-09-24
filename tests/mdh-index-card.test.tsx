@@ -70,59 +70,25 @@ describe('IndexCard new props', () => {
   });
 });
 
-// Finding 3, 2026-08-31 review: on a dynamic index (checkNeedsPath) Run used to
-// stay enabled with an empty path box, and checkPipeline then emitted path: [] —
-// a search with no path matches nothing, silently.
-describe('IndexCard — Check strip', () => {
-  it('disables Run until a path is given when the index needs one', () => {
-    const onCheck = vi.fn().mockResolvedValue([]);
-    const root = mount(
-      <IndexCard
-        name="x"
-        definition={{ mappings: { dynamic: true } }}
-        onCheck={onCheck}
-        checkNeedsPath
-      />,
-    );
-    act(() => {
-      root.querySelector<HTMLElement>('.action-check')!.click();
-    });
-    const run = root.querySelector<HTMLButtonElement>('[data-testid="check-run"]')!;
-    expect(run.disabled).toBe(true);
-
-    const path = root.querySelector<HTMLInputElement>('[data-testid="check-path"]')!;
-    act(() => {
-      path.value = 'vendor_name';
-      path.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    expect(root.querySelector<HTMLButtonElement>('[data-testid="check-run"]')!.disabled).toBe(
-      false,
-    );
-
-    // Whitespace-only is not a path either.
-    act(() => {
-      path.value = '   ';
-      path.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    expect(root.querySelector<HTMLButtonElement>('[data-testid="check-run"]')!.disabled).toBe(true);
+// The Check row itself is SearchIndexCheck (tests/mdh-search-index-check-ui.test.tsx);
+// the card only decides whether it, or the reason it is missing, appears.
+describe('IndexCard — Check row placement', () => {
+  it('shows the test row without a click, and no toggle button', () => {
+    const root = mount(<IndexCard name="x" definition={{}} onCheck={vi.fn()} />);
+    expect(root.querySelector('[data-testid="check-value"]')).not.toBeNull();
+    expect(root.querySelector('.action-check')).toBeNull();
   });
 
-  it('does not require a path when the index already declares fields', () => {
-    const onCheck = vi.fn().mockResolvedValue([]);
-    const root = mount(
-      <IndexCard
-        name="x"
-        definition={{ mappings: { dynamic: false, fields: { name: {} } } }}
-        onCheck={onCheck}
-        checkNeedsPath={false}
-      />,
-    );
-    act(() => {
-      root.querySelector<HTMLElement>('.action-check')!.click();
-    });
-    expect(root.querySelector('[data-testid="check-path"]')).toBeNull();
-    expect(root.querySelector<HTMLButtonElement>('[data-testid="check-run"]')!.disabled).toBe(
-      false,
-    );
+  it('shows the unavailable reason instead of the row when the card cannot be checked', () => {
+    const root = mount(<IndexCard name="x" definition={{}} checkUnavailable="Not yet." />);
+    expect(root.querySelector('[data-testid="check-value"]')).toBeNull();
+    expect(root.textContent).toContain('Not yet.');
+  });
+
+  // Regular indexes and Stages share IndexCard and have no Check at all.
+  it('renders neither row nor reason when neither prop is given', () => {
+    const root = mount(<IndexCard name="x" definition={{}} />);
+    expect(root.querySelector('[data-testid="check-value"]')).toBeNull();
+    expect(root.querySelector('[data-testid="check-unavailable"]')).toBeNull();
   });
 });

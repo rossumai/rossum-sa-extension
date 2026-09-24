@@ -16,6 +16,7 @@ export function Segmented({
   testid,
   ariaLabel,
   tabs,
+  quiet,
 }: {
   value?: string;
   options: any[];
@@ -23,10 +24,13 @@ export function Segmented({
   testid?: string;
   ariaLabel?: string;
   tabs?: boolean;
+  // A borderless, low-contrast pair for a control that sits inside dense content
+  // (the Search Index test's Record / Why it scored) rather than leading a form.
+  quiet?: boolean;
 }) {
   return (
     <span
-      class={`csv-seg${tabs ? ' seg-tabs' : ''}`}
+      class={`csv-seg${tabs ? ' seg-tabs' : ''}${quiet ? ' seg-quiet' : ''}`}
       role="group"
       aria-label={ariaLabel}
       data-testid={testid}

@@ -35,50 +35,278 @@
   color: var(--text-secondary);
 }
 
+/* The Search Index test row (SearchIndexCheck). Treatment is the approved
+   2026-09-24 mockup's, rule for rule: each hit is two quiet lines, and every
+   control a hit has sits behind one click in .hitDetail. */
 .checkStrip {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  padding: 8px 12px 10px;
   border-top: 1px solid var(--border);
   font-size: 12px;
 }
 
-.checkEmpty {
-  flex-basis: 100%;
+/* The value is the whole control: it runs as you type, so there is no button. */
+.checkInput {
+  width: 100%;
+}
+
+.checkHint {
   color: var(--text-secondary);
 }
 
 /* A failed request is not the same quiet outcome as a genuine miss, and reads
-   as distinct from .checkEmpty via --danger-fg — the token console.css defines
+   as distinct from .checkMeta via --danger-fg — the token console.css defines
    for exactly this (both the light and dark blocks carry the full --danger /
    --danger-hover / --danger-bg / --danger-fg / --danger-border family). */
 .checkError {
-  flex-basis: 100%;
+  margin-top: 8px;
   color: var(--danger-fg);
   font-weight: 500;
 }
 
-.checkRows {
-  flex-basis: 100%;
-  /* Both needed at a narrow width, live-measured with a scratchpad harness:
-     JSON.stringify(r) is one long run with almost no spaces, so plain
-     white-space:normal has nowhere to break and the <li> refuses to shrink
-     below that run's width — min-width:0 lets the flex item shrink, and
-     overflow-wrap:anywhere lets the text itself wrap mid-token once it does. */
-  min-width: 0;
-  overflow-wrap: anywhere;
-  margin: 0;
-  padding-left: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+/* The one results line; it also carries the token/multi caveat, so the caveat
+   costs no row of its own. */
+.checkMeta {
+  margin: 8px 0 2px;
+  font-size: 11px;
+  color: var(--text-secondary);
 }
 
-.checkScore {
-  display: inline-block;
-  min-width: 42px;
+.hitList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hit {
+  border-top: 1px solid var(--border);
+}
+
+.hitRow {
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  column-gap: 8px;
+  padding: 6px 2px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.hitRow:hover {
+  background: var(--bg-hover);
+}
+
+.hitRow:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.hitChevron {
+  padding-top: 3px;
+  font-size: 9px;
+  color: var(--text-secondary);
+}
+
+.hitMain {
+  min-width: 0;
+}
+
+.hitMatch {
+  line-height: 1.5;
+  /* A long unspaced value (an id, a URL) must wrap, not hold the row open. */
+  overflow-wrap: anywhere;
+}
+
+.hitPath {
+  margin-right: 5px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-secondary);
+}
+
+.hitSep {
+  margin: 0 6px;
+  color: var(--text-secondary);
+}
+
+.hitMatch mark {
+  padding: 0 1px;
+  border-radius: 2px;
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+  font-weight: 600;
+}
+
+.hitRecord {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hitScore {
+  padding-top: 1px;
+  font-size: 11.5px;
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
+}
+
+.hitDetail {
+  margin: 0 0 8px 22px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-code);
+}
+
+.hitDetailBar {
+  display: flex;
+  align-items: center;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.hitCopy {
+  margin-left: auto;
+}
+
+.hitPane {
+  padding: 6px 10px 8px;
+}
+
+/* searchScoreDetails, one node per line: the value, then the engine's text. */
+.explainTree {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.explainTree details,
+.explainLeaf {
+  margin-left: 14px;
+}
+
+.explainTree > details {
+  margin-left: 0;
+}
+
+.explainTree summary {
+  overflow: hidden;
+  list-style: none;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.explainTree summary::-webkit-details-marker {
+  display: none;
+}
+
+.explainTree summary::before {
+  content: '\25B8';
+  display: inline-block;
+  width: 12px;
+  color: var(--text-secondary);
+}
+
+.explainTree details[open] > summary::before {
+  content: '\25BE';
+}
+
+.explainLeaf {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.explainLeaf::before {
+  content: '';
+  display: inline-block;
+  width: 12px;
+}
+
+.explainTree b {
+  display: inline-block;
+  min-width: 44px;
+  margin-right: 8px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* "Why it scored" read as one row per matched term (explainTerms). */
+.termTable {
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.termTable th {
+  padding: 0 18px 3px 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: left;
+}
+
+.termTable td {
+  padding: 2px 18px 2px 0;
+}
+
+.termTable .termPoints {
+  padding-right: 10px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.termField {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.termTerm {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.termFound {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Marks a number that has more behind it on hover. */
+.termHint {
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: help;
+}
+
+.termFuzzy {
+  font-size: 10.5px;
+  color: var(--text-secondary);
+  cursor: help;
+}
+
+.termTotal td {
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.rawToggle {
+  margin-top: 8px;
+  font-size: 11px;
+}
+
+.rawToggle > summary {
+  color: var(--accent);
+  list-style: none;
+  cursor: pointer;
+}
+
+.rawToggle > summary::-webkit-details-marker {
+  display: none;
+}
+
+.rawToggle > .explainTree {
+  margin-top: 6px;
 }

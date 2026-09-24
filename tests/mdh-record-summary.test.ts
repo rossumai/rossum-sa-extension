@@ -172,3 +172,17 @@ describe('recordSummary — edge cases', () => {
     expect(out.endsWith('\u2026')).toBe(true);
   });
 });
+
+describe('recordSummary — skip', () => {
+  // The Search Index test shows the matched field on the line above the record
+  // summary, so the summary must be able to leave it out.
+  it('leaves out the skipped keys', () => {
+    expect(recordSummary({ _id: 'a', name: 'Acme', code: 'A1' }, 200, { skip: ['name'] })).toBe(
+      'code: "A1" · _id: "a"',
+    );
+  });
+
+  it('falls back to the _id when everything else is skipped', () => {
+    expect(recordSummary({ _id: 'a', name: 'Acme' }, 200, { skip: ['name'] })).toBe('_id: "a"');
+  });
+});

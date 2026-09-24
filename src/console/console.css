@@ -2851,6 +2851,31 @@ body {
   font-weight: 600;
 }
 
+/* Quiet variant: no frame, and the selected option is a card-coloured chip
+   rather than an accent fill, for a switch that sits inside dense content. */
+.seg-quiet {
+  gap: 2px;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+}
+.seg-quiet .csv-seg-opt {
+  border: none;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: none;
+  color: var(--text-secondary);
+}
+.seg-quiet .csv-seg-opt.on {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.seg-quiet .csv-seg-opt:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
 .import-steps {
   margin-top: 14px;
   font-size: 13px;

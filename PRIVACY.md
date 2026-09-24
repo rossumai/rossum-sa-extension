@@ -103,7 +103,7 @@ once per document — the extension deliberately does not count repeatedly.
 | `sa_mdh_stages_view` | the aggregation Stages view was opened |
 | `sa_mdh_agent_query` | you asked the AI query box for a pipeline |
 | `sa_mdh_index_create` | an index was created |
-| `sa_mdh_search_index_check` | a search index was checked against a value |
+| `sa_mdh_search_index_check` | a search index was tested against a value. Counted **once** per Console page, because the test runs as you type |
 | `sa_audit_search` | you changed the audit-log source or filters. Turning a page is **not** counted |
 | `sa_audit_fabry_ask` | you asked Mr. Fabry a question about audit logs |
 | `sa_inspector_report` | an annotation diagnosis report was built |

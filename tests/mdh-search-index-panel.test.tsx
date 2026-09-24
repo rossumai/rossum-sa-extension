@@ -350,13 +350,13 @@ describe('SearchIndexPanel — edit', () => {
     await vi.waitFor(() => expect(root.querySelector('.action-edit')).not.toBeNull());
     root.querySelector<HTMLElement>('.action-edit')!.click();
 
-    await vi.waitFor(() => expect(root.querySelector('.input')).not.toBeNull());
-    const nameInput = root.querySelector<HTMLInputElement>('.input')!;
+    await vi.waitFor(() => expect(root.querySelector('[role="dialog"] .input')).not.toBeNull());
+    const nameInput = root.querySelector<HTMLInputElement>('[role="dialog"] .input')!;
     expect(nameInput.value).toBe('default');
     expect(nameInput.readOnly).toBe(true);
     expect(nameInput.className).toContain('input-locked');
 
-    root.querySelector<HTMLElement>('.btn-primary')!.click();
+    root.querySelector<HTMLElement>('[role="dialog"] .btn-primary')!.click();
     await vi.waitFor(() =>
       expect(api.putSearchIndex).toHaveBeenCalledWith(
         'vendors',
@@ -431,7 +431,7 @@ describe('SearchIndexPanel — presets', () => {
     const root = mount();
     await Promise.resolve();
     await openCreate(root);
-    const name = root.querySelector('input.input') as HTMLInputElement;
+    const name = root.querySelector('[role="dialog"] input.input') as HTMLInputElement;
     name.value = 'straight_through';
     const submit = [...root.querySelectorAll('button')].find(
       (b) => b.textContent === 'Create Search Index',
@@ -451,7 +451,7 @@ describe('SearchIndexPanel — presets', () => {
     const root = mount();
     await Promise.resolve();
     await openCreate(root);
-    const name = root.querySelector('input.input') as HTMLInputElement;
+    const name = root.querySelector('[role="dialog"] input.input') as HTMLInputElement;
     name.value = 'house';
     (root.querySelector('[data-testid="preset-default"]') as HTMLElement).click();
     await Promise.resolve();
@@ -502,7 +502,7 @@ describe('SearchIndexPanel — presets', () => {
     await Promise.resolve();
     await openCreate(root);
 
-    const name = root.querySelector('input.input') as HTMLInputElement;
+    const name = root.querySelector('[role="dialog"] input.input') as HTMLInputElement;
     name.value = 'vendor_fuzzy';
     (root.querySelector('[data-testid="preset-fuzzy"]') as HTMLElement).click();
     await vi.waitFor(() => expect(vi.mocked(api.aggregate)).toHaveBeenCalled());
@@ -616,7 +616,7 @@ describe('SearchIndexPanel — field picker', () => {
     alt.dispatchEvent(new Event('change', { bubbles: true }));
     await Promise.resolve();
 
-    const name = root.querySelector('input.input') as HTMLInputElement;
+    const name = root.querySelector('[role="dialog"] input.input') as HTMLInputElement;
     name.value = 'vendor_fuzzy';
     const submit = [...root.querySelectorAll('button')].find(
       (b) => b.textContent === 'Create Search Index',
@@ -733,7 +733,7 @@ describe('SearchIndexPanel — dirty editor guard', () => {
     // The confirm is gone and the ordinary preset row is back.
     expect(root.querySelector('[data-testid="preset-row"]')).not.toBeNull();
 
-    const name = root.querySelector('input.input') as HTMLInputElement;
+    const name = root.querySelector('[role="dialog"] input.input') as HTMLInputElement;
     name.value = 'vendor_fuzzy';
     const submit = [...root.querySelectorAll('button')].find(
       (b) => b.textContent === 'Create Search Index',
@@ -766,7 +766,7 @@ describe('SearchIndexPanel — dirty editor guard', () => {
     replace.click();
     await Promise.resolve();
 
-    const name = root.querySelector('input.input') as HTMLInputElement;
+    const name = root.querySelector('[role="dialog"] input.input') as HTMLInputElement;
     name.value = 'vendor_default';
     const submit = [...root.querySelectorAll('button')].find(
       (b) => b.textContent === 'Create Search Index',
@@ -812,7 +812,7 @@ describe('SearchIndexPanel — dirty editor guard', () => {
     keepMine.click();
     await Promise.resolve();
 
-    const name = root.querySelector('input.input') as HTMLInputElement;
+    const name = root.querySelector('[role="dialog"] input.input') as HTMLInputElement;
     name.value = 'vendor_fuzzy';
     const submit = [...root.querySelectorAll('button')].find(
       (b) => b.textContent === 'Create Search Index',
@@ -849,7 +849,7 @@ describe('SearchIndexPanel — unmatchable-definition guard', () => {
     create.click();
     await Promise.resolve();
 
-    const name = root.querySelector('input.input') as HTMLInputElement;
+    const name = root.querySelector('[role="dialog"] input.input') as HTMLInputElement;
     name.value = 'vendor_fuzzy';
     (root.querySelector('[data-testid="preset-fuzzy"]') as HTMLElement).click();
     await Promise.resolve();
@@ -873,7 +873,7 @@ describe('SearchIndexPanel — unmatchable-definition guard', () => {
     create.click();
     await Promise.resolve();
 
-    const name = root.querySelector('input.input') as HTMLInputElement;
+    const name = root.querySelector('[role="dialog"] input.input') as HTMLInputElement;
     name.value = 'vendor_hand';
     // Scoped to the open dialog — see the comment on the shared handEdit() helper
     // above: an already-rendered READY card uses the same JsonEditor stub and
@@ -906,7 +906,7 @@ describe('SearchIndexPanel — unmatchable-definition guard', () => {
 
     // Untouched seed is exactly {"mappings":{"dynamic":true}} — the "Same as
     // default"-shaped case the guard must never block.
-    const name = root.querySelector('input.input') as HTMLInputElement;
+    const name = root.querySelector('[role="dialog"] input.input') as HTMLInputElement;
     name.value = 'vendor_default';
     const submit = [...root.querySelectorAll('button')].find(
       (b) => b.textContent === 'Create Search Index',
@@ -919,91 +919,87 @@ describe('SearchIndexPanel — unmatchable-definition guard', () => {
 });
 
 describe('SearchIndexPanel — check', () => {
-  it('offers Check on a READY index', async () => {
+  const valueInput = (root: HTMLElement) =>
+    root.querySelector('[data-testid="check-value"]') as HTMLInputElement | null;
+
+  // vi.waitFor only retries on a THROW — a predicate that just returns
+  // querySelector's result would resolve with null on the first (empty) check
+  // rather than waiting for the async list load, so assert inside it.
+  // The row runs on its own after a pause in typing (real timers here, so the
+  // callers' vi.waitFor absorbs the debounce).
+  async function run(root: HTMLElement, value: string) {
+    await vi.waitFor(() => expect(valueInput(root)).not.toBeNull());
+    const input = valueInput(root)!;
+    input.value = value;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await vi.waitFor(() => expect(api.aggregate).toHaveBeenCalled());
+  }
+
+  it('shows the test row on a READY index', async () => {
     vi.mocked(api.listSearchIndexes).mockResolvedValue([listedIndex()]);
     const root = mount();
-    await vi.waitFor(() => expect(root.querySelector('.action-check')).not.toBeNull());
+    await vi.waitFor(() => expect(valueInput(root)).not.toBeNull());
   });
 
   // A $search against a building index returns [] with code "ok". Without this
   // guard Check would report "no matches" for an index that is merely unfinished.
-  it('offers no Check while the index is still building', async () => {
+  it('offers no test row while the index is still building, and says why', async () => {
     vi.mocked(api.listSearchIndexes).mockResolvedValue([
       listedIndex({ status: 'PENDING_CREATE', queryable: false }),
     ]);
     const root = mount();
-    // Wait for the card itself, then assert the Check button is absent from it —
+    // Wait for the card itself, then assert the row is absent from it —
     // otherwise this passes vacuously before the list has even rendered.
     await vi.waitFor(() => expect(root.querySelector('.record-card')).not.toBeNull());
-    expect(root.querySelector('.action-check')).toBeNull();
+    expect(valueInput(root)).toBeNull();
+    expect(root.querySelector('[data-testid="check-unavailable"]')!.textContent).toContain('READY');
   });
 
   it('runs one read-only aggregate against that index and shows the hits', async () => {
     vi.mocked(api.listSearchIndexes).mockResolvedValue([listedIndex()]);
     vi.mocked(api.aggregate).mockResolvedValue({
-      result: [{ name: 'Acme Metallwerke', score: 2.9 }],
+      result: [
+        {
+          score: 2.9,
+          highlights: [
+            { score: 1, path: 'name', texts: [{ value: 'Acme Metallwerke', type: 'hit' }] },
+          ],
+        },
+      ],
     });
     const root = mount();
-    // vi.waitFor only retries on a THROW — a predicate that just returns
-    // querySelector's result would resolve with null on the first (empty) check
-    // rather than waiting for the async list load, so assert inside it.
-    await vi.waitFor(() => expect(root.querySelector('.action-check')).not.toBeNull());
-    (root.querySelector('.action-check') as HTMLElement).click();
-    await Promise.resolve();
-
-    const input = root.querySelector('[data-testid="check-value"]') as HTMLInputElement;
-    input.value = 'acme';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    // Flush the controlled-input re-render before clicking Run, or Run's click
-    // handler still closes over the pre-input (stale) state.
-    await Promise.resolve();
-    (root.querySelector('[data-testid="check-run"]') as HTMLElement).click();
+    await run(root, 'acme');
 
     const [collection, pipeline] = vi.mocked(api.aggregate).mock.calls[0];
     expect(collection).toBe('vendors');
-    expect(pipeline.map((s: any) => Object.keys(s)[0])).toEqual([
-      '$search',
-      '$limit',
-      '$addFields',
-    ]);
+    expect(pipeline.map((s: any) => Object.keys(s)[0])).toEqual(['$search', '$limit', '$project']);
     expect((pipeline[0] as any).$search.index).toBe('default');
+    expect((pipeline[0] as any).$search.text.query).toBe('acme');
     // The result reaches the DOM only after the mocked aggregate promise
     // resolves and Preact re-renders — vi.waitFor rather than a guessed tick
     // count, since the guess for a nested async chain is easy to get wrong.
     await vi.waitFor(() => expect(root.textContent).toContain('Acme Metallwerke'));
   });
 
-  // indexedPaths returns [] for a dynamic index, so without the path input the
-  // pipeline would carry an empty path array and match nothing.
-  it('asks for a path when the index declares no fields', async () => {
+  // The old strip asked for a path on a dynamic index; the wildcard made that
+  // question unnecessary.
+  it('needs no path on a dynamic index', async () => {
     vi.mocked(api.listSearchIndexes).mockResolvedValue([
       listedIndex({ definition: { mappings: { dynamic: true } } }),
     ]);
     vi.mocked(api.aggregate).mockResolvedValue({ result: [] });
     const root = mount();
-    await vi.waitFor(() => expect(root.querySelector('.action-check')).not.toBeNull());
-    (root.querySelector('.action-check') as HTMLElement).click();
-    await Promise.resolve();
-
-    const path = root.querySelector('[data-testid="check-path"]') as HTMLInputElement;
-    path.value = 'vendor_name';
-    path.dispatchEvent(new Event('input', { bubbles: true }));
-    // Same re-render flush as above — otherwise Run reads the empty initial path.
-    await Promise.resolve();
-    (root.querySelector('[data-testid="check-run"]') as HTMLElement).click();
-
+    await run(root, 'acme');
+    expect(root.querySelector('[data-testid="check-path"]')).toBeNull();
     const [, pipeline] = vi.mocked(api.aggregate).mock.calls[0];
-    expect((pipeline[0] as any).$search.text.path).toBe('vendor_name');
+    expect((pipeline[0] as any).$search.text.path).toEqual({ wildcard: '*' });
   });
 
   it('reports an empty result as an outcome, not an error', async () => {
     vi.mocked(api.listSearchIndexes).mockResolvedValue([listedIndex()]);
     vi.mocked(api.aggregate).mockResolvedValue({ result: [] });
     const root = mount();
-    await vi.waitFor(() => expect(root.querySelector('.action-check')).not.toBeNull());
-    (root.querySelector('.action-check') as HTMLElement).click();
-    await Promise.resolve();
-    (root.querySelector('[data-testid="check-run"]') as HTMLElement).click();
+    await run(root, 'acme');
     await vi.waitFor(() => expect(root.textContent).toContain('No match'));
     expect(error.value).toBeNull();
   });
@@ -1017,10 +1013,7 @@ describe('SearchIndexPanel — check', () => {
     vi.mocked(api.listSearchIndexes).mockResolvedValue([listedIndex()]);
     vi.mocked(api.aggregate).mockRejectedValue(new Error('network error'));
     const root = mount();
-    await vi.waitFor(() => expect(root.querySelector('.action-check')).not.toBeNull());
-    (root.querySelector('.action-check') as HTMLElement).click();
-    await Promise.resolve();
-    (root.querySelector('[data-testid="check-run"]') as HTMLElement).click();
+    await run(root, 'acme');
     await vi.waitFor(() => expect(root.textContent).toContain('could not run'));
     expect(root.textContent).not.toContain('No match');
     expect(error.value).toBeNull();
