@@ -21,6 +21,7 @@ export const EVENT_NAMES = [
   'sa_rossum_expand_formulas',
   'sa_rossum_expand_reasoning',
   'sa_rossum_scroll_lock',
+  'sa_rossum_org_badge',
   // Rossum content script — real interactions
   'sa_rossum_tooltip_close',
   'sa_rossum_mdh_suggest_click',

@@ -418,6 +418,22 @@ body {
   background: var(--danger);
 }
 
+/* Production warning in the connection line, right of the organization name.
+   Rossum marks a sandbox in its own UI and marks production with nothing, so this
+   says it out loud. The red is PINNED rather than --danger: the badge carries its
+   own ground, so what matters is the white label on it (4.6:1), and --danger goes
+   lighter in dark mode, which would drop that to about 3:1. It is a flex item of
+   .connection-bar, so the bar's 8px gap spaces it. */
+.connection-prod {
+  background: #cc3333;
+  color: #fff;
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
 .cache-indicator {
   margin-left: auto;
   font-size: 10px;
