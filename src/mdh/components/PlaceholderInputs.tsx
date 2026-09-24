@@ -74,6 +74,7 @@ function extractDatapoints(nodes: any, fields: any) {
 
 export default function PlaceholderInputs({
   names,
+  lookupNames = [],
   values,
   types,
   onSetValue,
@@ -82,6 +83,8 @@ export default function PlaceholderInputs({
   resolvedTypeFor,
 }: {
   names: string[];
+  /** Names written only as a lookup field's "$$name", labelled that way. */
+  lookupNames?: string[];
   values: Record<string, any>;
   types: Record<string, string | undefined>;
   onSetValue: (name: string, value: any) => void;
@@ -153,7 +156,9 @@ export default function PlaceholderInputs({
         const incompatible = value !== '' && !isCompatibleWithType(value, effective);
         return (
           <div class="placeholder-row" key={name}>
-            <span class="placeholder-name">{`{${name}}`}</span>
+            <span class="placeholder-name">
+              {lookupNames.includes(name) ? `$$${name}` : `{${name}}`}
+            </span>
             <input
               class="input placeholder-input"
               value={value}

@@ -763,6 +763,7 @@ export default function DataPanel() {
         )}
         <PlaceholderInputs
           names={placeholderNames as string[]}
+          lookupNames={(editorState.lookupNames as string[] | undefined) || []}
           values={pipeline.placeholderValues.value}
           types={pipeline.placeholderTypes.value}
           onSetValue={handleSetPlaceholder}

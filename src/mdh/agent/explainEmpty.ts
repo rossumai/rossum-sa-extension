@@ -176,6 +176,8 @@ export function buildEmptyStagePrompt({
       '    the fix is to fill the variable in, NOT to change the query.',
       '  - Substitution is type-aware: a variable typed `number` substitutes as a JSON number',
       '    even inside quotes, so `"{qty}"` can run as `5`, not `"5"`.',
+      '  - A lookup field writes the same variable as `"$$qty"`. It substitutes the same way, but',
+      '    only when it is the WHOLE string — `"$$qty"` inside a longer string stays literal.',
       '',
     );
   }

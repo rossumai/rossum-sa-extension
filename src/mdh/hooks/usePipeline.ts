@@ -2,7 +2,7 @@ import { useRef } from 'preact/hooks';
 import { signal, type Signal } from '@preact/signals';
 import JSON5 from 'json5';
 import { skip, selectedCollection } from '../store.js';
-import { VAR_RE, VAR_RE_G } from '../placeholderSyntax.js';
+import { VAR_RE, VAR_RE_G, lookupVarName, boundVarNames } from '../placeholderSyntax.js';
 import { reEscape } from '../reEscape.js';
 import { mapPlaceholdersToFields } from '../placeholderFields.js';
 import { resolveFieldTypes, deriveResolvedType } from '../fieldTypes.js';
@@ -18,12 +18,16 @@ import { resolveFieldTypes, deriveResolvedType } from '../fieldTypes.js';
 //     "BLUE WIDGET {part_no} LARGE" or "{a}/{b}". Each occurrence is replaced
 //     in-place by its (string) value, JSON-escaped to stay inside the quotes.
 // A bare unquoted {name} (outside any string literal) is NOT a variable — it
-// isn't valid JSON, so it never reaches substitution. Returns
-// [{ whole, name, modifier, arg, start, end }] in document order; for WHOLE the
-// span covers the surrounding quotes, for EMBEDDED only the `{...}` itself.
+// isn't valid JSON, so it never reaches substitution.
+// A lookup field's "$$name" (see placeholderSyntax.js) is a third form: WHOLE
+// only, no modifiers, and skipped when the pipeline binds the name itself
+// ("$$this" in a $filter). Returns [{ whole, lookup, name, modifier, arg, start,
+// end }] in document order; for WHOLE the span covers the surrounding quotes, for
+// EMBEDDED only the `{...}` itself.
 // One placeholder occurrence found in the editor text.
 type Placeholder = {
   whole: boolean;
+  lookup: boolean;
   name: string;
   modifier: string | null;
   arg: string | null;
@@ -33,6 +37,14 @@ type Placeholder = {
 
 function scanPlaceholders(text: string): Placeholder[] {
   const out: Placeholder[] = [];
+  let bound: Set<string> = new Set();
+  if (text.includes('$$')) {
+    try {
+      bound = boundVarNames(JSON5.parse(text));
+    } catch {
+      /* invalid JSON5 — nothing is known to be bound */
+    }
+  }
   const n = text.length;
   let i = 0;
   let inString = false;
@@ -47,12 +59,24 @@ function scanPlaceholders(text: string): Placeholder[] {
       if (c === '"') {
         const inner = text.slice(strStart + 1, i);
         const exact = VAR_RE.exec(inner);
+        const lookupName = exact ? null : lookupVarName(inner);
         if (exact) {
           out.push({
             whole: true,
+            lookup: false,
             name: exact[1],
             modifier: exact[2] || null,
             arg: exact[3] != null ? exact[3] : null,
+            start: strStart,
+            end: i + 1,
+          });
+        } else if (lookupName && !bound.has(lookupName)) {
+          out.push({
+            whole: true,
+            lookup: true,
+            name: lookupName,
+            modifier: null,
+            arg: null,
             start: strStart,
             end: i + 1,
           });
@@ -63,6 +87,7 @@ function scanPlaceholders(text: string): Placeholder[] {
             const off = strStart + 1 + m.index;
             out.push({
               whole: false,
+              lookup: false,
               name: m[1],
               modifier: m[2] || null,
               arg: m[3] != null ? m[3] : null,
@@ -295,6 +320,15 @@ export function usePipeline() {
     return [...names];
   }
 
+  // Names written ONLY as a lookup field's "$$name", so the Variables row can
+  // label them the way they appear in the pipeline.
+  function lookupOnlyNames(text: string): string[] {
+    const lookup = new Set<string>();
+    const brace = new Set<string>();
+    for (const m of scanPlaceholders(text)) (m.lookup ? lookup : brace).add(m.name);
+    return [...lookup].filter((n) => !brace.has(n));
+  }
+
   function substitutePlaceholders(text: string, resolvedTypes: Record<string, string> = {}) {
     const matches = scanPlaceholders(text);
     if (matches.length === 0) return text;
@@ -430,7 +464,7 @@ export function usePipeline() {
       /* invalid JSON5 — leave parsed null */
     }
     const fieldMap = mapPlaceholdersToFields(text);
-    return { placeholders, parsed, fieldMap };
+    return { placeholders, lookupNames: lookupOnlyNames(text), parsed, fieldMap };
   }
 
   function reset() {

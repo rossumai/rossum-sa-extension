@@ -1,5 +1,5 @@
 import JSON5 from 'json5';
-import { VAR_RE } from './placeholderSyntax.js';
+import { VAR_RE, lookupVarName } from './placeholderSyntax.js';
 
 const CMP_OPS = new Set(['$eq', '$ne', '$gt', '$gte', '$lt', '$lte']);
 const ARRAY_OPS = new Set(['$in', '$nin']);
@@ -7,9 +7,12 @@ const LOGICAL_OPS = new Set(['$and', '$or', '$nor']);
 
 // A string that is a WHOLE placeholder with NO modifier → the variable name,
 // else null. Modifier placeholders (split/re) force array/string types, so
-// dataset typing never applies and they are skipped here.
+// dataset typing never applies and they are skipped here. A lookup field's
+// "$$name" never has a modifier.
 function wholeNoModifierName(str: string): string | null {
   if (typeof str !== 'string') return null;
+  const lookup = lookupVarName(str);
+  if (lookup) return lookup;
   const m = VAR_RE.exec(str);
   if (!m || m[2]) return null; // m[2] = modifier present → skip
   return m[1];
@@ -36,9 +39,10 @@ function record(
   }
 }
 
-// "$field" → "field"; anything else (incl. placeholders, which never start with $) → null.
+// "$field" → "field"; anything else → null. "$$name" is a variable (a lookup
+// field's, or Mongo's own "$$ROOT"), never a field path.
 function exprFieldPath(v: unknown): string | null {
-  return typeof v === 'string' && v.startsWith('$') ? v.slice(1) : null;
+  return typeof v === 'string' && v.startsWith('$') && !v.startsWith('$$') ? v.slice(1) : null;
 }
 
 function walkExpr(node: any, out: Record<string, any>, collection: string | null): void {
