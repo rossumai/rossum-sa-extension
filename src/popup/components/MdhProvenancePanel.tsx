@@ -5,21 +5,22 @@ import {
   collectPlaceholders,
   extractIdFromUrl,
   fetchJson,
-  filterHookEntries,
   loadAnnotationValues,
   loadMdhHooksForQueue,
-  loadSchemaTypesForQueue,
+  loadSchemaForQueue,
   mergeSchemaTypes,
+  provenanceItems,
   substitutePlaceholders,
+  type ProvenanceItem,
 } from '../mdh-provenance.js';
 import {
   dropCachedAnnotation,
   getCachedAnnotation,
   getCachedHookEntries,
-  getCachedSchemaTypes,
+  getCachedSchema,
   setCachedAnnotation,
   setCachedHookEntries,
-  setCachedSchemaTypes,
+  setCachedSchema,
 } from '../cache.js';
 import { openConsoleTab, runInTab } from '../utils.js';
 import { readCurrentContext } from '../tab-readers.js';
@@ -171,20 +172,38 @@ export default function MdhProvenancePanel({ tab, onPin }: { tab?: any; onPin?: 
           hookEntries = await getCachedHookEntries(ctx.domain, queueId);
         }
         if (cancelled) return;
+        let hadHooks = true;
         if (!hookEntries) {
           const mdhHooks = await loadMdhHooksForQueue(ctx.domain, ctx.token, queueId);
           if (cancelled) return;
-          if (mdhHooks.length === 0) {
-            setState({ kind: 'message', message: 'No MDH matching hooks on this queue.' });
-            return;
-          }
+          hadHooks = mdhHooks.length > 0;
           hookEntries = buildHookEntries(mdhHooks, queueId);
-          if (hookEntries.length === 0) {
-            setState({ kind: 'message', message: 'No MDH configurations apply to this queue.' });
-            return;
-          }
-          setCachedHookEntries(ctx.domain, queueId, hookEntries).catch(() => {});
+          // Never cache an empty list: it would blur "no hooks" into "no hook
+          // applies" on the next open, and that is the message the user reads.
+          if (hookEntries.length > 0)
+            setCachedHookEntries(ctx.domain, queueId, hookEntries).catch(() => {});
         }
+
+        // The schema carries both the authoritative field types and the lookup
+        // fields — a queue can match through lookups alone, with no MDH hook — so
+        // it is read BEFORE deciding there is nothing to show.
+        let schema = forceRefresh ? null : await getCachedSchema(ctx.domain, queueId);
+        if (!schema) {
+          schema = await loadSchemaForQueue(ctx.domain, ctx.token, queueId);
+          setCachedSchema(ctx.domain, queueId, schema).catch(() => {});
+        }
+        if (cancelled) return;
+        const lookupCfgs = schema.lookups || [];
+        if (hookEntries.length === 0 && lookupCfgs.length === 0) {
+          setState({
+            kind: 'message',
+            message: hadHooks
+              ? 'No MDH configurations apply to this queue.'
+              : 'No MDH matching on this queue.',
+          });
+          return;
+        }
+        const lookupIds = new Set<string>(lookupCfgs.map((c: any) => c.target));
 
         const placeholders = new Set<string>();
         for (const { cfgs } of hookEntries) {
@@ -200,28 +219,38 @@ export default function MdhProvenancePanel({ tab, onPin }: { tab?: any; onPin?: 
         let rowCount = 0;
         let tables = [];
         let types = {};
+        let lookupResults = {};
         let annValuesFromCache = false;
         if (annCache) {
           const cachedPlaceholders = new Set(
             (annCache.placeholders || '').split(',').filter(Boolean),
           );
-          const allCovered = [...placeholders].every((p) => cachedPlaceholders.has(p));
+          const cachedLookupIds = new Set((annCache.lookupIds || '').split(',').filter(Boolean));
+          const allCovered =
+            [...placeholders].every((p) => cachedPlaceholders.has(p)) &&
+            [...lookupIds].every((p) => cachedLookupIds.has(p));
           if (allCovered) {
             headerValues = annCache.headerValues || {};
             rowValues = annCache.rowValues || {};
             rowCount = annCache.rowCount || 0;
             tables = annCache.tables || [];
             types = annCache.types || {};
+            lookupResults = annCache.lookupResults || {};
             annValuesFromCache = true;
           }
         }
-        if (!annValuesFromCache && ctx.annotationId && placeholders.size > 0) {
+        if (
+          !annValuesFromCache &&
+          ctx.annotationId &&
+          (placeholders.size > 0 || lookupIds.size > 0)
+        ) {
           try {
             const flat = await loadAnnotationValues(
               ctx.domain,
               ctx.token,
               ctx.annotationId,
               placeholders,
+              lookupIds,
             );
             if (cancelled) return;
             headerValues = flat.headerValues;
@@ -229,6 +258,7 @@ export default function MdhProvenancePanel({ tab, onPin }: { tab?: any; onPin?: 
             rowCount = flat.rowCount;
             tables = flat.tables || [];
             types = flat.types || {};
+            lookupResults = flat.lookupResults || {};
           } catch {
             // leave defaults
           }
@@ -242,19 +272,15 @@ export default function MdhProvenancePanel({ tab, onPin }: { tab?: any; onPin?: 
             rowCount,
             tables,
             types,
+            lookupResults,
             placeholders: [...placeholders].sort().join(','),
+            lookupIds: [...lookupIds].sort().join(','),
           }).catch(() => {});
         }
 
         // Schema types are authoritative (they mirror what MDH actually injects);
         // the normalized_value heuristic above fills anything the schema misses.
-        let schemaTypes = forceRefresh ? null : await getCachedSchemaTypes(ctx.domain, queueId);
-        if (!schemaTypes) {
-          schemaTypes = await loadSchemaTypesForQueue(ctx.domain, ctx.token, queueId);
-          setCachedSchemaTypes(ctx.domain, queueId, schemaTypes).catch(() => {});
-        }
-        if (cancelled) return;
-        types = mergeSchemaTypes(types, schemaTypes);
+        types = mergeSchemaTypes(types, schema.types);
 
         // Resolve placeholder-driven dataset names (e.g. `dataset: "{mdh_dataset_pos}"`)
         // against the schema's default values, which live on the annotation as header fields.
@@ -275,6 +301,9 @@ export default function MdhProvenancePanel({ tab, onPin }: { tab?: any; onPin?: 
           queueId,
           annotationModifiedAt,
           hookEntries: resolvedEntries,
+          lookupCfgs,
+          lookupResults,
+          schemaOrder: schema.order || {},
           headerValues,
           rowValues,
           rowCount,
@@ -325,15 +354,64 @@ export default function MdhProvenancePanel({ tab, onPin }: { tab?: any; onPin?: 
     setRefreshNonce((n) => n + 1);
   };
 
-  const visibleEntries =
-    state.kind === 'loaded' ? filterHookEntries(state.hookEntries, filter) : [];
+  // One list across hooks and lookup fields, in schema order (see provenanceItems).
+  const visibleItems =
+    state.kind === 'loaded'
+      ? provenanceItems(state.hookEntries, state.lookupCfgs, state.schemaOrder, filter)
+      : [];
+
+  const renderItem = ({ key, cfg, hook }: ProvenanceItem) => (
+    <ConfigBlock
+      key={key}
+      ctx={state.ctx}
+      cfg={cfg}
+      cfgKey={key}
+      queueId={state.queueId}
+      source={
+        hook
+          ? {
+              label: hook.name || `Hook ${hook.id}`,
+              url: `${state.ctx.domain}/extensions/my-extensions/${hook.id}`,
+            }
+          : {
+              label: 'Lookup field',
+              url: `${state.ctx.domain}/queues/${state.queueId}/settings/fields/${cfg.target}`,
+            }
+      }
+      headerValues={state.headerValues}
+      rowValues={state.rowValues}
+      tables={state.tables}
+      types={state.types}
+      lookupResults={state.lookupResults}
+      annotationModifiedAt={state.annotationModifiedAt}
+      rowByTable={rowByTable}
+      onRowChange={(tableSchemaId, idx) =>
+        setRowByTable((prev) => ({ ...prev, [tableSchemaId]: idx }))
+      }
+      forceRefreshNonce={refreshNonce}
+      onOpenInDm={(dataset, pipelineText, variables, variableTypes) =>
+        openConsoleTab(
+          tab,
+          {
+            token: state.ctx.token,
+            domain: state.ctx.domain,
+            pendingCollection: dataset,
+            pendingPipeline: pipelineText,
+            pendingVariables: variables,
+            pendingVariableTypes: variableTypes,
+          },
+          'mdh',
+        )
+      }
+    />
+  );
   const trimmedFilter = filter.trim();
 
   return (
     <section class="card mdh-card" data-context="rossum">
       <h3 class="section-title">
         <span>
-          MDH on this screen <span class="beta-badge">beta</span>
+          Matching provenance <span class="beta-badge">beta</span>
         </span>
         <span class="mdh-head-actions">
           {onPin ? (
@@ -382,57 +460,14 @@ export default function MdhProvenancePanel({ tab, onPin }: { tab?: any; onPin?: 
           </div>
         ) : state.kind === 'message' ? (
           <p class={`mdh-empty${state.isError ? ' mdh-error' : ''}`}>{state.message}</p>
-        ) : visibleEntries.length === 0 ? (
+        ) : visibleItems.length === 0 ? (
           <p class="mdh-empty">
             No configurations match {'“'}
             {trimmedFilter}
             {'”'}.
           </p>
         ) : (
-          visibleEntries.map(({ hook, cfgs }) => (
-            <div class="mdh-hook" key={hook.id}>
-              <a
-                class="mdh-hook-name"
-                href={`${state.ctx.domain}/extensions/my-extensions/${hook.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {hook.name || `Hook ${hook.id}`}
-              </a>
-              {cfgs.map((cfg: any, cfgIdx: any) => (
-                <ConfigBlock
-                  key={`${hook.id}::${cfgIdx}`}
-                  ctx={state.ctx}
-                  cfg={cfg}
-                  cfgKey={`${hook.id}::${cfgIdx}`}
-                  headerValues={state.headerValues}
-                  rowValues={state.rowValues}
-                  tables={state.tables}
-                  types={state.types}
-                  annotationModifiedAt={state.annotationModifiedAt}
-                  rowByTable={rowByTable}
-                  onRowChange={(tableSchemaId, idx) =>
-                    setRowByTable((prev) => ({ ...prev, [tableSchemaId]: idx }))
-                  }
-                  forceRefreshNonce={refreshNonce}
-                  onOpenInDm={(dataset, pipelineText, variables, variableTypes) =>
-                    openConsoleTab(
-                      tab,
-                      {
-                        token: state.ctx.token,
-                        domain: state.ctx.domain,
-                        pendingCollection: dataset,
-                        pendingPipeline: pipelineText,
-                        pendingVariables: variables,
-                        pendingVariableTypes: variableTypes,
-                      },
-                      'mdh',
-                    )
-                  }
-                />
-              ))}
-            </div>
-          ))
+          visibleItems.map(renderItem)
         )}
       </div>
     </section>

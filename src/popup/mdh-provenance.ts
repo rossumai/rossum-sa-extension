@@ -3,7 +3,7 @@
 
 import { evalCondition } from './actionCondition.js';
 import { reEscape } from '../mdh/reEscape.js';
-import { VAR_RE, VAR_RE_G } from '../mdh/placeholderSyntax.js';
+import { VAR_RE, VAR_RE_G, lookupVarName } from '../mdh/placeholderSyntax.js';
 
 // ── API ─────────────────────────────────────────────
 
@@ -156,6 +156,7 @@ export function extractConfigsFromHook(hook: any): any[] {
           .filter((m: any) => m.target || m.datasetKey)
       : [];
     out.push({
+      source: 'hook',
       name: cfg?.name || '',
       target: target || NO_TARGET,
       dataset: dataset || '(no dataset)',
@@ -331,23 +332,303 @@ export function buildVariableTypes(
   return out;
 }
 
-// Fetch a queue's schema and classify its datapoint types. Best-effort: any
-// failure (403/offline/missing schema) yields {} so callers fall back to the
-// heuristic.
-export async function loadSchemaTypesForQueue(
+async function fetchQueueSchemaContent(
   domain: string,
   token: string,
   queueId: string | number,
-): Promise<Record<string, string>> {
+): Promise<any[] | null> {
+  const queue = await fetchJson(`${domain}/api/v1/queues/${queueId}?fields=schema`, token);
+  const schemaUrl = queue?.schema;
+  if (!schemaUrl) return null;
+  const schema = await fetchJson(`${schemaUrl}?fields=content`, token);
+  return schema?.content || [];
+}
+
+// Each datapoint's position in the schema, depth-first — the order the document
+// renders its fields in, header sections and tables alike.
+export function buildSchemaOrder(content: any): Record<string, number> {
+  const out: Record<string, number> = {};
+  let n = 0;
+  const walk = (nodes: any): void => {
+    const list = Array.isArray(nodes) ? nodes : nodes && typeof nodes === 'object' ? [nodes] : [];
+    for (const node of list) {
+      if (!node || typeof node !== 'object') continue;
+      if (node.category === 'datapoint' && node.id && !(node.id in out)) out[node.id] = n++;
+      if (node.children != null) walk(node.children);
+    }
+  };
+  walk(content);
+  return out;
+}
+
+export type QueueSchemaInfo = {
+  types: Record<string, string>;
+  lookups: any[];
+  order: Record<string, number>;
+};
+
+// Fetch a queue's schema once and derive its datapoint types, its lookup fields
+// and its field order. Best-effort: any failure (403/offline/missing schema)
+// yields empty results so callers fall back to the heuristic, to hooks alone and
+// to source order.
+export async function loadSchemaForQueue(
+  domain: string,
+  token: string,
+  queueId: string | number,
+): Promise<QueueSchemaInfo> {
+  const empty = { types: {}, lookups: [], order: {} };
   try {
-    const queue = await fetchJson(`${domain}/api/v1/queues/${queueId}?fields=schema`, token);
-    const schemaUrl = queue?.schema;
-    if (!schemaUrl) return {};
-    const schema = await fetchJson(`${schemaUrl}?fields=content`, token);
-    return buildSchemaTypes(schema?.content || []);
+    const content = await fetchQueueSchemaContent(domain, token, queueId);
+    if (!content) return empty;
+    return {
+      types: buildSchemaTypes(content),
+      lookups: extractLookupConfigs(content),
+      order: buildSchemaOrder(content),
+    };
   } catch {
-    return {};
+    return empty;
   }
+}
+
+// ── Lookup fields ──────────────────────────────────
+//
+// A lookup field is a schema datapoint with ui_configuration.type "lookup": its
+// MDH cascade lives on the datapoint (matching.configuration), not on a hook, and
+// its variables are "$$name" bound to formulas. The engine SAVES its result on the
+// annotation — every option carries struct.__query_index, the query that produced
+// it — so the card reads the cascade's outcome instead of replaying it. See
+// docs/superpowers/specs/2026-09-24-mdh-provenance-lookup-fields-design.md.
+
+function collectLookupVars(node: any, set: Set<string>): void {
+  if (typeof node === 'string') {
+    const name = lookupVarName(node);
+    if (name) set.add(name);
+  } else if (Array.isArray(node)) {
+    for (const c of node) collectLookupVars(c, set);
+  } else if (node && typeof node === 'object') {
+    for (const v of Object.values(node)) collectLookupVars(v, set);
+  }
+}
+
+// One cfg per master_data_hub lookup datapoint, shaped like a hook cfg so the
+// filter, the row picker and QueryItem reuse it. `tableSchemaId` is the multivalue
+// the datapoint sits in, null for a header field.
+export function extractLookupConfigs(content: any): any[] {
+  const out: any[] = [];
+  const walk = (nodes: any, table: string | null): void => {
+    const list = Array.isArray(nodes) ? nodes : nodes && typeof nodes === 'object' ? [nodes] : [];
+    for (const n of list) {
+      if (!n || typeof n !== 'object') continue;
+      if (n.category === 'multivalue') {
+        walk(n.children, n.id || null);
+        continue;
+      }
+      const m = n.matching;
+      if (
+        n.category === 'datapoint' &&
+        n.ui_configuration?.type === 'lookup' &&
+        m?.type === 'master_data_hub'
+      ) {
+        const conf = m.configuration || {};
+        const queries = Array.isArray(conf.queries) ? conf.queries : [];
+        out.push({
+          source: 'lookup',
+          name: n.label || '',
+          target: n.id,
+          dataset: conf.dataset || '(no dataset)',
+          datasetKey: '',
+          queueIds: [],
+          actionCondition: null,
+          actionConditionPlaceholders: [],
+          additionalMappings: [],
+          variables: conf.variables && typeof conf.variables === 'object' ? conf.variables : {},
+          tableSchemaId: table,
+          queries: queries.map((q: any) => {
+            const set = new Set<string>();
+            collectLookupVars(q, set);
+            return { label: describeQuery(q), raw: q, placeholders: [...set] };
+          }),
+        });
+      }
+      if (n.children != null) walk(n.children, table);
+    }
+  };
+  walk(content, null);
+  return out;
+}
+
+// The engine's saved result on one lookup datapoint. `winnerIndex` is the
+// __query_index of the option holding the datapoint's value (every option of one
+// result carries the same index — live-verified — but a hand-picked value decides),
+// null when nothing matched: a computed no-match has no `options` key at all.
+export type LookupResult = {
+  value: string;
+  winnerIndex: number | null;
+  optionCount: number;
+  noRecalculation: boolean;
+};
+
+function lookupResultOf(node: any): LookupResult {
+  const value = node?.content?.value == null ? '' : String(node.content.value);
+  const options = Array.isArray(node?.options) ? node.options : [];
+  const chosen = options.find((o: any) => o?.value === value) || options[0];
+  const idx = chosen?.struct?.__query_index;
+  return {
+    value,
+    winnerIndex: Number.isInteger(idx) ? idx : null,
+    optionCount: options.length,
+    noRecalculation: node?.no_recalculation === true,
+  };
+}
+
+// Query statuses for a lookup cfg, derived from the saved result: queries before
+// the winner found nothing, the ones after never ran.
+export function lookupStatuses(cfg: any, result: LookupResult | null | undefined): any[] {
+  const w = result?.winnerIndex;
+  return (cfg?.queries || []).map((_: unknown, i: number) => {
+    if (w == null || i < w) return { status: 'empty' };
+    if (i === w) {
+      const n = result!.optionCount;
+      return { status: 'winner', hint: `${n} option${n === 1 ? '' : 's'}` };
+    }
+    return { status: 'skipped', hint: 'an earlier query already matched' };
+  });
+}
+
+// The saved result for the cfg's target on the given row (header lookups ignore
+// the row).
+export function lookupResultFor(
+  lookupResults: Record<string, any> | null | undefined,
+  cfg: any,
+  rowIdx: number,
+): LookupResult | null {
+  const r = lookupResults?.[cfg?.target];
+  if (r == null) return null;
+  return Array.isArray(r) ? r[rowIdx] || null : r;
+}
+
+// Substitute a lookup's "$$name" — WHOLE strings only, as the engine does. Values
+// come from evaluate_formulas as strings, so they substitute as strings.
+export function substituteLookupVars(node: any, values: Record<string, string>): any {
+  if (typeof node === 'string') {
+    const name = lookupVarName(node);
+    return name && name in values ? values[name] : node;
+  }
+  if (Array.isArray(node)) return node.map((c) => substituteLookupVars(c, values));
+  if (node && typeof node === 'object') {
+    const out: Record<string, any> = {};
+    for (const [k, v] of Object.entries(node)) out[k] = substituteLookupVars(v, values);
+    return out;
+  }
+  return node;
+}
+
+const VAR_PREFIX = '__var__';
+
+// Insert a `__var__<name>` formula datapoint per variable beside the lookup's
+// target (inside its tuple for a row-level lookup) — the dashboard's own "Test
+// lookup" technique. Returns a new schema content; the input is not mutated.
+export function withVariableDatapoints(schemaContent: any[], cfg: any): any[] {
+  const vars = Object.entries(cfg?.variables || {}).map(([name, v]: [string, any]) => ({
+    category: 'datapoint',
+    id: `${VAR_PREFIX}${name}`,
+    label: name,
+    type: 'string',
+    rir_field_names: [],
+    constraints: { required: false },
+    default_value: null,
+    hidden: true,
+    can_export: false,
+    formula: typeof v?.__formula === 'string' ? v.__formula : '',
+    ui_configuration: { type: 'formula', edit: 'disabled' },
+  }));
+  const copy = JSON.parse(JSON.stringify(schemaContent || []));
+  const insert = (nodes: any): boolean => {
+    const list = Array.isArray(nodes) ? nodes : nodes && typeof nodes === 'object' ? [nodes] : [];
+    for (const n of list) {
+      if (Array.isArray(n?.children)) {
+        const i = n.children.findIndex((c: any) => c?.id === cfg.target);
+        if (i >= 0) {
+          n.children.splice(i + 1, 0, ...vars);
+          return true;
+        }
+      }
+      if (n?.children != null && insert(n.children)) return true;
+    }
+    return false;
+  };
+  insert(copy);
+  return copy;
+}
+
+// Read the `__var__` values back out of evaluate_formulas' annotation content:
+// the header occurrence, or the one in row `rowIdx` of the cfg's table.
+export function readVariableValues(
+  annotationContent: any,
+  cfg: any,
+  rowIdx: number,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  const take = (nodes: any[]): void => {
+    for (const n of nodes || []) {
+      const sid = n?.schema_id;
+      const name =
+        typeof sid === 'string' && sid.startsWith(VAR_PREFIX) ? sid.slice(VAR_PREFIX.length) : null;
+      if (name && !(name in out)) {
+        const v = n?.content?.value;
+        out[name] = v == null ? '' : String(v);
+      }
+      if (n?.category !== 'multivalue' && Array.isArray(n?.children)) take(n.children);
+    }
+  };
+  const findTable = (nodes: any[]): any => {
+    for (const n of nodes || []) {
+      if (n?.category === 'multivalue' && n.schema_id === cfg.tableSchemaId) return n;
+      const hit = Array.isArray(n?.children) ? findTable(n.children) : null;
+      if (hit) return hit;
+    }
+    return null;
+  };
+  const content = Array.isArray(annotationContent) ? annotationContent : [];
+  if (cfg?.tableSchemaId) {
+    const table = findTable(content);
+    const tuples = (table?.children || []).filter((c: any) => c?.category === 'tuple');
+    if (tuples[rowIdx]) take(tuples[rowIdx].children);
+  } else {
+    take(content);
+  }
+  return out;
+}
+
+// Resolve a lookup's variable values for one row: the schema, the annotation
+// content, then evaluate_formulas over both with the `__var__` datapoints added.
+// Internal endpoint — callers must treat a rejection as "values unavailable".
+export async function resolveLookupVariables(
+  domain: string,
+  token: string,
+  queueId: string | number,
+  annotationId: string | number,
+  cfg: any,
+  rowIdx: number,
+): Promise<Record<string, string>> {
+  const schemaContent = await fetchQueueSchemaContent(domain, token, queueId);
+  if (!schemaContent) throw new Error('no schema');
+  const ann = await fetchJson(`${domain}/api/v1/annotations/${annotationId}/content`, token);
+  const resp = await fetch(`${domain}/api/v1/internal/schemas/evaluate_formulas`, {
+    method: 'POST',
+    headers: {
+      Authorization: `token ${token}`,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({
+      schema_content: withVariableDatapoints(schemaContent, cfg),
+      annotation_content: ann?.content || [],
+    }),
+  });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  const data = await resp.json();
+  return readVariableValues(data?.annotation_content, cfg, rowIdx);
 }
 
 // Rossum's annotation-content endpoint does NOT include the schema-defined
@@ -379,7 +660,13 @@ function isNumberContent(content: any): boolean {
 // Columns are recorded STRUCTURALLY — a column counts even when its value is
 // absent or unusable — because an MDH *target* field is normally empty until
 // the hook fills it, and the target is exactly what we look up here.
-export function flattenContent(content: any) {
+//
+// `lookupIds` names the lookup fields whose SAVED results to collect into
+// `lookupResults`: one LookupResult for a header field, an array indexed by row
+// for a field inside a table.
+export function flattenContent(content: any, lookupIds: Iterable<string> = []) {
+  const lookupSet = new Set(lookupIds);
+  const lookupResults: Record<string, LookupResult | LookupResult[]> = {};
   const headerValues: Record<string, any> = {};
   const rowValues: Record<string, any[]> = {};
   const types: Record<string, string> = {};
@@ -421,6 +708,15 @@ export function flattenContent(content: any) {
     if (sid && node.category === 'datapoint' && table && !table.columns.includes(sid)) {
       table.columns.push(sid);
     }
+    if (sid && node.category === 'datapoint' && lookupSet.has(sid)) {
+      if (rowIdx == null) {
+        if (!(sid in lookupResults)) lookupResults[sid] = lookupResultOf(node);
+      } else {
+        const arr = (lookupResults[sid] as LookupResult[] | undefined) || [];
+        arr[rowIdx] = lookupResultOf(node);
+        lookupResults[sid] = arr;
+      }
+    }
     if (sid && (typeof val === 'string' || typeof val === 'number')) {
       if (rowIdx == null) {
         if (!(sid in headerValues)) headerValues[sid] = val;
@@ -434,7 +730,7 @@ export function flattenContent(content: any) {
     if (Array.isArray(node.children)) for (const c of node.children) walk(c, rowIdx, table);
   };
   walk(content?.content || content, null, null);
-  return { headerValues, rowValues, rowCount, types, tables };
+  return { headerValues, rowValues, rowCount, types, tables, lookupResults };
 }
 
 export function valuesForRow(
@@ -538,33 +834,56 @@ export function buildHookEntries(mdhHooks: any[], queueId: string | number): any
     .filter((e) => e.cfgs.length > 0);
 }
 
-// Case-insensitive substring filter against the primary `cfg.target` OR any
-// `cfg.additionalMappings[].target`. Empty/whitespace query returns the input
-// array reference unchanged (cheap "no-op" identity check). Hooks left with
-// zero matching cfgs are dropped.
-export function filterHookEntries(entries: any[], query: unknown): any[] {
-  const q = (query == null ? '' : String(query)).trim().toLowerCase();
-  if (!q) return entries;
-  const matches = (cfg: any): boolean => {
-    if (
-      String(cfg?.target || '')
-        .toLowerCase()
-        .includes(q)
-    )
-      return true;
-    const adds = Array.isArray(cfg?.additionalMappings) ? cfg.additionalMappings : [];
-    return adds.some((m: any) =>
-      String(m?.target || '')
-        .toLowerCase()
-        .includes(q),
+// Case-insensitive substring match against the primary `cfg.target` OR any
+// `cfg.additionalMappings[].target`.
+function matchesTargetFilter(cfg: any, q: string): boolean {
+  if (
+    String(cfg?.target || '')
+      .toLowerCase()
+      .includes(q)
+  )
+    return true;
+  const adds = Array.isArray(cfg?.additionalMappings) ? cfg.additionalMappings : [];
+  return adds.some((m: any) =>
+    String(m?.target || '')
+      .toLowerCase()
+      .includes(q),
+  );
+}
+
+// One row of the card: a cfg and where it came from (`hook` null = a lookup field).
+export type ProvenanceItem = { key: string; cfg: any; hook: { id: any; name?: string } | null };
+
+// Every cfg the card shows, from both sources, as ONE list in the order their
+// target fields appear in the schema — the order the document reads in, so a
+// lookup and a hook matching the same thing sit side by side. The sort is stable,
+// so a hook's own configurations keep their array order among equals, and a
+// target the schema does not know (a typo, NO_TARGET) sinks to the end in its
+// original place. `key` comes from the UNFILTERED position, so the replay cache
+// entry for a cfg does not change when the filter does.
+export function provenanceItems(
+  hookEntries: any[] | null | undefined,
+  lookupCfgs: any[] | null | undefined,
+  order: Record<string, number> | null | undefined,
+  query?: unknown,
+): ProvenanceItem[] {
+  const items: ProvenanceItem[] = [];
+  for (const { hook, cfgs } of hookEntries || []) {
+    (cfgs || []).forEach((cfg: any, i: number) =>
+      items.push({ key: `${hook.id}::${i}`, cfg, hook }),
     );
-  };
-  const out = [];
-  for (const { hook, cfgs } of entries) {
-    const filtered = cfgs.filter(matches);
-    if (filtered.length > 0) out.push({ hook, cfgs: filtered });
   }
-  return out;
+  for (const cfg of lookupCfgs || []) items.push({ key: `lookup::${cfg.target}`, cfg, hook: null });
+  const q = (query == null ? '' : String(query)).trim().toLowerCase();
+  const kept = q ? items.filter((it) => matchesTargetFilter(it.cfg, q)) : items;
+  const pos = (it: ProvenanceItem) => {
+    const p = order?.[it.cfg?.target];
+    return typeof p === 'number' ? p : Number.MAX_SAFE_INTEGER;
+  };
+  return kept
+    .map((it, i) => ({ it, i }))
+    .sort((a, b) => pos(a.it) - pos(b.it) || a.i - b.i)
+    .map((x) => x.it);
 }
 
 // LIVE-VERIFIED 2026-08-10 (elis): `?schema_id=…` is SILENTLY IGNORED by this
@@ -579,13 +898,22 @@ export async function loadAnnotationValues(
   token: string,
   annotationId: string | number,
   placeholders: Set<string>,
+  lookupIds: Set<string> = new Set(),
 ) {
-  if (!annotationId || placeholders.size === 0) {
-    return { headerValues: {}, rowValues: {}, rowCount: 0, types: {}, tables: [] };
+  if (!annotationId || (placeholders.size === 0 && lookupIds.size === 0)) {
+    return {
+      headerValues: {},
+      rowValues: {},
+      rowCount: 0,
+      types: {},
+      tables: [],
+      lookupResults: {},
+    };
   }
-  const url = `${domain}/api/v1/annotations/${annotationId}/content?schema_id=${[...placeholders].join(',')}`;
+  const ids = [...placeholders, ...lookupIds];
+  const url = `${domain}/api/v1/annotations/${annotationId}/content?schema_id=${ids.join(',')}`;
   const cdata = await fetchJson(url, token);
-  return flattenContent(cdata);
+  return flattenContent(cdata, lookupIds);
 }
 
 // ── Status metadata (consumed by QueryItem renderer) ──

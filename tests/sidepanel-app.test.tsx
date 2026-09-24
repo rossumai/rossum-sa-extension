@@ -74,7 +74,7 @@ describe('side panel App', () => {
     await waitFor(() => !!root.querySelector('.mdh-card'));
     expect(root.querySelector('.sp-strip')).not.toBeNull();
     expect(root.textContent).toContain('#1250417');
-    expect(root.textContent).toContain('MDH on this screen');
+    expect(root.textContent).toContain('Matching provenance');
   });
 
   it('offers no pin button in the panel (that button is popup-only)', async () => {

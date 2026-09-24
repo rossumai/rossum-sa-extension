@@ -4,9 +4,13 @@ import {
   buildVariableTypes,
   configUsesLineItems,
   evaluateCfgCondition,
+  lookupResultFor,
+  lookupStatuses,
   queryToPipeline,
   replayConfig,
+  resolveLookupVariables,
   rowScopeForConfig,
+  substituteLookupVars,
   substitutePlaceholders,
   valuesForRow,
 } from '../mdh-provenance.js';
@@ -15,14 +19,40 @@ import QueryItem from './QueryItem.jsx';
 
 const PENDING = { status: 'pending' };
 
+// The collection a cfg matches against. A database cylinder, drawn at the 10px
+// it ships at: three strokes, no fill, so it stays legible in both themes.
+function DatasetIcon() {
+  return (
+    <svg
+      class="mdh-q-dataset-icon"
+      width="10"
+      height="10"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <ellipse cx="12" cy="5" rx="8" ry="3" />
+      <path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5" />
+      <path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3" />
+    </svg>
+  );
+}
+
 export default function ConfigBlock({
   ctx,
   cfg,
   cfgKey,
+  queueId,
+  source,
   headerValues,
   rowValues,
   tables,
   types,
+  lookupResults,
   annotationModifiedAt,
   rowByTable,
   onRowChange,
@@ -32,10 +62,15 @@ export default function ConfigBlock({
   ctx: any;
   cfg: any;
   cfgKey: string;
+  queueId?: string | number;
+  /** Where this cfg comes from — the hook, or "Lookup field" — and its settings page. */
+  source?: { label: string; url: string };
   headerValues: Record<string, any>;
   rowValues: Record<string, any[]>;
   tables: any[];
   types: Record<string, string>;
+  /** Saved lookup-field outcomes, keyed by target schema id (see flattenContent). */
+  lookupResults?: Record<string, any>;
   /** `null` when the annotation has never been modified. */
   annotationModifiedAt?: string | number | null;
   rowByTable: Record<string, number>;
@@ -48,7 +83,10 @@ export default function ConfigBlock({
     variableTypes: Record<string, string>,
   ) => void;
 }) {
-  const usesRows = configUsesLineItems(cfg, rowValues);
+  // A lookup field's `$$` names are variables, not schema ids, so the
+  // placeholder test cannot see it is row-scoped; its table is known directly.
+  const isLookup = cfg.source === 'lookup';
+  const usesRows = isLookup ? cfg.tableSchemaId != null : configUsesLineItems(cfg, rowValues);
   // The rows this config can walk belong to ONE table — the one holding its
   // target field (see rowScopeForConfig). Before this, the picker offered the
   // largest row count in the whole document, so a config writing into a 4-row
@@ -68,7 +106,8 @@ export default function ConfigBlock({
   const ctrlRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (!ctx?.annotationId || cfg.queries.length === 0) return;
+    // A lookup's cascade outcome is saved on the annotation; there is nothing to replay.
+    if (isLookup || !ctx?.annotationId || cfg.queries.length === 0) return;
 
     if (ctrlRef.current) ctrlRef.current.abort();
     const ctrl = new AbortController();
@@ -123,6 +162,16 @@ export default function ConfigBlock({
     return () => ctrl.abort();
   }, [rowToUse, forceRefreshNonce, headerValues, rowValues, annotationModifiedAt]);
 
+  const lookupResult = isLookup ? lookupResultFor(lookupResults, cfg, rowToUse) : null;
+  const shownStatuses = isLookup ? lookupStatuses(cfg, lookupResult) : statuses;
+
+  // The variable values behind a lookup's "$$name", fetched on click. A failure
+  // (the endpoint is internal) degrades to the query with its variables intact.
+  const lookupValues = (): Promise<Record<string, string>> =>
+    resolveLookupVariables(ctx.domain, ctx.token, queueId!, ctx.annotationId, cfg, rowToUse).catch(
+      () => ({}),
+    );
+
   const valuesForCurrentRow = () =>
     usesRows ? valuesForRow(headerValues, rowValues, rowToUse) : headerValues;
 
@@ -159,14 +208,36 @@ export default function ConfigBlock({
   const copyQuery = async (i: any) => {
     const pipeline = queryToPipeline(cfg.queries[i].raw);
     if (!pipeline) return;
+    if (isLookup) {
+      const text = lookupValues().then((values) =>
+        JSON.stringify(substituteLookupVars(pipeline, values), null, 2),
+      );
+      // The values arrive after a network round trip, which can outlive the click's
+      // user activation. A ClipboardItem accepts a promise and is bound to the
+      // click that created it; writeText after the await is the fallback.
+      if (typeof ClipboardItem !== 'undefined') {
+        const blob = text.then((t) => new Blob([t], { type: 'text/plain' }));
+        await navigator.clipboard.write([new ClipboardItem({ 'text/plain': blob })]);
+      } else {
+        await navigator.clipboard.writeText(await text);
+      }
+      return;
+    }
     const substituted = substitutePlaceholders(pipeline, valuesForCurrentRow(), types);
     await navigator.clipboard.writeText(JSON.stringify(substituted, null, 2));
   };
 
-  const openQuery = (i: any) => {
+  const openQuery = async (i: any) => {
     const q = cfg.queries[i];
     const pipeline = queryToPipeline(q.raw);
     if (!pipeline) return;
+    if (isLookup) {
+      // No variable types: the values are strings of unknown type, so the
+      // editor's value-based Auto is the honest default.
+      const values = await lookupValues();
+      onOpenInDm(cfg.dataset, JSON.stringify(pipeline, null, 2), values, {});
+      return;
+    }
     // Keep placeholders verbatim so the editor shows them as live variables.
     // Pass the current row's values AND the resolved types so the editor
     // reproduces this replay exactly (types propagate, not just values).
@@ -181,16 +252,10 @@ export default function ConfigBlock({
 
   return (
     <div class="mdh-cfg">
-      {cfg.name ? (
-        <div class="mdh-cfg-name" title={cfg.name}>
-          {cfg.name}
-        </div>
-      ) : null}
       <div class={`mdh-cfg-head${headGated ? ' mdh-cfg-head--gated' : ''}`}>
         <span class="mdh-q-target" title={`target_schema_id: ${cfg.target}`}>
           {cfg.target}
         </span>
-        <span class="mdh-q-arrow">←</span>
         <span
           class="mdh-q-dataset"
           title={
@@ -199,9 +264,26 @@ export default function ConfigBlock({
               : `dataset: ${cfg.dataset}`
           }
         >
-          {cfg.dataset}
+          <DatasetIcon />
+          <span class="mdh-q-dataset-name">{cfg.dataset}</span>
         </span>
       </div>
+
+      {source ? (
+        <div
+          class="mdh-cfg-source"
+          title={cfg.name ? `${source.label} · ${cfg.name}` : source.label}
+        >
+          <a href={source.url} target="_blank" rel="noopener noreferrer">
+            {source.label}
+          </a>
+          {cfg.name ? ` · ${cfg.name}` : null}
+        </div>
+      ) : cfg.name ? (
+        <div class="mdh-cfg-source" title={cfg.name}>
+          {cfg.name}
+        </div>
+      ) : null}
 
       {condInfo.hasCondition ? (
         <div
@@ -210,6 +292,10 @@ export default function ConfigBlock({
         >
           <code class="mdh-cfg-cond-expr">{cfg.actionCondition}</code>
         </div>
+      ) : null}
+
+      {lookupResult?.noRecalculation ? (
+        <div class="mdh-cfg-note">Value set by hand — the lookup's saved result may be stale</div>
       ) : null}
 
       {showPicker ? (
@@ -243,7 +329,7 @@ export default function ConfigBlock({
               key={i}
               index={i}
               label={q.label}
-              status={statuses[i] || PENDING}
+              status={shownStatuses[i] || PENDING}
               onCopy={() => copyQuery(i)}
               onOpen={() => openQuery(i)}
             />

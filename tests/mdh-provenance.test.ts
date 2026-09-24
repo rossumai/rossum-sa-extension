@@ -6,11 +6,11 @@ import {
   describeQuery,
   evaluateCfgCondition,
   extractConfigsFromHook,
-  filterHookEntries,
+  provenanceItems,
   flattenContent,
   hookConfigs,
   loadMdhHooksForQueue,
-  loadSchemaTypesForQueue,
+  loadSchemaForQueue,
   mergeSchemaTypes,
   replayConfig,
   substitutePlaceholders,
@@ -395,9 +395,9 @@ describe('flattenContent', () => {
   });
 });
 
-// ── filterHookEntries ─────────────────────────────────
+// ── provenanceItems ───────────────────────────────────
 
-describe('filterHookEntries', () => {
+describe('provenanceItems — target filter', () => {
   const sample = () => [
     {
       hook: { id: 1, name: 'A' },
@@ -411,53 +411,29 @@ describe('filterHookEntries', () => {
       cfgs: [{ target: 'tax_id', dataset: 'd', queries: [] }],
     },
   ];
+  const targets = (items: any[]) => items.map((it) => it.cfg.target);
 
-  it('returns the original entries when the query is empty or whitespace', () => {
-    const entries = sample();
-    expect(filterHookEntries(entries, '')).toBe(entries);
-    expect(filterHookEntries(entries, '   ')).toBe(entries);
+  it('keeps everything when the query is empty, whitespace, null or undefined', () => {
+    for (const q of ['', '   ', null, undefined])
+      expect(targets(provenanceItems(sample(), [], {}, q))).toEqual([
+        'vendor_name',
+        'vendor_id',
+        'tax_id',
+      ]);
   });
 
-  it('treats null / undefined query as empty', () => {
-    const entries = sample();
-    expect(filterHookEntries(entries, null)).toBe(entries);
-    expect(filterHookEntries(entries, undefined)).toBe(entries);
+  it('filters by case-insensitive substring anywhere in the target', () => {
+    expect(targets(provenanceItems(sample(), [], {}, 'VENDOR'))).toEqual([
+      'vendor_name',
+      'vendor_id',
+    ]);
+    expect(targets(provenanceItems(sample(), [], {}, '_id'))).toEqual(['vendor_id', 'tax_id']);
+    expect(provenanceItems(sample(), [], {}, 'zzz')).toEqual([]);
   });
 
-  it('filters cfgs by case-insensitive substring against target', () => {
-    const r = filterHookEntries(sample(), 'VENDOR');
-    expect(r).toHaveLength(1);
-    expect(r[0].hook.id).toBe(1);
-    expect(r[0].cfgs.map((c: any) => c.target)).toEqual(['vendor_name', 'vendor_id']);
-  });
-
-  it('matches anywhere inside the target id', () => {
-    const r = filterHookEntries(sample(), '_id');
-    expect(r).toHaveLength(2);
-    expect(r[0].cfgs.map((c: any) => c.target)).toEqual(['vendor_id']);
-    expect(r[1].cfgs.map((c: any) => c.target)).toEqual(['tax_id']);
-  });
-
-  it('drops hooks whose cfgs all filtered out', () => {
-    const r = filterHookEntries(sample(), 'tax');
-    expect(r).toHaveLength(1);
-    expect(r[0].hook.id).toBe(2);
-  });
-
-  it('returns an empty array when nothing matches', () => {
-    expect(filterHookEntries(sample(), 'zzz')).toEqual([]);
-  });
-
-  it('does not mutate the input entries', () => {
-    const entries = sample();
-    const before = JSON.stringify(entries);
-    filterHookEntries(entries, 'vendor');
-    expect(JSON.stringify(entries)).toBe(before);
-  });
-
-  it('handles cfgs with missing target gracefully (treated as no-match)', () => {
+  it('treats a cfg with no target as a non-match', () => {
     const e = [{ hook: { id: 1 }, cfgs: [{ dataset: 'd', queries: [] }] }];
-    expect(filterHookEntries(e, 'foo')).toEqual([]);
+    expect(provenanceItems(e, [], {}, 'foo')).toEqual([]);
   });
 
   it('matches against additionalMappings targets too', () => {
@@ -467,20 +443,70 @@ describe('filterHookEntries', () => {
         cfgs: [
           {
             target: 'vendor_match',
-            dataset: 'd',
-            queries: [],
-            additionalMappings: [
-              { target: 'vendor_name', datasetKey: 'name' },
-              { target: 'vendor_address', datasetKey: 'address' },
-            ],
+            additionalMappings: [{ target: 'vendor_address', datasetKey: 'address' }],
           },
         ],
       },
     ];
-    // Primary target doesn't contain 'address' but an additional mapping does.
-    const r = filterHookEntries(e, 'address');
-    expect(r).toHaveLength(1);
-    expect(r[0].cfgs[0].target).toBe('vendor_match');
+    expect(targets(provenanceItems(e, [], {}, 'address'))).toEqual(['vendor_match']);
+  });
+
+  it('does not mutate the input entries', () => {
+    const entries = sample();
+    const before = JSON.stringify(entries);
+    provenanceItems(entries, [], { tax_id: 0 }, 'vendor');
+    expect(JSON.stringify(entries)).toBe(before);
+  });
+});
+
+describe('provenanceItems — schema order', () => {
+  const hooks = [
+    {
+      hook: { id: 7, name: 'MDH' },
+      cfgs: [{ target: 'uom_hook' }, { target: 'supplier_hook' }, { target: 'typo_field' }],
+    },
+  ];
+  const lookups = [
+    { source: 'lookup', target: 'supplier_lookup' },
+    { source: 'lookup', target: 'uom_lookup' },
+  ];
+  const order = { supplier_lookup: 0, supplier_hook: 1, uom_lookup: 2, uom_hook: 3 };
+
+  it('interleaves both sources by where their targets sit in the schema', () => {
+    const items = provenanceItems(hooks, lookups, order);
+    expect(items.map((it) => it.cfg.target)).toEqual([
+      'supplier_lookup',
+      'supplier_hook',
+      'uom_lookup',
+      'uom_hook',
+      'typo_field', // unknown to the schema → last
+    ]);
+    expect(items.map((it) => (it.hook ? it.hook.id : 'lookup'))).toEqual([
+      'lookup',
+      7,
+      'lookup',
+      7,
+      7,
+    ]);
+  });
+
+  it('keeps source order among equals, and falls back to it with no schema order', () => {
+    const same = [{ hook: { id: 1 }, cfgs: [{ target: 'x' }, { target: 'x' }] }];
+    expect(provenanceItems(same, [], { x: 0 }).map((it) => it.key)).toEqual(['1::0', '1::1']);
+    expect(provenanceItems(hooks, lookups, {}).map((it) => it.cfg.target)).toEqual([
+      'uom_hook',
+      'supplier_hook',
+      'typo_field',
+      'supplier_lookup',
+      'uom_lookup',
+    ]);
+  });
+
+  it('keys by the UNFILTERED position, so filtering does not re-key a cfg', () => {
+    const all = provenanceItems(hooks, lookups, order);
+    const filtered = provenanceItems(hooks, lookups, order, 'supplier');
+    expect(filtered.map((it) => it.key)).toEqual(['lookup::supplier_lookup', '7::1']);
+    expect(all.find((it) => it.cfg.target === 'supplier_hook')!.key).toBe('7::1');
   });
 });
 
@@ -731,9 +757,9 @@ describe('buildVariableTypes', () => {
   });
 });
 
-// ── loadSchemaTypesForQueue ────────────────────────────
+// ── loadSchemaForQueue ────────────────────────────
 
-describe('loadSchemaTypesForQueue', () => {
+describe('loadSchemaForQueue', () => {
   // Two sequential fetches: queue (→ schema url), then schema (→ content).
   const withSequentialFetch = async (responses: any, run: any) => {
     const original = globalThis.fetch;
@@ -761,17 +787,21 @@ describe('loadSchemaTypesForQueue', () => {
     ];
     const types = await withSequentialFetch(
       [{ schema: 'https://x.rossum.app/api/v1/schemas/77' }, { content }],
-      () => loadSchemaTypesForQueue('https://x.rossum.app', 'token', 123),
+      () => loadSchemaForQueue('https://x.rossum.app', 'token', 123),
     );
-    expect(types).toEqual({ amount: 'number', name: 'string' });
+    expect(types).toEqual({
+      types: { amount: 'number', name: 'string' },
+      lookups: [],
+      order: { amount: 0, name: 1 },
+    });
   });
 
   it('returns {} when the queue fetch fails (e.g. 403)', async () => {
     const original = globalThis.fetch;
     globalThis.fetch = (async () => ({ ok: false, status: 403 })) as any;
     try {
-      const types = await loadSchemaTypesForQueue('https://x.rossum.app', 'token', 123);
-      expect(types).toEqual({});
+      const types = await loadSchemaForQueue('https://x.rossum.app', 'token', 123);
+      expect(types).toEqual({ types: {}, lookups: [], order: {} });
     } finally {
       globalThis.fetch = original;
     }
@@ -779,9 +809,9 @@ describe('loadSchemaTypesForQueue', () => {
 
   it('returns {} when the queue has no schema url', async () => {
     const types = await withSequentialFetch([{}], () =>
-      loadSchemaTypesForQueue('https://x.rossum.app', 'token', 123),
+      loadSchemaForQueue('https://x.rossum.app', 'token', 123),
     );
-    expect(types).toEqual({});
+    expect(types).toEqual({ types: {}, lookups: [], order: {} });
   });
 });
 

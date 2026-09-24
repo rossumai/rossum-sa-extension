@@ -45,32 +45,41 @@ export async function setCachedHookEntries(
   });
 }
 
-// ── Schema types (per queue) ──
-const SCHEMA_PREFIX = 'mdhProv:schemaTypes:v1:';
+// ── Schema (per queue): field types + lookup-field cfgs ──
+// v2: one entry holds `{ types, lookups, order }`, all derived from the same
+// schema fetch. A v1 entry (`mdhProv:schemaTypes:v1:`) held types only — it would hide
+// every lookup field for the TTL, so it is not read.
+const SCHEMA_PREFIX = 'mdhProv:schema:v2:';
 const schemaKey = (domain: string, queueId: string | number) =>
   `${SCHEMA_PREFIX}${domain}#${queueId}`;
 
-export async function getCachedSchemaTypes(
+export type CachedSchema = {
+  types: Record<string, string>;
+  lookups: any[];
+  order: Record<string, number>;
+};
+
+export async function getCachedSchema(
   domain: string,
   queueId: string | number,
-): Promise<any | null> {
+): Promise<CachedSchema | null> {
   if (!queueId) return null;
   const key = schemaKey(domain, queueId);
   const stored = await chrome.storage.session.get(key);
-  const entry = stored[key] as Cached<{ types: any }> | undefined;
+  const entry = stored[key] as Cached<CachedSchema> | undefined;
   if (!entry?.fetchedAt) return null;
   if (Date.now() - entry.fetchedAt > TTL_MS) return null;
-  return entry.types;
+  return { types: entry.types, lookups: entry.lookups, order: entry.order };
 }
 
-export async function setCachedSchemaTypes(
+export async function setCachedSchema(
   domain: string,
   queueId: string | number,
-  types: any,
+  schema: CachedSchema,
 ): Promise<void> {
   if (!queueId) return;
   await chrome.storage.session.set({
-    [schemaKey(domain, queueId)]: { types, fetchedAt: Date.now() },
+    [schemaKey(domain, queueId)]: { ...schema, fetchedAt: Date.now() },
   });
 }
 
@@ -82,7 +91,9 @@ export async function setCachedSchemaTypes(
 // v4: entries gained `tables` (per-table row counts + columns). A v3 entry has
 // no `tables`, which would leave every row picker hidden until the 5-minute TTL
 // expired — the row scope has no other source, so bump rather than tolerate it.
-const ANN_PREFIX = 'mdhProv:ann:v4:';
+// v5: entries gained `lookupResults` (the saved lookup-field outcomes) and
+// `lookupIds`. A v4 entry would render every lookup field as "no match".
+const ANN_PREFIX = 'mdhProv:ann:v5:';
 
 const annKey = (domain: string, annotationId: string | number) =>
   `${ANN_PREFIX}${domain}#${annotationId}`;
