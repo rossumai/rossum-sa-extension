@@ -212,6 +212,36 @@ features, and runs ONE MutationObserver over added subtrees. Each module in
 To add a feature: create the module, add its key to `SETTINGS_KEYS` in `index.ts`, wire
 `init()`/`handleNode()`, add a popup checkbox. Disabled features add zero overhead.
 
+**The observer sees ADDED nodes only.** A feature targeting something the SPA mounts once, early
+(the header is the case that found this), never sees it through `handleNode`: the content script
+is `document_idle`, so that element already exists and no mutation ever reports it. Such a
+feature's `init()` must sweep the current document — as `closable-tooltips` does for poppers
+already open — and when the sweep needs settings, `index.ts` calls it AFTER `observe()`, or
+anything rendered in between is missed by both. `org-name.ts` is the worked example.
+
+**The organization's name** (`org-name.ts`, key `orgNameEnabled`, event `sa_rossum_org_name`),
+since orgs in one group share a hostname AND a white-labelled logo,
+so only the user menu (mounted by MUI only while open) said which one you are in.
+`org-name` shows it in a one-line pill on the right of the header, just left of its
+buttons, on EVERY screen, the review screen included; the Console's Dataset Management and Audit
+Log connection bars append it too (`src/console/orgName.ts`, through `galaxyApi.get`; the
+signal lives in `src/console/store.ts`). Both take it from
+`GET /organizations` and only when that lists exactly ONE organization (`currentOrgName` in
+`src/rossum/orgName.ts`, shared so the two can never disagree) — `auth/user`'s `organization`
+is the user's HOME org, which for a service or system user the session cannot even read (404).
+The pill's placement is pure (`pillSlot`): the rightmost readable gap between the header's
+controls and text, never one that lies in its left half, because names in one group share a
+prefix and differ at the end, which a narrow cap truncates first. The pill carries its own
+ground and inherits NO colour: the review screen's header is white but hands its children white
+text, so an inherited `color` drew the name white on white. "Powered by Rossum"
+(`[data-sentry-component="PoweredBy"]`, rendered inside the navbar's right-hand actions) is
+hidden while the pill is on screen and restored the moment it is not. Anchors are `data-cy`
+hooks and the `<header>` holding `[data-cy="userpanel"]`; note `data-cy="file-name"` is NOT
+review-screen-only — the document list's rows carry it too. The token is re-read every 1.5s so
+an org switch re-resolves, with a generation counter against stale answers. Deliberately NOT
+here: any statement of the environment (sandbox or production) — the `sandbox` flag describes
+billing, not environment, and is left for its own change.
+
 **NetSuite** and **Coupa** are self-contained single files with no observer. Coupa uses two
 strategies: JSON from `#initial_full_react_data` (React pages), and DOM attributes with
 `IGNORE_S_CLASSES` filtering (Rails pages).
@@ -378,8 +408,15 @@ Enforced by tests, not by convention. Do not weaken them.
 
 - **Feature toggles** — `schemaAnnotationsEnabled`, `expandFormulasEnabled`,
   `expandReasoningFieldsEnabled`, `scrollLockEnabled`, `resourceIdsEnabled`,
-  `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled`. `closable-tooltips`,
-  `dataset-mgmt-suggest` and `track-viewed` are always on, with no toggle and no key.
+  `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled` — all DEFAULT OFF, since an absent key
+  reads as disabled. **`orgNameEnabled` is the one exception and defaults ON**: absent means
+  enabled and only an explicit `false` disables it, so it is read as `!== false` in
+  `src/rossum/index.ts`, `src/console/index.tsx` and the popup — all through ONE helper,
+  `orgNameOn` in `src/rossum/orgName.ts`, since the popup coercing it (`!!vals[key]`) showed
+  the switch off while the feature ran.
+  It is also the one key read on BOTH sides: it governs the header name and the Console's
+  connection bars. `closable-tooltips`, `dataset-mgmt-suggest` and `track-viewed` are always
+  on, with no toggle and no key.
 - **The one gate** — `experimentalUnlocked`: 5 quick clicks on the popup's version hash, hiding
   only the Academy, mirrored live via `chrome.storage.onChanged`.
 - **Auth staging** — `consoleAuth_<uuid>`: single-use, 24h TTL, removed on read.

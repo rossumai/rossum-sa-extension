@@ -17,10 +17,12 @@ import {
 import { readAuthInfo, readPageFlag, togglePageFlag } from '../tab-readers.js';
 import { createUnlockCounter } from '../experimental.js';
 import { openPanelForTab } from '../../sidepanel/panelScope.js';
+import { ORG_NAME_KEY, orgNameOn } from '../../rossum/orgName.js';
 
 const STORAGE_TOGGLES = [
   'schemaAnnotationsEnabled',
   'resourceIdsEnabled',
+  'orgNameEnabled',
   'expandFormulasEnabled',
   'expandReasoningFieldsEnabled',
   'scrollLockEnabled',
@@ -199,13 +201,16 @@ export default function App({ tab }: { tab?: any }) {
       .get(STORAGE_TOGGLES)
       .then((vals) => {
         const filled: Record<string, boolean> = {};
-        for (const key of STORAGE_TOGGLES) filled[key] = !!vals[key];
+        for (const key of STORAGE_TOGGLES) {
+          filled[key] = key === ORG_NAME_KEY ? orgNameOn(vals[key]) : !!vals[key];
+        }
         setStorageValues(filled);
       })
       .catch(() => {
-        // Also gates first paint — degrade to all-off rather than a blank popup.
+        // Also gates first paint — degrade to the defaults rather than a blank popup.
         const filled: Record<string, boolean> = {};
-        for (const key of STORAGE_TOGGLES) filled[key] = false;
+        for (const key of STORAGE_TOGGLES)
+          filled[key] = key === ORG_NAME_KEY && orgNameOn(undefined);
         setStorageValues(filled);
       });
   }, []);
@@ -395,21 +400,32 @@ export default function App({ tab }: { tab?: any }) {
               <section class={`card${dimClass('rossum')}`} data-context="rossum">
                 <h3 class="section-title">Rossum</h3>
 
-                <div class="toggle-group">
+                <div class="toggle-group toggle-group--cols-2">
                   <span class="group-label">Overlays</span>
                   <Toggle
                     id="schemaAnnotationsEnabled"
                     label="Schema IDs"
-                    hint="Overlay schema_id on annotation fields"
+                    hint="Overlay schema_id"
                     checked={storageValues.schemaAnnotationsEnabled}
                     onChange={(v) => setStorageToggle('schemaAnnotationsEnabled', v)}
                   />
                   <Toggle
                     id="resourceIdsEnabled"
                     label="Resource IDs"
-                    hint="Overlay IDs on queues, hooks, extensions, users"
+                    hint="Overlay object IDs"
                     checked={storageValues.resourceIdsEnabled}
                     onChange={(v) => setStorageToggle('resourceIdsEnabled', v)}
+                  />
+                  {/* The one toggle that defaults ON (see orgNameOn). The Overlays
+                      group is two columns so this adds no row: a third full-width row
+                      overflowed the height-capped popup when the usage-consent strip
+                      was showing (measured 2026-09-27). */}
+                  <Toggle
+                    id="orgNameEnabled"
+                    label="Org name"
+                    hint="Header & Console"
+                    checked={storageValues.orgNameEnabled}
+                    onChange={(v) => setStorageToggle('orgNameEnabled', v)}
                   />
                 </div>
 
