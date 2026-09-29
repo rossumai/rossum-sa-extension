@@ -220,6 +220,21 @@ describe('the name pill', () => {
     expect(name.style.maxWidth).toBe('708px');
   });
 
+  it('moves left to show the whole name rather than cut it by the buttons', async () => {
+    const header = documentsHeader();
+    header.append(el('button', [1300, 6, 100, 36])); // leaves 1400–1517 by the buttons
+    badge.init({ intervalMs: 0 });
+    await flush();
+    // In a browser the pill's content is 150px wide: more than the 93px by the buttons.
+    const name = pill()!;
+    Object.defineProperty(name, 'scrollWidth', { configurable: true, value: 150 });
+    window.dispatchEvent(new Event('resize'));
+
+    // The gap 785–1300 holds it: right = 1705 - 1300 + 12; maxWidth = (1300 - 12) - (785 + 12)
+    expect(name.style.right).toBe('417px');
+    expect(name.style.maxWidth).toBe('491px');
+  });
+
   it('hides when the header has no room for it', async () => {
     const header = documentsHeader({ chatLeft: 800 }); // 15px after the last tab
     header.append(el('img', [0, 0, 290, 48])); // logo up to the tabs

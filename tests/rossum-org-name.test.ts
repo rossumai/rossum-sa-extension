@@ -162,6 +162,51 @@ describe('pillSlot', () => {
     expect(slot).toEqual({ right: 192, maxWidth: 246 });
   });
 
+  it('moves left to a gap that holds the whole name rather than truncate it', () => {
+    const slot = pillSlot({
+      header: box([0, 0, 1000, 48]),
+      clusterLeft: 900,
+      obstacles: [box([0, 0, 300, 48]), box([620, 0, 160, 48])],
+      nameWidth: 200,
+    });
+    // By the buttons, 780–900 leaves 96px: readable, but the name would be cut. The gap
+    // 300–620 ends right of the middle and holds all 200px of it.
+    // right = 1000 - 620 + 12; maxWidth = (620 - 12) - (300 + 12)
+    expect(slot).toEqual({ right: 392, maxWidth: 296 });
+  });
+
+  it('truncates by the buttons when no gap holds the whole name', () => {
+    const slot = pillSlot({
+      header: box([0, 0, 1000, 48]),
+      clusterLeft: 900,
+      obstacles: [box([0, 0, 300, 48]), box([620, 0, 160, 48])],
+      nameWidth: 400,
+    });
+    // Neither 96px nor 296px holds it, so it is cut in the gap nearest the buttons.
+    expect(slot).toEqual({ right: 112, maxWidth: 96 });
+  });
+
+  it('never moves into a gap in the left half to fit the whole name', () => {
+    const slot = pillSlot({
+      header: box([0, 0, 1000, 48]),
+      clusterLeft: 900,
+      obstacles: [box([450, 0, 330, 48])],
+      nameWidth: 200,
+    });
+    // 0–450 would hold it but lies left of the middle (500); 780–900 cuts it to 96px.
+    expect(slot).toEqual({ right: 112, maxWidth: 96 });
+  });
+
+  it('keeps a name that fits by the buttons by the buttons', () => {
+    const slot = pillSlot({
+      header: box([0, 0, 1000, 48]),
+      clusterLeft: 900,
+      obstacles: [box([0, 0, 300, 48]), box([620, 0, 160, 48])],
+      nameWidth: 90,
+    });
+    expect(slot).toEqual({ right: 112, maxWidth: 96 });
+  });
+
   it('gives up when no gap is wide enough to read a name', () => {
     const slot = pillSlot({
       header: box([0, 0, 1000, 48]),

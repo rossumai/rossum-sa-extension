@@ -29,25 +29,31 @@ export type Box = { left: number; top: number; right: number; bottom: number };
 const GAP = 12;
 const MIN_WIDTH = 60;
 
-// The pill sits in the rightmost free gap of the header that is wide enough to read
-// a name in, right-aligned against whatever closes that gap on the right: the
-// header's right-hand buttons on a plain header (the gap after the last nav tab, or
-// after the paging controls on the review screen), or branding such as "Powered by
-// Rossum" when a white-labelled header puts it right beside the buttons.
-// `obstacles` are the header's visible controls and text; one that reaches into or
-// past the buttons is a wrapper or a button itself, not a neighbour, and is ignored.
-// It never picks a gap that lies in the left half of the header, though a long name
-// in a gap that ends right of the middle may reach across it. Returns the CSS `right`
-// offset from the header's right edge and the width available, or null when no gap is
-// wide enough.
+// The pill sits in a free gap of the header, right-aligned against whatever closes that
+// gap on the right: the header's right-hand buttons on a plain header (the gap after the
+// last nav tab, or after the paging controls on the review screen), or branding such as
+// "Powered by Rossum" when a white-labelled header puts it right beside the buttons.
+// `obstacles` are the header's visible controls and text; one that reaches into or past
+// the buttons is a wrapper or a button itself, not a neighbour, and is ignored.
+//
+// Which gap: the rightmost one that holds the WHOLE name (`nameWidth`, the pill's
+// natural width), searching leftwards from the buttons — a name is better moved than
+// cut. Only when no gap holds it all is it truncated, in the rightmost gap still wide
+// enough to read a name in. The search never picks a gap that lies in the left half of
+// the header, though a long name in a gap that ends right of the middle may reach
+// across it. Returns the CSS `right` offset from the header's right edge and the width
+// available, or null when no gap is wide enough.
 export function pillSlot({
   header,
   clusterLeft,
   obstacles,
+  nameWidth = 0,
 }: {
   header: Box;
   clusterLeft: number;
   obstacles: Box[];
+  /** The pill's natural width, the whole name shown; 0 when it could not be measured. */
+  nameWidth?: number;
 }): { right: number; maxWidth: number } | null {
   const blocks = obstacles
     .filter((o) => o.right > o.left && o.bottom > o.top && o.right <= clusterLeft)
@@ -63,11 +69,13 @@ export function pillSlot({
   // Never a gap in the left half: that is the logo, the chips and the tabs, and a
   // name found there reads as part of the navigation rather than as "you are here".
   const middle = (header.left + header.right) / 2;
-  for (let i = gaps.length - 1; i >= 0; i--) {
-    const [start, end] = gaps[i];
-    if (end <= middle) break;
-    const maxWidth = end - GAP - (start + GAP);
-    if (maxWidth >= MIN_WIDTH) return { right: header.right - end + GAP, maxWidth };
-  }
-  return null;
+  const slots = gaps
+    .filter(([, end]) => end > middle)
+    .map(([start, end]) => ({
+      right: header.right - end + GAP,
+      maxWidth: end - GAP - (start + GAP),
+    }))
+    .filter((slot) => slot.maxWidth >= MIN_WIDTH)
+    .reverse(); // rightmost first
+  return slots.find((slot) => slot.maxWidth >= nameWidth) ?? slots[0] ?? null;
 }

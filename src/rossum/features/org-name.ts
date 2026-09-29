@@ -100,6 +100,14 @@ function obstacles(header: HTMLElement): DOMRect[] {
   return rects;
 }
 
+// The pill's width with the whole name shown. scrollWidth measures the content past a
+// max-width cut but not the border, so that is added back; a hidden pill measures 0,
+// so it is shown for the (synchronous, unpainted) measurement.
+function naturalWidth(pill: HTMLElement): number {
+  pill.hidden = false;
+  return pill.scrollWidth + (pill.offsetWidth - pill.clientWidth);
+}
+
 function place(header: HTMLElement, pill: HTMLElement) {
   const cluster = [...header.querySelectorAll(CLUSTER)]
     .map((b) => b.getBoundingClientRect())
@@ -110,6 +118,7 @@ function place(header: HTMLElement, pill: HTMLElement) {
           header: header.getBoundingClientRect(),
           clusterLeft: Math.min(...cluster.map((r) => r.left)),
           obstacles: obstacles(header),
+          nameWidth: naturalWidth(pill),
         })
       : null;
   pill.hidden = !slot;

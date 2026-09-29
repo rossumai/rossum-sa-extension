@@ -229,9 +229,12 @@ signal lives in `src/console/store.ts`). Both take it from
 `GET /organizations` and only when that lists exactly ONE organization (`currentOrgName` in
 `src/rossum/orgName.ts`, shared so the two can never disagree) — `auth/user`'s `organization`
 is the user's HOME org, which for a service or system user the session cannot even read (404).
-The pill's placement is pure (`pillSlot`): the rightmost readable gap between the header's
-controls and text, never one that lies in its left half, because names in one group share a
-prefix and differ at the end, which a narrow cap truncates first. The pill carries its own
+The pill's placement is pure (`pillSlot`): the rightmost gap between the header's controls and
+text that holds the WHOLE name, searching leftwards from the buttons — moved rather than cut,
+because names in one group share a prefix and differ at the end, which truncation removes first.
+Only when no gap holds it all is it truncated (full name on hover), in the rightmost gap still
+readable. It never picks a gap in the header's left half, and it hides only when no readable gap
+(60px) is left at all — a name never disappears for being long. The pill carries its own
 ground and inherits NO colour: the review screen's header is white but hands its children white
 text, so an inherited `color` drew the name white on white. "Powered by Rossum"
 (`[data-sentry-component="PoweredBy"]`, rendered inside the navbar's right-hand actions) is
