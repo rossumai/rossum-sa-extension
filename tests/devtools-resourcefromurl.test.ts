@@ -55,12 +55,20 @@ describe('resourceFromApiUrl', () => {
     );
     expect(resourceFromApiUrl('https://acme.rossum.app/api/v1/inboxes/5')!.label).toBe('Inbox');
   });
-  it('captures a sub-resource path as a distinct read-only resource', () => {
+  it("makes an annotation's whole content the one editable sub-resource", () => {
     expect(resourceFromApiUrl('https://acme.rossum.app/api/v1/annotations/123/content')).toEqual({
       type: 'annotations',
       id: '123',
       apiPath: '/api/v1/annotations/123/content',
       label: 'Content',
+    });
+  });
+  it('captures any other sub-resource path as a distinct read-only resource', () => {
+    expect(resourceFromApiUrl('https://acme.rossum.app/api/v1/annotations/123/page_data')).toEqual({
+      type: 'annotations',
+      id: '123',
+      apiPath: '/api/v1/annotations/123/page_data',
+      label: 'Page_data',
       readOnly: true,
     });
   });

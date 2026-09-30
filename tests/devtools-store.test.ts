@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as store from '../src/devtools/store.js';
 
 const R = (type: any, id: any) => ({ type, id, apiPath: `/api/v1/${type}s/${id}`, label: type });
@@ -228,5 +228,42 @@ describe('store tabs', () => {
       expect(store.tabs.value[0].id).toBe(page.id);
       expect(store.tabs.value.map((t) => t.id)).toEqual([page.id, c.id, a.id, b.id]);
     });
+  });
+});
+
+describe('line wrap preference', () => {
+  beforeEach(() => store._resetLineWrap());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('reads the stored choice', async () => {
+    const get = vi.fn(async () => ({ devtoolsLineWrap: true }));
+    vi.stubGlobal('chrome', { storage: { local: { get, set: vi.fn(async () => {}) } } });
+    store.loadLineWrap();
+    await vi.waitFor(() => expect(store.lineWrap.value).toBe(true));
+    expect(get).toHaveBeenCalledWith('devtoolsLineWrap');
+  });
+
+  it('toggles and persists under devtoolsLineWrap', () => {
+    const set = vi.fn(async () => {});
+    vi.stubGlobal('chrome', { storage: { local: { get: vi.fn(async () => ({})), set } } });
+    store.toggleLineWrap();
+    expect(store.lineWrap.value).toBe(true);
+    expect(set).toHaveBeenCalledWith({ devtoolsLineWrap: true });
+  });
+
+  it('keeps a toggle made before the stored value arrived', async () => {
+    let resolve!: (v: any) => void;
+    const get = vi.fn(() => new Promise((r) => (resolve = r)));
+    vi.stubGlobal('chrome', { storage: { local: { get, set: vi.fn(async () => {}) } } });
+    store.loadLineWrap();
+    store.toggleLineWrap(); // Alt+Z right after the panel opened
+    resolve({ devtoolsLineWrap: false });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(store.lineWrap.value).toBe(true);
+  });
+
+  it('still toggles without chrome.storage (jsdom, a torn-down context)', () => {
+    expect(() => store.toggleLineWrap()).not.toThrow();
+    expect(store.lineWrap.value).toBe(true);
   });
 });

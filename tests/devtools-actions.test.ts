@@ -285,6 +285,47 @@ describe('requestDiff', () => {
   });
 });
 
+describe('annotation content tabs', () => {
+  const CONTENT = {
+    type: 'annotations',
+    id: '1',
+    apiPath: '/api/v1/annotations/1/content',
+    label: 'Content',
+  };
+  const tree = (value: string) => [
+    {
+      id: 10,
+      category: 'section',
+      schema_id: 's',
+      children: [{ id: 11, category: 'datapoint', schema_id: 'x', content: { value } }],
+    },
+  ];
+
+  it('loads the content tree without its duplicate `results` copy, as an editable tab', async () => {
+    const t = store.openTab(CONTENT);
+    const getResource = vi.fn(() => asJson({ content: tree('A'), results: tree('A') }));
+    await loadResource(t.id, { getResource, patch: vi.fn() });
+    const tab = store.activeTab()!;
+    expect(tab.original).toEqual({ content: tree('A') });
+    expect(JSON.parse(tab.buffer)).toEqual({ content: tree('A') });
+    expect(tab.readOnly).toBe(false);
+  });
+
+  it('saves with PATCH /content carrying the edited tree, and re-reads it the same way', async () => {
+    const t = store.openTab(CONTENT);
+    store.patchTab(t.id, {
+      original: { content: tree('A') },
+      buffer: JSON.stringify({ content: tree('B') }),
+    });
+    requestDiff(t.id);
+    const patch = vi.fn(() => Promise.resolve({}));
+    const getJson = vi.fn(() => Promise.resolve({ content: tree('B'), results: tree('B') }));
+    await saveResource(t.id, { getJson, patch });
+    expect(patch).toHaveBeenCalledWith('/api/v1/annotations/1/content', { content: tree('B') });
+    expect(store.activeTab()!.original).toEqual({ content: tree('B') });
+  });
+});
+
 describe('saveResource', () => {
   it('PATCHes only changed keys, re-fetches canonical, then reloads the inspected page', async () => {
     const t = store.openTab(RES, 'page');
@@ -302,6 +343,20 @@ describe('saveResource', () => {
     expect(tab.original).toEqual({ id: 1, name: 'B', modified_at: 't' });
     expect(tab.diffPreview).toBeNull();
     expect(reload).toHaveBeenCalledTimes(1);
+  });
+  it("refreshes the saved object's history even when the tab moved on during the save", async () => {
+    const t = store.openTab(RES, 'page');
+    store.patchTab(t.id, { original: { name: 'A' }, buffer: JSON.stringify({ name: 'B' }) });
+    requestDiff(t.id);
+    const onSaved = vi.fn();
+    const patch = vi.fn(() => Promise.resolve({}));
+    const getJson = vi.fn(async () => {
+      // The page tab follows the inspected page elsewhere while the save is finishing.
+      store.syncPageTab({ type: 'hook', id: '2', apiPath: '/api/v1/hooks/2', label: 'Hook' });
+      return { name: 'B' };
+    });
+    await saveResource(t.id, { getJson, patch, onSaved });
+    expect(onSaved).toHaveBeenCalledWith('/api/v1/queues/1');
   });
   it('keeps the buffer and surfaces the server message on 400, and does not reload', async () => {
     const t = store.openTab(RES);

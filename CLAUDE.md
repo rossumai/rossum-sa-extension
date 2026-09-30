@@ -277,8 +277,12 @@ rest. A 24h TTL sweep purges entries that were never consumed.
   because a Chrome popup closes on blur. Scoped to Rossum tabs by the worker.
 - **DevTools panel** — shows and PATCHes the API resource behind the current Rossum page. Auth
   via `inspectedWindow.eval`; in-panel tabs, a GET-only request bar, Copy as curl, inline
-  resource-name hints, diff→confirm→PATCH save. Read-only resources hide Save. Nothing leaves
-  the browser.
+  resource-name hints, diff→confirm→PATCH save. Read-only resources hide Save; every
+  sub-resource is read-only except an annotation's whole `/content`, which is shown without
+  its duplicate `results` tree and saved with `PATCH /content`. A toolbar under the tabs
+  holds view controls — Soft-wrap (Alt+Z) and, on queue, hook, schema and rule tabs, a version
+  rail diffing each version against the one before it; the bottom bar is for requests only.
+  Nothing leaves the browser.
 
 ## Safety invariants
 
@@ -386,7 +390,8 @@ Enforced by tests, not by convention. Do not weaken them.
 - **Global prefs** — `mdhPipelineWidth`, `mdhSidebarWidth`, `mdhUploadsColumnWidths`,
   `mdhOverviewChartsScale`, `mdhResultsView`, `mdhStages*`, `mdhStatsMode`,
   `mdhShowHiddenCollections`, `mdhProvenanceFilter`, `fabrySidebarWidth`,
-  `fabryArchDocView`, `fabryArchRailOpen`, `fabryArchRailWidth`, `fabryArchPdfOptions`.
+  `fabryArchDocView`, `fabryArchRailOpen`, `fabryArchRailWidth`, `fabryArchPdfOptions`,
+  `devtoolsLineWrap`.
 - **Per-tab navigation**, read session-first from `sessionStorage` with a `chrome.storage.local`
   seed (`src/console/tabState.ts`), all content-free — `consoleActiveApp`, `mdhActiveView`,
   `mdhSelectedCollection`, `mdhActivePanel`, `mdhOpsSearch`, `fabryActiveChat`, `fabryMode`,
@@ -572,6 +577,8 @@ older ones as history. Currently authoritative per area:
 - **Modals (shared)** — `2026-09-07-modal-header-rhythm-design.md` (header metrics, `ModalField`,
   the label-contrast fix)
 - **Popup** — `2026-07-16-popup-unlock-reviewing-annotation-design.md`
+- **Configuration changelog** — `2026-09-29-config-changelog-in-context-design.md` (the
+  DevTools version rail and diff for the open object; the pure core in `src/changelog/`)
 - **Galaxy** — `2026-06-04-galaxy-3d-org-birdview-design.md`
 - **Release automation** — `2026-06-12-chrome-web-store-auto-release-design.md`
 

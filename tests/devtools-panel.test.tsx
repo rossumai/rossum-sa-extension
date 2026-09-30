@@ -5,6 +5,7 @@ import { Panel } from '../src/devtools/panel.jsx';
 import JsonCodeEditor from '../src/devtools/JsonCodeEditor.jsx';
 import * as store from '../src/devtools/store.js';
 import * as api from '../src/devtools/api.js';
+import * as history from '../src/devtools/history.js';
 
 async function waitFor(fn: any, tries = 100) {
   for (let i = 0; i < tries; i++) {
@@ -240,6 +241,49 @@ describe('DevTools Panel', () => {
     panelRoot.remove();
   });
 
+  describe('toolbar', () => {
+    it('sits between the tab bar and the content, and Wrap toggles line wrapping', () => {
+      store.lineWrap.value = false;
+      const t = store.openTab(RES, 'page');
+      store.patchTab(t.id, { original: { id: 1 }, buffer: '{"id":1}' });
+      const root = mount();
+      const bar = root.querySelector('.rawjson-toolbar')!;
+      expect(bar.previousElementSibling!.classList.contains('rawjson-tabbar')).toBe(true);
+      expect(root.querySelector('.rawjson-bottombar .rawjson-wrap')).toBeNull(); // requests only
+      const btn = bar.querySelector<HTMLButtonElement>('.rawjson-wrap')!;
+      expect(btn.textContent).toBe('Soft-wrap');
+      expect(btn.getAttribute('aria-pressed')).toBe('false');
+      btn.click();
+      expect(store.lineWrap.value).toBe(true);
+      rerender(root);
+      expect(btn.getAttribute('aria-pressed')).toBe('true');
+      store.lineWrap.value = false;
+    });
+
+    it('toggles wrapping with Alt+Z, read from the key code (macOS types "Ω")', () => {
+      store.lineWrap.value = false;
+      const t = store.openTab(RES, 'page');
+      store.patchTab(t.id, { original: { id: 1 }, buffer: '{"id":1}' });
+      const root = mount();
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Ω', code: 'KeyZ', altKey: true }));
+      expect(store.lineWrap.value).toBe(true);
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', code: 'KeyZ', ctrlKey: true }));
+      expect(store.lineWrap.value).toBe(true); // Ctrl+Z is undo, not wrap
+      render(null, root);
+      store.lineWrap.value = false;
+    });
+
+    it('is absent on the empty page tab and on a file preview, never an empty row', () => {
+      store.syncPageTab(null);
+      const root = mount();
+      expect(root.querySelector('.rawjson-toolbar')).toBeNull();
+      const t = store.openTab(RES, 'link');
+      store.patchTab(t.id, { preview: { kind: 'blob', contentType: 'application/pdf', size: 1 } });
+      rerender(root);
+      expect(root.querySelector('.rawjson-toolbar')).toBeNull();
+    });
+  });
+
   describe('context menu', () => {
     it('renders the context menu when linkMenu is set and clicking it opens a tab and clears the menu', async () => {
       const t = store.openTab(RES, 'page');
@@ -258,6 +302,25 @@ describe('DevTools Panel', () => {
       await waitFor(() => !store.linkMenu.value);
       expect(store.linkMenu.value).toBeNull();
       expect(store.tabs.value.length).toBeGreaterThan(1);
+    });
+
+    it('Copy link, under Open in new tab, copies the link and closes the menu', async () => {
+      const writeText = vi.fn(() => Promise.resolve());
+      (globalThis.navigator as any).clipboard = { writeText };
+      const t = store.openTab(RES, 'page');
+      store.patchTab(t.id, { original: { id: 1 } });
+      const url = 'https://acme.rossum.app/api/v1/schemas/9';
+      store.linkMenu.value = { url, x: 10, y: 10 };
+      const tabsBefore = store.tabs.value.length;
+      const root = mount();
+      await waitFor(() => root.querySelector('.rawjson-linkmenu'));
+      const buttons = [...root.querySelectorAll<HTMLButtonElement>('.rawjson-linkmenu button')];
+      expect(buttons.map((b) => b.textContent)).toEqual(['Open in new tab', 'Copy link']);
+      buttons[1].click();
+      expect(writeText).toHaveBeenCalledWith(url);
+      await waitFor(() => store.toast.value?.message === 'Link copied');
+      expect(store.linkMenu.value).toBeNull();
+      expect(store.tabs.value.length).toBe(tabsBefore);
     });
 
     it('an outside mousedown clears the link menu even if not currently rendered', async () => {
@@ -526,5 +589,101 @@ describe('DevTools Panel', () => {
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await waitFor(() => root.querySelector('.rawjson-toast'));
     expect(root.querySelector('.rawjson-toast')).not.toBeNull();
+  });
+});
+
+describe('DevTools Panel history', () => {
+  const HOOK = { type: 'hook', id: '48', apiPath: '/api/v1/hooks/48', label: 'Hook' };
+
+  function withHistory(status: any, total: number) {
+    history.histories.value = {
+      [HOOK.apiPath]: { status, total, entries: [], users: new Map() },
+    };
+  }
+
+  beforeEach(() => {
+    history.histories.value = {};
+    history.railOpen.value = false;
+    history.selected.value = null;
+  });
+
+  it('shows the versions button only when history loaded and is non-empty', () => {
+    const t = store.openTab(HOOK, 'page');
+    store.patchTab(t.id, { original: { id: 48 }, buffer: '{"id":48}' });
+    withHistory('ready', 14);
+    const root = mount();
+    expect(root.querySelector('.rawjson-toolbar .rawjson-hist-btn')!.textContent).toContain(
+      '14 versions',
+    );
+    expect(root.querySelector('.rawjson-tabbar .rawjson-hist-btn')).toBeNull();
+
+    withHistory('forbidden', 0);
+    rerender(root);
+    expect(root.querySelector('.rawjson-hist-btn')).toBeNull();
+
+    withHistory('ready', 0);
+    rerender(root);
+    expect(root.querySelector('.rawjson-hist-btn')).toBeNull();
+  });
+
+  it('clears the selected version when the page tab follows the page to another object', async () => {
+    const t = store.syncPageTab(HOOK as any).tab;
+    store.patchTab(t.id, { original: { id: 48 }, buffer: '{"id":48}' });
+    withHistory('ready', 3);
+    history.railOpen.value = true;
+    history.selected.value = {
+      version_id: 9,
+      object_type: 'hook',
+      object_id: 48,
+      version_event: 'update',
+      changed_fields: ['config'],
+      version_created_at: '2026-09-29T09:00:00Z',
+      modifier_id: null,
+    };
+    const root = mount();
+    expect(root.querySelector('.rawjson-histdiff')).not.toBeNull();
+    // Same page tab (same id), another hook.
+    const next = { type: 'hook', id: '51', apiPath: '/api/v1/hooks/51', label: 'Hook' };
+    expect(store.syncPageTab(next as any).tab.id).toBe(t.id);
+    rerender(root);
+    await waitFor(() => history.selected.value === null);
+    expect(history.comparedId.value).toBeNull();
+  });
+
+  it('keeps unsaved edits across the version view and hides Save there', () => {
+    const t = store.openTab(HOOK, 'page');
+    store.patchTab(t.id, {
+      original: { name: 'A' },
+      buffer: '{"name":"B"}',
+      dirty: true,
+    });
+    withHistory('ready', 2);
+    history.railOpen.value = true;
+    history.selected.value = {
+      version_id: 9,
+      object_type: 'hook',
+      object_id: 48,
+      version_event: 'update',
+      changed_fields: ['name'],
+      version_created_at: '2026-09-29T09:00:00Z',
+      modifier_id: null,
+    };
+    const root = mount();
+    expect(root.querySelector('.rawjson-histdiff')).not.toBeNull();
+    expect(root.querySelector('.rawjson-savepill')).toBeNull();
+
+    // The rail's Live row is the way back (there is no Back to live button).
+    expect(root.querySelector('.rawjson-histdiff-back')).toBeNull();
+    history.comparedId.value = 5;
+    const live = [...root.querySelectorAll<HTMLButtonElement>('.rawjson-hist-row')].find((b) =>
+      b.textContent!.includes('Live'),
+    )!;
+    live.click();
+    expect(history.selected.value).toBeNull();
+    expect(history.comparedId.value).toBeNull();
+    rerender(root);
+    expect(root.querySelector('.rawjson-histdiff')).toBeNull();
+    expect(root.querySelector('.rawjson-savepill')).not.toBeNull();
+    expect(store.tabs.value.find((x) => x.id === t.id)!.buffer).toBe('{"name":"B"}');
   });
 });

@@ -1,10 +1,8 @@
 import { h } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { EditorView, basicSetup } from 'codemirror';
-import { EditorState } from '@codemirror/state';
+import { EditorState, Compartment } from '@codemirror/state';
 import { json } from '@codemirror/lang-json';
-import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
-import { tags } from '@lezer/highlight';
 import * as store from './store.js';
 import { buildPatchBody } from './diff.js';
 import { isDark } from './theme.js';
@@ -25,36 +23,7 @@ function computeDirty(original: unknown, text: string) {
 import { rossumLinks } from './cmLinks.js';
 import { rossumNames } from './cmNames.js';
 import { resolver } from './nameResolve.js';
-
-// Approximate DevTools' JSON/source palette (exact tokens aren't exposed to
-// extension panels — only the theme name). Tune in dogfood.
-const lightHL = syntaxHighlighting(
-  HighlightStyle.define([
-    { tag: tags.propertyName, color: '#881391' },
-    { tag: tags.string, color: '#c41a16' },
-    { tag: tags.number, color: '#1c00cf' },
-    { tag: tags.bool, color: '#0842a0' },
-    { tag: tags.null, color: '#808080' },
-    { tag: tags.keyword, color: '#881391' },
-  ]),
-);
-const darkHL = syntaxHighlighting(
-  HighlightStyle.define([
-    { tag: tags.propertyName, color: '#5db0d7' },
-    { tag: tags.string, color: '#f29766' },
-    { tag: tags.number, color: '#9980ff' },
-    { tag: tags.bool, color: '#569cd6' },
-    { tag: tags.null, color: '#808080' },
-    { tag: tags.keyword, color: '#c586c0' },
-  ]),
-);
-// Editor surface inherits the panel's theme-aware background (no oneDark dark surface).
-const surfaceTheme = EditorView.theme({
-  '&': { backgroundColor: 'transparent', color: 'var(--fg)' },
-  '.cm-gutters': { backgroundColor: 'transparent', color: '#888', border: 'none' },
-  '.cm-activeLine': { backgroundColor: 'rgba(128,128,128,0.08)' },
-  '.cm-activeLineGutter': { backgroundColor: 'transparent' },
-});
+import { lightHL, darkHL, surfaceTheme } from './cmTheme.js';
 
 export default function JsonCodeEditor({
   tabId,
@@ -72,6 +41,9 @@ export default function JsonCodeEditor({
   // so the updateListener can distinguish that from a real user edit and NOT
   // re-mark the store dirty (the sync fires synchronously inside view.dispatch).
   const syncingRef = useRef(false);
+  // Line wrapping is toggled live, without rebuilding the editor (cursor and scroll stay).
+  const wrapRef = useRef(new Compartment());
+  const wrap = store.lineWrap.value;
   const tab = store.tabs.value.find((t) => t.id === tabId) || null;
   const buffer = tab ? tab.buffer : '';
   const readOnly = tab ? tab.readOnly : false;
@@ -94,6 +66,7 @@ export default function JsonCodeEditor({
       rossumNames(resolver.nameFor, resolver.ensure),
       listener,
       EditorView.editable.of(!readOnly),
+      wrapRef.current.of(wrap ? EditorView.lineWrapping : []),
     ];
     extensions.push(isDark() ? darkHL : lightHL, surfaceTheme);
     const view = new EditorView({
@@ -124,6 +97,12 @@ export default function JsonCodeEditor({
       }
     }
   }, [buffer]);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (view)
+      view.dispatch({ effects: wrapRef.current.reconfigure(wrap ? EditorView.lineWrapping : []) });
+  }, [wrap]);
 
   let parseError: string | null = null;
   try {

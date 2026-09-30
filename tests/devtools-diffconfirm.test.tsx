@@ -36,3 +36,20 @@ describe('DiffConfirm', () => {
     expect(root.textContent).toContain('gone');
   });
 });
+
+describe('DiffConfirm notes', () => {
+  it('shows each note above the actions', () => {
+    const root = document.createElement('div');
+    render(
+      <DiffConfirm
+        original={{ a: 1 }}
+        edited={{ a: 2 }}
+        notes={['Table rows are matched by position.']}
+        onConfirm={() => {}}
+        onCancel={() => {}}
+      />,
+      root,
+    );
+    expect(root.textContent).toContain('Table rows are matched by position.');
+  });
+});

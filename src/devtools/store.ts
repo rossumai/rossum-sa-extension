@@ -67,6 +67,45 @@ export function _resetToast() {
 // The copy-curl split-button's "more options" menu (live-token variant). false = closed.
 export const curlMenu = signal(false);
 
+// Soft-wrap long lines in the editor and the version diff. Persisted as `devtoolsLineWrap`.
+export const lineWrap = signal(false);
+const WRAP_KEY = 'devtoolsLineWrap';
+// Set once the user toggles, so a stored value that arrives later cannot undo their choice.
+let wrapChosen = false;
+
+// jsdom and a torn-down extension context have no chrome.storage; the toggle still works.
+function storage() {
+  try {
+    return typeof chrome !== 'undefined' && chrome.storage ? chrome.storage.local : null;
+  } catch {
+    return null;
+  }
+}
+
+export function loadLineWrap(): void {
+  const s = storage();
+  if (!s) return;
+  s.get(WRAP_KEY)
+    .then((v) => {
+      if (!wrapChosen) lineWrap.value = v?.[WRAP_KEY] === true;
+    })
+    .catch(() => {});
+}
+
+// Test helper — reset module state, like _resetToast.
+export function _resetLineWrap() {
+  wrapChosen = false;
+  lineWrap.value = false;
+}
+
+export function toggleLineWrap(): void {
+  wrapChosen = true;
+  lineWrap.value = !lineWrap.value;
+  storage()
+    ?.set({ [WRAP_KEY]: lineWrap.value })
+    .catch(() => {});
+}
+
 let seq = 0;
 export function nextTabId() {
   seq += 1;

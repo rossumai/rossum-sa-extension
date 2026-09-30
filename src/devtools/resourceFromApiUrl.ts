@@ -65,6 +65,9 @@ export function resourceFromApiUrl(url: unknown): ResourceDescriptor | null {
   const sub = m[3] || '';
   const apiPath = `/api/v1/${collection}/${id}${sub}`;
   if (sub) {
+    // The annotation's whole content tree is the one editable sub-resource (PATCH /content).
+    if (collection === 'annotations' && sub === '/content')
+      return { type: collection, id, apiPath, label: 'Content' };
     const parts = sub.slice(1).split('/');
     const last = parts[parts.length - 1];
     const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

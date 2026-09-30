@@ -3,12 +3,15 @@ import * as cache from './resourceCache.js';
 import { getJson as apiGetJson } from './api.js';
 
 const DEFAULT_CAP = 6;
+const TOP_LEVEL = /^\/api\/v1\/[a-z_]+\/\d+$/;
 
 function nameable(url: string): string | null {
   const r = resourceFromApiUrl(url);
   // `apiPath` is optional only on an unresolved `via` descriptor, which detectResource
   // builds and resourceFromApiUrl never returns — so on this branch it is always set.
-  return r && r.id && !r.readOnly ? r.apiPath! : null;
+  // Only a top-level object has a name: a sub-resource never does, and read-only is no
+  // longer proof of one now that an annotation's content is editable.
+  return r && r.id && !r.readOnly && TOP_LEVEL.test(r.apiPath!) ? r.apiPath! : null;
 }
 
 // NOTE: `pending`/`queue`/`active` are per-resolver-instance while the cache is a

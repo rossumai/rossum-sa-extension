@@ -4,8 +4,12 @@ import { track } from '../usage/track.js';
 import { buildPatchBody } from './diff.js';
 import { resourceFromApiUrl, genericResourceFromPath } from './resourceFromApiUrl.js';
 import { normalizeRequestInput } from './requestInput.js';
+import { isAnnotationContentPath, forEditing } from './annotationContent.js';
 
 const PRETTY = (o: any) => JSON.stringify(o, null, 2);
+// What the editor shows for a fetched body: an annotation's content drops its duplicate tree.
+const editable = (apiPath: string | undefined, data: any) =>
+  isAnnotationContentPath(apiPath) ? forEditing(data) : data;
 const tabById = (id: string) => store.tabs.value.find((t) => t.id === id) || null;
 
 async function resolveResource(resource: any, deps: any) {
@@ -66,9 +70,10 @@ export async function loadResource(tabId: string, deps: any) {
         readOnly: true,
       });
     } else {
+      const data = editable(resource.apiPath, result.data);
       store.patchTab(tabId, {
-        original: result.data,
-        buffer: PRETTY(result.data),
+        original: data,
+        buffer: PRETTY(data),
         dirty: false,
         loading: false,
         readOnly: !!resource.readOnly,
@@ -128,7 +133,10 @@ export async function saveResource(tabId: string, deps: any) {
   store.patchTab(tabId, { saving: true, error: null });
   try {
     await deps.patch(t.resource!.apiPath, body);
-    const fresh = await deps.getJson(t.resource!.apiPath);
+    // The object changed on the server whatever the tab shows by now, so its history is
+    // stale even when the tab has moved on (the early return below).
+    if (deps.onSaved) deps.onSaved(t.resource!.apiPath);
+    const fresh = editable(t.resource!.apiPath, await deps.getJson(t.resource!.apiPath));
     const cur = tabById(tabId);
     if (!cur || store.keyOf(cur.resource) !== startKey) return;
     track('sa_devtools_save');

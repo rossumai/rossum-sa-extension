@@ -17,11 +17,15 @@ import * as resourceCache from './resourceCache.js';
 import { startBridge } from './inspected.js';
 import { isDark } from './theme.js';
 import JsonCodeEditor from './JsonCodeEditor.jsx';
+import HistoryRail from './HistoryRail.jsx';
+import VersionDiff from './VersionDiff.jsx';
 import PreviewPane from './PreviewPane.jsx';
 import DiffConfirm from './DiffConfirm.jsx';
 import RequestBar from './RequestBar.jsx';
 import { buildCurl } from './curl.js';
 import { buildPatchBody } from './diff.js';
+import { isAnnotationContentPath, changedTables } from './annotationContent.js';
+import * as history from './history.js';
 
 const deps = {
   getJson: api.getJson,
@@ -29,6 +33,7 @@ const deps = {
   getCached: (p: any) => resourceCache.getFresh(p),
   putCached: (p: any, o: any) => resourceCache.put(p, o),
   patch: api.patch,
+  onSaved: (apiPath: string) => history.invalidateHistory(apiPath),
   reload: () => {
     try {
       chrome.devtools.inspectedWindow.reload();
@@ -57,6 +62,7 @@ function savePillLabel(tab: any) {
 export function Panel() {
   useEffect(() => {
     document.documentElement.dataset.theme = isDark() ? 'dark' : 'light';
+    store.loadLineWrap();
 
     const handleMouseDown = (e: any) => {
       if (
@@ -101,6 +107,12 @@ export function Panel() {
           }
         }
       }
+      // Alt+Z, VS Code's word-wrap key. Read `code`, not `key`: on macOS Alt+Z types "Ω".
+      if (e.altKey && !e.metaKey && !e.ctrlKey && e.code === 'KeyZ') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        store.toggleLineWrap();
+      }
       if ((e.metaKey || e.ctrlKey) && (e.key === 'l' || e.key === 'L')) {
         const el = document.querySelector<HTMLInputElement>('.rawjson-reqbar-input');
         if (el) {
@@ -118,6 +130,7 @@ export function Panel() {
 
     const stopBridge = startBridge((ctx) => {
       api.init(ctx.domain, ctx.token as string);
+      history.setOrg(ctx.domain);
       const next = detectResource({ pathname: ctx.pathname, search: ctx.search });
       const { tab, changed } = store.syncPageTab(next);
       if (changed && next) loadResource(tab.id, deps);
@@ -133,20 +146,57 @@ export function Panel() {
 
   const tabsList = store.tabs.value;
   const active = store.activeTab() || tabsList[0] || null;
+
+  const ref = history.historyRef(active?.resource);
+  const hist = ref ? history.histories.value[ref.key] : undefined;
+  const ready = !!(hist && hist.status === 'ready');
+
+  // Load once the resource itself has loaded, and again after a save invalidates it.
+  useEffect(() => {
+    if (ref && active?.original && !hist) history.ensureHistory(ref, api.getJson);
+  }, [ref?.key, !!active?.original, !!hist]);
+
+  // Leaving a tab — or the page tab following the page to ANOTHER object, which keeps the
+  // tab's id — leaves the selection behind.
+  useEffect(() => {
+    history.selected.value = null;
+    history.comparedId.value = null;
+  }, [active?.id, ref?.key]);
+
+  const showHistory = !!(ref && ready && hist!.total > 0);
+  const showingVersion = showHistory && history.railOpen.value && !!history.selected.value;
+  const historyButton = showHistory ? (
+    <button
+      class="rawjson-hist-btn"
+      aria-pressed={history.railOpen.value}
+      onClick={() =>
+        history.railOpen.value ? (history.railOpen.value = false) : history.openRail()
+      }
+    >
+      {`${hist!.total} version${hist!.total === 1 ? '' : 's'}`}
+    </button>
+  ) : null;
+  // View controls for what the tab shows: only a JSON body can wrap or have versions, so a
+  // file preview and the empty page tab get no toolbar at all (never an empty row).
+  const showToolbar = !!(active && active.resource && !active.preview);
   const onFollow = (url: any) => openResourceTab(resourceFromApiUrl(url), deps);
   const onContextLink = (url: any, x: any, y: any) => (store.linkMenu.value = { url, x, y });
+
+  const copyText = (text: string, done: string) => {
+    try {
+      Promise.resolve(navigator.clipboard.writeText(text))
+        .then(() => store.showToast(done))
+        .catch(() => store.showToast('Copy failed'));
+    } catch {
+      store.showToast('Copy failed');
+    }
+  };
 
   const copyCurl = (apiPath: any, live: any) => {
     track('sa_devtools_copy_curl');
     const ctx = api.getContext();
     const text = buildCurl({ domain: ctx.domain, apiPath, token: live ? ctx.token : null });
-    try {
-      Promise.resolve(navigator.clipboard.writeText(text))
-        .then(() => store.showToast(live ? 'Live token copied — treat as a secret' : 'curl copied'))
-        .catch(() => store.showToast('Copy failed'));
-    } catch {
-      store.showToast('Copy failed');
-    }
+    copyText(text, live ? 'Live token copied — treat as a secret' : 'curl copied');
   };
 
   const menuTab = store.tabMenu.value
@@ -166,6 +216,14 @@ export function Panel() {
           }}
         >
           Open in new tab
+        </button>
+        <button
+          onClick={() => {
+            copyText(store.linkMenu.value.url, 'Link copied');
+            store.linkMenu.value = null;
+          }}
+        >
+          Copy link
         </button>
       </div>
     ) : null,
@@ -208,34 +266,78 @@ export function Panel() {
   return (
     <div class="rawjson-panel">
       <TabBar tabs={tabsList} activeId={active.id} />
+      {showToolbar ? (
+        <div class="rawjson-toolbar">
+          <button
+            class="rawjson-wrap"
+            aria-pressed={store.lineWrap.value}
+            title="Soft-wrap lines (Alt+Z)"
+            onClick={() => store.toggleLineWrap()}
+          >
+            Soft-wrap
+          </button>
+          <span class="rawjson-toolbar-spacer"></span>
+          {historyButton}
+        </div>
+      ) : null}
       {active.error ? <div class="rawjson-error">{active.error}</div> : null}
       <div class="rawjson-body">
-        {!active.resource ? (
-          <div class="rawjson-empty-hint">{HINT}</div>
-        ) : active.loading ? (
-          <div class="rawjson-empty-hint">{'Loading…'}</div>
-        ) : active.preview ? (
-          <PreviewPane key={active.id} preview={active.preview} />
-        ) : (
-          <JsonCodeEditor
-            key={active.id}
-            tabId={active.id}
-            onFollowLink={onFollow}
-            onContextLink={onContextLink}
+        <div class="rawjson-main">
+          {!active.resource ? (
+            <div class="rawjson-empty-hint">{HINT}</div>
+          ) : active.loading ? (
+            <div class="rawjson-empty-hint">{'Loading…'}</div>
+          ) : active.preview ? (
+            <PreviewPane key={active.id} preview={active.preview} />
+          ) : showingVersion ? (
+            <VersionDiff
+              key={history.selected.value!.version_id}
+              entry={history.selected.value!}
+              knownEntries={hist!.entries}
+              get={api.getJson}
+              users={hist!.users}
+              onCompared={(id) => (history.comparedId.value = id)}
+            />
+          ) : (
+            <JsonCodeEditor
+              key={active.id}
+              tabId={active.id}
+              onFollowLink={onFollow}
+              onContextLink={onContextLink}
+            />
+          )}
+          {active.resource &&
+          !active.preview &&
+          !active.readOnly &&
+          active.dirty &&
+          !showingVersion ? (
+            <div class="rawjson-savepill">
+              <span class="rawjson-savepill-dot" aria-hidden="true"></span>
+              <span class="rawjson-savepill-lbl">{savePillLabel(active)}</span>
+              <button
+                class="rawjson-save"
+                disabled={active.saving}
+                onClick={() => requestDiff(active.id)}
+              >
+                {'Save…'}
+              </button>
+            </div>
+          ) : null}
+        </div>
+        {showHistory && history.railOpen.value ? (
+          <HistoryRail
+            historyRef={ref!}
+            get={api.getJson}
+            domain={api.getContext().domain}
+            users={hist!.users}
+            selectedId={history.selected.value ? history.selected.value.version_id : null}
+            comparedId={history.comparedId.value}
+            firstPage={{ entries: hist!.entries, total: hist!.total }}
+            onSelect={(e) => {
+              history.comparedId.value = null;
+              history.selected.value = e;
+            }}
           />
-        )}
-        {active.resource && !active.preview && !active.readOnly && active.dirty ? (
-          <div class="rawjson-savepill">
-            <span class="rawjson-savepill-dot" aria-hidden="true"></span>
-            <span class="rawjson-savepill-lbl">{savePillLabel(active)}</span>
-            <button
-              class="rawjson-save"
-              disabled={active.saving}
-              onClick={() => requestDiff(active.id)}
-            >
-              {'Save…'}
-            </button>
-          </div>
         ) : null}
       </div>
       <div class="rawjson-bottombar">
@@ -299,6 +401,14 @@ export function Panel() {
         <DiffConfirm
           original={active.original}
           edited={active.diffPreview.edited}
+          notes={
+            isAnnotationContentPath(active.resource?.apiPath)
+              ? changedTables(active.original, active.diffPreview.edited).map(
+                  (t) =>
+                    `Table rows are matched by position: the rows you removed or moved in ${t} are removed or moved on the server too.`,
+                )
+              : []
+          }
           saving={active.saving}
           onConfirm={() => saveResource(active.id, deps)}
           onCancel={() => store.patchTab(active.id, { diffPreview: null })}

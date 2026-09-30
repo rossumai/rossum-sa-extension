@@ -127,6 +127,7 @@ once per document — the extension deliberately does not count repeatedly.
 | `sa_devtools_request_bar` | you opened a path from the request bar |
 | `sa_devtools_copy_curl` | you copied a curl command |
 | `sa_devtools_preview` | a non-JSON resource preview was shown (once per resource) |
+| `sa_devtools_history_open` | the version history rail was opened |
 
 **In the side panel**
 

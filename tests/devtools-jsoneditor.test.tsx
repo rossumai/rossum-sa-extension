@@ -101,3 +101,18 @@ describe('JsonCodeEditor', () => {
     expect(store.views.active).toBeNull();
   });
 });
+
+describe('JsonCodeEditor line wrap', () => {
+  it('wraps long lines when the toggle is on, and follows it live without remounting', async () => {
+    store.lineWrap.value = false;
+    const root: any = mount(tab.id);
+    await waitFor(() => root.querySelector('.cm-content'));
+    const content = root.querySelector('.cm-content');
+    expect(content.classList.contains('cm-lineWrapping')).toBe(false);
+    store.lineWrap.value = true;
+    await waitFor(() => content.classList.contains('cm-lineWrapping'));
+    expect(root.querySelector('.cm-content')).toBe(content); // same editor, not a remount
+    store.lineWrap.value = false;
+    await waitFor(() => !content.classList.contains('cm-lineWrapping'));
+  });
+});

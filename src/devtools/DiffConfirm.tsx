@@ -5,12 +5,15 @@ import { diffObjects } from './diff.js';
 export default function DiffConfirm({
   original,
   edited,
+  notes = [],
   saving,
   onConfirm,
   onCancel,
 }: {
   original: any;
   edited: any;
+  /** Extra warnings about how this particular save will land. */
+  notes?: string[];
   saving?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -44,6 +47,11 @@ export default function DiffConfirm({
             Removed top-level keys are NOT applied (PATCH can't delete keys): {d.removed.join(', ')}
           </div>
         ) : null}
+        {notes.map((n) => (
+          <div class="rawjson-diff-removed-warn" key={n}>
+            {n}
+          </div>
+        ))}
         <div class="rawjson-diff-actions">
           <button class="rawjson-cancel" onClick={onCancel} disabled={saving}>
             Cancel

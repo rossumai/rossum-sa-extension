@@ -67,6 +67,7 @@ export const EVENT_NAMES = [
   'sa_devtools_request_bar',
   'sa_devtools_copy_curl',
   'sa_devtools_preview',
+  'sa_devtools_history_open',
   // Side panel — fired by the panel itself on boot, so it counts every open
   // however it happened (the popup's pin button, or Chrome's own dropdown).
   'sa_sidepanel_open',
