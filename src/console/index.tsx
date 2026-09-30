@@ -1,6 +1,7 @@
 import { h, render } from 'preact';
 import { effect } from '@preact/signals';
 import { activeApp, experimentalUnlocked } from './store.js';
+import { orgName, orgIsProduction, resolveOrg } from './orgName.js';
 import {
   pickInitialApp,
   resolveBootAuth,
@@ -112,6 +113,7 @@ async function boot() {
     ...(authKey ? [authKey] : []),
     'consoleActiveApp',
     'experimentalUnlocked',
+    'orgBadgeEnabled',
   ]);
   const entry = authKey ? stored[authKey] : null;
 
@@ -180,6 +182,20 @@ async function boot() {
     academyStore.connected.value = false;
     render(<Console />, document.getElementById('app')!);
     return;
+  }
+
+  // The organization's display name, for every app's connection line — behind the
+  // same popup switch as the Rossum navbar badge, so one toggle covers every
+  // place the organization is named. Absent means ON, as it does there.
+  // Never awaited: a slow or failing lookup must not hold up the first paint, and
+  // the bars render the domain alone until (or unless) it resolves.
+  if (stored.orgBadgeEnabled !== false) {
+    resolveOrg(domain, token)
+      .then((org) => {
+        orgName.value = org?.name ?? null;
+        orgIsProduction.value = org ? org.production : null;
+      })
+      .catch(() => {});
   }
 
   mdhStore.domain.value = domain;

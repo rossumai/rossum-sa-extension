@@ -24,6 +24,7 @@ const STORAGE_TOGGLES = [
   'expandFormulasEnabled',
   'expandReasoningFieldsEnabled',
   'scrollLockEnabled',
+  'orgBadgeEnabled',
   'netsuiteFieldNamesEnabled',
   'coupaFieldNamesEnabled',
   // Not a toggle shown anywhere: the hidden-features gate (5 clicks on the
@@ -428,6 +429,15 @@ export default function App({ tab }: { tab?: any }) {
                     hint="Auto-open reasoning field options"
                     checked={storageValues.expandReasoningFieldsEnabled}
                     onChange={(v) => setStorageToggle('expandReasoningFieldsEnabled', v)}
+                  />
+                  {/* The one toggle that defaults ON: an absent key means enabled,
+                      so this compares against false rather than coercing. */}
+                  <Toggle
+                    id="orgBadgeEnabled"
+                    label="Organization badge"
+                    hint="Name the org and its environment in the navbar, tab title and Console"
+                    checked={storageValues.orgBadgeEnabled !== false}
+                    onChange={(v) => setStorageToggle('orgBadgeEnabled', v)}
                   />
                   <Toggle
                     id="scrollLockEnabled"

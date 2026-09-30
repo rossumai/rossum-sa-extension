@@ -65,6 +65,7 @@ list and the code disagree.
 | `sa_rossum_expand_formulas` | a formula field was auto-expanded on a page |
 | `sa_rossum_expand_reasoning` | a reasoning field's options were auto-expanded on a page |
 | `sa_rossum_scroll_lock` | the sidebar scroll lock actually restored a scroll position Rossum had reset |
+| `sa_rossum_org_badge` | the organization badge was drawn on a page |
 | `sa_rossum_tooltip_close` | you dismissed a validation tooltip with its × button |
 | `sa_rossum_mdh_suggest_click` | you clicked "Open Dataset Management" on the legacy Master Data Hub banner |
 
