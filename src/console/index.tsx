@@ -1,6 +1,8 @@
 import { h, render } from 'preact';
 import { effect } from '@preact/signals';
-import { activeApp, experimentalUnlocked } from './store.js';
+import { activeApp, experimentalUnlocked, orgName } from './store.js';
+import { resolveOrgName } from './orgName.js';
+import { orgNameOn } from '../rossum/orgName.js';
 import {
   pickInitialApp,
   resolveBootAuth,
@@ -112,6 +114,7 @@ async function boot() {
     ...(authKey ? [authKey] : []),
     'consoleActiveApp',
     'experimentalUnlocked',
+    'orgNameEnabled',
   ]);
   const entry = authKey ? stored[authKey] : null;
 
@@ -194,6 +197,14 @@ async function boot() {
   galaxyStore.domain.value = domain;
   galaxyStore.token.value = token;
   galaxyApi.init(domain, token);
+  // The organization's name, for the Dataset Management and Audit Log connection lines,
+  // behind the same switch as the name in the Rossum header. Never awaited: the bars
+  // show the domain alone until (or unless) it resolves.
+  if (orgNameOn(stored.orgNameEnabled)) {
+    resolveOrgName(galaxyApi.get).then((name) => {
+      orgName.value = name;
+    });
+  }
   // Galaxy shows its own loading overlay (set below) instead of the shell's
   // generic "Connecting" placeholder while initGalaxy probes the session + loads.
   galaxyStore.connected.value = true;

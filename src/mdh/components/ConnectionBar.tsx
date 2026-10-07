@@ -1,6 +1,7 @@
 import { h } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { domain, selectedCollection } from '../store.js';
+import { orgName } from '../../console/store.js';
 import * as cache from '../cache.js';
 
 export default function ConnectionBar({ connected }: { connected: boolean | null }) {
@@ -43,6 +44,7 @@ export default function ConnectionBar({ connected }: { connected: boolean | null
   return (
     <div class="connection-bar">
       <span class="connection-dot"></span> Connected to {domain.value}
+      {orgName.value ? ` \u00b7 ${orgName.value}` : ''}
       <span class="cache-indicator">{cacheText}</span>
     </div>
   );

@@ -5,7 +5,7 @@
 // which handlers get wired into the MutationObserver, and that added
 // subtrees are walked correctly.
 //
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 function loadEntry(settings: any) {
   vi.resetModules();
@@ -18,11 +18,29 @@ function loadEntry(settings: any) {
   } as any;
 }
 
+// The Rossum header as the org name sees it: a <header> holding the user-panel button.
+function headerMarkup() {
+  const header = document.createElement('header');
+  const userpanel = document.createElement('button');
+  userpanel.dataset.cy = 'userpanel';
+  header.append(userpanel);
+  return header;
+}
+
+const ORG_LIST = { results: [{ name: 'Acme Corporation' }] };
+const orgPill = () => document.querySelector('.rossum-sa-extension-org-name');
+
 describe('rossum content-script entry', () => {
   beforeEach(() => {
     document.head.innerHTML = '';
     document.body.innerHTML = '';
     // The entry observes document.body — make sure one exists.
+    // The org name reads the page's session token before it asks for anything.
+    window.localStorage.setItem('secureToken', 'tok');
+  });
+
+  afterEach(() => {
+    vi.doUnmock('../src/rossum/api.js');
   });
 
   it('always observes for closable-tooltips even when all toggles are off', async () => {
@@ -146,5 +164,69 @@ describe('rossum content-script entry', () => {
       s.textContent.includes('rossum-sa-extension-schema-id'),
     );
     expect(hasSchemaStyle).toBe(false);
+  });
+
+  it('names the organization in the header with every toggle off — it defaults on', async () => {
+    loadEntry({});
+    vi.doMock('../src/rossum/api.js', () => ({
+      fetchRossumApi: vi.fn(),
+      fetchRossumApiFresh: vi.fn().mockResolvedValue(ORG_LIST),
+    }));
+    let observerCallback: any;
+    globalThis.MutationObserver = vi.fn(function (this: any, cb) {
+      observerCallback = cb;
+      this.observe = vi.fn();
+    }) as any;
+
+    await import('../src/rossum/index.js');
+    await new Promise((r) => setTimeout(r, 0));
+    const header = headerMarkup();
+    document.body.append(header);
+    observerCallback([{ addedNodes: [header] }]);
+
+    await vi.waitFor(() => {
+      expect(orgPill()?.textContent).toBe('Acme Corporation');
+    });
+  });
+
+  it('sweeps a header already on the page, with no mutation at all', async () => {
+    loadEntry({});
+    vi.doMock('../src/rossum/api.js', () => ({
+      fetchRossumApi: vi.fn(),
+      fetchRossumApiFresh: vi.fn().mockResolvedValue(ORG_LIST),
+    }));
+    globalThis.MutationObserver = vi.fn(function (this: any) {
+      this.observe = vi.fn();
+    }) as any;
+    // The SPA finished rendering before the content script ran: nothing is ever
+    // "added", so only an initial sweep can find this header.
+    document.body.append(headerMarkup());
+
+    await import('../src/rossum/index.js');
+
+    await vi.waitFor(() => {
+      expect(orgPill()?.textContent).toBe('Acme Corporation');
+    });
+  });
+
+  it('names nothing, and asks for nothing, when its toggle is explicitly false', async () => {
+    loadEntry({ orgNameEnabled: false });
+    const fetchRossumApiFresh = vi.fn().mockResolvedValue(ORG_LIST);
+    vi.doMock('../src/rossum/api.js', () => ({ fetchRossumApi: vi.fn(), fetchRossumApiFresh }));
+    let observerCallback: any;
+    globalThis.MutationObserver = vi.fn(function (this: any, cb) {
+      observerCallback = cb;
+      this.observe = vi.fn();
+    }) as any;
+    const header = headerMarkup();
+    document.body.append(header);
+
+    await import('../src/rossum/index.js');
+    await new Promise((r) => setTimeout(r, 0));
+    observerCallback([{ addedNodes: [header] }]);
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(orgPill()).toBeNull();
+    expect(fetchRossumApiFresh).not.toHaveBeenCalled();
   });
 });
