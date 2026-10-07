@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { h, render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import Modal, { openModal, closeModal } from '../src/ui/Modal.jsx';
@@ -99,7 +99,7 @@ describe('Modal — each modal owns its hooks', () => {
     await new Promise((r) => requestAnimationFrame(r));
     await new Promise((r) => requestAnimationFrame(r));
     closeModal();
-    await Promise.resolve();
-    expect(cleaned).toBe(true);
+    // Preact 11 defers a useEffect cleanup on unmount to after paint as well.
+    await vi.waitFor(() => expect(cleaned).toBe(true));
   });
 });

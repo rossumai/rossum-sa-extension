@@ -225,8 +225,11 @@ describe('DevTools Panel', () => {
   });
 
   it('capture-phase Cmd+F without active view does NOT prevent default', async () => {
-    // Mount Panel without any active editor.
+    // Mount Panel without any active editor. Earlier tests' panels are never
+    // unmounted, and Preact 11 runs their editors' unmount cleanup (which clears
+    // store.views.active) after paint, so wait for that before dispatching.
     const panelRoot = mount();
+    await waitFor(() => store.views.active === null);
     // Dispatch capture-phase Cmd+F when store.views.active is null.
     const ev = new KeyboardEvent('keydown', {
       key: 'f',

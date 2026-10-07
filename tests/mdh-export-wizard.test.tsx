@@ -423,7 +423,10 @@ describe('ExportWizard', () => {
     await waitFor(() => signals.length >= 3); // count + sample + discovery effects have all fired
     for (const s of signals) expect(s.aborted).toBe(false);
     render(null, root); // unmount, as closing the modal would
-    for (const s of signals) expect(s.aborted).toBe(true);
+    // Preact 11 runs a useEffect cleanup on unmount after paint, not synchronously.
+    await vi.waitFor(() => {
+      for (const s of signals) expect(s.aborted).toBe(true);
+    });
   });
 });
 

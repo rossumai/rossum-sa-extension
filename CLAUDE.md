@@ -30,9 +30,9 @@ esbuild bundles ES modules from `src/` into `dist/`. No transpilation, no other 
 Prettier owns `src/` and `tests/`, and only `*.ts` / `*.tsx` / `*.css` there. Config is
 `.prettierrc.json`; `npm run format` writes, `npm run format:check` is the gate.
 
-- **Pinned EXACT (`"prettier": "3.9.6"`, no caret)**, for the same reason as the markdown-it
-  render family: a minor bump can change formatting output, which would fail `format:check` on
-  a tree nobody touched.
+- **A caret, like every dependency** (see No exact pins under Dependencies). A Prettier minor
+  can still change formatting output; it arrives only through a deliberate update, and
+  `format:check` fails that update rather than a tree nobody touched.
 - **Deliberately NOT formatted**: every `.md` (so `CLAUDE.md`, `PRIVACY.md` and the whole dated
   record under `docs/superpowers/` keep their hand-wrapped prose), the 12 `.html`, the JSON and
   YAML, and — a consequence worth knowing — `build.js` and `vitest.config.mjs`, the only two
@@ -514,16 +514,17 @@ and all their classes are prefixed `rossum-sa-extension-*`.
 - **codemirror** + **@codemirror/lang-json** + **@codemirror/lang-markdown** — the pipeline
   editor, and the Architect's per-deliverable Markdown source editors
 - **markdown-it** + **markdown-it-github-alerts** + **markdown-it-anchor** + **highlight.js** +
-  **github-markdown-css** — the document renderer. **Pinned to EXACT versions, no carets**: a
-  golden-file test compares the renderer byte-for-byte against checked-in fixtures, so a minor
-  bump could change rendering with no code change. The pins outlive the retired upstream-fidelity
-  claim (see Localpages divergence below) — they were always about silent render drift, never
-  about matching upstream — but nobody has decided whether they can relax now, so ask first. That guard is NARROW — two fixtures, ~124
-  lines — so it is necessary, not sufficient: markdown-it 14 -> 15 passed it while still changing
-  linkify behaviour it cannot see. When one of these moves, probe the specific behaviour the code
-  compensates for, not just the fixtures.
-- The CodeMirror family is **carets, never exact pins** — the opposite of the render family
-  above, for the opposite reason. An exact pin on `@codemirror/state` installs a SECOND copy
+  **github-markdown-css** — the document renderer. A golden-file test compares it byte-for-byte
+  against checked-in fixtures, but that guard is NARROW — two fixtures, ~124 lines — so it is
+  necessary, not sufficient: markdown-it 14 -> 15 passed it while still changing linkify
+  behaviour it cannot see. When one of these moves, probe the specific behaviour the code
+  compensates for, not just the fixtures (anchor 9 -> 10 was A/B-rendered identical, 2026-10-07).
+- **No exact pins** (owner, 2026-10-07). The render family, Prettier, TypeScript and
+  `@types/chrome` were pinned until then; all are carets now. Every CI and release job runs
+  `npm ci`, so `package-lock.json` already fixes what builds — a pin only changed what a
+  deliberate `npm update` picks, and that update runs through the gates anyway.
+- The CodeMirror family needs carets for a reason beyond that: an exact pin on
+  `@codemirror/state` installs a SECOND copy
   beside the one `codemirror` resolves (measured: three copies, all bundled), and CodeMirror
   breaks `instanceof` across every editor. `tsc` catches it; the tests do not. All 8 sub-packages
   `src/` imports are declared, so they no longer depend on transitive hoisting.
@@ -643,11 +644,8 @@ What that does and does not change:
   idempotence — worth having whoever rendered it, and what caught `tabindex="-1"` disappearing
   from every heading. Deleting the fixtures as "upstream leftovers" would take that guard too.
   The directory name is provenance, not a live dependency.
-- **The EXACT pins on the render family are UNDECIDED.** The golden test was their stated reason,
-  but the reason was always silent render drift rather than upstream fidelity, so retiring
-  fidelity weakens the argument without removing the risk — and the guard admits it is narrow
-  (markdown-it 14 -> 15 passed it while changing linkify behaviour it cannot see). Ask before
-  turning any of them into a caret.
+- **The render family's exact pins are gone** (owner, 2026-10-07): the lockfile already fixes
+  what builds, so they guarded nothing `npm ci` did not. See No exact pins under Dependencies.
 - Prose that still frames a decision as upstream fidelity — the `theme.css` header, parts of
   `2026-08-17-localpages-port-architect-design.md` — is history. Read it as why the code looks the
   way it does, not as a constraint to preserve.

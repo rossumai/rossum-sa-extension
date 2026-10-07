@@ -27,7 +27,9 @@ function DebouncedInput({
   return (
     <input
       class="input"
-      type={type}
+      // Preact 11 types <input> as one ARIA variant per input type, which a
+      // union-valued `type` cannot match; the value is always a real input type.
+      type={type as any}
       placeholder={placeholder || ''}
       value={v}
       onInput={(e: any) => setV(e.target.value)}
