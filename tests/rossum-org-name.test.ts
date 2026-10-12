@@ -1,14 +1,38 @@
 import { describe, it, expect } from 'vitest';
 import { rect } from './support/dom.js';
-import { currentOrgName, pillSlot } from '../src/rossum/orgName.js';
+import { currentOrg, orgLabel, pillMinWidth, pillSlot } from '../src/rossum/orgName.js';
 
-describe('currentOrgName', () => {
+describe('currentOrg', () => {
+  it('names the organization, its id, and whether it is a sandbox', () => {
+    expect(currentOrg({ results: [{ id: 7, name: 'Acme HQ', sandbox: true }] })).toEqual({
+      name: 'Acme HQ',
+      id: 7,
+      sandbox: true,
+    });
+  });
+
+  it('leaves the id out when the API gives none', () => {
+    expect(currentOrg({ results: [{ id: '7', name: 'Acme HQ' }] })!.id).toBeNull();
+    expect(currentOrg({ results: [{ name: 'Acme HQ' }] })!.id).toBeNull();
+  });
+
+  it('counts only `sandbox: true` as a sandbox', () => {
+    // The flag marks usage outside the fair-usage policy; anything else is billed.
+    for (const sandbox of [false, undefined, 'yes', 1]) {
+      expect(currentOrg({ results: [{ name: 'Acme HQ', sandbox }] })!.sandbox).toBe(false);
+    }
+  });
+});
+
+describe('currentOrg, on what it names', () => {
   it('names the one organization the session can see', () => {
-    expect(currentOrgName({ results: [{ id: 7, name: 'Acme HQ - TEST' }] })).toBe('Acme HQ - TEST');
+    expect(currentOrg({ results: [{ id: 7, name: 'Acme HQ - TEST' }] })!.name).toBe(
+      'Acme HQ - TEST',
+    );
   });
 
   it('trims the name', () => {
-    expect(currentOrgName({ results: [{ id: 7, name: '  Acme HQ ' }] })).toBe('Acme HQ');
+    expect(currentOrg({ results: [{ id: 7, name: '  Acme HQ ' }] })!.name).toBe('Acme HQ');
   });
 
   it('names nothing when the session sees several organizations', () => {
@@ -19,15 +43,55 @@ describe('currentOrgName', () => {
         { id: 7, name: 'Acme HQ' },
       ],
     };
-    expect(currentOrgName(list)).toBeNull();
+    expect(currentOrg(list)).toBeNull();
   });
 
   it('names nothing for an empty or malformed list', () => {
-    expect(currentOrgName({ results: [] })).toBeNull();
-    expect(currentOrgName({ results: [{ id: 7 }] })).toBeNull();
-    expect(currentOrgName({ results: [{ id: 7, name: '   ' }] })).toBeNull();
-    expect(currentOrgName({})).toBeNull();
-    expect(currentOrgName(null)).toBeNull();
+    expect(currentOrg({ results: [] })).toBeNull();
+    expect(currentOrg({ results: [{ id: 7 }] })).toBeNull();
+    expect(currentOrg({ results: [{ id: 7, name: '   ' }] })).toBeNull();
+    expect(currentOrg({})).toBeNull();
+    expect(currentOrg(null)).toBeNull();
+  });
+});
+
+describe('orgLabel', () => {
+  const org = { name: 'Acme HQ', id: 7, sandbox: false };
+
+  it('names the organization and its id, header style by default', () => {
+    expect(orgLabel(org)).toBe('Acme HQ: 7');
+  });
+
+  it('takes the separator the Console uses', () => {
+    expect(orgLabel(org, ' \u00b7 org: ')).toBe('Acme HQ \u00b7 org: 7');
+  });
+
+  it('is the name alone when the API gave no id', () => {
+    expect(orgLabel({ ...org, id: null })).toBe('Acme HQ');
+  });
+});
+
+describe('pillMinWidth', () => {
+  it('needs a readable name when the name is shown alone', () => {
+    expect(pillMinWidth({ nameShown: true, chipWidth: 0, whole: 300 })).toBe(60);
+  });
+
+  it('needs the chip plus a readable name beside it', () => {
+    // 60 of name + 8 between + 80 of chip: the chip never truncates.
+    expect(pillMinWidth({ nameShown: true, chipWidth: 80, whole: 300 })).toBe(148);
+  });
+
+  it('needs only the chip when the name is off', () => {
+    expect(pillMinWidth({ nameShown: false, chipWidth: 80, whole: 80 })).toBe(80);
+  });
+
+  it('never asks for more than the whole pill', () => {
+    // 'X: 1' is 40px: the full pill is 128px, so a 135px gap holds it.
+    expect(pillMinWidth({ nameShown: true, chipWidth: 80, whole: 128 })).toBe(128);
+  });
+
+  it('falls back to the readable minimum when nothing could be measured', () => {
+    expect(pillMinWidth({ nameShown: true, chipWidth: 0, whole: 0 })).toBe(60);
   });
 });
 
@@ -205,6 +269,16 @@ describe('pillSlot', () => {
       nameWidth: 90,
     });
     expect(slot).toEqual({ right: 112, maxWidth: 96 });
+  });
+
+  it('takes a larger minimum when the pill carries a chip as well', () => {
+    const args = {
+      header: box([0, 0, 1000, 48]),
+      clusterLeft: 900,
+      obstacles: [box([0, 0, 700, 48])], // leaves (900 - 12) - (700 + 12) = 176px
+    };
+    expect(pillSlot({ ...args, minWidth: 176 })).toEqual({ right: 112, maxWidth: 176 });
+    expect(pillSlot({ ...args, minWidth: 177 })).toBeNull();
   });
 
   it('gives up when no gap is wide enough to read a name', () => {

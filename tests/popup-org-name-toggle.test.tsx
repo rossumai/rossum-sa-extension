@@ -98,3 +98,26 @@ describe('org name toggle', () => {
     expect(chrome.tabs.reload).toHaveBeenCalledWith(2);
   });
 });
+
+describe('org env toggle', () => {
+  it('is off when it has never been set', async () => {
+    await mountApp({});
+    const box = document.body.querySelector<HTMLInputElement>('#orgEnvEnabled')!;
+    expect(box.checked).toBe(false);
+  });
+
+  it('reads an explicit on', async () => {
+    await mountApp({ orgEnvEnabled: true });
+    const box = document.body.querySelector<HTMLInputElement>('#orgEnvEnabled')!;
+    await waitFor(() => box.checked);
+    expect(box.checked).toBe(true);
+  });
+
+  it('stores true and reloads the tab', async () => {
+    await mountApp({});
+    document.body.querySelector<HTMLInputElement>('#orgEnvEnabled')!.click();
+    await waitFor(() => (chrome.tabs.reload as any).mock.calls.length > 0);
+
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({ orgEnvEnabled: true });
+  });
+});

@@ -17,7 +17,8 @@ All features are configurable via the extension popup and can be toggled on or o
 
 - **Schema ID overlays** — displays `schema_id` on annotation fields (headers and line items)
 - **Resource ID overlays** — displays internal IDs on queues, hooks, extensions, labels, rules, users, and AI engines (click to copy)
-- **Organization name** — shows the name of the organization you are signed in to at the right of the top bar, on every screen, and in the Console's connection bar, so organizations in one organization group can be told apart without opening the profile menu. On by default
+- **Organization info** — shows the name and id of the organization you are signed in to at the right of the top bar, on every screen, and in the Console's connection bar, so organizations in one organization group can be told apart without opening the profile menu. On by default
+- **Organization environment** — adds a Sandbox or Production chip next to the organization name (in place of Rossum's own Sandbox chip) and a colored line under the top bar. Sandbox means the organization's `sandbox` flag is set; anything else shows Production. Off by default
 - **Expand formulas** — automatically opens formula field source code
 - **Expand reasoning** — automatically opens reasoning field options
 - **Sidebar scroll lock** — prevents the annotation sidebar from auto-scrolling to the top

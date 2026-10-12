@@ -219,14 +219,16 @@ feature's `init()` must sweep the current document — as `closable-tooltips` do
 already open — and when the sweep needs settings, `index.ts` calls it AFTER `observe()`, or
 anything rendered in between is missed by both. `org-name.ts` is the worked example.
 
-**The organization's name** (`org-name.ts`, key `orgNameEnabled`, event `sa_rossum_org_name`),
+**The organization's name and id** (`org-name.ts`, key `orgNameEnabled`, popup label "Org info",
+event `sa_rossum_org_name`; shown as `<name>: <id>` in the header, `<name> · org: <id>` in the
+Console),
 since orgs in one group share a hostname AND a white-labelled logo,
 so only the user menu (mounted by MUI only while open) said which one you are in.
 `org-name` shows it in a one-line pill on the right of the header, just left of its
 buttons, on EVERY screen, the review screen included; the Console's Dataset Management and Audit
 Log connection bars append it too (`src/console/orgName.ts`, through `galaxyApi.get`; the
 signal lives in `src/console/store.ts`). Both take it from
-`GET /organizations` and only when that lists exactly ONE organization (`currentOrgName` in
+`GET /organizations` and only when that lists exactly ONE organization (`currentOrg` in
 `src/rossum/orgName.ts`, shared so the two can never disagree) — `auth/user`'s `organization`
 is the user's HOME org, which for a service or system user the session cannot even read (404).
 The pill's placement is pure (`pillSlot`): the rightmost gap between the header's controls and
@@ -238,12 +240,30 @@ readable. It never picks a gap in the header's left half, and it hides only when
 ground and inherits NO colour: the review screen's header is white but hands its children white
 text, so an inherited `color` drew the name white on white. "Powered by Rossum"
 (`[data-sentry-component="PoweredBy"]`, rendered inside the navbar's right-hand actions) is
-hidden while the pill is on screen and restored the moment it is not. Anchors are `data-cy`
-hooks and the `<header>` holding `[data-cy="userpanel"]`; note `data-cy="file-name"` is NOT
-review-screen-only — the document list's rows carry it too. The token is re-read every 1.5s so
-an org switch re-resolves, with a generation counter against stale answers. Deliberately NOT
-here: any statement of the environment (sandbox or production) — the `sandbox` flag describes
-billing, not environment, and is left for its own change.
+hidden while the pill is on screen and restored the moment it is not. Each placement first
+measures with it removed (`display: none`), closing its space; only when that leaves no room —
+on a narrow header the buttons follow the branding and slide into the gap — does it keep its
+space (`visibility: hidden`) under the pill. Measuring in the same order every time is what
+keeps it stable: deciding one mode by the other's outcome made the two swap on every tick.
+Anchors are `data-cy` hooks and the `<header>` holding `[data-cy="userpanel"]`; note
+`data-cy="file-name"` is NOT review-screen-only — the document list's rows carry it too. The
+token is re-read every 1.5s so an org switch re-resolves, with a generation counter against
+stale answers.
+
+**The organization's environment** is a second, independent switch (`orgEnvEnabled`, DEFAULT
+OFF, event `sa_rossum_org_env`) drawn by the same feature: a "Sandbox" / "Production" chip before
+the name inside the pill (or alone, with the name off), and a 2px line under the header in the
+chip's colour. Sandbox is `organization.sandbox === true` and nothing else (`currentOrg`); the
+flag marks usage outside the fair-usage policy, so a test org without it shows Production —
+which is why it is opt-in rather than shown to everyone. The chip copies Rossum's own Sandbox
+chip (`#d5edf2` in `#70cce1`; Production `#fde2e1` in `#f44336`) and takes over from it: Rossum
+draws "Sandbox" in the navbar's badge row and nothing for production, and while ours is on
+screen saying Sandbox that chip is hidden with `display: none` — never moved, React owns it —
+and comes back whenever ours is not. It is matched by its "Sandbox" label OR its
+`MuiChip-colorInfo` class, since the label is translated; "Developer mode" is not an
+environment and is left alone. The chip never truncates, so the pill shows only in a gap that
+holds the chip plus 60px of name (or the whole pill, if shorter — `pillMinWidth`). The line stays
+even when the pill has no room.
 
 **NetSuite** and **Coupa** are self-contained single files with no observer. Coupa uses two
 strategies: JSON from `#initial_full_react_data` (React pages), and DOM attributes with
@@ -415,15 +435,14 @@ Enforced by tests, not by convention. Do not weaken them.
 
 - **Feature toggles** — `schemaAnnotationsEnabled`, `expandFormulasEnabled`,
   `expandReasoningFieldsEnabled`, `scrollLockEnabled`, `resourceIdsEnabled`,
-  `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled` — all DEFAULT OFF, since an absent key
-  reads as disabled. **`orgNameEnabled` is the one exception and defaults ON**: absent means
-  enabled and only an explicit `false` disables it, so it is read as `!== false` in
-  `src/rossum/index.ts`, `src/console/index.tsx` and the popup — all through ONE helper,
-  `orgNameOn` in `src/rossum/orgName.ts`, since the popup coercing it (`!!vals[key]`) showed
-  the switch off while the feature ran.
-  It is also the one key read on BOTH sides: it governs the header name and the Console's
-  connection bars. `closable-tooltips`, `dataset-mgmt-suggest` and `track-viewed` are always
-  on, with no toggle and no key.
+  `orgEnvEnabled`, `netsuiteFieldNamesEnabled`, `coupaFieldNamesEnabled` — all DEFAULT OFF,
+  since an absent key reads as disabled. **`orgNameEnabled` is the one exception and defaults
+  ON**: absent means enabled and only an explicit `false` disables it, so it is read as
+  `!== false` in `src/rossum/index.ts`, `src/console/index.tsx` and the popup — all through
+  ONE helper, `orgNameOn` in `src/rossum/orgName.ts`, since the popup coercing it
+  (`!!vals[key]`) showed the switch off while the feature ran. It is also the one key read on
+  BOTH sides: it governs the header name and the Console's connection bars. `closable-tooltips`,
+  `dataset-mgmt-suggest` and `track-viewed` are always on, with no toggle and no key.
 - **The one gate** — `experimentalUnlocked`: 5 quick clicks on the popup's version hash, hiding
   only the Academy, mirrored live via `chrome.storage.onChanged`.
 - **Auth staging** — `consoleAuth_<uuid>`: single-use, 24h TTL, removed on read.

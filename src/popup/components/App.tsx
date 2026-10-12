@@ -23,6 +23,7 @@ const STORAGE_TOGGLES = [
   'schemaAnnotationsEnabled',
   'resourceIdsEnabled',
   'orgNameEnabled',
+  'orgEnvEnabled',
   'expandFormulasEnabled',
   'expandReasoningFieldsEnabled',
   'scrollLockEnabled',
@@ -422,10 +423,17 @@ export default function App({ tab }: { tab?: any }) {
                       was showing (measured 2026-09-27). */}
                   <Toggle
                     id="orgNameEnabled"
-                    label="Org name"
+                    label="Org info"
                     hint="Header & Console"
                     checked={storageValues.orgNameEnabled}
                     onChange={(v) => setStorageToggle('orgNameEnabled', v)}
+                  />
+                  <Toggle
+                    id="orgEnvEnabled"
+                    label="Org env"
+                    hint="Sandbox / prod"
+                    checked={storageValues.orgEnvEnabled}
+                    onChange={(v) => setStorageToggle('orgEnvEnabled', v)}
                   />
                 </div>
 

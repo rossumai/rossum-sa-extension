@@ -1,7 +1,7 @@
 import { h, render } from 'preact';
 import { effect } from '@preact/signals';
-import { activeApp, experimentalUnlocked, orgName } from './store.js';
-import { resolveOrgName } from './orgName.js';
+import { activeApp, experimentalUnlocked, connectedOrg } from './store.js';
+import { resolveOrgLabel } from './orgName.js';
 import { orgNameOn } from '../rossum/orgName.js';
 import {
   pickInitialApp,
@@ -201,8 +201,8 @@ async function boot() {
   // behind the same switch as the name in the Rossum header. Never awaited: the bars
   // show the domain alone until (or unless) it resolves.
   if (orgNameOn(stored.orgNameEnabled)) {
-    resolveOrgName(galaxyApi.get).then((name) => {
-      orgName.value = name;
+    resolveOrgLabel(galaxyApi.get).then((label) => {
+      connectedOrg.value = label;
     });
   }
   // Galaxy shows its own loading overlay (set below) instead of the shell's

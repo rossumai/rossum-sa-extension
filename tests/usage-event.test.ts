@@ -12,8 +12,8 @@ describe('usage event vocabulary', () => {
     expect(new Set(EVENT_NAMES).size).toBe(EVENT_NAMES.length);
   });
 
-  it('carries exactly the 47 names PRIVACY.md publishes', () => {
-    expect(EVENT_NAMES).toHaveLength(47);
+  it('carries exactly the 48 names PRIVACY.md publishes', () => {
+    expect(EVENT_NAMES).toHaveLength(48);
   });
 
   it('no longer reports configuration changes, only use', () => {

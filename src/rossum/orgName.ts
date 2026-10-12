@@ -1,5 +1,5 @@
-// Pure half of the org name (features/org-name.ts is the DOM half): which organization
-// the session is in, whether the feature is on, and where in the header the name fits.
+// Pure half of the org name and env (features/org-name.ts is the DOM half): which
+// organization the session is in, whether the features are on, and where the pill fits.
 // No DOM, no network — the feature measures and fetches, this decides.
 
 // The organization the session is in, from `GET /organizations`. That list holds what
@@ -9,12 +9,24 @@
 // cannot even read (404, measured on a dedicated cell 2026-09-23). More than one
 // organization, or none, names nothing: which is current cannot be told, and a wrong
 // name is worse than no name.
-export function currentOrgName(list: unknown): string | null {
+//
+// `sandbox` is `organization.sandbox === true` and nothing else: the flag marks usage
+// outside the fair-usage policy, so anything else, a missing flag included, is billed
+// as production.
+export type Org = { name: string; id: number | null; sandbox: boolean };
+
+export function currentOrg(list: unknown): Org | null {
   const results = (list as { results?: unknown } | null)?.results;
   if (!Array.isArray(results) || results.length !== 1) return null;
-  const name = results[0]?.name;
-  return typeof name === 'string' && name.trim() ? name.trim() : null;
+  const { name, id, sandbox } = results[0] ?? {};
+  if (typeof name !== 'string' || !name.trim()) return null;
+  return { name: name.trim(), id: typeof id === 'number' ? id : null, sandbox: sandbox === true };
 }
+
+// How the organization is named on screen: its name, then its id when the API gave one —
+// `Acme: 7` in the header, `Acme · org: 7` in the Console's connection line.
+export const orgLabel = (org: Org, separator = ': '): string =>
+  org.id === null ? org.name : `${org.name}${separator}${org.id}`;
 
 // The feature's switch, and the ONE place its default lives. It is the one toggle that
 // defaults ON: an absent key means enabled and only an explicit `false` disables it.
@@ -28,6 +40,25 @@ export type Box = { left: number; top: number; right: number; bottom: number };
 
 const GAP = 12;
 const MIN_WIDTH = 60;
+// Between the environment chip and the name inside the pill.
+export const CHIP_GAP = 8;
+
+// The narrowest the pill can be and still be read: a readable name, plus the chip beside
+// it (the chip never truncates). Never more than the whole pill, which may be shorter;
+// `whole` is 0 when nothing could be measured.
+export function pillMinWidth({
+  nameShown,
+  chipWidth,
+  whole,
+}: {
+  nameShown: boolean;
+  chipWidth: number;
+  whole: number;
+}): number {
+  const name = nameShown ? MIN_WIDTH + (chipWidth ? CHIP_GAP : 0) : 0;
+  const least = name + chipWidth || MIN_WIDTH;
+  return whole > 0 ? Math.min(whole, least) : least;
+}
 
 // The pill sits in a free gap of the header, right-aligned against whatever closes that
 // gap on the right: the header's right-hand buttons on a plain header (the gap after the
@@ -48,12 +79,15 @@ export function pillSlot({
   clusterLeft,
   obstacles,
   nameWidth = 0,
+  minWidth = MIN_WIDTH,
 }: {
   header: Box;
   clusterLeft: number;
   obstacles: Box[];
   /** The pill's natural width, the whole name shown; 0 when it could not be measured. */
   nameWidth?: number;
+  /** The narrowest the pill can be (pillMinWidth); 60px of readable name by default. */
+  minWidth?: number;
 }): { right: number; maxWidth: number } | null {
   const blocks = obstacles
     .filter((o) => o.right > o.left && o.bottom > o.top && o.right <= clusterLeft)
@@ -75,7 +109,7 @@ export function pillSlot({
       right: header.right - end + GAP,
       maxWidth: end - GAP - (start + GAP),
     }))
-    .filter((slot) => slot.maxWidth >= MIN_WIDTH)
+    .filter((slot) => slot.maxWidth >= minWidth)
     .reverse(); // rightmost first
   return slots.find((slot) => slot.maxWidth >= nameWidth) ?? slots[0] ?? null;
 }
