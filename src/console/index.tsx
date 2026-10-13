@@ -201,7 +201,7 @@ async function boot() {
   // behind the same switch as the name in the Rossum header. Never awaited: the bars
   // show the domain alone until (or unless) it resolves.
   if (orgNameOn(stored.orgNameEnabled)) {
-    resolveOrgLabel(galaxyApi.get).then((label) => {
+    resolveOrgLabel(galaxyApi.get, (label) => {
       connectedOrg.value = label;
     });
   }

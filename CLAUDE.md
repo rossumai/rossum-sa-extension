@@ -220,35 +220,41 @@ already open — and when the sweep needs settings, `index.ts` calls it AFTER `o
 anything rendered in between is missed by both. `org-name.ts` is the worked example.
 
 **The organization's name and id** (`org-name.ts`, key `orgNameEnabled`, popup label "Org info",
-event `sa_rossum_org_name`; shown as `<name>: <id>` in the header, `<name> · org: <id>` in the
-Console),
-since orgs in one group share a hostname AND a white-labelled logo,
-so only the user menu (mounted by MUI only while open) said which one you are in.
-`org-name` shows it in a one-line pill on the right of the header, just left of its
-buttons, on EVERY screen, the review screen included; the Console's Dataset Management and Audit
-Log connection bars append it too (`src/console/orgName.ts`, through `galaxyApi.get`; the
-signal lives in `src/console/store.ts`). Both take it from
-`GET /organizations` and only when that lists exactly ONE organization (`currentOrg` in
-`src/rossum/orgName.ts`, shared so the two can never disagree) — `auth/user`'s `organization`
-is the user's HOME org, which for a service or system user the session cannot even read (404).
-The pill's placement is pure (`pillSlot`): the rightmost gap between the header's controls and
-text that holds the WHOLE name, searching leftwards from the buttons — moved rather than cut,
-because names in one group share a prefix and differ at the end, which truncation removes first.
-Only when no gap holds it all is it truncated (full name on hover), in the rightmost gap still
-readable. It never picks a gap in the header's left half, and it hides only when no readable gap
-(60px) is left at all — a name never disappears for being long. The pill carries its own
-ground and inherits NO colour: the review screen's header is white but hands its children white
-text, so an inherited `color` drew the name white on white. "Powered by Rossum"
-(`[data-sentry-component="PoweredBy"]`, rendered inside the navbar's right-hand actions) is
-hidden while the pill is on screen and restored the moment it is not. Each placement first
-measures with it removed (`display: none`), closing its space; only when that leaves no room —
-on a narrow header the buttons follow the branding and slide into the gap — does it keep its
-space (`visibility: hidden`) under the pill. Measuring in the same order every time is what
-keeps it stable: deciding one mode by the other's outcome made the two swap on every tick.
-Anchors are `data-cy` hooks and the `<header>` holding `[data-cy="userpanel"]`; note
-`data-cy="file-name"` is NOT review-screen-only — the document list's rows carry it too. The
-token is re-read every 1.5s so an org switch re-resolves, with a generation counter against
-stale answers.
+event `sa_rossum_org_name`; shown as `<name>: <id> [<cell>]` in the header, `<name> · org: <id>
+[<cell>]` in the Console — the cell is the organization GROUP's `deployment_location` without
+its `prod-` prefix (clients and SAs only ever see production cells, and "prod" beside a Sandbox
+chip read as a contradiction; any other prefix is kept), one more
+GET after the organization, readable by admin, manager and annotator alike (measured 2026-10-12);
+the name shows without waiting for it), since orgs in one group share a hostname AND a
+white-labelled logo, so only the user menu (mounted by MUI only while open) said which one you are
+in. `org-name` shows it in a one-line pill on the right of the header, just left of its buttons,
+on EVERY screen, the review screen included; the Console's Dataset Management and Audit Log
+connection bars append it too (`src/console/orgName.ts`, through `galaxyApi.get`; the signal lives
+in `src/console/store.ts`). Both take it from `GET /organizations` and only when that lists
+exactly ONE organization (`currentOrg` in `src/rossum/orgName.ts`, loaded by
+`src/rossum/orgSource.ts` for both, so the two can never disagree) — `auth/user`'s `organization`
+is the user's HOME org, which for a service or system user the session cannot even read (404). The
+pill's placement is pure (`pillSlot` in `src/rossum/orgPillSlot.ts`): the rightmost gap between
+the header's controls and text that holds the WHOLE name, searching leftwards from the buttons —
+moved rather than cut, because names in one group share a prefix and differ at the end, which
+truncation removes first. Only when no gap holds it all is it truncated (full name on hover), in
+the rightmost gap still readable. It never picks a gap in the header's left half, and it hides
+only when no readable gap (60px) is left at all — a name never disappears for being long. The pill
+carries its own ground and inherits NO colour: the review screen's header is white but hands its
+children white text, so an inherited `color` drew the name white on white. "Powered by Rossum"
+(`[data-sentry-component="PoweredBy"]`, rendered inside the navbar's right-hand actions) is hidden
+while the pill is on screen and restored the moment it is not. Each placement first measures with
+it removed (`display: none`), closing its space; only when that leaves no room — on a narrow
+header the buttons follow the branding and slide into the gap — does it keep its space
+(`visibility: hidden`) under the pill. Measuring in the same order every time is what keeps it
+stable: deciding one mode by the other's outcome made the two swap on every tick. Anchors are
+`data-cy` hooks and the `<header>` holding `[data-cy="userpanel"]`; note `data-cy="file-name"` is
+NOT review-screen-only — the document list's rows carry it too. The token is re-read every 1.5s so
+an org switch re-resolves, with a generation counter against stale answers. The result is cached
+in the Rossum tab's `sessionStorage` under `rossum-sa-extension-org:<FNV-1a of the token>` for 24
+hours (`cachedOrg`, written by `orgSource.ts`), so a page reload names the organization without a
+request — content scripts cannot read `chrome.storage.session` by default, hence the page's own
+storage.
 
 **The organization's environment** is a second, independent switch (`orgEnvEnabled`, DEFAULT
 OFF, event `sa_rossum_org_env`) drawn by the same feature: a "Sandbox" / "Production" chip before

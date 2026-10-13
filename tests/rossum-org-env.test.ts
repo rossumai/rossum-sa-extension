@@ -34,6 +34,7 @@ beforeEach(async () => {
   document.head.innerHTML = '';
   document.body.innerHTML = '';
   window.localStorage.clear();
+  window.sessionStorage.clear();
   window.localStorage.setItem('secureToken', 'tok-sandbox');
   rossumApi.orgsByToken = {
     'tok-sandbox': [{ id: 7, name: 'Acme HQ - TEST', sandbox: true }],

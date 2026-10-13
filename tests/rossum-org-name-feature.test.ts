@@ -29,12 +29,15 @@ beforeEach(async () => {
   document.head.innerHTML = '';
   document.body.innerHTML = '';
   window.localStorage.clear();
+  window.sessionStorage.clear();
   window.localStorage.setItem('secureToken', 'tok-a');
   rossumApi.orgsByToken = {
     'tok-a': [{ id: 7, name: 'Acme HQ - TEST' }],
     'tok-b': [{ id: 8, name: 'Acme HQ - PROD' }],
   };
   rossumApi.holdList = {};
+  rossumApi.groups = {};
+  rossumApi.holdGroup = {};
   stubRossumApi();
   sendMessage = vi.fn();
   globalThis.chrome = { runtime: { sendMessage } } as any;
@@ -136,6 +139,219 @@ describe('the name pill', () => {
     await flush();
 
     expect(shown(pill())).toBe(false);
+  });
+});
+
+describe('the deployment location', () => {
+  beforeEach(() => {
+    rossumApi.orgsByToken['tok-a'] = [{ id: 7, name: 'Acme HQ - TEST', group: 12 }];
+    rossumApi.orgsByToken['tok-b'] = [{ id: 8, name: 'Acme HQ - PROD', group: 13 }];
+    rossumApi.groups = {
+      12: { deployment_location: 'prod-eu2' },
+      13: { deployment_location: 'prod-us2' },
+    };
+  });
+
+  it('follows the id in brackets', async () => {
+    documentsHeader();
+    badge.init({ intervalMs: 0 });
+    await flush();
+
+    expect(pill()!.textContent).toBe('Acme HQ - TEST: 7 [eu2]');
+  });
+
+  it('is left out when the group cannot be read', async () => {
+    rossumApi.groups = {};
+    documentsHeader();
+    badge.init({ intervalMs: 0 });
+    await flush();
+
+    expect(pill()!.textContent).toBe('Acme HQ - TEST: 7');
+  });
+
+  it('shows the name without waiting for the group', async () => {
+    let release!: () => void;
+    rossumApi.holdGroup[12] = new Promise<void>((r) => (release = r));
+    documentsHeader();
+    badge.init({ intervalMs: 0 });
+    await flush();
+    expect(pill()!.textContent).toBe('Acme HQ - TEST: 7');
+
+    release();
+    await flush();
+    expect(pill()!.textContent).toBe('Acme HQ - TEST: 7 [eu2]');
+  });
+
+  it('is not asked for when the name is switched off', async () => {
+    documentsHeader();
+    badge.init({ intervalMs: 0, name: false, env: true });
+    await flush();
+
+    const paths = vi.mocked(fetch).mock.calls.map(([url]) => new URL(String(url)).pathname);
+    expect(paths).toEqual(['/api/v1/organizations']);
+  });
+
+  it('never lets a slow answer for the previous organization label the current one', async () => {
+    vi.useFakeTimers();
+    let release!: () => void;
+    rossumApi.holdGroup[12] = new Promise<void>((r) => (release = r));
+    documentsHeader();
+    badge.init({ intervalMs: 1500 });
+    await flush();
+
+    window.localStorage.setItem('secureToken', 'tok-b');
+    await vi.advanceTimersByTimeAsync(1500);
+    await flush();
+    release();
+    await flush();
+
+    expect(pill()!.textContent).toBe('Acme HQ - PROD: 8 [us2]');
+  });
+});
+
+describe('the session cache', () => {
+  // A full page reload: a fresh content script on the same tab, so the same sessionStorage.
+  async function reload() {
+    vi.resetModules();
+    vi.mocked(fetch).mockClear();
+    document.body.innerHTML = '';
+    badge = await import('../src/rossum/features/org-name.js');
+    documentsHeader();
+    badge.init({ intervalMs: 0 });
+    await flush();
+  }
+
+  beforeEach(() => {
+    rossumApi.orgsByToken['tok-a'] = [{ id: 7, name: 'Acme HQ - TEST', group: 12 }];
+    rossumApi.groups = { 12: { deployment_location: 'prod-eu2' } };
+  });
+
+  it('names the organization after a reload without asking the API again', async () => {
+    documentsHeader();
+    badge.init({ intervalMs: 0 });
+    await flush();
+
+    await reload();
+
+    expect(fetch).not.toHaveBeenCalled();
+    expect(pill()!.textContent).toBe('Acme HQ - TEST: 7 [eu2]');
+  });
+
+  it('asks again for another session token', async () => {
+    documentsHeader();
+    badge.init({ intervalMs: 0 });
+    await flush();
+
+    window.localStorage.setItem('secureToken', 'tok-b');
+    await reload();
+
+    expect(fetch).toHaveBeenCalled();
+    expect(pill()!.textContent).toBe('Acme HQ - PROD: 8');
+  });
+
+  it('never keeps the token itself', async () => {
+    documentsHeader();
+    badge.init({ intervalMs: 0 });
+    await flush();
+
+    const stored = Object.entries(window.sessionStorage).flat().join(' ');
+    expect(stored).toContain('Acme HQ - TEST');
+    expect(stored).not.toContain('tok-a');
+  });
+
+  it('asks again after a day', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    documentsHeader();
+    badge.init({ intervalMs: 0 });
+    await flush();
+
+    vi.setSystemTime(Date.now() + 24 * 60 * 60 * 1000);
+    await reload();
+
+    expect(fetch).toHaveBeenCalled();
+  });
+
+  it('counts the day from the request, not from each reload', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const start = Date.now();
+    documentsHeader();
+    badge.init({ intervalMs: 0 });
+    await flush();
+
+    vi.setSystemTime(start + 20 * 60 * 60 * 1000);
+    await reload(); // served from the cache, and must not renew it
+    expect(fetch).not.toHaveBeenCalled();
+
+    vi.setSystemTime(start + 24 * 60 * 60 * 1000);
+    await reload();
+    expect(fetch).toHaveBeenCalled();
+  });
+
+  it('keeps one entry per tab, the current session’s', async () => {
+    documentsHeader();
+    badge.init({ intervalMs: 0 });
+    await flush();
+
+    window.localStorage.setItem('secureToken', 'tok-b');
+    await reload();
+
+    const keys = Object.keys(window.sessionStorage).filter((k) =>
+      k.startsWith('rossum-sa-extension-org:'),
+    );
+    expect(keys).toHaveLength(1);
+  });
+
+  it('reads the cell once when the cache was written without it', async () => {
+    // Cached while only the environment was on, which does not need the cell.
+    documentsHeader();
+    badge.init({ intervalMs: 0, name: false, env: true });
+    await flush();
+
+    await reload(); // the name is on now: the group is read, once
+    expect(vi.mocked(fetch).mock.calls.map(([u]) => new URL(String(u)).pathname)).toEqual([
+      '/api/v1/organization_groups/12',
+    ]);
+    expect(pill()!.textContent).toBe('Acme HQ - TEST: 7 [eu2]');
+
+    await reload();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('does not ask again for a group that has no location', async () => {
+    rossumApi.groups = { 12: {} };
+    documentsHeader();
+    badge.init({ intervalMs: 0 });
+    await flush();
+
+    await reload();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(pill()!.textContent).toBe('Acme HQ - TEST: 7');
+  });
+
+  it('keeps the day of the first request when the cell is added later', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const start = Date.now();
+    documentsHeader();
+    badge.init({ intervalMs: 0, name: false, env: true });
+    await flush();
+
+    vi.setSystemTime(start + 20 * 60 * 60 * 1000);
+    await reload(); // adds the cell, and must not restart the day
+
+    vi.setSystemTime(start + 24 * 60 * 60 * 1000);
+    await reload();
+    expect(vi.mocked(fetch).mock.calls.map(([u]) => new URL(String(u)).pathname)).toContain(
+      '/api/v1/organizations',
+    );
+  });
+
+  it('does not keep an organization whose name could not be read', async () => {
+    window.localStorage.setItem('secureToken', 'tok-unknown');
+    documentsHeader();
+    badge.init({ intervalMs: 0 });
+    await flush();
+
+    expect(window.sessionStorage.length).toBe(0);
   });
 });
 

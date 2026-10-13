@@ -113,9 +113,12 @@ export function reviewHeader() {
 // read (404) — the shape of a service user on a dedicated cell, 2026-09-23.
 // Set per test; `holdList[token]` delays that token's answer until the promise settles.
 export const rossumApi: {
-  orgsByToken: Record<string, { id: number; name: string; sandbox?: boolean }[]>;
+  orgsByToken: Record<string, { id: number; name: string; sandbox?: boolean; group?: number }[]>;
   holdList: Record<string, Promise<void>>;
-} = { orgsByToken: {}, holdList: {} };
+  /** Organization groups by id; a missing one answers 404. */
+  groups: Record<number, { deployment_location?: string }>;
+  holdGroup: Record<number, Promise<void>>;
+} = { orgsByToken: {}, holdList: {}, groups: {}, holdGroup: {} };
 
 export function stubRossumApi() {
   const json = (body: unknown) => ({ ok: true, status: 200, json: async () => body });
@@ -129,7 +132,20 @@ export function stubRossumApi() {
       const path = new URL(url).pathname;
       if (path === '/api/v1/organizations') {
         await rossumApi.holdList[token];
-        return json({ results: orgs.map((o) => ({ ...o, url: orgUrl(o.id) })) });
+        return json({
+          results: orgs.map(({ group, ...o }) => ({
+            ...o,
+            url: orgUrl(o.id),
+            ...(group && {
+              organization_group: `https://acme.rossum.app/api/v1/organization_groups/${group}`,
+            }),
+          })),
+        });
+      }
+      const g = path.match(/^\/api\/v1\/organization_groups\/(\d+)$/);
+      if (g && rossumApi.groups[+g[1]]) {
+        await rossumApi.holdGroup[+g[1]];
+        return json({ id: +g[1], ...rossumApi.groups[+g[1]] });
       }
       if (path === '/api/v1/auth/user') return json({ organization: orgUrl(3) });
       return { ok: false, status: 404, json: async () => ({ detail: 'Not found.' }) };

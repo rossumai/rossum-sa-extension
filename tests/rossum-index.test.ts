@@ -37,6 +37,7 @@ describe('rossum content-script entry', () => {
     // The entry observes document.body — make sure one exists.
     // The org name reads the page's session token before it asks for anything.
     window.localStorage.setItem('secureToken', 'tok');
+    window.sessionStorage.clear();
   });
 
   afterEach(() => {

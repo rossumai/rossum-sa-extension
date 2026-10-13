@@ -1,5 +1,7 @@
 import { fetchRossumApiFresh } from '../api.js';
-import { CHIP_GAP, currentOrg, orgLabel, pillMinWidth, pillSlot, type Org } from '../orgName.js';
+import { orgLabel, type Org } from '../orgName.js';
+import { loadOrg } from '../orgSource.js';
+import { CHIP_GAP, pillMinWidth, pillSlot } from '../orgPillSlot.js';
 import { trackOnce } from '../../usage/track.js';
 
 // The organization's name in the Rossum header, on every screen — organizations in one
@@ -256,15 +258,17 @@ async function resolve() {
   org = null;
   renderAll();
   if (!token) return;
-  let next: Org | null = null;
-  try {
-    next = currentOrg(await fetchRossumApiFresh('/api/v1/organizations', { ttlMs: 0 }));
-  } catch {
-    /* no organization, no pill */
-  }
-  if (gen !== generation) return;
-  org = next;
-  renderAll();
+  // The location only appears in the name's label, so without the name it is not read.
+  await loadOrg({
+    get: (path) => fetchRossumApiFresh(path, { ttlMs: 0 }),
+    cacheToken: token,
+    withLocation: showName,
+    show: (next) => {
+      if (gen !== generation) return false;
+      org = next;
+      renderAll();
+    },
+  });
 }
 
 function tick() {
