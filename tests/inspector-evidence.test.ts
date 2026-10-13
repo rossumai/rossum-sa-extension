@@ -467,6 +467,18 @@ describe('buildEvidence — core items', () => {
     expect(gap.reliability).toBe('unavailable');
   });
 
+  it('rate-limited enrichment produces a gap item that does not claim a 403', () => {
+    const input = baseInput({
+      enrichment: { workflow: [], notes: [], hookLogs: 'rate-limited', ruleLogs: [] },
+    });
+    const gap = buildEvidence(input).items.find((i) => i.id === 'gap:hookLogs');
+    expect(gap.reliability).toBe('unavailable');
+    expect(gap.fact).toBe(
+      'hookLogs could not be read (rate-limited) — related facts are unavailable, not absent',
+    );
+    expect(gap.fact).not.toContain('permission denied');
+  });
+
   it('live present → per-row drift items plus a summary item, all verified', () => {
     const input = baseInput({
       annotation: {

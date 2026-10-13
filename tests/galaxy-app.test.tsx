@@ -32,6 +32,12 @@ vi.mock('../src/galaxy/scene.js', () => ({
   },
 }));
 
+const initGalaxy = vi.hoisted(() => vi.fn());
+vi.mock('../src/galaxy/index.jsx', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../src/galaxy/index.jsx')>()),
+  initGalaxy,
+}));
+
 import App from '../src/galaxy/components/App.jsx';
 import * as store from '../src/galaxy/store.js';
 
@@ -52,6 +58,7 @@ beforeEach(() => {
   store.loading.value = false;
   store.loadedCount.value = 0;
   store.error.value = null;
+  store.retryable.value = false;
   store.hoveredNodeId.value = null;
   store.selectedNodeId.value = null;
   store.visibleTypes.value = {
@@ -68,7 +75,26 @@ describe('Galaxy App', () => {
     const root = mount(false);
     expect(root.querySelector('.empty-state')).not.toBe(null);
     expect(root.textContent).toMatch(/not connected/i);
+    expect(root.querySelector('.empty-state button')).toBeNull();
     expect(sceneCalls.created).toBe(0);
+  });
+  it('not connected because of a 429: shows the error and a Retry that re-checks the session', () => {
+    store.error.value = 'Rossum is rate-limiting requests. Try again in 8 s.';
+    store.retryable.value = true;
+    const root = mount(false);
+    expect(root.textContent).toContain('Rossum is rate-limiting requests. Try again in 8 s.');
+    expect(root.textContent).not.toMatch(/not connected/i);
+    const btn = root.querySelector<HTMLButtonElement>('.empty-state button.btn')!;
+    expect(btn.textContent).toBe('Retry');
+    initGalaxy.mockClear();
+    btn.click();
+    expect(initGalaxy).toHaveBeenCalledTimes(1);
+  });
+  it('not connected with a non-retryable error: shows the error, no Retry', () => {
+    store.error.value = 'Session expired';
+    const root = mount(false);
+    expect(root.textContent).toContain('Session expired');
+    expect(root.querySelector('.empty-state button')).toBeNull();
   });
   it('mounts the scene and pushes graph data when connected', async () => {
     store.graph.value = {
@@ -148,5 +174,18 @@ describe('Galaxy App', () => {
     await vi.waitFor(() => {
       expect(sceneCalls.lastData.nodes.some((n: any) => n.id === 'queue:2')).toBe(true);
     });
+  });
+
+  it('shows a Retry button for a retryable error', () => {
+    store.error.value = 'Rossum is rate-limiting requests. Try again shortly.';
+    store.retryable.value = true;
+    const root = mount(true);
+    expect(root.querySelector('.galaxy-error button')!.textContent).toBe('Retry');
+  });
+
+  it('shows no Retry button for other errors', () => {
+    store.error.value = 'Boom';
+    const root = mount(true);
+    expect(root.querySelector('.galaxy-error button')).toBeNull();
   });
 });

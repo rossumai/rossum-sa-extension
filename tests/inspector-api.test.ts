@@ -20,6 +20,32 @@ describe('inspector api', () => {
     expect(api.buildQuery({ a: 1, b: null, c: '', d: 'x' })).toBe('a=1&d=x');
   });
 
+  function spyAbort(signal: AbortSignal) {
+    const add = vi.spyOn(signal, 'addEventListener');
+    const remove = vi.spyOn(signal, 'removeEventListener');
+    const handlers = (calls: any[][]) => calls.filter((c) => c[0] === 'abort').map((c) => c[1]);
+    return { added: () => handlers(add.mock.calls), removed: () => handlers(remove.mock.calls) };
+  }
+  it('removes its abort listener from an external signal once each request settles', async () => {
+    mockFetch([{ status: 200, body: {} }]);
+    const ctrl = new AbortController();
+    const spy = spyAbort(ctrl.signal);
+    await api.get('/a', { signal: ctrl.signal });
+    await api.get('/b', { signal: ctrl.signal });
+    expect(spy.added()).toHaveLength(2);
+    expect(spy.removed()).toEqual(spy.added());
+  });
+  it('removes its abort listener when the request fails', async () => {
+    globalThis.fetch = vi.fn(async () => {
+      throw new Error('offline');
+    }) as any;
+    const ctrl = new AbortController();
+    const spy = spyAbort(ctrl.signal);
+    await expect(api.get('/a', { signal: ctrl.signal })).rejects.toThrow('offline');
+    expect(spy.added()).toHaveLength(1);
+    expect(spy.removed()).toEqual(spy.added());
+  });
+
   it('get attaches Bearer + maps 401 to Session expired', async () => {
     mockFetch([{ status: 401, body: {} }]);
     await expect(api.get('/api/v1/annotations/1')).rejects.toThrow(/Session expired/);

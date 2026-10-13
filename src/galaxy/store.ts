@@ -15,6 +15,7 @@ export const graph = signal<{ nodes: GraphNode[]; links: GraphLink[] }>({ nodes:
 export const loading = signal(false);
 export const loadedCount = signal(0); // objects fetched from the API so far (for the loading screen)
 export const error = signal<string | null>(null);
+export const retryable = signal(false); // the last load failed in a way Retry can fix (a 429)
 export const selectedNodeId = signal<string | null>(null); // node.id of the focused node, or null
 export const hoveredNodeId = signal<string | null>(null); // node.id under the cursor, or null
 

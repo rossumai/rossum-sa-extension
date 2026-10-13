@@ -5,10 +5,12 @@ import {
   loading,
   loadedCount,
   error,
+  retryable,
   selectedNodeId,
   hoveredNodeId,
   visibleTypes,
 } from '../store.js';
+import { initGalaxy, loadGraph } from '../index.jsx';
 import { createScene } from '../scene.js';
 import Legend from './Legend.jsx';
 import NavGuide from './NavGuide.jsx';
@@ -50,8 +52,14 @@ export default function App({ connected }: { connected: boolean | null }) {
   if (!connected) {
     return (
       <div class="app-root">
-        <div class="empty-state">
-          Not connected — open a Rossum page and click Galaxy in the extension popup.
+        <div class="empty-state" style="gap:12px">
+          {error.value ||
+            'Not connected — open a Rossum page and click Galaxy in the extension popup.'}
+          {retryable.value && (
+            <button type="button" class="btn" onClick={() => initGalaxy()}>
+              Retry
+            </button>
+          )}
         </div>
       </div>
     );
@@ -73,7 +81,16 @@ export default function App({ connected }: { connected: boolean | null }) {
             )}
           </div>
         )}
-        {error.value && <div class="galaxy-error">{error.value}</div>}
+        {error.value && (
+          <div class="galaxy-error">
+            <span>{error.value}</span>
+            {retryable.value && (
+              <button type="button" class="btn" onClick={() => loadGraph()}>
+                Retry
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

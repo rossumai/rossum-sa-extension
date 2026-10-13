@@ -1,5 +1,6 @@
 import { h } from 'preact';
 import * as store from '../store.js';
+import { rateLimitMessage } from '../../net/rateLimit.js';
 import ReportHeader from './ReportHeader.jsx';
 import InvestigationStrip from './InvestigationStrip.jsx';
 import VerdictCard from './VerdictCard.jsx';
@@ -32,7 +33,7 @@ export default function Report() {
   const pipelineStatus =
     logs === null || !d.resolved?._hooksLoaded
       ? 'pending'
-      : logs === 'unavailable'
+      : logs === 'unavailable' || logs === 'rate-limited'
         ? 'unavailable'
         : 'sparse';
   const labelsStatus =
@@ -45,6 +46,12 @@ export default function Report() {
     <div class="inspector-report">
       <ReportHeader />
       <InvestigationStrip />
+      {store.rateLimited.value && (
+        <div class="inspector-ratelimit" role="status">
+          Some data could not be loaded. {rateLimitMessage(store.rateLimited.value)} Reopen the
+          annotation to load it again.
+        </div>
+      )}
       <VerdictCard />
       <DiagnosisPanel />
       <IntakeSection />

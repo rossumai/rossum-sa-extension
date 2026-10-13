@@ -369,13 +369,13 @@ export function buildEvidence(input: any) {
     });
   }
 
-  // explicit gaps: enrichment sources that 403'd
+  // explicit gaps: enrichment sources that 403'd or were rate-limited
   for (const [kind, v] of Object.entries(enrichment)) {
-    if (v === 'unavailable')
+    if (v === 'unavailable' || v === 'rate-limited')
       push({
         id: `gap:${kind}`,
         section: 'blockers',
-        fact: `${kind} could not be read (permission denied) — related facts are unavailable, not absent`,
+        fact: `${kind} could not be read (${v === 'rate-limited' ? 'rate-limited' : 'permission denied'}) — related facts are unavailable, not absent`,
         reliability: REL.UNAVAILABLE,
         culprit: null,
         sourceRef: null,

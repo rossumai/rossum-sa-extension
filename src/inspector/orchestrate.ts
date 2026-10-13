@@ -106,8 +106,10 @@ export function computeFindings(s: any): Finding[] {
   // existing AI findings (hoisted from the panels): hook rejection + applied non-rule labels
   const rej = classifyRejection({
     annotation: a,
-    workflowActivities: s.enrichment.value.workflow || [],
-    notes: s.enrichment.value.notes || [],
+    workflowActivities: Array.isArray(s.enrichment.value.workflow)
+      ? s.enrichment.value.workflow
+      : [],
+    notes: Array.isArray(s.enrichment.value.notes) ? s.enrichment.value.notes : [],
     usersById: d.resolved?.usersById || {},
   });
   if (rej.type === 'hook')
@@ -216,6 +218,9 @@ export async function orchestrateAttributions({
   }
 
   if (!s.aiAvailable.value) return; // no fallback — leave residual findings unattributed
+  // A rate-limited load may have left the hook list empty (attributionContext maps a failed
+  // list to []): the agent would reason over no candidates, so skip it as when offline.
+  if (s.rateLimited?.value) return;
 
   const pending = [];
 

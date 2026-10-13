@@ -410,6 +410,13 @@ Enforced by tests, not by convention. Do not weaken them.
 - Guard Chrome-only APIs for jsdom (`CSS.escape`, `scrollIntoView`), and use the repo's own tween
   (`src/mdh/smoothScroll.ts`) for navigation jumps rather than `behavior: 'smooth'`, whose
   duration scales with distance (measured ≥1481ms vs 198ms).
+- **A 429 is never "empty" and never retried automatically.** The Inspector, Galaxy and
+  popup-provenance transports throw `rateLimitError` from `src/net/rateLimit.ts` (the DevTools,
+  Dataset Management, Audit, changelog, Academy and content-script transports do not yet), and
+  code that maps an error to an empty result (`safe()` in the Inspector, `loadSchemaForQueue` in the popup) must let a 429
+  through or record it. The user retries — Refresh, reopen, Retry. The API ignores `fields=` on
+  list endpoints (measured 2026-10-13), so a "cheap" list check downloads every full object;
+  `/queues/{id}?fields=hooks` and `/schemas?queue={id}` are the small ones.
 
 ## Chrome Storage Keys
 
@@ -622,6 +629,8 @@ older ones as history. Currently authoritative per area:
   DevTools version rail and diff for the open object; the pure core in `src/changelog/`)
 - **Galaxy** — `2026-06-04-galaxy-3d-org-birdview-design.md`
 - **Release automation** — `2026-06-12-chrome-web-store-auto-release-design.md`
+- **API calls and 429s** — `2026-10-13-api-call-reduction-design.md` (the Inspector request
+  scope, Galaxy's abort on 429, the popup's background checks)
 
 ## Localpages divergence
 

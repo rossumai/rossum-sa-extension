@@ -5,15 +5,19 @@ import {
   collectPlaceholders,
   extractIdFromUrl,
   fetchJson,
+  fetchQueueHookIds,
+  fetchSchemaSig,
   loadAnnotationValues,
   loadMdhHooksForQueue,
   loadSchemaForQueue,
   mergeSchemaTypes,
   provenanceItems,
+  sameIds,
   substitutePlaceholders,
   type ProvenanceItem,
 } from '../mdh-provenance.js';
 import {
+  type CachedSchema,
   dropCachedAnnotation,
   getCachedAnnotation,
   getCachedHookEntries,
@@ -22,6 +26,7 @@ import {
   setCachedHookEntries,
   setCachedSchema,
 } from '../cache.js';
+import { isRateLimited, rateLimitMessage } from '../../net/rateLimit.js';
 import { openConsoleTab, runInTab } from '../utils.js';
 import { readCurrentContext } from '../tab-readers.js';
 import ConfigBlock from './ConfigBlock.jsx';
@@ -168,39 +173,119 @@ export default function MdhProvenancePanel({ tab, onPin }: { tab?: any; onPin?: 
         }
 
         let hookEntries = null;
+        let hadHooks = true;
+        // Set when a cached entry must be confirmed in the background (spec 2026-10-13 §4.4).
+        let staleHookIds: string[] | null = null;
         if (!forceRefresh) {
-          hookEntries = await getCachedHookEntries(ctx.domain, queueId);
+          const cached = await getCachedHookEntries(ctx.domain, queueId);
+          if (cached) {
+            hookEntries = cached.entries;
+            hadHooks = cached.hadHooks;
+            if (cached.stale) staleHookIds = cached.hookIds;
+          }
         }
         if (cancelled) return;
-        let hadHooks = true;
         if (!hookEntries) {
-          const mdhHooks = await loadMdhHooksForQueue(ctx.domain, ctx.token, queueId);
+          let hookIds: string[] = [];
+          const mdhHooks = await loadMdhHooksForQueue(ctx.domain, ctx.token, queueId, (ids) => {
+            hookIds = ids;
+          });
           if (cancelled) return;
           hadHooks = mdhHooks.length > 0;
           hookEntries = buildHookEntries(mdhHooks, queueId);
-          // Never cache an empty list: it would blur "no hooks" into "no hook
-          // applies" on the next open, and that is the message the user reads.
-          if (hookEntries.length > 0)
-            setCachedHookEntries(ctx.domain, queueId, hookEntries).catch(() => {});
+          // An empty list is cached too; `hadHooks` keeps "no hooks" and "no hook applies"
+          // apart, which is the message the user reads.
+          setCachedHookEntries(ctx.domain, queueId, hookEntries, { hadHooks, hookIds }).catch(
+            () => {},
+          );
         }
 
         // The schema carries both the authoritative field types and the lookup
         // fields — a queue can match through lookups alone, with no MDH hook — so
         // it is read BEFORE deciding there is nothing to show.
-        let schema = forceRefresh ? null : await getCachedSchema(ctx.domain, queueId);
+        const cachedSchema = forceRefresh ? null : await getCachedSchema(ctx.domain, queueId);
+        const staleSchema = cachedSchema?.stale ? cachedSchema : null;
+        let schema: CachedSchema | null = cachedSchema;
         if (!schema) {
           schema = await loadSchemaForQueue(ctx.domain, ctx.token, queueId);
           setCachedSchema(ctx.domain, queueId, schema).catch(() => {});
         }
         if (cancelled) return;
+
+        // Background checks, after the view renders: confirm a stale hook or schema entry,
+        // and the annotation's modified_at when its values came from the cache. A change
+        // refetches through refreshNonce; a failed check, a 429 included, counts as "no
+        // change" for its own item only, so it cannot discard another check's result.
+        const revalidate = (annCheck: 'modified' | 'queue' | null) => {
+          (async () => {
+            try {
+              const settled = await Promise.allSettled([
+                staleHookIds ? fetchQueueHookIds(ctx.domain, ctx.token, queueId) : null,
+                staleSchema ? fetchSchemaSig(ctx.domain, ctx.token, queueId) : null,
+                annCheck
+                  ? fetchJson(
+                      `${ctx.domain}/api/v1/annotations/${ctx.annotationId}?fields=${
+                        annCheck === 'queue' ? 'queue' : 'modified_at'
+                      }`,
+                      ctx.token,
+                    )
+                  : null,
+              ]);
+              const [hookIdsNow, sigNow, ann] = settled.map((r) =>
+                r.status === 'fulfilled' ? r.value : null,
+              );
+              if (cancelled) return;
+              const hooksChanged =
+                !!staleHookIds && !!hookIdsNow && !sameIds(hookIdsNow, staleHookIds);
+              // A null signature (empty list, no modified_at, a failed check) is unknown,
+              // not changed: it neither refetches nor restarts the window.
+              const schemaChanged = !!staleSchema && sigNow !== null && sigNow !== staleSchema.sig;
+              // The empty path holds no values, so only a move to another queue matters.
+              const annChanged =
+                annCheck === 'queue'
+                  ? !!ann?.queue && extractIdFromUrl(ann.queue) !== String(queueId)
+                  : !!ann?.modified_at && ann.modified_at !== annotationModifiedAt;
+              if (staleSchema && sigNow === staleSchema.sig) {
+                // Unchanged: the schema's 5-minute window starts again.
+                const { types, lookups, order, sig } = staleSchema;
+                setCachedSchema(ctx.domain, queueId, { types, lookups, order, sig }).catch(
+                  () => {},
+                );
+              }
+              if (annChanged) await dropCachedAnnotation(ctx.domain, ctx.annotationId);
+              if (cancelled) return;
+              if (hooksChanged || schemaChanged || annChanged) setRefreshNonce((n) => n + 1);
+            } catch {
+              // best-effort; keep the cached view
+            }
+          })();
+        };
+
         const lookupCfgs = schema.lookups || [];
         if (hookEntries.length === 0 && lookupCfgs.length === 0) {
+          // Remember the annotation's queue too, so the next open skips the annotation
+          // GET. Its values are empty, so a hook added later finds nothing "covered".
+          if (!annCache && annotationModifiedAt) {
+            setCachedAnnotation(ctx.domain, ctx.annotationId, {
+              modifiedAt: annotationModifiedAt,
+              queueId,
+              headerValues: {},
+              rowValues: {},
+              rowCount: 0,
+              tables: [],
+              types: {},
+              lookupResults: {},
+              placeholders: '',
+              lookupIds: '',
+            }).catch(() => {});
+          }
           setState({
             kind: 'message',
             message: hadHooks
               ? 'No MDH configurations apply to this queue.'
               : 'No MDH matching on this queue.',
           });
+          revalidate(annCache ? 'queue' : null);
           return;
         }
         const lookupIds = new Set<string>(lookupCfgs.map((c: any) => c.target));
@@ -259,8 +344,10 @@ export default function MdhProvenancePanel({ tab, onPin }: { tab?: any; onPin?: 
             tables = flat.tables || [];
             types = flat.types || {};
             lookupResults = flat.lookupResults || {};
-          } catch {
-            // leave defaults
+          } catch (err) {
+            // A 429 must not be cached as empty values (spec 2026-10-13 §4.4).
+            if (isRateLimited(err)) throw err;
+            // anything else: leave defaults
           }
         }
         if (!annValuesFromCache && ctx.annotationId && annotationModifiedAt) {
@@ -312,29 +399,13 @@ export default function MdhProvenancePanel({ tab, onPin }: { tab?: any; onPin?: 
         });
         setRowByTable({});
 
-        // Best-effort freshness check: if cached annotation is stale, drop it
-        // and re-render with fresh data. Honors `cancelled` so a manual refresh
-        // mid-flight doesn't cause a second nonce bump on top of the user's.
-        if (annValuesFromCache && ctx.annotationId) {
-          (async () => {
-            try {
-              const ann = await fetchJson(
-                `${ctx.domain}/api/v1/annotations/${ctx.annotationId}?fields=modified_at`,
-                ctx.token,
-              );
-              if (cancelled) return;
-              if (ann?.modified_at && ann.modified_at !== annotationModifiedAt) {
-                await dropCachedAnnotation(ctx.domain, ctx.annotationId);
-                if (cancelled) return;
-                setRefreshNonce((n) => n + 1);
-              }
-            } catch {
-              // best-effort; keep cached view
-            }
-          })();
-        }
+        revalidate(annValuesFromCache ? 'modified' : null);
       } catch (e: any) {
         if (cancelled) return;
+        if (isRateLimited(e)) {
+          setState({ kind: 'message', message: rateLimitMessage(e), isError: true });
+          return;
+        }
         const msg = String(e?.message || e || 'Failed to load');
         if (msg.includes('401')) {
           setState({ kind: 'message', message: 'Not signed in to Rossum.', isError: true });

@@ -5872,6 +5872,15 @@ tbody.uploads-row-failed tr {
   background: var(--info-bg);
   color: var(--info-fg);
 }
+.inspector-ratelimit {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--warning-border);
+  border-radius: 6px;
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+  font-size: 12px;
+}
 .inspector-tag {
   font-size: 11px;
   font-family: var(--font-mono);

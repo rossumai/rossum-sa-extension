@@ -2,6 +2,9 @@
 // timeout, 401 -> session expired, 403 -> featureUnavailable) and adds full
 // collection enumeration (listAll) plus a per-resource bundle fetch that
 // degrades a forbidden collection to [] (a "partial galaxy", never a hard fail).
+
+import { rateLimitError } from '../net/rateLimit.js';
+
 /** Same shape as audit/api's; the duplication is deliberate (see the header). */
 export type ApiError = Error & { status: number; featureUnavailable?: boolean };
 
@@ -33,14 +36,21 @@ const REQUEST_TIMEOUT = 30_000;
 function combinedSignal(externalSignal?: AbortSignal | null) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+  const onAbort = () => clearTimeout(timer);
   if (externalSignal) {
     if (externalSignal.aborted) clearTimeout(timer);
-    else externalSignal.addEventListener('abort', () => clearTimeout(timer), { once: true });
+    else externalSignal.addEventListener('abort', onAbort, { once: true });
   }
   const signal = externalSignal
     ? AbortSignal.any([externalSignal, controller.signal])
     : controller.signal;
-  return { signal, timer, externalSignal };
+  // Called once the request settles: stops the timer and drops the listener, so a signal
+  // shared by many requests (paging) does not collect one listener per request.
+  const release = () => {
+    clearTimeout(timer);
+    externalSignal?.removeEventListener('abort', onAbort);
+  };
+  return { signal, release, externalSignal };
 }
 
 function apiError(message: string, status: number): ApiError {
@@ -59,7 +69,7 @@ export async function get(
   pathOrUrl: string,
   { signal: externalSignal }: RequestOpts = {},
 ): Promise<any> {
-  const { signal, timer, externalSignal: ext } = combinedSignal(externalSignal);
+  const { signal, release, externalSignal: ext } = combinedSignal(externalSignal);
   let res: Response;
   try {
     res = await fetch(toUrl(pathOrUrl), {
@@ -67,19 +77,21 @@ export async function get(
       signal,
     });
   } catch (err) {
-    clearTimeout(timer);
+    release();
     if ((err as Error).name === 'AbortError') {
       if (ext?.aborted) throw err;
       throw apiError('Request timed out after 30s', 0);
     }
     throw err;
   }
-  clearTimeout(timer);
+  release();
   if (res.status === 401) {
     throw apiError('Session expired. Open a Rossum page and click Galaxy again to reconnect.', 401);
   }
   const data = await res.json().catch(() => null);
   if (!res.ok) {
+    if (res.status === 429)
+      throw rateLimitError(res, data?.detail || data?.message || 'API error 429');
     const err = apiError(data?.detail || data?.message || `API error ${res.status}`, res.status);
     if (res.status === 403) err.featureUnavailable = true;
     throw err;
@@ -136,12 +148,22 @@ export async function fetchOrgResources({
     total += n;
     if (onProgress) onProgress(total);
   };
+  // The first failure stops every sibling list (spec 2026-10-13 §4.3): after a 429 the
+  // other four would otherwise keep paging into the same limit. A 403/404 is not a
+  // failure here — safeListAll degrades it to [].
+  const stop = new AbortController();
+  const listSignal = signal ? AbortSignal.any([signal, stop.signal]) : stop.signal;
+  const list = (path: string) =>
+    safeListAll(path, { signal: listSignal, onPage }).catch((err) => {
+      stop.abort();
+      throw err;
+    });
   const [orgs, workspaces, queues, hooks, engines] = await Promise.all([
-    safeListAll(`/api/v1/organizations/?${q}`, { signal, onPage }),
-    safeListAll(`/api/v1/workspaces/?${q}`, { signal, onPage }),
-    safeListAll(`/api/v1/queues/?${q}`, { signal, onPage }),
-    safeListAll(`/api/v1/hooks/?${q}`, { signal, onPage }),
-    safeListAll(`/api/v1/engines/?${q}`, { signal, onPage }),
+    list(`/api/v1/organizations/?${q}`),
+    list(`/api/v1/workspaces/?${q}`),
+    list(`/api/v1/queues/?${q}`),
+    list(`/api/v1/hooks/?${q}`),
+    list(`/api/v1/engines/?${q}`),
   ]);
   return {
     organization: orgs[0] || null,

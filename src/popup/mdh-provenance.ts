@@ -3,6 +3,7 @@
 
 import { evalCondition } from './actionCondition.js';
 import { reEscape } from '../mdh/reEscape.js';
+import { isRateLimited, rateLimitError } from '../net/rateLimit.js';
 import { VAR_RE, VAR_RE_G, lookupVarName } from '../mdh/placeholderSyntax.js';
 
 // ── API ─────────────────────────────────────────────
@@ -11,7 +12,8 @@ export async function fetchJson(url: string, token: string): Promise<any> {
   const resp = await fetch(url, {
     headers: { Authorization: `token ${token}`, Accept: 'application/json' },
   });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  if (resp.status === 429) throw rateLimitError(resp, 'HTTP 429');
+  if (!resp.ok) throw Object.assign(new Error(`HTTP ${resp.status}`), { status: resp.status });
   return resp.json();
 }
 
@@ -27,7 +29,8 @@ export async function apiPatch(url: string, token: string, body: any): Promise<a
     },
     body: JSON.stringify(body),
   });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  if (resp.status === 429) throw rateLimitError(resp, 'HTTP 429');
+  if (!resp.ok) throw Object.assign(new Error(`HTTP ${resp.status}`), { status: resp.status });
   return resp.json();
 }
 
@@ -332,16 +335,32 @@ export function buildVariableTypes(
   return out;
 }
 
-async function fetchQueueSchemaContent(
+// The schema's identity, comparable across the detail route and the schemas list.
+function schemaSig(schema: any): string | null {
+  return schema?.id != null && schema?.modified_at ? `${schema.id}:${schema.modified_at}` : null;
+}
+
+async function fetchQueueSchema(
   domain: string,
   token: string,
   queueId: string | number,
-): Promise<any[] | null> {
+): Promise<{ content: any[]; sig: string | null } | null> {
   const queue = await fetchJson(`${domain}/api/v1/queues/${queueId}?fields=schema`, token);
   const schemaUrl = queue?.schema;
   if (!schemaUrl) return null;
-  const schema = await fetchJson(`${schemaUrl}?fields=content`, token);
-  return schema?.content || [];
+  const schema = await fetchJson(`${schemaUrl}?fields=content,id,modified_at`, token);
+  return { content: schema?.content || [], sig: schemaSig(schema) };
+}
+
+// The queue's schema identity from the schemas list: one small request, no content
+// (spec 2026-10-13 §2c). Compared with the cached `sig` once the cache window ends.
+export async function fetchSchemaSig(
+  domain: string,
+  token: string,
+  queueId: string | number,
+): Promise<string | null> {
+  const resp = await fetchJson(`${domain}/api/v1/schemas?queue=${queueId}`, token);
+  return schemaSig(resp?.results?.[0]);
 }
 
 // Each datapoint's position in the schema, depth-first — the order the document
@@ -365,6 +384,8 @@ export type QueueSchemaInfo = {
   types: Record<string, string>;
   lookups: any[];
   order: Record<string, number>;
+  // `${id}:${modified_at}` of the schema; absent when the API did not return both.
+  sig?: string;
 };
 
 // Fetch a queue's schema once and derive its datapoint types, its lookup fields
@@ -378,14 +399,17 @@ export async function loadSchemaForQueue(
 ): Promise<QueueSchemaInfo> {
   const empty = { types: {}, lookups: [], order: {} };
   try {
-    const content = await fetchQueueSchemaContent(domain, token, queueId);
-    if (!content) return empty;
+    const schema = await fetchQueueSchema(domain, token, queueId);
+    if (!schema) return empty;
     return {
-      types: buildSchemaTypes(content),
-      lookups: extractLookupConfigs(content),
-      order: buildSchemaOrder(content),
+      types: buildSchemaTypes(schema.content),
+      lookups: extractLookupConfigs(schema.content),
+      order: buildSchemaOrder(schema.content),
+      ...(schema.sig ? { sig: schema.sig } : {}),
     };
-  } catch {
+  } catch (err) {
+    // A 429 must not read as "this schema has no fields" (spec 2026-10-13 §4.4).
+    if (isRateLimited(err)) throw err;
     return empty;
   }
 }
@@ -611,7 +635,7 @@ export async function resolveLookupVariables(
   cfg: any,
   rowIdx: number,
 ): Promise<Record<string, string>> {
-  const schemaContent = await fetchQueueSchemaContent(domain, token, queueId);
+  const schemaContent = (await fetchQueueSchema(domain, token, queueId))?.content;
   if (!schemaContent) throw new Error('no schema');
   const ann = await fetchJson(`${domain}/api/v1/annotations/${annotationId}/content`, token);
   const resp = await fetch(`${domain}/api/v1/internal/schemas/evaluate_formulas`, {
@@ -815,11 +839,33 @@ export async function loadMdhHooksForQueue(
   domain: string,
   token: string,
   queueId: string | number,
+  onAttached?: (hookIds: string[]) => void,
 ): Promise<any[]> {
   const hooksResp = await fetchJson(`${domain}/api/v1/hooks?queue=${queueId}&page_size=100`, token);
-  return (hooksResp?.results || [])
-    .filter((h: any) => h.active !== false && h.type === 'webhook')
-    .filter(isMdhHook);
+  const all: any[] = hooksResp?.results || [];
+  // Every attached hook, MDH or not: the popup cache compares these ids with the
+  // queue's own `hooks` list to notice a newly attached hook (spec 2026-10-13 §4.4).
+  if (onAttached) onAttached(all.map((h) => String(h.id)));
+  return all.filter((h) => h.active !== false && h.type === 'webhook').filter(isMdhHook);
+}
+
+// The queue's attached hook ids, read off the queue itself: ~250 bytes, where the
+// hooks list is every full hook object (the list ignores `fields=`; spec 2026-10-13 §2c).
+export async function fetchQueueHookIds(
+  domain: string,
+  token: string,
+  queueId: string | number,
+): Promise<string[]> {
+  const queue = await fetchJson(`${domain}/api/v1/queues/${queueId}?fields=hooks`, token);
+  return (queue?.hooks || [])
+    .map((u: unknown) => extractIdFromUrl(u))
+    .filter((id: string | null): id is string => id !== null);
+}
+
+export function sameIds(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const sb = [...b].sort();
+  return [...a].sort().every((id, i) => id === sb[i]);
 }
 
 export function buildHookEntries(mdhHooks: any[], queueId: string | number): any[] {

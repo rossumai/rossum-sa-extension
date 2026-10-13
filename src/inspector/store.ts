@@ -12,9 +12,11 @@ export const annotationId = signal<string | null>(null);
 export const data = signal<any>(null); // { annotation, blocker, content, resolved }
 /**
  * One lazily-loaded enrichment source: `null` until it is requested, then the loaded rows,
- * or the string 'unavailable' when the feature is off for this org (index.tsx:201).
+ * the string 'unavailable' when the feature is off for this org (a 403/404, see
+ * `loadEnrichment` in index.tsx), or 'rate-limited' when the read got a 429. Neither string
+ * is "no rows": readers must not conclude anything from either.
  */
-export type EnrichmentSource = any[] | 'unavailable' | null;
+export type EnrichmentSource = any[] | 'unavailable' | 'rate-limited' | null;
 
 export type Enrichment = {
   audit: EnrichmentSource;
@@ -85,6 +87,8 @@ export const recents = signal<any[]>([]);
 
 export const loading = signal(false);
 export const error = signal<string | null>(null);
+// Set when a request of the CURRENT annotation load got a 429 (spec 2026-10-13 §4.2).
+export const rateLimited = signal<{ retryAfter: number | null } | null>(null);
 
 function emptyEnrichment(): Enrichment {
   return { audit: null, hookLogs: null, ruleLogs: null, workflow: null, notes: null };
@@ -101,6 +105,7 @@ export function setAnnotationId(id: string | null) {
   evidence.value = null;
   clearPagePreviews();
   error.value = null;
+  rateLimited.value = null;
 }
 
 export function reset() {
@@ -115,5 +120,6 @@ export function reset() {
   clearPagePreviews();
   loading.value = false;
   error.value = null;
+  rateLimited.value = null;
   connected.value = null;
 }

@@ -1,4 +1,4 @@
-import { h } from 'preact';
+import { h, Fragment } from 'preact';
 import * as store from '../store.js';
 import { loadAnnotation, closeAnnotation } from '../index.jsx';
 import IdInput from './IdInput.jsx';
@@ -18,8 +18,12 @@ export default function App({ connected }: { connected: boolean | null }) {
         <main class="main">
           <div class="inspector-root">
             <div class="inspector-empty">
-              Not connected. Open a Rossum annotation and click <b>Inspect this annotation</b>, or
-              paste an id below.
+              {store.error.value || (
+                <Fragment>
+                  Not connected. Open a Rossum annotation and click <b>Inspect this annotation</b>,
+                  or paste an id below.
+                </Fragment>
+              )}
               <div style="margin-top:12px">
                 <IdInput onSubmit={inspect} />
               </div>

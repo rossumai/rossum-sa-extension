@@ -55,6 +55,7 @@ export default function ExportPanel() {
   let errText;
   if (failing && failing.error) errText = failing.error;
   else if (logs === 'unavailable') errText = 'Hook logs unavailable (403).';
+  else if (logs === 'rate-limited') errText = 'Hook logs not loaded (rate-limited).';
   else if (Array.isArray(logs))
     errText = 'Export failed — the extension error is no longer in the logs.';
   else errText = 'Loading…';

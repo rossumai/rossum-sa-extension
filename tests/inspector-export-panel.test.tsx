@@ -74,4 +74,15 @@ describe('ExportPanel AI attribution', () => {
     expect(root.textContent).toContain('no export extension found'); // verified path
     expect(root.textContent).not.toContain('Ghost'); // AI block suppressed (0 candidates)
   });
+
+  it('says hook logs were not loaded, not a 403, when they were rate-limited', () => {
+    store.data.value = {
+      annotation: { id: 1, status: 'failed_export', export_failed_at: 't' },
+      resolved: { hooksById: {} },
+    };
+    store.enrichment.value = { ...store.enrichment.value, hookLogs: 'rate-limited' };
+    render(<ExportPanel />, root);
+    expect(root.textContent).toContain('Hook logs not loaded (rate-limited).');
+    expect(root.textContent).not.toContain('403');
+  });
 });

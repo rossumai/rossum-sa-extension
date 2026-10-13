@@ -121,6 +121,12 @@ describe('computeFindings', () => {
     expect(b).toHaveLength(1);
     expect(b[0].payload.type).toBe('weird_custom_blocker');
   });
+  it('treats a rate-limited or unavailable workflow/notes source as no rows', () => {
+    for (const v of ['rate-limited', 'unavailable']) {
+      const store = storeWith(msgAnn([]), { workflow: v, notes: v });
+      expect(() => computeFindings(store)).not.toThrow();
+    }
+  });
 });
 
 describe('orchestrateAttributions', () => {
@@ -170,6 +176,16 @@ describe('orchestrateAttributions', () => {
     await orchestrateAttributions({ store, api: fakeApi, agentApi });
     expect(agentApi.calls.createChat).toBe(0);
     expect((store.attributions.value as any)[messageKey(0)]).toBeUndefined(); // residual left unattributed
+  });
+
+  it('launches NO AI when the load was rate-limited (its hook list may be empty)', async () => {
+    const store: any = orchStore(msgAnn([{ type: 'error', content: 'M', detail: {} }]));
+    store.rateLimited = { value: { retryAfter: 5 } };
+    const agentApi = fakeAgent();
+    await orchestrateAttributions({ store, api: fakeApi, agentApi });
+    expect(agentApi.calls.createChat).toBe(0);
+    expect(agentApi.streamMessage).not.toHaveBeenCalled();
+    expect((store.attributions.value as any)[messageKey(0)]).toBeUndefined();
   });
 
   it('does not write a stale result after the signal aborts mid-flight', async () => {

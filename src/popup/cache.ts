@@ -18,22 +18,38 @@ const HOOKS_PREFIX = 'mdhProv:hooks:v3:';
 const hooksKey = (domain: string, queueId: string | number) =>
   `${HOOKS_PREFIX}${domain}#${queueId}`;
 
+export type CachedHooks = {
+  entries: any[];
+  hadHooks: boolean;
+  hookIds: string[] | null;
+  stale: boolean;
+};
+
 export async function getCachedHookEntries(
   domain: string,
   queueId: string | number,
-): Promise<any[] | null> {
+): Promise<CachedHooks | null> {
   const key = hooksKey(domain, queueId);
   const stored = await chrome.storage.session.get(key);
-  const entry = stored[key] as Cached<{ entries: any[] }> | undefined;
+  const entry = stored[key] as
+    Cached<{ entries: any[]; hadHooks?: boolean; hookIds?: string[] }> | undefined;
   if (!entry?.fetchedAt) return null;
+  // Entries written before 2026-10-13 were never empty, so a missing flag means hooks.
+  const hadHooks = entry.hadHooks !== false;
+  const hookIds = Array.isArray(entry.hookIds) ? entry.hookIds : null;
   if (Date.now() - entry.fetchedAt > TTL_MS) return null;
-  return entry.entries;
+  // No MDH hook attached: the panel shows the entry and confirms it against the queue's
+  // attached hooks on every open (spec 2026-10-13 §4.4). The 5-minute window is a backstop
+  // for changes that check cannot see, such as activating an attached inactive MDH hook.
+  if (!hadHooks && hookIds) return { entries: entry.entries, hadHooks, hookIds, stale: true };
+  return { entries: entry.entries, hadHooks, hookIds, stale: false };
 }
 
 export async function setCachedHookEntries(
   domain: string,
   queueId: string | number,
   entries: any[],
+  meta: { hadHooks: boolean; hookIds: string[] },
 ): Promise<void> {
   // Persist only the fields the popup uses; avoid the full hook detail blob.
   const trimmed = entries.map(({ hook, cfgs }: { hook: any; cfgs: any }) => ({
@@ -41,7 +57,12 @@ export async function setCachedHookEntries(
     cfgs,
   }));
   await chrome.storage.session.set({
-    [hooksKey(domain, queueId)]: { entries: trimmed, fetchedAt: Date.now() },
+    [hooksKey(domain, queueId)]: {
+      entries: trimmed,
+      hadHooks: meta.hadHooks,
+      hookIds: meta.hookIds,
+      fetchedAt: Date.now(),
+    },
   });
 }
 
@@ -57,19 +78,29 @@ export type CachedSchema = {
   types: Record<string, string>;
   lookups: any[];
   order: Record<string, number>;
+  sig?: string; // `${id}:${modified_at}`, compared once the window ends (spec 2026-10-13 §4.4)
 };
 
 export async function getCachedSchema(
   domain: string,
   queueId: string | number,
-): Promise<CachedSchema | null> {
+): Promise<(CachedSchema & { stale: boolean }) | null> {
   if (!queueId) return null;
   const key = schemaKey(domain, queueId);
   const stored = await chrome.storage.session.get(key);
   const entry = stored[key] as Cached<CachedSchema> | undefined;
   if (!entry?.fetchedAt) return null;
-  if (Date.now() - entry.fetchedAt > TTL_MS) return null;
-  return { types: entry.types, lookups: entry.lookups, order: entry.order };
+  const stale = Date.now() - entry.fetchedAt > TTL_MS;
+  // Past the window an entry with a signature is still shown, and the panel confirms it
+  // with one small request; an entry without one (older builds) expires as before.
+  if (stale && !entry.sig) return null;
+  return {
+    types: entry.types,
+    lookups: entry.lookups,
+    order: entry.order,
+    ...(entry.sig ? { sig: entry.sig } : {}),
+    stale,
+  };
 }
 
 export async function setCachedSchema(

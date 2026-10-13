@@ -283,6 +283,16 @@ describe('inspector components', () => {
     expect(root.textContent).toMatch(/not connected|reconnect|Rossum/i);
   });
 
+  it('App shows the session-check error instead of "Not connected", keeping the id input', () => {
+    store.error.value = 'Rossum is rate-limiting requests. Try again in 8 s.';
+    render(<App connected={false} />, root);
+    expect(root.textContent).toContain('Rossum is rate-limiting requests. Try again in 8 s.');
+    expect(root.textContent).not.toContain('Not connected');
+    expect(root.querySelector('input')).not.toBeNull();
+    const labels = [...root.querySelectorAll('button')].map((b) => b.textContent);
+    expect(labels).not.toContain('Retry');
+  });
+
   it('App nests content as .app-root > main.main > .inspector-root (so it is not laid out as a flex row)', () => {
     // Regression: .app-root is `display:flex` in console.css. Putting the
     // stacked report content directly on .app-root laid IdInput + report out
